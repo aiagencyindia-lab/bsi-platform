@@ -3,8 +3,15 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from bsi_core import models as m
 from bsi_core.db import tenant_session
-from bsi_core.metrics import Filters, brand_metrics, brand_sov, failed_count
-from sqlalchemy import select
+from bsi_core.metrics import (
+    DELTA_METRICS,
+    Filters,
+    brand_deltas,
+    brand_metrics,
+    brand_sov,
+    failed_count,
+)
+from sqlalchemy import func, select, update
 
 
 @pytest.fixture
@@ -94,6 +101,7 @@ def test_rates(scene):
     assert got["avg_position"] == {"value": 2.0, "n_mentioned": 2}
     assert got["n_failed"] == 1
     assert got["pipeline_version"] == "2"
+    assert got["pipeline_versions"] == []  # the scene has no extraction rows
     with tenant_session(org.id) as s:
         assert failed_count(s, bid, Filters()) == 1
     low, high = got["mention_rate"]["ci_low"], got["mention_rate"]["ci_high"]
@@ -141,3 +149,89 @@ def test_empty_window_has_null_values_and_full_interval(scene):
     }
     assert got["avg_position"] == {"value": None, "n_mentioned": 0}
     assert got["sov"]["value"] is None
+
+
+@pytest.fixture
+def windows(owner, make_org, make_brand, make_observation):
+    """4 done observations on one prompt: 2 backdated 36h, 2 just now.
+
+    Returns a factory taking the older window's pipeline version.
+    """
+    org = make_org()
+    bid = make_brand(org, "Nike")
+    obs = [make_observation(org, bid, status="done", text="q1")]
+    with owner() as s:
+        pid = s.get(m.Observation, obs[0]).prompt_id
+    obs += [
+        make_observation(org, bid, status="done", prompt_id=pid, sample_index=i)
+        for i in (1, 2, 3)
+    ]
+
+    def _make(before_version: str):
+        with owner() as s, s.begin():
+            s.execute(
+                update(m.Observation)
+                .where(m.Observation.id.in_(obs[:2]))
+                .values(requested_at=func.now() - timedelta(hours=36))
+            )
+            s.add_all(
+                m.Extraction(
+                    org_id=org.id,
+                    observation_id=o,
+                    pipeline_version=before_version if i < 2 else "2",
+                    model_used="x",
+                    brand_mentioned=i != 1,
+                )
+                for i, o in enumerate(obs)
+            )
+            s.add_all(
+                m.Mention(
+                    org_id=org.id,
+                    observation_id=o,
+                    entity_type="brand",
+                    entity_id=bid,
+                    position=1,
+                    rec_status="recommended",
+                    sentiment="neutral",
+                )
+                for i, o in enumerate(obs)
+                if i != 1
+            )
+        return org, bid
+
+    return _make
+
+
+def deltas(org, bid, days=1):
+    with tenant_session(org.id) as s:
+        return brand_deltas(
+            s, bid, Filters(), days, datetime.now(UTC) + timedelta(minutes=1)
+        )
+
+
+def test_brand_deltas_compares_windows(windows):
+    org, bid = windows("2")
+    got = deltas(org, bid)
+    assert got["before"]["mention_rate"]["n"] == 2
+    assert got["after"]["mention_rate"]["n"] == 2
+    assert got["before"]["from"] < got["before"]["to"] == got["after"]["from"]
+    assert got["comparable"] is True
+    assert got["reason"] is None
+    assert got["after"]["pipeline_versions"] == ["2"]
+    assert {k: got["deltas"][k]["label"] for k in DELTA_METRICS} == {
+        "mention_rate": "no significant change",
+        "recommendation_rate": "no significant change",
+        "citation_rate": "no significant change",
+        "prompt_coverage": "no significant change",
+        "sov": "no significant change",
+    }
+    assert got["deltas"]["mention_rate"]["value"] == pytest.approx(0.5)
+
+
+def test_brand_deltas_refuses_mixed_versions(windows):
+    org, bid = windows("1")
+    got = deltas(org, bid)
+    assert got["comparable"] is False
+    assert got["deltas"] is None
+    assert "'1', '2'" in got["reason"]
+    assert got["before"]["pipeline_versions"] == ["1"]
