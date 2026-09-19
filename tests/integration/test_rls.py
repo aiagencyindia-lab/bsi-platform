@@ -23,11 +23,80 @@ TENANT_TABLES = [
 ]
 
 
-def test_no_tenant_means_no_rows(make_org, make_brand):
-    make_brand(make_org())
+@pytest.fixture
+def org_b(owner, make_org, make_brand, make_observation):
+    """Org B with at least one row in every tenant table."""
+    b = make_org("B")
+    bid = make_brand(b)
+    oid = make_observation(b, bid, status="done")
+    with owner() as s, s.begin():
+        comp = m.Competitor(org_id=b.id, brand_id=bid, name="Rival")
+        s.add_all([comp, m.Domain(org_id=b.id, brand_id=bid, host="b.com")])
+        s.flush()
+        s.add_all(
+            [
+                m.Extraction(
+                    org_id=b.id,
+                    observation_id=oid,
+                    pipeline_version="1",
+                    model_used="none",
+                    brand_mentioned=True,
+                ),
+                m.Mention(
+                    org_id=b.id,
+                    observation_id=oid,
+                    entity_type="competitor",
+                    entity_id=comp.id,
+                    position=1,
+                    rec_status="mentioned",
+                    sentiment="neutral",
+                ),
+                m.Citation(
+                    org_id=b.id,
+                    observation_id=oid,
+                    url="u",
+                    domain="b.com",
+                    position=1,
+                ),
+            ]
+        )
+    return b
+
+
+def _count(s, table, org_id):
+    column = "id" if table == "organization" else "org_id"
+    q = text(f"SELECT count(*) FROM {table} WHERE {column} = :o")
+    return s.execute(q, {"o": org_id}).scalar()
+
+
+def test_fixture_populates_every_tenant_table(owner, org_b):
+    # Otherwise the isolation checks below pass vacuously on empty tables.
+    with owner() as s:
+        empty = [t for t in TENANT_TABLES if not _count(s, t, org_b.id)]
+    assert empty == []
+
+
+def test_no_tenant_means_no_rows(org_b):
     with system_session() as s:
         for t in TENANT_TABLES:
-            assert s.execute(text(f"SELECT count(*) FROM {t}")).scalar() == 0
+            assert s.execute(text(f"SELECT count(*) FROM {t}")).scalar() == 0, t
+
+
+def test_other_tenant_sees_none_of_its_rows(make_org, org_b):
+    a = make_org("A")
+    with tenant_session(a.id) as s:
+        for t in TENANT_TABLES:
+            assert _count(s, t, org_b.id) == 0, t
+
+
+def test_tenant_table_list_matches_the_schema(owner, db):
+    q = text(
+        "SELECT table_name FROM information_schema.columns "
+        "WHERE table_schema = 'public' AND column_name = 'org_id'"
+    )
+    with owner() as s:
+        tables = {r for (r,) in s.execute(q)} | {"organization"}
+    assert tables == set(TENANT_TABLES)
 
 
 def test_tenant_sees_only_own_rows(make_org, make_brand):
