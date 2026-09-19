@@ -51,6 +51,7 @@ CASES = [
     ("GET", "/v1/observations/{o}/raw", None),
     ("GET", "/v1/brands/{b}/metrics", None),
     ("GET", "/v1/brands/{b}/sov", None),
+    ("GET", "/v1/brands/{b}/deltas", None),
     ("GET", "/v1/brands/{b}/schedule", None),
     ("PUT", "/v1/brands/{b}/schedule", {"cadence": "weekly", "hour_utc": 1}),
     ("DELETE", "/v1/brands/{b}/schedule", None),
