@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any, ClassVar
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -153,6 +154,11 @@ class Observation(Tenant, Base):
             "requested_at",
         ),
         Index("ix_observation_queue", "status", "next_attempt_at"),
+        CheckConstraint(
+            "status IN "
+            "('queued', 'running', 'retry', 'fetched', 'done', 'failed')",
+            name="ck_observation_status",
+        ),
     )
 
 
