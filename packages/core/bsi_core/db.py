@@ -24,7 +24,9 @@ def owner_engine() -> Engine:
 
 @contextmanager
 def tenant_session(org_id: uuid.UUID) -> Iterator[Session]:
-    with Session(app_engine()) as s, s.begin():
+    # Objects stay readable after commit: API responses are built from them
+    # once the transaction has closed.
+    with Session(app_engine(), expire_on_commit=False) as s, s.begin():
         s.execute(
             text("SELECT set_config('app.org_id', :o, true)"),
             {"o": str(org_id)},

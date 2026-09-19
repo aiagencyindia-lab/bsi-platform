@@ -39,6 +39,12 @@ def ctx(org_id: uuid.UUID = Depends(org_from_key)) -> Iterator[Ctx]:
         yield Ctx(org_id, s)
 
 
+# Routes take `c: Ctx = TENANT`. scope="function" commits before the
+# response is sent; the default request scope commits afterwards, so a
+# failed commit reached the client as a success and the write was lost.
+TENANT = Depends(ctx, scope="function")
+
+
 def get_or_404(s: Session, model: type[Any], id_: uuid.UUID) -> Any:
     # RLS hides other tenants' rows, so a cross-tenant id is simply absent.
     row = s.get(model, id_)

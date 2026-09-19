@@ -2,11 +2,11 @@ import uuid
 from typing import Literal
 
 from bsi_core import models as m
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from ..deps import Ctx, brand_or_404, child_or_404, ctx
+from ..deps import TENANT, Ctx, brand_or_404, child_or_404
 from ..problems import Problem
 
 router = APIRouter(prefix="/brands/{brand_id}/prompts", tags=["prompts"])
@@ -30,7 +30,7 @@ class PromptOut(BaseModel):
 
 
 @router.get("", response_model=list[PromptOut])
-def list_prompts(brand_id: uuid.UUID, c: Ctx = Depends(ctx)) -> list[m.Prompt]:
+def list_prompts(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[m.Prompt]:
     brand_or_404(c, brand_id)
     q = select(m.Prompt).where(m.Prompt.brand_id == brand_id)
     return list(c.s.scalars(q.order_by(m.Prompt.created_at)))
@@ -40,7 +40,7 @@ def list_prompts(brand_id: uuid.UUID, c: Ctx = Depends(ctx)) -> list[m.Prompt]:
 def create_prompts(
     brand_id: uuid.UUID,
     body: PromptIn | list[PromptIn],
-    c: Ctx = Depends(ctx),
+    c: Ctx = TENANT,
 ) -> list[m.Prompt]:
     brand_or_404(c, brand_id)
     items = body if isinstance(body, list) else [body]
@@ -68,7 +68,7 @@ def patch_prompt(
     brand_id: uuid.UUID,
     prompt_id: uuid.UUID,
     body: PromptPatch,
-    c: Ctx = Depends(ctx),
+    c: Ctx = TENANT,
 ) -> m.Prompt:
     row: m.Prompt = child_or_404(c, m.Prompt, brand_id, prompt_id)
     row.status = body.status

@@ -6,7 +6,7 @@ from bsi_core.extraction import PIPELINE_VERSION
 from bsi_core.metrics import Filters, brand_metrics, brand_sov, failed_count
 from fastapi import APIRouter, Depends, Query
 
-from ..deps import Ctx, brand_or_404, ctx
+from ..deps import TENANT, Ctx, brand_or_404
 
 router = APIRouter(prefix="/brands/{brand_id}", tags=["metrics"])
 
@@ -23,7 +23,7 @@ def filters(
 
 @router.get("/metrics")
 def get_metrics(
-    brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
     return {"filters": f, **brand_metrics(c.s, brand_id, f)}
@@ -31,7 +31,7 @@ def get_metrics(
 
 @router.get("/sov")
 def get_sov(
-    brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
     return {

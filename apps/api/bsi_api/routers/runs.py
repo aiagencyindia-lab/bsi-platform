@@ -3,12 +3,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 from bsi_core import models as m
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from ..deps import Ctx, brand_or_404, ctx, get_or_404
+from ..deps import TENANT, Ctx, brand_or_404, get_or_404
 from ..problems import Problem
 
 router = APIRouter(prefix="/brands/{brand_id}/runs", tags=["runs"])
@@ -43,7 +43,7 @@ def _job_view(c: Ctx, job: m.Job) -> dict[str, Any]:
 
 @router.post("", status_code=202)
 def create_run(
-    brand_id: uuid.UUID, body: RunIn | None = None, c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, body: RunIn | None = None, c: Ctx = TENANT
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
     samples = (body or RunIn()).samples
@@ -118,9 +118,7 @@ def create_run(
 
 
 @router.get("")
-def list_runs(
-    brand_id: uuid.UUID, c: Ctx = Depends(ctx)
-) -> list[dict[str, Any]]:
+def list_runs(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[dict[str, Any]]:
     brand_or_404(c, brand_id)
     q = select(m.Job).where(m.Job.brand_id == brand_id)
     jobs = c.s.scalars(q.order_by(m.Job.scheduled_slot.desc()).limit(50))
@@ -128,5 +126,5 @@ def list_runs(
 
 
 @jobs_router.get("/{job_id}")
-def get_job(job_id: uuid.UUID, c: Ctx = Depends(ctx)) -> dict[str, Any]:
+def get_job(job_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
     return _job_view(c, get_or_404(c.s, m.Job, job_id))

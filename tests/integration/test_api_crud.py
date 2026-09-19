@@ -99,3 +99,35 @@ def test_prompts_single_bulk_and_pause(client, make_org, make_brand):
     )
     assert r.json()["status"] == "paused"
     assert len(client.get(base, headers=org.headers).json()) == 3
+
+
+def test_null_for_a_required_field_is_422(client, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    cid = client.post(
+        f"/v1/brands/{bid}/competitors", headers=org.headers, json={"name": "R"}
+    ).json()["id"]
+    cases = [
+        (f"/v1/brands/{bid}", {"name": None}),
+        (f"/v1/brands/{bid}", {"aliases": None}),
+        (f"/v1/brands/{bid}/competitors/{cid}", {"name": None}),
+        (f"/v1/brands/{bid}/competitors/{cid}", {"aliases": None}),
+        (f"/v1/brands/{bid}/competitors/{cid}", {"domains": None}),
+    ]
+    for path, body in cases:
+        r = client.patch(path, headers=org.headers, json=body)
+        assert r.status_code == 422, (path, body, r.text)
+        assert r.json()["errors"][0]["loc"][-1] == next(iter(body))
+
+
+def test_category_can_be_cleared(client, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    client.patch(
+        f"/v1/brands/{bid}", headers=org.headers, json={"category": "shoes"}
+    )
+    r = client.patch(
+        f"/v1/brands/{bid}", headers=org.headers, json={"category": None}
+    )
+    assert r.status_code == 200
+    assert r.json()["category"] is None

@@ -2,11 +2,11 @@ import uuid
 
 from bsi_core import models as m
 from bsi_core.matching import normalize_domain
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
-from ..deps import Ctx, brand_or_404, child_or_404, ctx
+from ..deps import TENANT, Ctx, brand_or_404, child_or_404
 from ..problems import Problem
 
 router = APIRouter(prefix="/brands", tags=["brands"])
@@ -23,9 +23,11 @@ class BrandIn(BaseModel):
     category: str | None = None
 
 
+# PATCH fields default to None when omitted, but only nullable columns accept
+# an explicit null; the others fail validation (422) instead of the database.
 class BrandPatch(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=200)
-    aliases: list[str] | None = Field(None, max_length=20)
+    name: str = Field(None, min_length=1, max_length=200)
+    aliases: list[str] = Field(None, max_length=20)
     category: str | None = None
 
 
@@ -43,9 +45,9 @@ class CompetitorIn(BaseModel):
 
 
 class CompetitorPatch(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=200)
-    aliases: list[str] | None = None
-    domains: list[str] | None = None
+    name: str = Field(None, min_length=1, max_length=200)
+    aliases: list[str] = Field(None)
+    domains: list[str] = Field(None)
 
 
 class CompetitorOut(Out):
@@ -70,12 +72,12 @@ def _patch(row: object, body: BaseModel) -> None:
 
 
 @router.get("", response_model=list[BrandOut])
-def list_brands(c: Ctx = Depends(ctx)) -> list[m.Brand]:
+def list_brands(c: Ctx = TENANT) -> list[m.Brand]:
     return list(c.s.scalars(select(m.Brand).order_by(m.Brand.created_at)))
 
 
 @router.post("", response_model=BrandOut, status_code=201)
-def create_brand(body: BrandIn, c: Ctx = Depends(ctx)) -> m.Brand:
+def create_brand(body: BrandIn, c: Ctx = TENANT) -> m.Brand:
     ws = c.s.scalars(select(m.Workspace).limit(1)).one()
     brand = m.Brand(org_id=c.org_id, workspace_id=ws.id, **body.model_dump())
     c.s.add(brand)
@@ -91,13 +93,13 @@ def create_brand(body: BrandIn, c: Ctx = Depends(ctx)) -> m.Brand:
 
 
 @router.get("/{brand_id}", response_model=BrandOut)
-def get_brand(brand_id: uuid.UUID, c: Ctx = Depends(ctx)) -> m.Brand:
+def get_brand(brand_id: uuid.UUID, c: Ctx = TENANT) -> m.Brand:
     return brand_or_404(c, brand_id)
 
 
 @router.patch("/{brand_id}", response_model=BrandOut)
 def patch_brand(
-    brand_id: uuid.UUID, body: BrandPatch, c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, body: BrandPatch, c: Ctx = TENANT
 ) -> m.Brand:
     brand = brand_or_404(c, brand_id)
     _patch(brand, body)
@@ -105,14 +107,14 @@ def patch_brand(
 
 
 @router.delete("/{brand_id}", status_code=204)
-def archive_brand(brand_id: uuid.UUID, c: Ctx = Depends(ctx)) -> Response:
+def archive_brand(brand_id: uuid.UUID, c: Ctx = TENANT) -> Response:
     brand_or_404(c, brand_id).status = "archived"
     return Response(status_code=204)
 
 
 @router.get("/{brand_id}/competitors", response_model=list[CompetitorOut])
 def list_competitors(
-    brand_id: uuid.UUID, c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, c: Ctx = TENANT
 ) -> list[m.Competitor]:
     brand_or_404(c, brand_id)
     q = select(m.Competitor).where(m.Competitor.brand_id == brand_id)
@@ -123,7 +125,7 @@ def list_competitors(
     "/{brand_id}/competitors", response_model=CompetitorOut, status_code=201
 )
 def create_competitor(
-    brand_id: uuid.UUID, body: CompetitorIn, c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, body: CompetitorIn, c: Ctx = TENANT
 ) -> m.Competitor:
     brand_or_404(c, brand_id)
     data = body.model_dump()
@@ -141,7 +143,7 @@ def patch_competitor(
     brand_id: uuid.UUID,
     competitor_id: uuid.UUID,
     body: CompetitorPatch,
-    c: Ctx = Depends(ctx),
+    c: Ctx = TENANT,
 ) -> m.Competitor:
     row: m.Competitor = child_or_404(c, m.Competitor, brand_id, competitor_id)
     _patch(row, body)
@@ -152,14 +154,14 @@ def patch_competitor(
 
 @router.delete("/{brand_id}/competitors/{competitor_id}", status_code=204)
 def delete_competitor(
-    brand_id: uuid.UUID, competitor_id: uuid.UUID, c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, competitor_id: uuid.UUID, c: Ctx = TENANT
 ) -> Response:
     c.s.delete(child_or_404(c, m.Competitor, brand_id, competitor_id))
     return Response(status_code=204)
 
 
 @router.get("/{brand_id}/domains", response_model=list[DomainOut])
-def list_domains(brand_id: uuid.UUID, c: Ctx = Depends(ctx)) -> list[m.Domain]:
+def list_domains(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[m.Domain]:
     brand_or_404(c, brand_id)
     q = select(m.Domain).where(m.Domain.brand_id == brand_id)
     return list(c.s.scalars(q.order_by(m.Domain.created_at)))
@@ -167,7 +169,7 @@ def list_domains(brand_id: uuid.UUID, c: Ctx = Depends(ctx)) -> list[m.Domain]:
 
 @router.post("/{brand_id}/domains", response_model=DomainOut, status_code=201)
 def create_domain(
-    brand_id: uuid.UUID, body: DomainIn, c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, body: DomainIn, c: Ctx = TENANT
 ) -> m.Domain:
     brand_or_404(c, brand_id)
     host = normalize_domain(body.host)
@@ -189,7 +191,7 @@ def create_domain(
 
 @router.delete("/{brand_id}/domains/{domain_id}", status_code=204)
 def delete_domain(
-    brand_id: uuid.UUID, domain_id: uuid.UUID, c: Ctx = Depends(ctx)
+    brand_id: uuid.UUID, domain_id: uuid.UUID, c: Ctx = TENANT
 ) -> Response:
     c.s.delete(child_or_404(c, m.Domain, brand_id, domain_id))
     return Response(status_code=204)

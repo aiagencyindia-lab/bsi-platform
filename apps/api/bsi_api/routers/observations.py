@@ -4,11 +4,11 @@ from typing import Any
 
 from bsi_core import models as m
 from bsi_core.storage import LocalRawStore
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 
-from ..deps import Ctx, ctx, get_or_404
+from ..deps import TENANT, Ctx, get_or_404
 from ..problems import Problem
 
 router = APIRouter(prefix="/observations", tags=["observations"])
@@ -39,7 +39,7 @@ def list_observations(
     engine: str | None = None,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
-    c: Ctx = Depends(ctx),
+    c: Ctx = TENANT,
 ) -> list[m.Observation]:
     q = select(m.Observation)
     if brand_id:
@@ -62,7 +62,7 @@ def _columns(row: Any, *names: str) -> dict[str, Any]:
 
 @router.get("/{observation_id}")
 def get_observation(
-    observation_id: uuid.UUID, c: Ctx = Depends(ctx)
+    observation_id: uuid.UUID, c: Ctx = TENANT
 ) -> dict[str, Any]:
     obs = get_or_404(c.s, m.Observation, observation_id)
     ex = c.s.scalars(
@@ -114,7 +114,7 @@ def get_observation(
 
 
 @router.get("/{observation_id}/raw")
-def get_raw(observation_id: uuid.UUID, c: Ctx = Depends(ctx)) -> dict[str, Any]:
+def get_raw(observation_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
     obs = get_or_404(c.s, m.Observation, observation_id)
     if obs.raw_uri is None:
         raise Problem(404, "No raw payload", "The observation has not run yet.")
