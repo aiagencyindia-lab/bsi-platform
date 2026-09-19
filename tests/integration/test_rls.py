@@ -1,4 +1,5 @@
 import hashlib
+from datetime import UTC, datetime
 
 import pytest
 from bsi_core import models as m
@@ -20,6 +21,7 @@ TENANT_TABLES = [
     "extraction",
     "mention",
     "citation",
+    "schedule",
 ]
 
 
@@ -57,6 +59,13 @@ def org_b(owner, make_org, make_brand, make_observation):
                     url="u",
                     domain="b.com",
                     position=1,
+                ),
+                m.Schedule(
+                    org_id=b.id,
+                    brand_id=bid,
+                    cadence="daily",
+                    hour_utc=3,
+                    next_run_at=datetime.now(UTC),
                 ),
             ]
         )
