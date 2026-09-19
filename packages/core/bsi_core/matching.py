@@ -5,11 +5,11 @@ import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-_URL = re.compile(r"https?://\S+|\b[\w-]+(?:\.[\w-]+)+/\S*")
-# Letters and digits only. Combining marks (e.g. Devanagari matras) are not
-# \w in Python, so such words split into fragments. Text and aliases split
-# the same way, so matching is unaffected.
-_TOKEN = re.compile(r"[^\W_]+")
+_URL = re.compile(
+    r"https?://\S+|"  # scheme-based URLs
+    # ponytail: TLD 2-24 chars; prose without space ("Nike.Great") loses mention
+    r"\b[\w-]+(?:\.[\w-]+)*\.[a-z]{2,24}\b(?:/\S*)?"
+)
 _FUZZY_MIN = 5
 
 
@@ -29,9 +29,28 @@ class Hit:
     fuzzy: bool
 
 
+def _collect_tokens(text: str) -> list[str]:
+    """Collect tokens: maximal runs of alnum + combining marks.
+
+    Token must not start with a combining mark (category M*).
+    """
+    tokens: list[str] = []
+    current = []
+    for ch in text:
+        if ch.isalnum() or unicodedata.category(ch).startswith("M"):
+            current.append(ch)
+        else:
+            if current and not unicodedata.category(current[0]).startswith("M"):
+                tokens.append("".join(current))
+            current = []
+    if current and not unicodedata.category(current[0]).startswith("M"):
+        tokens.append("".join(current))
+    return tokens
+
+
 def tokenize(text: str) -> list[str]:
     folded = unicodedata.normalize("NFKC", text).casefold()
-    return _TOKEN.findall(_URL.sub(" ", folded))
+    return _collect_tokens(_URL.sub(" ", folded))
 
 
 def _within_one(a: str, b: str) -> bool:

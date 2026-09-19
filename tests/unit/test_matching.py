@@ -1,5 +1,11 @@
 import pytest
-from bsi_core.matching import Entity, find_mentions, is_owned, normalize_domain
+from bsi_core.matching import (
+    Entity,
+    find_mentions,
+    is_owned,
+    normalize_domain,
+    tokenize,
+)
 
 NIKE = Entity("nike", "brand", ("Nike", "नाइकी"))
 ADIDAS = Entity("adidas", "competitor", ("Adidas",))
@@ -18,13 +24,15 @@ def ids(text: str) -> list[str]:
     [
         ("I would buy Nike shoes.", ["nike"]),  # exact
         ("NIKE and ＮＩＫＥ", ["nike", "nike"]),  # noqa: RUF001 casefold + NFKC
-        ("Nike's latest and Nike's older", ["nike", "nike"]),  # possessive
+        ("Nike's latest and Nike’s older", ["nike", "nike"]),  # noqa: RUF001 possessive
         ("NikeKids is a different store", []),  # substring collision
         ("Try Adiddas or Adidas", ["adidas", "adidas"]),  # fuzzy, long token
         ("Pumas are big cats", []),  # no fuzzy on short tokens
         ("Nikes", []),  # plural of a short alias is not the brand
         ("सबसे अच्छे जूते नाइकी के हैं", ["nike"]),  # Devanagari alias
         ("See https://nike.com/kids and shop.nike.com/x", []),  # URL only
+        ("Contact us at nike.com for more", []),  # bare domain
+        ("Nike. Great shoes", ["nike"]),  # normal sentence end
         ("Visit Foot Locker today", ["locker"]),  # longest alias wins
         ("Puma, then Nike, then Adidas", ["puma", "nike", "adidas"]),  # order
         ("", []),
@@ -66,3 +74,13 @@ def test_is_owned():
     assert is_owned("shop.nike.com", ["nike.com"])
     assert is_owned("nike.com", ["nike.com"])
     assert not is_owned("notnike.com", ["nike.com"])
+
+
+def test_tokenize_devanagari_combining_marks():
+    """Tokenizer preserves combining marks; vowel signs not split."""
+    assert tokenize("नाइकी") == ["नाइकी"]
+
+
+def test_find_mentions_split_devanagari_fails():
+    """Separate Devanagari tokens do not match as single token alias."""
+    assert find_mentions("न इक", [NIKE]) == []
