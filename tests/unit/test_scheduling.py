@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
 from bsi_core.scheduling import advance, first_run
@@ -36,3 +36,9 @@ def test_advance_skips_missed_slots_without_backfill():
     # Three intervals in the past: land on the first future point.
     now = at(20, 7)
     assert advance(at(11, 6), "every_3_days", now) == at(23, 6)
+
+
+def test_first_run_uses_utc_whatever_zone_now_is_in():
+    ist = timezone(timedelta(hours=5, minutes=30))
+    now = datetime(2026, 9, 20, 10, 0, tzinfo=ist)  # 04:30 UTC
+    assert first_run(now, 6) == datetime(2026, 9, 20, 6, 0, tzinfo=UTC)

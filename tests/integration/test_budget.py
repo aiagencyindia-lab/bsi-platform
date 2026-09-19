@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from bsi_core import models as m
 from bsi_core import scheduling
-from bsi_core.db import tenant_session
+from bsi_core.db import system_session, tenant_session
 from sqlalchemy import func, update
 
 
@@ -91,3 +91,13 @@ def test_another_orgs_spend_does_not_count(
     make_observation(other, ob, status="queued", text="pending")
     assert fits(org, 4)
     assert not fits(other, 1)
+
+
+def test_refuses_to_run_outside_the_orgs_tenant_session(make_org):
+    # Outside a tenant session row-level security hides every row, so the
+    # check would see zero spend and pass anything up to the cap.
+    a, b = make_org("A"), make_org("B")
+    with system_session() as s, pytest.raises(RuntimeError, match="tenant"):
+        scheduling.budget_fits(s, a.id, 1)
+    with tenant_session(a.id) as s, pytest.raises(RuntimeError, match="tenant"):
+        scheduling.budget_fits(s, b.id, 1)

@@ -1,7 +1,7 @@
 """Shared run enqueue, and the scheduler that uses it."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, literal, select, text, true
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -15,12 +15,16 @@ CADENCE_DAYS = {"daily": 1, "every_3_days": 3, "weekly": 7}
 
 def first_run(now: datetime, hour_utc: int) -> datetime:
     """The next hour_utc:00 UTC strictly after now."""
+    now = now.astimezone(UTC)
     run = now.replace(hour=hour_utc, minute=0, second=0, microsecond=0)
     return run if run > now else run + timedelta(days=1)
 
 
 def advance(next_run_at: datetime, cadence: str, now: datetime) -> datetime:
-    """Add the cadence interval until the result is after now (no backfill)."""
+    """Add the cadence interval until the result is after now (no backfill).
+
+    Always adds at least one interval: call it only once a run is due.
+    """
     step = timedelta(days=CADENCE_DAYS[cadence])
     run = next_run_at + step
     while run <= now:
@@ -52,6 +56,11 @@ def budget_fits(s: Session, org_id: uuid.UUID, n_obs: int) -> bool:
     the end of that transaction, so two schedules of one org can't both
     pass on the same headroom.
     """
+    # Fail closed: outside the org's tenant session row-level security
+    # hides every row, the sums would be zero and anything would fit.
+    tenant = s.scalar(text("SELECT current_setting('app.org_id', true)"))
+    if tenant != str(org_id):
+        raise RuntimeError("budget_fits must run in the org's tenant session")
     s.execute(
         text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
         {"org": str(org_id)},
