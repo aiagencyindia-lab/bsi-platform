@@ -253,8 +253,11 @@ Entities to look for (use these exact names; the first one is the brand):
 
 For each listed entity that the answer names, report:
 - position: 1 for the first listed entity the answer names, 2 for the next.
-- rec_status: "recommended" if the answer presents it as a choice to pick,
-  "listed" if it is one item in a list without endorsement, "mentioned" if
+- rec_status: "recommended" if the answer endorses it as a good choice
+  (any endorsement counts: conditional, "for sports, pick X"; among the
+  "top choices"; or "both are good options"; "popular" or praised
+  features alone are not an endorsement), "listed" if it is one item
+  in a list with no endorsement, "mentioned" if
   it is only referred to in passing, "negative" if the answer advises
   against it.
 - sentiment, and sentiment_conf between 0 and 1.

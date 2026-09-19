@@ -176,9 +176,13 @@ Entities (use these exact names; the first one is the brand):
 
 For every listed entity that a sentence names, return one label for that
 (sentence, entity) pair:
-- "recommends": the sentence, speaking as the answer's author, presents the
-  entity as a good choice to pick.
-- "lists": the entity is one of several options, without endorsement.
+- "recommends": the sentence, speaking as the answer's author, endorses the
+  entity as a good choice. Any endorsement counts: a conditional one ("for
+  sports, Adidas is the better option"), naming it among the "top choices",
+  or calling several entities good options. Calling it best, top, ideal,
+  or an easy or good choice is an endorsement; calling it popular or
+  praising its features is not.
+- "lists": the entity is one of several options, with no endorsement.
 - "mentions": the entity is only referred to in passing.
 - "advises_against": the sentence tells the reader to avoid the entity or
   calls it a poor choice.

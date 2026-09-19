@@ -14,7 +14,7 @@
    "ci_high": 1.0
   },
   "errors": 0,
-  "cost_micros": 153988,
+  "cost_micros": 161091,
   "confusion": {
    "mentioned->mentioned": 190,
    "recommended->recommended": 170,
@@ -58,56 +58,57 @@
  "rec_labels_v0.jsonl": {
   "trials": 300,
   "all_entities_correct": {
-   "value": 0.5333333333333333,
+   "value": 0.6333333333333333,
    "n": 300,
-   "ci_low": 0.47681387445407486,
-   "ci_high": 0.5890098968794095
+   "ci_low": 0.5774356684994387,
+   "ci_high": 0.6858594168344984
   },
   "entity_agreement": {
-   "value": 0.564,
+   "value": 0.61,
    "n": 500,
-   "ci_low": 0.5202088800086124,
-   "ci_high": 0.6068151688194319
+   "ci_low": 0.566563167828306,
+   "ci_high": 0.6517594160948953
   },
   "errors": 0,
-  "cost_micros": 235326,
+  "cost_micros": 228742,
   "confusion": {
-   "listed->listed": 210,
-   "listed->recommended": 134,
-   "recommended->listed": 41,
-   "mentioned->listed": 30,
-   "negative->negative": 30,
-   "recommended->recommended": 22,
-   "mentioned->mentioned": 20,
-   "recommended->mentioned": 7,
-   "listed->mentioned": 6
+   "listed->listed": 144,
+   "recommended->recommended": 113,
+   "listed->mentioned": 55,
+   "recommended->listed": 52,
+   "recommended->mentioned": 35,
+   "mentioned->listed": 28,
+   "negative->negative": 26,
+   "mentioned->mentioned": 22,
+   "listed->recommended": 21,
+   "negative->mentioned": 4
   },
   "row_agreement": {
-   "b7c5df11-db2b-41e2-bc4e-890b92b745f0": 3.1,
    "2f8fd8f4-82e9-40a7-8a85-2a33f167c2d1": 3.0,
    "1650ad30-4bf3-4457-bcb9-4d727a8db6c2": 2.8,
-   "a96864eb-b38f-4702-8777-d5bc55017490": 2.6,
+   "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c": 2.0,
    "bce75c42-0b42-4e4f-8ba1-e930e110a4f2": 2.0,
    "77036f2a-6272-44df-a1bb-0293195f7999": 2.0,
-   "e10d1a53-d1c0-4d90-a2ac-91e6ea802351": 1.4,
-   "9e8c4645-dbc5-4964-b1ce-bad5957144d2": 1.2,
-   "21955a4c-8e36-43db-8458-1ede6cc31666": 1.1,
+   "4763690e-67d5-4709-ba0e-c124786c6afb": 2.0,
+   "b46e3562-956e-4f09-8d93-cccbbcb619f1": 2.0,
+   "b7c5df11-db2b-41e2-bc4e-890b92b745f0": 2.0,
+   "a96864eb-b38f-4702-8777-d5bc55017490": 1.9,
+   "1de7e80e-0b0d-4890-87ce-4d32a8d42689": 1.4,
    "75a44cf1-6f3c-485a-b082-49146dfb8640": 1.0,
-   "1de7e80e-0b0d-4890-87ce-4d32a8d42689": 1.0,
+   "9e8c4645-dbc5-4964-b1ce-bad5957144d2": 1.0,
    "c66f0778-b2d3-4697-a97f-abd70b860d72": 1.0,
    "a68b0191-c30f-4f95-a1be-6198aa37c890": 1.0,
    "5f558df2-deae-486e-bf20-c6743c59b84e": 1.0,
-   "4990a00b-9a71-4b9f-87bc-3555029cfe62": 1.0,
-   "5b6ea3f2-6418-4d7f-82cc-bdafd7b35e8d": 0.8,
-   "126bc375-7004-4e22-88bb-102699bf7c72": 0.7,
-   "b6632704-f520-4f3e-8857-b189d91f584a": 0.7,
-   "399902c0-3e39-4d62-bf80-9ebb78e29e8f": 0.7,
-   "ddceea9b-f14f-4882-857e-4ab9e51a1c4a": 0.1,
-   "6bb723f1-bc7e-4c18-8fe7-083a9ff90937": 0.0,
-   "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c": 0.0,
-   "4763690e-67d5-4709-ba0e-c124786c6afb": 0.0,
-   "26e186c7-996f-4c5f-b66b-8f40548bfac2": 0.0,
-   "b46e3562-956e-4f09-8d93-cccbbcb619f1": 0.0
+   "26e186c7-996f-4c5f-b66b-8f40548bfac2": 1.0,
+   "21955a4c-8e36-43db-8458-1ede6cc31666": 0.6,
+   "e10d1a53-d1c0-4d90-a2ac-91e6ea802351": 0.6,
+   "399902c0-3e39-4d62-bf80-9ebb78e29e8f": 0.6,
+   "4990a00b-9a71-4b9f-87bc-3555029cfe62": 0.6,
+   "b6632704-f520-4f3e-8857-b189d91f584a": 0.4,
+   "126bc375-7004-4e22-88bb-102699bf7c72": 0.3,
+   "6bb723f1-bc7e-4c18-8fe7-083a9ff90937": 0.2,
+   "5b6ea3f2-6418-4d7f-82cc-bdafd7b35e8d": 0.1,
+   "ddceea9b-f14f-4882-857e-4ab9e51a1c4a": 0.0
   },
   "misses": [
    {
@@ -191,142 +192,176 @@
     "error": null
    },
    {
-    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
     "got": {
+     "Crocs": "mentioned",
+     "Adidas": "mentioned"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "recommended",
+     "Adidas": "listed"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "mentioned",
+     "Adidas": "listed"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "recommended",
+     "Adidas": "recommended"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1650ad30-4bf3-4457-bcb9-4d727a8db6c2",
+    "got": {
+     "Adidas": "listed",
+     "Crocs": "recommended",
+     "Skechers": "recommended"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed",
      "Skechers": "listed"
     },
-    "want": {
-     "Skechers": "mentioned"
-    },
     "error": null
    },
    {
-    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "row": "9e8c4645-dbc5-4964-b1ce-bad5957144d2",
     "got": {
-     "Skechers": "listed"
+     "Campus": "mentioned",
+     "Bata": "mentioned",
+     "Skechers": "recommended",
+     "Adidas": "recommended"
     },
     "want": {
-     "Skechers": "mentioned"
-    },
-    "error": null
-   },
-   {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
-    "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
-    },
-    "want": {
+     "Adidas": "listed",
      "Bata": "listed",
-     "Campus": "listed"
+     "Campus": "recommended",
+     "Skechers": "recommended"
     },
     "error": null
    },
    {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
+    "row": "9e8c4645-dbc5-4964-b1ce-bad5957144d2",
     "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
+     "Campus": "mentioned",
+     "Bata": "mentioned",
+     "Skechers": "recommended",
+     "Adidas": "recommended"
     },
     "want": {
+     "Adidas": "listed",
      "Bata": "listed",
-     "Campus": "listed"
+     "Campus": "recommended",
+     "Skechers": "recommended"
     },
     "error": null
    },
    {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
+    "row": "9e8c4645-dbc5-4964-b1ce-bad5957144d2",
     "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
+     "Campus": "mentioned",
+     "Bata": "mentioned",
+     "Skechers": "recommended",
+     "Adidas": "recommended"
     },
     "want": {
+     "Adidas": "listed",
      "Bata": "listed",
-     "Campus": "listed"
+     "Campus": "recommended",
+     "Skechers": "recommended"
     },
     "error": null
    },
    {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
+    "row": "9e8c4645-dbc5-4964-b1ce-bad5957144d2",
     "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
+     "Campus": "mentioned",
+     "Bata": "mentioned",
+     "Skechers": "recommended",
+     "Adidas": "recommended"
     },
     "want": {
+     "Adidas": "listed",
      "Bata": "listed",
-     "Campus": "listed"
+     "Campus": "recommended",
+     "Skechers": "recommended"
     },
     "error": null
    },
    {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
+    "row": "9e8c4645-dbc5-4964-b1ce-bad5957144d2",
     "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
+     "Campus": "mentioned",
+     "Bata": "mentioned",
+     "Skechers": "recommended",
+     "Adidas": "recommended"
     },
     "want": {
+     "Adidas": "listed",
      "Bata": "listed",
-     "Campus": "listed"
+     "Campus": "recommended",
+     "Skechers": "recommended"
     },
     "error": null
    },
    {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
+    "row": "9e8c4645-dbc5-4964-b1ce-bad5957144d2",
     "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
+     "Campus": "mentioned",
+     "Bata": "mentioned",
+     "Skechers": "recommended",
+     "Adidas": "recommended"
     },
     "want": {
+     "Adidas": "listed",
      "Bata": "listed",
-     "Campus": "listed"
+     "Campus": "recommended",
+     "Skechers": "recommended"
     },
     "error": null
    },
    {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
+    "row": "9e8c4645-dbc5-4964-b1ce-bad5957144d2",
     "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
+     "Campus": "mentioned",
+     "Bata": "mentioned",
+     "Skechers": "recommended",
+     "Adidas": "recommended"
     },
     "want": {
+     "Adidas": "listed",
      "Bata": "listed",
-     "Campus": "listed"
-    },
-    "error": null
-   },
-   {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
-    "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
-    },
-    "want": {
-     "Bata": "listed",
-     "Campus": "listed"
-    },
-    "error": null
-   },
-   {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
-    "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
-    },
-    "want": {
-     "Bata": "listed",
-     "Campus": "listed"
-    },
-    "error": null
-   },
-   {
-    "row": "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c",
-    "got": {
-     "Bata": "recommended",
-     "Campus": "recommended"
-    },
-    "want": {
-     "Bata": "listed",
-     "Campus": "listed"
+     "Campus": "recommended",
+     "Skechers": "recommended"
     },
     "error": null
    }
