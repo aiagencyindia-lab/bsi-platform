@@ -128,15 +128,20 @@ def combine(
 
     best: dict[str, tuple[tuple[int, int], SentenceLabel, str]] = {}
     notes: list[str] = []
-    instructions: set[int] = set()
-    for label in out.labels if out else []:
+    labels = out.labels if out else []
+    # One "instruction" label taints the whole sentence for every entity.
+    instructions = {
+        lb.sentence
+        for lb in labels
+        if lb.label == "instruction" and lb.sentence in by_index
+    }
+    for label in labels:
         sel = by_index.get(label.sentence)
         entity_id = lookup.get(key(label.entity))
         if sel is None or entity_id is None or entity_id not in sel.entity_ids:
             notes.append(f"dropped:{label.sentence}:{label.entity}")
             continue
-        if label.label == "instruction":
-            instructions.add(label.sentence)
+        if label.sentence in instructions:
             continue
         rank = (STRENGTH[label.label], -label.sentence)  # ties: earliest
         if entity_id not in best or rank > best[entity_id][0]:
