@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 import httpx
 from google import genai
+from google.auth import exceptions as auth_errors
 from google.genai import errors, types
 from pydantic import BaseModel, ValidationError
 
@@ -44,7 +45,14 @@ JITTER = 0.2
 def _retryable(e: Exception) -> bool:
     if isinstance(e, errors.APIError):
         return e.code == 429 or (e.code or 0) >= 500
-    return isinstance(e, TimeoutError | ConnectionError | httpx.TransportError)
+    # auth TransportError: the token refresh itself timed out or dropped.
+    return isinstance(
+        e,
+        TimeoutError
+        | ConnectionError
+        | httpx.TransportError
+        | auth_errors.TransportError,
+    )
 
 
 def with_retries[T](

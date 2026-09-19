@@ -33,6 +33,14 @@ def test_retries_transient_errors_with_jittered_waits():
     assert 1.6 <= waits[0] <= 2.4 and 6.4 <= waits[1] <= 9.6
 
 
+def test_retries_auth_token_refresh_timeouts():
+    from google.auth.exceptions import TransportError
+
+    fn, calls = raiser(TransportError("oauth2.googleapis.com: read timed out"))
+    assert judge.with_retries(fn, sleep=lambda s: None) == "ok"
+    assert len(calls) == 2
+
+
 def test_gives_up_after_three_attempts():
     waits = []
     fn, calls = raiser(*[TimeoutError("slow")] * 3)
