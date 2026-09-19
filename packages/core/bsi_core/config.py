@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # observations created at or after spend_since (after slice 1's run).
     spend_cap_usd: float = 15.0
     spend_since: AwareDatetime = datetime(2026, 9, 19, 10, 0, tzinfo=UTC)
+    # Slice 3: per-organization daily cap on scheduled runs (spec §3).
+    daily_budget_usd: float = 2.0
+    obs_cost_estimate_micros: int = 50_000
 
 
 @lru_cache

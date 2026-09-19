@@ -1,13 +1,69 @@
 """Shared run enqueue, and the scheduler that uses it."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sqlalchemy import func, literal, select, true
+from sqlalchemy import func, literal, select, text, true
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from . import models as m
+from .config import get_settings
+
+CADENCE_DAYS = {"daily": 1, "every_3_days": 3, "weekly": 7}
+
+
+def first_run(now: datetime, hour_utc: int) -> datetime:
+    """The next hour_utc:00 UTC strictly after now."""
+    run = now.replace(hour=hour_utc, minute=0, second=0, microsecond=0)
+    return run if run > now else run + timedelta(days=1)
+
+
+def advance(next_run_at: datetime, cadence: str, now: datetime) -> datetime:
+    """Add the cadence interval until the result is after now (no backfill)."""
+    step = timedelta(days=CADENCE_DAYS[cadence])
+    run = next_run_at + step
+    while run <= now:
+        run += step
+    return run
+
+
+_SPENT_AND_PENDING = text(
+    """
+    WITH day AS (
+      SELECT date_trunc('day', now() AT TIME ZONE 'UTC')
+             AT TIME ZONE 'UTC' AS start)
+    SELECT
+      coalesce(sum(o.cost_micros + coalesce(e.cost_micros, 0))
+               FILTER (WHERE o.requested_at >= day.start), 0) AS spent,
+      count(*) FILTER (
+        WHERE o.status IN ('queued', 'running', 'retry')) AS pending
+    FROM observation o
+    LEFT JOIN extraction e ON e.observation_id = o.id
+    CROSS JOIN day
+    """
+)
+
+
+def budget_fits(s: Session, org_id: uuid.UUID, n_obs: int) -> bool:
+    """True if n_obs more observations fit in the org's budget for today.
+
+    Call inside the org's tenant transaction. The advisory lock is held to
+    the end of that transaction, so two schedules of one org can't both
+    pass on the same headroom.
+    """
+    s.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
+        {"org": str(org_id)},
+    )
+    # Row-level security scopes this to the org (unlike spend.db_micros).
+    spent, pending = s.execute(_SPENT_AND_PENDING).one()
+    settings = get_settings()
+    cap = round(settings.daily_budget_usd * 1_000_000)
+    # A paid attempt that then fails records no cost; the estimate's
+    # headroom absorbs it.
+    estimate = settings.obs_cost_estimate_micros
+    return bool(spent + (pending + n_obs) * estimate <= cap)
 
 
 def active_prompts(s: Session, brand_id: uuid.UUID) -> int:
