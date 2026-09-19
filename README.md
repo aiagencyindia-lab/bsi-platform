@@ -4,17 +4,24 @@ Brand-visibility measurement platform: a Python uv workspace with
 `packages/core` (shared models/config), `apps/api` (FastAPI service), and
 `apps/workers` (background jobs), backed by Postgres.
 
-Spec: `.superpowers/sdd/2026-09-19-slice1-measurement-core/`
+Spec: `docs/superpowers/specs/2026-09-19-slice1-measurement-core-design.md`
 
 ## Quickstart
 
 ```sh
-docker compose up -d   # starts local Postgres on port 5433
-uv sync                # installs the workspace
-uv run pytest          # runs the test suite
+docker compose up -d                            # starts local Postgres on port 5433
+cp .env.example .env                            # local config
+uv sync                                         # installs the workspace
+uv run alembic upgrade head                     # applies migrations
+uv run python scripts/seed.py                   # seeds dev data, prints an API key once
+uv run uvicorn bsi_api.main:app --port 8000     # starts the API
+uv run python -m bsi_workers                    # starts the worker (separate shell)
 ```
 
-Copy `.env.example` to `.env` and adjust as needed for local overrides.
+Run tests with `uv run pytest`. Live tests that call real model providers
+are opt-in via `uv run pytest -m live` and need Application Default
+Credentials plus the `.env` variables exported into the shell, e.g.
+`set -a && source .env && set +a`.
 
 ## Testing
 
