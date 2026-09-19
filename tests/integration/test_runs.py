@@ -109,3 +109,43 @@ def test_list_runs(client, brand):
     ]
     runs = client.get(f"/v1/brands/{bid}/runs", headers=org.headers).json()
     assert [r["id"] for r in runs] == [jid]
+
+
+def test_run_larger_than_the_bind_parameter_limit(client, make_org, make_brand):
+    # One VALUES row per observation hit Postgres's 65,535-parameter cap at
+    # 8,192 rows; the enqueue must not depend on run size.
+    org = make_org()
+    bid = make_brand(org)
+    client.post(
+        f"/v1/brands/{bid}/prompts",
+        headers=org.headers,
+        json=[{"text": f"prompt {i}"} for i in range(3000)],
+    )
+    r = client.post(
+        f"/v1/brands/{bid}/runs", headers=org.headers, json={"samples": 3}
+    )
+    assert r.status_code == 202, r.text
+    assert r.json()["enqueued"] == 9000
+    again = client.post(
+        f"/v1/brands/{bid}/runs", headers=org.headers, json={"samples": 3}
+    )
+    assert again.json()["enqueued"] == 0
+
+
+def test_archived_brand_cannot_run(client, brand):
+    org, bid = brand
+    client.delete(f"/v1/brands/{bid}", headers=org.headers)
+    r = client.post(f"/v1/brands/{bid}/runs", headers=org.headers)
+    assert r.status_code == 409
+    assert (
+        client.get(f"/v1/brands/{bid}/runs", headers=org.headers).json() == []
+    )
+
+
+def test_unknown_run_field_is_422(client, brand):
+    org, bid = brand
+    r = client.post(
+        f"/v1/brands/{bid}/runs", headers=org.headers, json={"sampels": 5}
+    )
+    assert r.status_code == 422
+    assert r.json()["errors"][0]["loc"][-1] == "sampels"

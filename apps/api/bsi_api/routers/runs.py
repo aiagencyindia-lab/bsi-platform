@@ -4,8 +4,8 @@ from typing import Any
 
 from bsi_core import models as m
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
-from sqlalchemy import func, select, update
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import func, literal, select, true, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..deps import TENANT, Ctx, brand_or_404, get_or_404
@@ -18,6 +18,8 @@ PENDING = ("queued", "running", "retry", "fetched")
 
 
 class RunIn(BaseModel):
+    # A misspelt field would otherwise silently fall back to the defaults.
+    model_config = ConfigDict(extra="forbid")
     samples: int = Field(3, ge=1, le=10)
     retry_failed: bool = False
 
@@ -45,14 +47,11 @@ def _job_view(c: Ctx, job: m.Job) -> dict[str, Any]:
 def create_run(
     brand_id: uuid.UUID, body: RunIn | None = None, c: Ctx = TENANT
 ) -> dict[str, Any]:
-    brand_or_404(c, brand_id)
-    samples = (body or RunIn()).samples
-    prompts = c.s.scalars(
-        select(m.Prompt).where(
-            m.Prompt.brand_id == brand_id, m.Prompt.status == "active"
-        )
-    ).all()
-    if not prompts:
+    if brand_or_404(c, brand_id).status == "archived":
+        raise Problem(409, "Brand is archived", "Archived brands are not run.")
+    body = body or RunIn()
+    active = (m.Prompt.brand_id == brand_id, m.Prompt.status == "active")
+    if not c.s.scalar(select(func.count()).where(*active)):
         raise Problem(422, "No active prompts", "Add a prompt before running.")
     engine = c.s.scalars(
         select(m.Engine).where(m.Engine.code == "gemini")
@@ -73,7 +72,7 @@ def create_run(
     ).one()
 
     requeued = 0
-    if (body or RunIn()).retry_failed:
+    if body.retry_failed:
         result = c.s.execute(
             update(m.Observation)
             .where(
@@ -89,23 +88,42 @@ def create_run(
         )
         requeued = result.rowcount or 0
 
-    rows = [
-        {
-            "org_id": c.org_id,
-            "brand_id": brand_id,
-            "job_id": job.id,
-            "prompt_id": p.id,
-            "engine_id": engine.id,
-            "locale_id": p.locale_id,
-            "sample_index": i,
-            "scheduled_slot": slot,
-        }
-        for p in prompts
-        for i in range(samples)
-    ]
+    # Built in the database: one VALUES row per observation hit Postgres's
+    # 65,535 bind-parameter cap at 8,192 observations.
+    sample = (
+        func.generate_series(0, body.samples - 1)
+        .table_valued("n")
+        .render_derived()
+    )
+    rows = (
+        select(
+            m.Prompt.org_id,
+            m.Prompt.brand_id,
+            literal(job.id),
+            m.Prompt.id,
+            literal(engine.id),
+            m.Prompt.locale_id,
+            sample.c.n,
+            literal(slot),
+        )
+        .join(sample, true())  # every active prompt x every sample index
+        .where(*active)
+    )
     inserted = c.s.execute(
         pg_insert(m.Observation)
-        .values(rows)
+        .from_select(
+            [
+                "org_id",
+                "brand_id",
+                "job_id",
+                "prompt_id",
+                "engine_id",
+                "locale_id",
+                "sample_index",
+                "scheduled_slot",
+            ],
+            rows,
+        )
         .on_conflict_do_nothing()
         .returning(m.Observation.id)
     ).all()
