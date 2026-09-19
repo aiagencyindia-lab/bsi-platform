@@ -38,17 +38,17 @@ def test_due_schedules_lists_every_tenants_due_rows(
 
 
 @pytest.mark.parametrize(
-    "bad",
+    ("bad", "check"),
     [
-        {"cadence": "hourly"},
-        {"hour_utc": 24},
-        {"samples": 0},
-        {"status": "x"},
+        ({"cadence": "hourly"}, "ck_schedule_cadence"),
+        ({"hour_utc": 24}, "ck_schedule_hour"),
+        ({"samples": 0}, "ck_schedule_samples"),
+        ({"status": "x"}, "ck_schedule_status"),
     ],
 )
-def test_schedule_checks(owner, make_org, make_brand, bad):
+def test_schedule_checks(owner, make_org, make_brand, bad, check):
     org = make_org()
-    with pytest.raises(IntegrityError):
+    with pytest.raises(IntegrityError, match=check):
         _add(owner, org, make_brand(org), **bad)
 
 

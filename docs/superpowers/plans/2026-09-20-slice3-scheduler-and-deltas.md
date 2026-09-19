@@ -65,16 +65,16 @@ class Schedule(Tenant, Base):
     __table_args__ = (
         CheckConstraint(
             "cadence IN ('daily', 'every_3_days', 'weekly')",
-            name="schedule_cadence_check",
+            name="ck_schedule_cadence",
         ),
         CheckConstraint(
-            "hour_utc BETWEEN 0 AND 23", name="schedule_hour_check"
+            "hour_utc BETWEEN 0 AND 23", name="ck_schedule_hour"
         ),
         CheckConstraint(
-            "samples BETWEEN 1 AND 10", name="schedule_samples_check"
+            "samples BETWEEN 1 AND 10", name="ck_schedule_samples"
         ),
         CheckConstraint(
-            "status IN ('active', 'paused')", name="schedule_status_check"
+            "status IN ('active', 'paused')", name="ck_schedule_status"
         ),
     )
 ```
