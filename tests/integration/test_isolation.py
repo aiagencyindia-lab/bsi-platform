@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from bsi_core import models as m
 from sqlalchemy import select
@@ -65,6 +67,37 @@ def test_lists_are_empty_for_org_a(client, make_org, other):
     assert filtered.json() == []
 
 
+def test_foreign_filter_is_indistinguishable_from_unknown_id(
+    client, make_org, other
+):
+    """Foreign filter and unknown id return identical responses."""
+    a = make_org("A")
+
+    # Test brand_id filter with foreign id vs unknown id
+    foreign_brand_resp = client.get(
+        f"/v1/observations?brand_id={other['b']}", headers=a.headers
+    )
+    unknown_brand = uuid.uuid4()
+    unknown_brand_resp = client.get(
+        f"/v1/observations?brand_id={unknown_brand}", headers=a.headers
+    )
+    assert foreign_brand_resp.status_code == 200
+    assert unknown_brand_resp.status_code == 200
+    assert foreign_brand_resp.json() == unknown_brand_resp.json() == []
+
+    # Test prompt_id filter with foreign id vs unknown id
+    foreign_prompt_resp = client.get(
+        f"/v1/observations?prompt_id={other['p']}", headers=a.headers
+    )
+    unknown_prompt = uuid.uuid4()
+    unknown_prompt_resp = client.get(
+        f"/v1/observations?prompt_id={unknown_prompt}", headers=a.headers
+    )
+    assert foreign_prompt_resp.status_code == 200
+    assert unknown_prompt_resp.status_code == 200
+    assert foreign_prompt_resp.json() == unknown_prompt_resp.json() == []
+
+
 def test_org_b_data_is_untouched(client, owner, make_org, other):
     a = make_org("A")
     for method, path, body in CASES:
@@ -74,5 +107,35 @@ def test_org_b_data_is_untouched(client, owner, make_org, other):
     with owner() as s:
         assert s.get(m.Brand, other["b"]).status == "active"
         assert s.get(m.Competitor, other["c"]).name == "Rival"
-        n = len(s.scalars(select(m.Observation)).all())
-    assert n == 1
+
+        # Check Domain was not deleted
+        domain = s.get(m.Domain, other["d"])
+        assert domain is not None
+        assert domain.host == "secret.com"
+
+        # Check Prompt was not modified
+        prompt = s.get(m.Prompt, other["p"])
+        assert prompt.status == "active"
+
+        # Count org B's resources
+        n_obs = len(s.scalars(select(m.Observation)).all())
+        n_comp = len(
+            s.scalars(
+                select(m.Competitor).where(m.Competitor.brand_id == other["b"])
+            ).all()
+        )
+        n_dom = len(
+            s.scalars(
+                select(m.Domain).where(m.Domain.brand_id == other["b"])
+            ).all()
+        )
+        n_prompt = len(
+            s.scalars(
+                select(m.Prompt).where(m.Prompt.brand_id == other["b"])
+            ).all()
+        )
+
+    assert n_obs == 1
+    assert n_comp == 1
+    assert n_dom == 1
+    assert n_prompt == 1
