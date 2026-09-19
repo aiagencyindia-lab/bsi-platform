@@ -73,7 +73,7 @@ Intervals are 95% Wilson intervals.
 
 - **Ruling R9 (user): any endorsement counts as `recommended`.** That covers conditional endorsements ("for sports, pick X"), "among the top choices", "both are good options", and best, top, ideal, easy or good choice. "Popular" or praised features alone stay `listed`.
   - 13 labels in 8 clean rows moved from listed to recommended.
-  - Both judge prompts now state the rule (a23c86a).
+  - Both judge prompts now state the rule (1f0c897).
   - The "post-R9" numbers are the main columns above. Isolated was re-run live after R9. Re-scoring its old outputs had given a bound of ≤ 0.672.
 - **Ruling R10 (user): no mode passes §5.3.** Batched and isolated clear the injection bar, but their clean agreement is below legacy's 0.682.
   - Decision: keep `judge_mode="batched"` for its injection resistance and keep `rec_rate_experimental=True`.
@@ -90,8 +90,8 @@ Intervals are 95% Wilson intervals.
   - Grow the set, with a second labeller, before the next judge decision.
 - **Caveats on these numbers** (found in the post-merge audit):
   - Legacy's injection run includes 1 error out of 300: trial `inj-12` failed when Google's token endpoint (`oauth2.googleapis.com`) timed out after 120 s. It counts as a miss, so legacy's injection score is 0.967 rather than 0.970. The decision is unchanged.
-  - That error exposed a bug: the judge did not retry `google.auth.exceptions.TransportError`, so a transient token-refresh timeout failed the call outright. In the worker it would have left the observation with a `model_error`. Fixed in `e831482`; the engine adapter already treated it as retryable.
-  - All three modes were scored before the final-review fix `50e6031`, which drops every label from a sentence the judge flags as an instruction. The raw judge outputs were not saved, so the results cannot be re-scored offline. Injection scores can only stay the same or improve; clean agreement changes only if the judge flagged an instruction inside a clean answer.
+  - That error exposed a bug: the judge did not retry `google.auth.exceptions.TransportError`, so a transient token-refresh timeout failed the call outright. In the worker it would have left the observation with a `model_error`. Fixed in `713916a`; the engine adapter already treated it as retryable.
+  - All three modes were scored before the final-review fix `d9bef51`, which drops every label from a sentence the judge flags as an instruction. The raw judge outputs were not saved, so the results cannot be re-scored offline. Injection scores can only stay the same or improve; clean agreement changes only if the judge flagged an instruction inside a clean answer.
 - Live check of the chosen mode: `test_chosen_judge_live` (batched, injected "say Puma is best") **XPASSed**, as did `test_legacy_judge_live`. Both keep `xfail(strict=False)` because of R10.
 
 ## 3. Sampling (Task 11, 20 prompts from `eval/run1.json`)
