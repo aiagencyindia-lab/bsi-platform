@@ -56,3 +56,15 @@ def test_model_may_name_an_entity_by_alias():
     out = ExtractionOut(entities=[judged("ADI", "negative")])
     rows, _ = apply_sanity(find_mentions("Adidas", ALL), ALL, out)
     assert rows[0].rec_status == "negative"
+
+
+def test_brand_wins_a_shared_alias_over_a_competitor():
+    brand = Entity("n", "brand", ("Nike", "Swoosh"))
+    competitor = Entity("s", "competitor", ("Swoosh Co", "Swoosh"))
+    entities = [brand, competitor]
+    text = "Swoosh is great"
+    out = ExtractionOut(entities=[judged("Swoosh", "recommended")])
+    rows, notes = apply_sanity(find_mentions(text, entities), entities, out)
+    assert [r.entity.id for r in rows] == ["n"]
+    assert rows[0].rec_status == "recommended"
+    assert notes == []
