@@ -15,3 +15,7 @@ uv run pytest          # runs the test suite
 ```
 
 Copy `.env.example` to `.env` and adjust as needed for local overrides.
+
+## Testing
+
+Whenever an endpoint is added later, add its row to `CASES` in `tests/integration/test_isolation.py`.
