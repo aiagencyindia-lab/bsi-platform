@@ -135,3 +135,43 @@ def test_parse_recorded_payloads(name):
     assert "vertexaisearch" not in {d for _, d in answer.citations}
     queries = raw["candidates"][0]["grounding_metadata"]["web_search_queries"]
     assert adapter.cost(raw) >= 14_000 * len(queries) > 0
+
+
+def test_ungrounded_query_sends_no_tools_and_prepends_context():
+    seen = {}
+
+    def generate(**kwargs):
+        seen.update(kwargs)
+        return SimpleNamespace(
+            model_dump=lambda **_: {
+                "usage_metadata": {
+                    "prompt_token_count": 10,
+                    "candidates_token_count": 10,
+                }
+            }
+        )
+
+    result = adapter_with(generate).query(
+        "best kids shoes", "IN", "en", grounded=False, context="Sources: a.com"
+    )
+    assert result.kind == "ok"
+    assert seen["config"].tools is None
+    assert seen["contents"] == "Sources: a.com\n\nbest kids shoes"
+    assert (result.params["grounded"], result.params["tools"]) == (False, [])
+    assert result.cost_micros == 28  # 10 * 0.30 + 10 * 2.50; no grounding
+
+
+def test_grounded_query_is_unchanged_by_default():
+    seen = {}
+
+    def generate(**kwargs):
+        seen.update(kwargs)
+        return SimpleNamespace(model_dump=lambda **_: RAW)
+
+    result = adapter_with(generate).query("q", "IN", "en")
+    assert seen["contents"] == "q"
+    assert len(seen["config"].tools) == 1
+    assert (result.params["grounded"], result.params["tools"]) == (
+        True,
+        ["google_search"],
+    )

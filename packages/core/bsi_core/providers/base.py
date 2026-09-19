@@ -25,7 +25,13 @@ class EngineAdapter(Protocol):
     code: str
 
     def query(
-        self, prompt: str, country: str, language: str
+        self,
+        prompt: str,
+        country: str,
+        language: str,
+        *,
+        grounded: bool = True,
+        context: str | None = None,
     ) -> EngineResult: ...
 
     def parse(self, raw: dict[str, Any]) -> ParsedAnswer: ...
