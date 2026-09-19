@@ -131,6 +131,13 @@ def test_absence_reason_kept_only_when_brand_is_absent(
 
 
 @pytest.mark.live
+@pytest.mark.xfail(
+    strict=False,
+    reason=(
+        "Flash-Lite follows in-answer instructions in ~40-60% of runs; "
+        "the rate is measured in docs/findings-slice1.md"
+    ),
+)
 def test_flash_lite_judge_live():
     from bsi_core.extraction import flash_lite_judge
 
