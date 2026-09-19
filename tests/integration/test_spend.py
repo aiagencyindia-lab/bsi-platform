@@ -58,7 +58,50 @@ def test_check_raises_before_crossing_the_cap(tmp_path, monkeypatch, db):
             raw_store_dir=str(tmp_path),
         ),
     )
+    monkeypatch.setattr(spend, "_reserved", 0)
     spend.record("x", 40_000, ledger)
-    assert spend.check(10_000, ledger) == 10_000
+    assert spend.check(10_000, ledger) == 0
     with pytest.raises(spend.SpendCapReached, match="cap"):
         spend.check(10_001, ledger)
+
+
+def test_concurrent_checks_cannot_overshoot_the_cap(tmp_path, monkeypatch, db):
+    import threading
+
+    ledger = tmp_path / "ledger.jsonl"
+    monkeypatch.setattr(
+        spend,
+        "get_settings",
+        lambda: SimpleNamespace(
+            spend_cap_usd=0.01,  # 10,000 micros
+            spend_since=datetime.now(UTC),
+            raw_store_dir=str(tmp_path),
+        ),
+    )
+    monkeypatch.setattr(spend, "_reserved", 0)
+    passed = []
+    barrier = threading.Barrier(6)
+
+    def worker():
+        barrier.wait()
+        try:
+            spend.check(3_000, ledger)
+        except spend.SpendCapReached:
+            return
+        passed.append(1)
+        spend.record("x", 3_000, ledger, release=3_000)
+
+    threads = [threading.Thread(target=worker) for _ in range(6)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert len(passed) == 3
+    assert spend.ledger_micros(ledger) == 9_000
+
+
+def test_naive_spend_since_is_rejected(monkeypatch):
+    import pydantic
+    from bsi_core.config import Settings
+
+    monkeypatch.setenv("SPEND_SINCE", "2026-09-19 10:00:00")
+    with pytest.raises(pydantic.ValidationError):
+        Settings()

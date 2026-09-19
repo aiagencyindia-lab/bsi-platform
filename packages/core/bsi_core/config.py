@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import AwareDatetime
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOCAL = "postgresql+psycopg://{u}:{p}@localhost:5433/bsi"
@@ -23,7 +24,7 @@ class Settings(BaseSettings):
     # Slice-2 live-spend guard (spec §7): the cap covers ledger entries plus
     # observations created at or after spend_since (after slice 1's run).
     spend_cap_usd: float = 15.0
-    spend_since: datetime = datetime(2026, 9, 19, 10, 0, tzinfo=UTC)
+    spend_since: AwareDatetime = datetime(2026, 9, 19, 10, 0, tzinfo=UTC)
 
 
 @lru_cache
