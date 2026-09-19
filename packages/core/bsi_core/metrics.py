@@ -149,6 +149,7 @@ def brand_metrics(
         FROM observation o
         LEFT JOIN mention bm
           ON bm.observation_id = o.id AND bm.entity_type = 'brand'
+          AND bm.entity_id = o.brand_id
         WHERE {where}"""),
         params,
     ).one()
