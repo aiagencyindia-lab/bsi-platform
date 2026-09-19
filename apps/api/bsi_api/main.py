@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 
 from . import problems
-from .routers import brands, prompts
+from .routers import brands, prompts, runs
 
 
 def create_app() -> FastAPI:
@@ -25,7 +25,12 @@ def create_app() -> FastAPI:
     def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
-    for router in (brands.router, prompts.router):
+    for router in (
+        brands.router,
+        prompts.router,
+        runs.router,
+        runs.jobs_router,
+    ):
         app.include_router(router, prefix="/v1")
     return app
 
