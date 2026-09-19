@@ -17,6 +17,17 @@ def test_wilson_known_values(k, n, low, high):
     assert hi == pytest.approx(high, abs=1e-3)
 
 
+@pytest.mark.parametrize("n", range(1, 201))
+def test_interval_contains_the_estimate_exactly_at_the_edges(n):
+    # Float rounding used to give ci_low=2.8e-17 at k=0 and
+    # ci_high=0.9999999999999999 at k=n for some n.
+    assert wilson(0, n)[0] == 0.0
+    assert wilson(n, n)[1] == 1.0
+    for k in range(n + 1):
+        low, high = wilson(k, n)
+        assert low <= k / n <= high
+
+
 def test_wilson_no_samples():
     assert wilson(0, 0) == (0.0, 1.0)
 
