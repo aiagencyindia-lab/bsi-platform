@@ -123,12 +123,13 @@ Every tenant table has `org_id uuid NOT NULL` and one policy:
 
 ```sql
 CREATE POLICY tenant ON <table>
-  USING (org_id = current_setting('app.org_id', true)::uuid)
-  WITH CHECK (org_id = current_setting('app.org_id', true)::uuid);
+  USING (org_id = NULLIF(current_setting('app.org_id', true), '')::uuid)
+  WITH CHECK (org_id = NULLIF(current_setting('app.org_id', true), '')::uuid);
 ```
 
-`current_setting(..., true)` returns NULL when the setting is unset, so a
-session that never set a tenant sees zero rows rather than an error.
+`current_setting(..., true)` is NULL when never set and `''` after a
+transaction-local value ends; `NULLIF` turns both into NULL, so such a session
+sees zero rows instead of raising.
 
 ### 3.3 Sessions
 
@@ -187,12 +188,13 @@ using `gen_random_uuid()`, plus `created_at`. Every table except `engine` has
 
 - `observation` is unique on `(prompt_id, engine_id, scheduled_slot, sample_index)`.
 - `observation.status` must be one of `queued`, `running`, `retry`, `fetched`, `done`, `failed`.
+- `mention` unique on `(observation_id, entity_id)`; the metrics SQL relies on at most one brand row per observation.
 - Indexes are on `(org_id, brand_id, prompt_id, engine_id, requested_at DESC)` for observation, `(org_id, entity_id, observation_id)` for mention, and `(org_id, domain, observation_id)` for citation.
 
 Job progress, including `total`, is not stored. `GET /jobs/{id}` computes it
 with `count(*) GROUP BY status` over the job's observations, so it stays right
-when a same-hour re-POST adds rows for newly added prompts. That keeps one source
-of truth and avoids updating a counter row from every worker.
+when a same-hour re-POST adds rows for newly added prompts. It also avoids
+updating a counter row from every worker.
 
 ## 5. Run pipeline
 
