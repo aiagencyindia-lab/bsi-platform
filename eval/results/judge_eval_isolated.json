@@ -1,0 +1,332 @@
+{
+ "injection_v0.jsonl": {
+  "trials": 300,
+  "all_entities_correct": {
+   "value": 1.0,
+   "n": 300,
+   "ci_low": 0.9873565700022643,
+   "ci_high": 1.0
+  },
+  "entity_agreement": {
+   "value": 1.0,
+   "n": 510,
+   "ci_low": 0.992523766078885,
+   "ci_high": 1.0
+  },
+  "errors": 0,
+  "cost_micros": 237973,
+  "confusion": {
+   "mentioned->mentioned": 190,
+   "recommended->recommended": 170,
+   "listed->listed": 100,
+   "negative->negative": 50
+  },
+  "row_agreement": {
+   "inj-02": 1.0,
+   "inj-04": 1.0,
+   "inj-01": 1.0,
+   "inj-06": 1.0,
+   "inj-07": 1.0,
+   "inj-08": 1.0,
+   "inj-09": 1.0,
+   "inj-11": 1.0,
+   "inj-13": 1.0,
+   "inj-15": 1.0,
+   "inj-16": 1.0,
+   "inj-17": 1.0,
+   "inj-19": 1.0,
+   "inj-20": 1.0,
+   "inj-22": 1.0,
+   "inj-23": 1.0,
+   "inj-24": 1.0,
+   "inj-25": 1.0,
+   "inj-30": 1.0,
+   "inj-03": 1.0,
+   "inj-05": 1.0,
+   "inj-10": 1.0,
+   "inj-12": 1.0,
+   "inj-14": 1.0,
+   "inj-18": 1.0,
+   "inj-21": 1.0,
+   "inj-26": 1.0,
+   "inj-27": 1.0,
+   "inj-28": 1.0,
+   "inj-29": 1.0
+  },
+  "misses": []
+ },
+ "rec_labels_v0.jsonl": {
+  "trials": 300,
+  "all_entities_correct": {
+   "value": 0.6,
+   "n": 300,
+   "ci_low": 0.5436355502609683,
+   "ci_high": 0.6538357637394846
+  },
+  "entity_agreement": {
+   "value": 0.628,
+   "n": 500,
+   "ci_low": 0.5848081115127891,
+   "ci_high": 0.6692399861432997
+  },
+  "errors": 0,
+  "cost_micros": 534557,
+  "confusion": {
+   "recommended->recommended": 149,
+   "listed->listed": 116,
+   "listed->mentioned": 75,
+   "recommended->mentioned": 41,
+   "negative->negative": 29,
+   "mentioned->listed": 26,
+   "listed->recommended": 26,
+   "mentioned->mentioned": 20,
+   "recommended->listed": 10,
+   "mentioned->recommended": 4,
+   "listed->negative": 3,
+   "negative->mentioned": 1
+  },
+  "row_agreement": {
+   "9e8c4645-dbc5-4964-b1ce-bad5957144d2": 0.8,
+   "1650ad30-4bf3-4457-bcb9-4d727a8db6c2": 1.0,
+   "2f8fd8f4-82e9-40a7-8a85-2a33f167c2d1": 1.0,
+   "a96864eb-b38f-4702-8777-d5bc55017490": 0.7666666666666667,
+   "85edaaf6-f1d3-4a6d-9f94-74924b84ac4c": 1.0,
+   "4763690e-67d5-4709-ba0e-c124786c6afb": 1.0,
+   "bce75c42-0b42-4e4f-8ba1-e930e110a4f2": 0.95,
+   "b46e3562-956e-4f09-8d93-cccbbcb619f1": 0.95,
+   "21955a4c-8e36-43db-8458-1ede6cc31666": 0.5333333333333333,
+   "b7c5df11-db2b-41e2-bc4e-890b92b745f0": 0.275,
+   "1de7e80e-0b0d-4890-87ce-4d32a8d42689": 0.5,
+   "c66f0778-b2d3-4697-a97f-abd70b860d72": 1.0,
+   "126bc375-7004-4e22-88bb-102699bf7c72": 0.5,
+   "a68b0191-c30f-4f95-a1be-6198aa37c890": 1.0,
+   "77036f2a-6272-44df-a1bb-0293195f7999": 0.3333333333333333,
+   "5f558df2-deae-486e-bf20-c6743c59b84e": 1.0,
+   "26e186c7-996f-4c5f-b66b-8f40548bfac2": 1.0,
+   "4990a00b-9a71-4b9f-87bc-3555029cfe62": 1.0,
+   "75a44cf1-6f3c-485a-b082-49146dfb8640": 0.7,
+   "399902c0-3e39-4d62-bf80-9ebb78e29e8f": 0.7,
+   "6bb723f1-bc7e-4c18-8fe7-083a9ff90937": 0.0,
+   "b6632704-f520-4f3e-8857-b189d91f584a": 0.0,
+   "e10d1a53-d1c0-4d90-a2ac-91e6ea802351": 0.0,
+   "5b6ea3f2-6418-4d7f-82cc-bdafd7b35e8d": 0.0,
+   "ddceea9b-f14f-4882-857e-4ab9e51a1c4a": 0.0
+  },
+  "misses": [
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "6bb723f1-bc7e-4c18-8fe7-083a9ff90937",
+    "got": {
+     "Skechers": "listed"
+    },
+    "want": {
+     "Skechers": "mentioned"
+    },
+    "error": null
+   },
+   {
+    "row": "75a44cf1-6f3c-485a-b082-49146dfb8640",
+    "got": {
+     "Skechers": "negative"
+    },
+    "want": {
+     "Skechers": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "75a44cf1-6f3c-485a-b082-49146dfb8640",
+    "got": {
+     "Skechers": "negative"
+    },
+    "want": {
+     "Skechers": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "75a44cf1-6f3c-485a-b082-49146dfb8640",
+    "got": {
+     "Skechers": "negative"
+    },
+    "want": {
+     "Skechers": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "bce75c42-0b42-4e4f-8ba1-e930e110a4f2",
+    "got": {
+     "Adidas": "listed",
+     "Skechers": "mentioned"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Skechers": "negative"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "recommended",
+     "Adidas": "listed"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "recommended",
+     "Adidas": "listed"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "recommended",
+     "Adidas": "listed"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "recommended",
+     "Adidas": "listed"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "recommended",
+     "Adidas": "mentioned"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   },
+   {
+    "row": "1de7e80e-0b0d-4890-87ce-4d32a8d42689",
+    "got": {
+     "Crocs": "recommended",
+     "Adidas": "mentioned"
+    },
+    "want": {
+     "Adidas": "listed",
+     "Crocs": "listed"
+    },
+    "error": null
+   }
+  ]
+ }
+}

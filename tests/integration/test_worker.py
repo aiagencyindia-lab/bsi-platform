@@ -47,8 +47,15 @@ class FakeAdapter:
         return 60
 
 
-def no_extract(s, obs):
-    pass
+class NoExtract:
+    def prepare(self, org_id, obs_id):
+        return None
+
+    def write(self, s, obs, prepared):
+        pass
+
+
+no_extract = NoExtract()
 
 
 @pytest.fixture
@@ -161,8 +168,11 @@ def test_fatal_fails_immediately(owner, queued):
 def test_a_raising_adapter_or_extractor_never_stops_the_loop(owner, queued):
     _, obs_id = queued
 
-    def bad_extract(s, obs):
-        raise RuntimeError("boom")
+    class BadExtract(NoExtract):
+        def prepare(self, org_id, obs_id):
+            raise RuntimeError("boom")
+
+    bad_extract = BadExtract()
 
     assert process_one(FakeAdapter(OK), LocalRawStore(), bad_extract)
     assert load(owner, obs_id).status == "retry"
@@ -172,6 +182,34 @@ def test_a_raising_adapter_or_extractor_never_stops_the_loop(owner, queued):
     )
     obs = load(owner, obs_id)
     assert (obs.status, obs.attempts) == ("retry", 2)
+
+
+def test_worker_prepares_between_transactions(owner, queued):
+    _, obs_id = queued
+    from sqlalchemy import text
+
+    seen = []
+
+    class Watching(NoExtract):
+        def prepare(self, org_id, obs_id):
+            with owner() as s:
+                seen.append(
+                    s.scalar(
+                        text(
+                            "SELECT count(*) FROM pg_stat_activity "
+                            "WHERE usename = 'bsi_app' "
+                            "AND datname = current_database() "
+                            "AND state LIKE 'idle in transaction%'"
+                        )
+                    )
+                )
+                obs = s.get(m.Observation, obs_id)
+                seen.append((obs.status, obs.raw_uri is not None))
+            return None
+
+    assert process_one(FakeAdapter(OK), LocalRawStore(), Watching())
+    assert seen == [0, ("running", True)]
+    assert load(owner, obs_id).status == "done"
 
 
 def test_stale_running_rows_are_reset(owner, queued):
