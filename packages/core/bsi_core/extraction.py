@@ -6,7 +6,6 @@ Deterministic matching decides WHO is mentioned. The model only labels HOW
 
 import uuid
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
 from typing import Any, Literal
 
 from google import genai
@@ -17,7 +16,8 @@ from sqlalchemy.orm import Session
 
 from . import models as m
 from .config import get_settings
-from .matching import Entity, Hit, find_mentions, is_owned, tokenize
+from .labels import MentionRow, key
+from .matching import Entity, Hit, find_mentions, is_owned
 from .providers.base import EngineAdapter
 from .storage import RawStore
 
@@ -48,19 +48,6 @@ class ExtractionOut(BaseModel):
 Judge = Callable[[str, list[str]], ExtractionOut]
 
 
-@dataclass
-class MentionRow:
-    entity: Entity
-    position: int
-    rec_status: str
-    sentiment: str
-    sentiment_conf: float | None
-
-
-def _key(name: str) -> str:
-    return " ".join(tokenize(name))
-
-
 def apply_sanity(
     hits: list[Hit], entities: Sequence[Entity], out: ExtractionOut | None
 ) -> tuple[list[MentionRow], list[str]]:
@@ -76,9 +63,9 @@ def apply_sanity(
         lookup: dict[str, str] = {}
         for e in entities:
             for a in e.aliases:
-                lookup.setdefault(_key(a), e.id)
+                lookup.setdefault(key(a), e.id)
         for judgement in out.entities:
-            entity_id = lookup.get(_key(judgement.name))
+            entity_id = lookup.get(key(judgement.name))
             if entity_id is None or entity_id not in order:
                 notes.append(f"model_only:{judgement.name}")
             else:
