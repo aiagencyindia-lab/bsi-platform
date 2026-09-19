@@ -21,6 +21,11 @@ def first_run(now: datetime, hour_utc: int) -> datetime:
     return run if run > now else run + timedelta(days=1)
 
 
+def hour_slot(t: datetime) -> datetime:
+    """The UTC hour containing t: the slot every run in that hour shares."""
+    return t.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+
+
 def advance(next_run_at: datetime, cadence: str, now: datetime) -> datetime:
     """Add the cadence interval until the result is after now (no backfill).
 
@@ -175,7 +180,7 @@ def run_schedule(org_id: uuid.UUID, schedule_id: uuid.UUID) -> str | None:
         elif not budget_fits(s, org_id, prompts * sch.samples):
             result = "skipped:budget"
         else:
-            slot = sch.next_run_at.replace(minute=0, second=0, microsecond=0)
+            slot = hour_slot(sch.next_run_at)
             _, n = enqueue_run(s, org_id, sch.brand_id, sch.samples, slot)
             result = f"enqueued:{n}"
         sch.last_run_at = now

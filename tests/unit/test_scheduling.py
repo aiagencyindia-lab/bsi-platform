@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from bsi_core.scheduling import advance, first_run
+from bsi_core.scheduling import advance, first_run, hour_slot
 
 
 def at(day: int, hour: int, minute: int = 0) -> datetime:
@@ -42,3 +42,12 @@ def test_first_run_uses_utc_whatever_zone_now_is_in():
     ist = timezone(timedelta(hours=5, minutes=30))
     now = datetime(2026, 9, 20, 10, 0, tzinfo=ist)  # 04:30 UTC
     assert first_run(now, 6) == datetime(2026, 9, 20, 6, 0, tzinfo=UTC)
+
+
+def test_hour_slot_truncates_in_utc_not_the_session_zone():
+    # A DB session in Asia/Kolkata returns 08:30+05:30 for 03:00 UTC;
+    # truncating that locally would give 02:30 UTC and a different job.
+    ist = timezone(timedelta(hours=5, minutes=30))
+    due = datetime(2026, 9, 20, 8, 30, tzinfo=ist)
+    assert hour_slot(due) == datetime(2026, 9, 20, 3, 0, tzinfo=UTC)
+    assert hour_slot(at(20, 3, 59)) == at(20, 3)

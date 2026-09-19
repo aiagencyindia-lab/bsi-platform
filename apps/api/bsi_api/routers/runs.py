@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from bsi_core import models as m
-from bsi_core.scheduling import active_prompts, enqueue_run
+from bsi_core.scheduling import active_prompts, enqueue_run, hour_slot
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select, update
@@ -52,7 +52,7 @@ def create_run(
     body = body or RunIn()
     if not active_prompts(c.s, brand_id):
         raise Problem(422, "No active prompts", "Add a prompt before running.")
-    slot = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+    slot = hour_slot(datetime.now(UTC))
     job, enqueued = enqueue_run(c.s, c.org_id, brand_id, body.samples, slot)
 
     requeued = 0

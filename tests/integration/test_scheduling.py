@@ -115,6 +115,7 @@ def test_skips_still_advance(
     assert queued == 0
     assert sch.next_run_at > now
     assert sch.last_result == result
+    assert sch.last_run_at is not None
 
 
 def test_not_due_is_untouched(owner, make_org, make_brand):
@@ -133,12 +134,14 @@ def test_not_due_is_untouched(owner, make_org, make_brand):
 
 def test_paused_is_not_run(owner, make_org, make_brand):
     org, _, sid = _setup(owner, make_org, make_brand, status="paused")
+    before, _, _ = _state(owner, sid)
 
     assert scheduling.run_schedule(org.id, sid) is None
 
     sch, _, queued = _state(owner, sid)
     assert queued == 0
     assert sch.last_result is None
+    assert sch.next_run_at == before.next_run_at
 
 
 def test_crash_and_rerun_queues_nothing_new(owner, make_org, make_brand):
