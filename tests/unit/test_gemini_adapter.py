@@ -63,6 +63,20 @@ def test_query_never_raises(exc, kind):
     assert result.error
 
 
+def test_query_never_raises_on_malformed_payload():
+    bad_raw = {
+        **RAW,
+        "usage_metadata": {
+            **RAW["usage_metadata"],
+            "prompt_token_count": "ten",
+        },
+    }
+    response = SimpleNamespace(model_dump=lambda **_: bad_raw)
+    result = adapter_with(lambda **_: response).query("q", "IN", "en")
+    assert result.kind == "fatal"
+    assert result.error
+
+
 @pytest.mark.parametrize("name", ["kids_shoes", "crm"])
 def test_parse_recorded_payloads(name):
     raw = json.loads(Path(f"tests/fixtures/gemini_{name}.json").read_text())

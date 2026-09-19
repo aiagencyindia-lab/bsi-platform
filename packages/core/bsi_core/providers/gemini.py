@@ -63,13 +63,27 @@ class GeminiGroundingAdapter:
             return EngineResult(
                 "retryable", error=repr(e), model=self._model, params=params
             )
+        try:
+            # Malformed/unparseable payload shapes (e.g. a numeric field
+            # that isn't a number) won't fix themselves on retry, so any
+            # failure deriving fields from `raw` is fatal, not retryable.
+            model_version = raw.get("model_version")
+            cost_micros = self.cost(raw)
+        except Exception as e:
+            return EngineResult(
+                "fatal",
+                raw=raw,
+                error=repr(e),
+                model=self._model,
+                params=params,
+            )
         return EngineResult(
             "ok",
             raw=raw,
             model=self._model,
-            model_version=raw.get("model_version"),
+            model_version=model_version,
             params=params,
-            cost_micros=self.cost(raw),
+            cost_micros=cost_micros,
         )
 
     @staticmethod
