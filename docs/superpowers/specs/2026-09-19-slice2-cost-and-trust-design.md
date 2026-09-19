@@ -70,6 +70,8 @@ must be confirmed on Google's page in Task 1:
 planning, and planning on an introductory price would understate cost.
 Findings report both.
 
+Price confirmation attempted 2026-09-19: Google's pages not machine-readable; third-party figures retained.
+
 **Residency risk.** The `global` endpoint gives no regional processing
 guarantee. PRD §1.2 and §11 require `asia-south1` or `us-central1` for
 tenant data. This is recorded as a risk for the production slice. It is

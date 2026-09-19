@@ -21,12 +21,15 @@ class Price(NamedTuple):
     per_search_query: int
 
 
-# List prices read 2026-09-19; sources in docs/findings-slice1.md.
+# List prices read 2026-09-19. Sources: docs/findings-slice1.md (2.5) and
+# the slice-2 spec §2 (3.8). 3.8 is recorded at its standard rate from
+# 2027-01-01; it is cheaper until then, but planning should not rely on it.
 # ponytail: marginal price at scale; the free grounding allowance (1,500
 # prompts/day on 2.5, 5,000 queries/month on 3) is not modelled.
 # A model missing here fails its observations rather than being mispriced.
 PRICES = {
     "gemini-2.5-flash": Price(0.30, 2.50, 35_000, 0),
+    "gemini-3.8-flash": Price(1.50, 7.50, 0, 14_000),
 }
 
 

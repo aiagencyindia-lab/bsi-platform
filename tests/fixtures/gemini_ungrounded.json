@@ -1,0 +1,53 @@
+{
+ "sdk_http_response": {
+  "headers": {
+   "content-type": "application/json; charset=UTF-8",
+   "vary": "Origin, X-Origin, Referer",
+   "content-encoding": "gzip",
+   "date": "Sat, 19 Sep 2026 13:31:38 GMT",
+   "server": "scaffolding on HTTPServer2",
+   "x-xss-protection": "0",
+   "x-frame-options": "SAMEORIGIN",
+   "x-content-type-options": "nosniff",
+   "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+   "transfer-encoding": "chunked"
+  }
+ },
+ "candidates": [
+  {
+   "content": {
+    "parts": [
+     {
+      "text": "Because agencies have distinct workflows\u2014often needing to bridge **lead generation, deal closing, and project delivery**\u2014the \"best\" CRM depends heavily on what kind of agency you run and what you want the tool to handle.\n\nHere is a breakdown of the best CRMs for a small agency, categorized by their greatest strengths:\n\n---\n\n### 1. GoHighLevel (HighLevel)\n**Best for:** Digital marketing, SEO, and paid-ads agencies.\n* **Why it shines:** It was built specifically for agencies. It is an all-in-one platform that includes CRM, sales funnels, SMS/email automation, appointment booking, and a client portal. \n* **Killer feature:** **Sub-accounts & White-labeling.** You can clone entire marketing systems (snapshots) and deploy them to your clients\u2019 sub-accounts under your own agency branding.\n* **Drawback:** The user interface can feel cluttered and has a steeper learning curve than standard sales CRMs.\n\n---\n\n### 2. HubSpot CRM\n**Best for:** Inbound/content agencies and teams planning for aggressive growth.\n* **Why it shines:** HubSpot sets the industry standard for inbound marketing, lead tracking, and contact management. The free/starter tier is generous, polished, and intuitive.\n* **Killer feature:** **Marketing & content integration.** If you publish content, run webinars, or do automated email nurturing, HubSpot\u2019s tracking across the customer journey is top-tier.\n* **Drawback:** Scaling costs. Once your contact list grows or you need advanced workflow automation (Pro/Enterprise tiers), it becomes very expensive very quickly.\n\n---\n\n### 3. Pipedrive\n**Best for:** Agencies that just want a clean, fast, dedicated sales pipeline.\n* **Why it shines:** If you already have separate tools for project management (like Asana or ClickUp) and billing, you don\u2019t need an all-in-one monster. Pipedrive is purpose-built to help you move leads from \"Prospect\" to \"Proposal Sent\" to \"Won.\"\n* **Killer feature:** **Simplicity and visual pipeline.** It is lightweight, intuitive, and your team won\u2019t spend hours learning how to use it.\n* **Drawback:** It is strictly a sales CRM; it does not handle post-sale client onboarding, retainers, or project delivery natively.\n\n---\n\n### 4. Monday Sales CRM (or ClickUp)\n**Best for:** Creative and web dev agencies that want CRM + Project Management in one place.\n* **Why it shines:** The biggest friction point for small agencies is handing off a closed client from the sales rep to the account manager/creative team. Because Monday and ClickUp are project management powerhouses, a \"Won\" deal can automatically generate project boards, tasks, and client timelines.\n* **Killer feature:** **Post-sale handoff.** No duplicate data entry between your sales app and your project management app.\n* **Drawback:** They are project management tools adapted into CRMs, so advanced sales tracking, email sequences, and outbound reporting aren't as mature as dedicated sales platforms.\n\n---\n\n### 5. HoneyBook or Bonsai\n**Best for:** Boutique, freelance, or design/branding agencies (1\u20135 people).\n* **Why it shines:** If your agency\u2019s biggest headache is client administration\u2014sending proposals, getting contracts e-signed, collecting retainers, and tracking invoices\u2014these platforms handle the entire business cycle effortlessly.\n* **Killer feature:** **Proposal-to-Invoice workflow.** A client can view a proposal, sign the contract, and pay the upfront deposit in a single smooth flow.\n* **Drawback:** Not designed for complex sales teams or long B2B enterprise sales cycles.\n\n---\n\n### Quick Decision Guide:\n\n| If your agency is... | Choose... |\n| :--- | :--- |\n| A **digital/growth marketing agency** wanting to sell software or funnels to clients | **GoHighLevel** |\n| An **inbound/content agency** that loves clean design and marketing tools | **HubSpot** |\n| Focused purely on **closing high-ticket B2B deals** (and using other tools for delivery) | **Pipedrive** |\n| A **creative/web design agency** where project management & client handoff matter most | **Monday Sales CRM** |\n| A **small studio or boutique agency** needing proposals, contracts, and invoicing built-in | **HoneyBook / Bonsai** |",
+      "thought_signature": "AY89a18AyyYcKXrJ05XYnO-D13xHaLciU_veRsoz2aFKD0yoJ4c0GRA5-RTOnRKMH07VZUF39UyjPZgQYWICZFH4jD7Hqul_juJn9IUxz2nL3fFm6KWC81KDZFlyjqphRDWpYoFD-ZH-4X6qUJPW-ikRsntNUgnTh7BsCcAXDbA_dySL_qusZ7Ihufr9XwOeY1hNYGVvE5rtX7lD_rZCbbyeLMh0k2Od6iQLVYuA-E-0PH3a2zPGhGthLvj1bMTQxwirk92AqEg97Cfp6X2NpPqTfDUFmTWaDM0uPjYXPZUp0GpRSgC5j9Bjb9sHiWh-g9sRblWy_n0mb3XT2rmo--K10aiDfWfr0v2R6p80DOlakFAmN--uZSnjMmXVXmobhmN0mKU0vnPmty1iN0ep-jPKJvekYiGanKEbYzfVRiaFY3C2FfzVLLXSxBQ_lDAaGOabkW-RcDR6fMKY6uH6RtXSlfpHSKWGtpQXYNixOIRwx01pHS2t2x7zcqJepN6gNjNgs2Uu85RFfe6lJh2zcYWQnpfnLnLrgBmV8W1Q9hzNWlYzPdJ__pNoGkkb_PF80wFQIwq8ht4RmjN2H9J5Z0epHE8eOx4CFVqCudGSbXWC6ijDBQ7cQLMWKLf2S09ngAEMohfxAvVN0sKhNbo4lZY0xTesiXpAnaeW6BTm4cGhLsMEjgX95jlScUs8seMNGVa5qE0Ne1tt7icy4kw38PFbbtGjEs4HIY_4xaMQV0VuJ-dsYwjy4Fwo_OTHrv0cjo1rexT84nGi6LdqBP-P5pN12CT5URVauRAyXmTsC4AfTvD-R4dHvnZYl_dROH5MaOgesRf1tyEE8yIWSXSsj1pIMDpnBusIqpDkd3OzMCz4_NdaQ1zFRFEUjzjUNFaxMIm7qdILvjqe4JSO4gKekNGMvuIuezLgXxGmK8pn3Rg6uDLYlCtOV68mOCq6DJ6aI8OpFYXUBH1BDZcjDiO0HCNmUgm4FFNLraFQtBA5aZZshh7aiSMOV3WLjB5DFl8wPltMbAgbuVo7FuNyomkSak0NUPYyn8UETvCZIHps7ZgnXFVdsGJ9I_gSNv-ZMLh8fwwWTA6oRHm0Fjw-3rOe0HlJHpbvTSicFPI_Bm8G7IaCs0WUtucH8RQD8kZRivQxEDWC2dMnEZ_pHGXhOctZ6-tm96AwxFm3AxRr1aeuN0FJOHXq8YSOW8Dw94DkxagiJEbIPQwmMUSfUw4_SG5rAUcwDwJIDtMQgqFnF-W_JOMjAsLMVrzOlpNPJFphZZOVAipScpef2UEThXQfnn4LOA9WHvp8uU8sZAesi6mtmXodn0vV7WfBBvviVdq3LkMC7XScshNr5Ws4VW5AGIbxDYID3rEsETllC-K762qaHMoCscfIdH9HCdLUek_r9iO-P1ND28c-QvyDFNfFkVLJd8ANyQRrgycJvs6Qdm_lhRiHAvz0Flll2o_xqaY448TJfxL7ZgTE6Ko1fUQ4mvJ34wiNi3TR0P7VdaXfSWEgtpDzGTvfE7RTrgDIAjL3GpRSiuts-w0qOXeOoFSv7Uw0DHhfEo1yloz2LqWOYC8tXeMkeQu7aQpDHceUbeFfit2YFJZeKt2IYnSQybXn79GkDAwQ49bK8fZHQcJLwStQ_6dJg4Ou3EsoBiYOw5R4pFnpZSP6Sivuh91AoDDOtH5YjWfE1bBg9_abbkb0T36O_s3U3oPAjeuT3v68byQee220KPVBK4VaZSSnB6OxavLN8QzdhdYKbRgJshcNx0QI8lf7oihVZNUYH4kmW813vVptMh2ZU_JnhQmfLzq2yMgJJLPaReAzaXMvgIYR3konMIDnx09YhkeeIF2p1oaHq0oOym2z8j24hv1VD0A_WWTO98x-6hkSMDWoEQiarfSsGVhNsaKarwHJ3WatjLmFW5u_iwGBnLTilNe7r-qSfmfZk_1M7ZjL-1rc9T10LJVlODOT6xekjWU6DFqiwWLyxEUtgoV0H_XRXEDDwdZwIVQtGX2X5GuuKJyQ2VgBD9Y4ILNmTjH8nCG-g2PJPdhdeAhVm_d-hztR6DnrFqvPup51F-XqbwgFK9hATe_uopCFydgCv7aruDPRwUpOU4D5QqBnvM_vxuUoMmv0KEimk-hw-klb23SQ5gxrA3MzouMLVszWVaE2lrcwzI6Gf5D0gwi8owh3c1_bEFViUztQo0CztkHmHX_jyB64ZOH8YvA7QIRpEssifm1_UEuo49u0XElopUQasLC_6PDJ99Ft5EsfMhooKCc0EheubUKmhoy2BVbxOu6SBmmDsGtqu5plepzF6oXK32ijOib7OBWEdPmfNt3Sa-v1sNiGUjfhIxxkD244QYcVvvD4J_Weue1CRlUlOiB0tzKtiQfon-E6b5A9h3HdUyacmxLWfQq9nR-pFirPMNK2Wb1U9WTFqqJ2FnNoISHPmx1QtImS5a3eoqLV7R5TNu3fKU4Yp_iwOJxR3kSDvOn48PPzUHbHhFvs51siSJPMkcekLQsgDxolvMY2SwoSNp-BIzzp4gFgObJYj_KnUcdU4rbTouJkJkgB-ldw9EPUL0y8TEX99_KWE6CpMnELvP1O33RYVv1mnIljT5tjmZ-wLn4ctjJ8LovFLUsN_AI6KP0_8WslXnMPUQxa7eGpeDn59FA_LN0PLRiImLMk7DzbXnzAmf_Lw-kt802BdH6CY61hzS54M0iiFEwATTKEEWudIMI6qcyNaZ7VBvp9j6lj43kBR6bNaxAB9lNeGK8k8s6rlzf2YFRp7fv92vcIY-cwNuu0aKwiOxvdWLdt2KL68NmyiYk26FPSL0o8-pgkkZR8SrrHK7oOFNZQW_ZyZFpk0yFlMoaI3aOpy45n6li80VMDCVj0mBgqn1fmhKZy0L7iGhwk2in-Yph4e1punjF8ShH6Pv7M8rnzeyR3FBnSXcvrMpuUaCQQGpPdAo7v_GfO0afZBSEgxGtfxH1wP_6oPeSIEC3qQLqBtU_BbEEtMGLHH2PG5neJEcqPMM-kxhjsSXnmkXqzUSw0RyLjuP5ZhmbdFtq2YBbowqufXMo5Y_0BJD5xQxS0Y85Y9D3WQMr1A7f0ELDYgNbbUTelDItlyePVvvJfhxZLJUalKC251tVPd-zVuYdlMvTszPQ8KQiGAsqDFbDWNgVpn2PX_L7DNc8f7eDWEmig4cKO9Ive5F7Q_JKhQ4BQ4W9EF6WJaUEhtF5ZjVj3PcUY1Sddi9Vk-T9tnraNpRLp591eJt3RSF5d1r9_eRM1ZEFNvreOV7i7YfhMlnDdNfdpYcORsvectivAuEeS3KWO_xC89DYmUJrMMZAaw0QzzC_TgpSBBGnjdWfLWB6hUhShWFHYY2IoQ8Ucs3lx-dHt0ZUIndc1jU97JPhCcmtLaFz4rHaP5u5FZ7rl76uFFpXOy1M_WBibjLU3id-12GQQ_swjxQp3XVLVstLr2nzSB0GjPoFEGqt_DMvKugY_nr1NWH4KsvFNqibnjj-0z1VxEfrNTQDI7Nlum99eJUNyVUnLCayoG-vUcowMDMfvwPl9sNk3_EurJ6KWeVQuaKY6xvXjM_llKlnBlV5ZxPJBEjllmHBu_xUqOSzdb4Zj1tM8CWsyOiwhaq3YCiGmpECeBs-dvjwV3buzC3-wPzTeeVHJkCqoc8VQklpPhmArc7O8hwBnRX_ZaGOBVV7RJtLhiEn4wGpplsW6nTaLu5thyEqfSn7pLcOMJYSqBaJRpsqIDal5aHltKImO02NDAmbrA9dNyuDWzNq3Ow9grtYedWwWiMkdTEHW9bDVxalKEbrTC2vV2TJQboW0Wy5S6KbgQpwX4viYFoO2jicYgxfE9JT-7d7cM1HOjHsYwncBt8_8jB7qlMTGNDrFzrKkeLyUYgG7b4SASLKNBhCndvbNn52V6Clcd5xwqZns8XedLWtnmh439XjoKZkrIQ4IlSITmtDbJ8J22xQkXGjpJZ-4wc0dMLtN9G2hYziCQFU82_WxHURqkjbzaHEL91x3tneD0Z_dp5lMkzhj_Mxy03I8StVhq94GXpkAecv3TkkOw8M8469ZLZQfhIBNvOANBONzRuO0gYNCi_NfrnNRdjjdFmO6q7dMwKsuyKqZ_kH0nG2f_GN4ZmrUObF1KEs="
+     }
+    ],
+    "role": "model"
+   },
+   "finish_reason": "STOP"
+  }
+ ],
+ "create_time": "2026-09-19T13:31:22.389779Z",
+ "model_version": "gemini-3.8-flash",
+ "response_id": "qo6uapPlF-vpjNAP7u786Ag",
+ "usage_metadata": {
+  "candidates_token_count": 949,
+  "candidates_tokens_details": [
+   {
+    "modality": "TEXT",
+    "token_count": 949
+   }
+  ],
+  "prompt_token_count": 32,
+  "prompt_tokens_details": [
+   {
+    "modality": "TEXT",
+    "token_count": 32
+   }
+  ],
+  "thoughts_token_count": 717,
+  "total_token_count": 1698,
+  "traffic_type": "ON_DEMAND"
+ },
+ "automatic_function_calling_history": []
+}

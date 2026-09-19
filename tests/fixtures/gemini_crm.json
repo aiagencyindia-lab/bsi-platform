@@ -4,7 +4,7 @@
    "content-type": "application/json; charset=UTF-8",
    "vary": "Origin, X-Origin, Referer",
    "content-encoding": "gzip",
-   "date": "Sat, 19 Sep 2026 07:39:17 GMT",
+   "date": "Sat, 19 Sep 2026 13:34:57 GMT",
    "server": "scaffolding on HTTPServer2",
    "x-xss-protection": "0",
    "x-frame-options": "SAMEORIGIN",
@@ -18,7 +18,8 @@
    "content": {
     "parts": [
      {
-      "text": "Choosing the best CRM for a small agency depends heavily on its specific needs, team size, budget, and whether it prioritizes an all-in-one solution or a collection of specialized tools. Many \"best CRM\" lists miss this crucial distinction, often leading to \"tool sprawl\" if the wrong choice is made.\n\n**Key Considerations for Small Agencies:**\n\n*   **All-in-One vs. Best-of-Breed:** Agencies must decide if they want a single platform handling CRM, project management, and invoicing (e.g., Productive) or individual specialized tools that excel in one area (e.g., Fluid CRM for sales combined with a separate project management tool).\n*   **Ease of Use:** An easy-to-use CRM is crucial for small teams, ensuring quick adoption and sustained usage. Look for clear interfaces, customizable records and pipelines, simple no-code automation, and familiar integrations.\n*   **Scalability:** While focusing on current needs, it's important to choose a CRM that can adapt and scale as the agency grows, allowing for the addition or subtraction of features and users.\n*   **Pricing:** Affordable options are vital for small agencies. Many CRMs offer free plans for limited users or tiered pricing based on features and user count.\n*   **Essential Features:** Regardless of the chosen platform type, a CRM for a small agency should offer:\n    *   **Contact Management:** A centralized database for all client information, interaction history, and relationship details.\n    *   **Lead and Deal Tracking:** Flexible pipelines to track leads through the sales process, allowing for clear ownership and visibility into conversations.\n    *   **Pipeline Management:** Visual representation of sales processes to see deal status and next actions.\n    *   **Task Automation:** Automatic reminders, follow-ups, and workflow triggers to ensure no tasks are missed.\n    *   **Email Integration:** Two-way synchronization with email to log conversations and send tracked emails directly from the CRM.\n    *   **Mobile Access:** Full CRM functionality on phones and tablets for on-the-go updates.\n    *   **Reporting and Analytics:** Dashboards to monitor sales performance, conversion rates, and pipeline health.\n\n**Recommended CRMs for Small Agencies:**\n\nBased on current recommendations, several CRMs stand out:\n\n*   **Fluid CRM:** Considered one of the best for small agencies under 10 people seeking a sharp, visual sales pipeline, with all features included at $16/seat/month.\n*   **Productive:** A strong all-in-one option for agencies wanting CRM, project management, and invoicing in a single tool, starting at $12/seat/month (with a 3-seat minimum).\n*   **Monday CRM:** Ideal for small sales and marketing teams due to its customizable templates, visual interface, drag-and-drop tools, and no-code workflow automation. It's praised for its ease of use.\n*   **Freshsales (formerly Freshworks CRM):** A budget-friendly choice for growing businesses, offering built-in phone, chat, and email functionality, with a free plan supporting three users.\n*   **Zoho CRM:** Recommended for agencies desiring extensive customization and automation without enterprise-level pricing, also offering strong AI capabilities. It's also suitable for very small businesses or startups with tight budgets.\n*   **HubSpot CRM:** Often cited as a good starting point for beginners, with a functional free version available. It's also a good option for managing a marketing agency.\n*   **Agile CRM:** Bundles sales, marketing, and customer service into one platform, suitable for teams of 1-50+ looking to minimize \"tool sprawl\" on a budget. It offers a free tier for up to 10 users.\n*   **Insightly:** Fuses CRM with project management, creating a unified platform that turns closed deals into project workspaces, making it perfect for service-based companies and agencies.\n*   **Pipedrive:** Highly recommended for its visual pipeline management and focus on detailed lead management.\n*   **Less Annoying CRM:** Praised for its pure simplicity, with a straightforward interface and transparent pricing.\n*   **OnePageCRM:** Focuses on simplifying lead tracking and follow-ups, making it suitable for agencies that spend a lot of time nurturing client relationships and pitching.\n\nUltimately, the \"best\" CRM will align with an agency's unique workflow and growth trajectory. It's advisable to prioritize CRMs that adapt to how the agency works, rather than forcing the agency to adapt to the CRM."
+      "text": "The \"best\" CRM for a small agency depends heavily on your business model: are you delivering marketing campaigns and funnels for clients, selling high-ticket consulting retainers, or bridging the gap between closing deals and project delivery?\n\n---\n\n### 1. Best for Digital Marketing & Lead-Gen Agencies: **GoHighLevel (HighLevel)**\nIf you build funnels, run ads, set up lead automations, or want to give clients their own portals, GoHighLevel is virtually the industry standard for agencies. It is designed specifically for agencies rather than single businesses.\n\n* **Why it fits agencies:** You can spin up separate sub-accounts for every client under a single subscription. It replaces Calendly, ClickFunnels, Mailchimp, and Zapier in one stack.\n* **Pricing:**\n  * **Starter:** $97/month (~$81/month billed annually) \u2014 up to 3 sub-accounts.\n  * **Agency Unlimited:** $297/month (~$248/month billed annually) \u2014 unlimited sub-accounts and client portals.\n  * **Agency Pro (SaaS Mode):** $497/month (~$414/month billed annually) \u2014 allows you to fully white-label and resell the CRM as software to your clients.\n* **Watch out for:** The user interface can feel clunky, and there are additional pay-as-you-go costs for SMS, phone numbers, and AI credits.\n\n---\n\n### 2. Best for Smooth Project Delivery & Retainers: **monday Sales CRM**\nAgencies rarely stop at \"Deal Won\" \u2014 you immediately have to onboard the client and execute deliverables. monday Sales CRM seamlessly connects pipeline management directly to project management.\n\n* **Why it fits agencies:** When a deal closes, it can automatically trigger client onboarding boards, task templates, and creative production timelines in the same workspace.\n* **Pricing (billed annually, 3-seat minimum):**\n  * **Basic:** ~$12 per user/month (lead/deal management).\n  * **Standard:** ~$17 per user/month (two-way email sync, custom templates, automations).\n  * **Pro:** ~$28 per user/month (sales forecasting, email tracking, mass emails).\n* **Watch out for:** Has a strict 3-user minimum, so solopreneur agencies still pay for three seats.\n\n---\n\n### 3. Best for Pure Inbound Marketing & Brand Authority: **HubSpot**\nHubSpot offers an intuitive interface, deep integrations, and top-tier contact tracking. If your agency runs on content marketing, SEO, and thought leadership, HubSpot is a classic choice.\n\n* **Why it fits agencies:** Its free tier is one of the most generous on the market for pure contact and pipeline tracking.\n* **Pricing:**\n  * **Free Tools:** $0 (contact records, deal pipelines, form capture, basic email marketing).\n  * **Starter Customer Platform:** Starts at ~$15\u2013$20/seat/month (removes HubSpot branding, adds simple email automation and lead routing).\n  * **Professional Tiers:** Jumps to ~$800\u2013$890/month base (plus mandatory ~$3,000 onboarding fees).\n* **Watch out for:** The infamous \"pricing cliff\". It is very affordable at the Free/Starter level, but scaling into HubSpot Pro can be cost-prohibitive for a small boutique agency.\n\n---\n\n### 4. Best for Simple, High-Ticket Sales Pipelines: **Pipedrive**\nIf your agency sells custom, high-ticket retainer contracts and you just need reps (or the founder) to stay on top of follow-ups, Pipedrive is simple and clutter-free.\n\n* **Why it fits agencies:** It is strictly an activity-based pipeline CRM. No confusing menus; it keeps your active proposals and contract negotiations moving forward.\n* **Pricing (billed annually):**\n  * **Lite:** ~$14 per user/month (lead, calendar, and pipeline management).\n  * **Growth:** ~$39 per user/month (full email sync, automated follow-ups, scheduler).\n  * **Premium:** ~$59 per user/month (custom reporting, revenue forecasting, contract e-signatures).\n* **Watch out for:** It does not handle client project delivery or advanced email newsletters; you will need separate tools (like Asana, ClickUp, or Mailchimp) connected via Zapier.\n\n---\n\n### Decision Matrix: Which one should you pick?\n\n| If your agency priority is... | Choose... | Realistic monthly cost |\n| :--- | :--- | :--- |\n| **Managing/reselling tech stacks & funnels for clients** | **GoHighLevel** | $97 \u2013 $297/mo flat |\n| **Connecting closed deals directly into project workflows** | **monday Sales CRM** | $51 \u2013 $84/mo (for 3 seats) |\n| **Simple, reliable sales deal tracking & follow-ups** | **Pipedrive** | $28 \u2013 $78/mo (for 2 seats) |\n| **Polished UI, inbound contact capture, clean forms** | **HubSpot (Free/Starter)** | $0 \u2013 $40/mo (for 1\u20132 seats) |",
+      "thought_signature": "AY89a180i1XSFcipug1T_OIox-BR_Lj6Tja507XQWp3-KKQ6R1ZOSgTbgv3si99L2PvsiNomNq7sapx7kAo3fIMGj4ajWu1zesmEfvjy-htHUpz5yLRZGL8zO6Vh3401ZKLoTPMZZ9ekcLSIQGHGrjw2Xl9Z-oLs_da_zJpTeXZG6g4phdSr72Mj9QmzzqhDDDN4ykC8O08Bp7aKA_VikjiCc9_YWAAClUpU7iy12hgoMc8wK7AvcUNV9XLBSCwZJCh3_bhyYA8GSG8-fibRWciEnd7btIT_1PSSjRhjUTQwlGLXSu9Pnd-6U46HcdObUuiL45ZG0bla9clk8NEp-u8QF4XNnxYnhp12CGK0JuIPKg7jwXKrnRaaqS5Q9MIAnVpx0e7ur7iOpM3Sc2yBO--zVPvi1RLPvL8ecHdEDLYX7H3I-7pjkm1yaDUSb8m9Dnbj7o32XB2XjESYT6jzO_dNMzMe-zRyXBJgbhWo1zSyEnsfNsM1CfcQhh7d3XGEbktfw7wxvGRMcK1kTVCE8eONDW96x3CwgthUqwSkaXu4xVSO0IqDaygaWUn3buDSAnOAwiplcDODadU8333YzgLJQLkNeB-gJ5-RNNdbtwERl2SvZgbJEcHpjtp24TgrIZ6CT1bJW5H_3wsIjjW1Lz3N5M2kdzk7W8RczI88PZHi_RO-yIF4MVu_oCRqNSlQNyLsdwYVrdqegJ4_vsmsoeKVhdEIpcmeDPdBibwUBL8OOaEdEZfMfPMQM6J7KTdFtnLQ_BpCkSYqT5HpUaBITg3lPzGcuVbeH5JSXQnu8lqdsaGUk4cvi4rfY2VcgLN9OWlwWa-2J2IOgwJxFxRDIeb4omxZej4_wVWKibXmanymvgn_rnns2O2BMZSCKLO8HsVsdb9vbEnYnRUG9fkMo7VhSfHlE5lEK8y8goQexOHeRm74LvE_7X1T7h0a_36OIczEjcwX6oxp-rglrFSC7FU74qc-c5bQllYBlN5UpfBVjl6u15onS4tO0xooKLLg_CNi_MD_aAwMguQ6irfTSAih6-iN3aebIIKk3w1yoUu41icW5ZLGINeD2GnQqNRYqb4i9wfXs2nnOOpDSGAXpKwZq_wiu7gqddCZPf1i9UKRE8xTHV-UUq7KLpOvIXxrVDIFULkHHAzbG7I4thSbJniKBPvnWIYoZxtC2vy3li5ExI6p2QqL6EqRNtenldAMv6zNo046cIV-IZI66VkP-E4iCOrU_JCZzXeLF6RNFz_VnyXxg5PYiRzY86UtZe_UbDkrqehsm3w8B_hQ4ujz5eqdbEsF-eCs0TBSQ-E4F03aWDTCoV81tTmxVBD8pmUMAk0INIP8Zr98YpaBkV4iTaDzBuArn-9mopYkspPeYXk9Fa7dehHMR4nyKEZTBxqaHFEyrMrj3zC-0ecf0Dxx5gGhlXFYCnX5Tb26ozqStVUMxldh58NQdKl8m1xTo-cpmaeGq5VEJfp3jYWLMgoczFCmQ0dOuXtFVjBFIhsRQKzF_eKBuSB4mRTGIGSAscsAdMsgJF6WWUqPZdDRqADP1zgryzDzGuic9lB7vv8sU5lZGgxctFd9yTuCca0iutaTNC6MT5_huyi4wNV5pSXUE3VXEZib0oG101Y8YGGf49aps2zkK8tPZVwzNSiaWbtePd6rFeUHp3wbxFvMi9mQ04KhECE-zx_kvWxkG9EniLPq7gUrrNfTjh8p7B-BHooBw7HNJI7aVKwvtXhW_ve_RHfB1Zo-kllYXfGEoanIMUs-NdKTvnfZVZrjtY91aPWxc04p-SJSGEWibBOH6MXQ33GrgHhKDHrjW99tqefgwj7Aulv-PN73JE3uu-n1qh5st3_P8-mfBsEVL-ARvNZMr3Qj5MDu-k8TV4gOGD0cJzqH9L7vkpicZhp9wV61CqwEdl67k47GJ6HekRSzETAvP-xByBJ8d-A_k9e3EcfxWmqRquwcCPFVCyT3rPCg3OqKPMnVrPNoTeSm1hJ4wguR1FausmBw6TA1_BmSG8pYzOIaEBKd9cMN3e1tOY-UudSpS54ibx6ZAb6RM9nixINdsZl63_L_9rP6q2uLnIYECWPeSAGEioc8AETzgJczy2u54XYAiQhvUaJDL8QVmx8RtgSNC-5R-wfoIhd1vV1PzUc3mNPyDOCBaXZNyw0rDcxbFt8CqF7OpXfFpw_xtpzNZz3lh5VKWct0X0mKhTqj9k0bi8x5j8EaBn1G8QChMFBgtzHzVsqak9e854Wvun-fmpUUWS05YxytPJFuQq2-4kRluHlAU5x2sPX-zEKAmkD4x_Jqauu1gs3f21ngWgt3wzf-1lI3pMB86FX4s3oH3lUcD8a6hsAc27v6RF54WnCG3mgLTuHxWotVjMaFFrgEwgvwQqqnjxstxzdGvDKP83CHdaoesvv3SBdAzX46mOm8EV7Jqy0mHteZeV1N4H1FH-AH3DM7mktSOdHPYJGNT1JPffxT5hqlU5zmYdibmErvFSPEGtWEvN3VmXm_4Z4ZkP-GKyPI0KwPfLTXFOCYleKZJTYaYpDrQ0_ASjRHBAwgq0wCh3rvXGuaJULa3vVlemLRr0jtiVa8R4rlHe5y95jI9lc5jBSJ6gM8kupYhXHm1fJrYLz9ZC_B0HrkqcOSX-rhuDzirfhaall02afRMYF7fpmLY47uvCErHTKW9YoR81vv68q8ixNoikpIl9nH03kw9W4Yi0Ov0-HgmAeAhe7S_Q31_yWLB7mbnsKHXbphwyMTGLTo7N7x3Vi8Mx65x6iRY83cdRLwEkoE609St8mht_WeVDKEfucSujpa1nx5uzRonRJddlH6Pmffx17Zp7-O10ju-KiuTIVx89OQNNWIomwZgBgSo5gEAPJ5YbOOojJhZYybShhiylYOX76rIR8Rlc7xhYG3WmOWv6jm3QqzTfkCSjCqWEwsaEtCttqbNx4sgdokcnwvywyN6qGuo5U_Ewj-lVrTreJ1_OOme7JlFbPyya29UAvhYu70hKoCDBwVuF6NiVhXCSI14c4FdBP1OXmffVQ7TJBDnFVeesbF8HFh29Q0f-xzu8I4zANNuusZ_AmWKWKtTX9FbqZp9FMbCSLzbaEgxCbGEbVW4w0AteBFSBppbZo9mi3VV3lEIuwX0LQUlLWcRv2GbSucZzi4KTeEQzkH3s__1uce513Ccl-xdmUlTzt_GC9YbgSnAQ8Y0mrKqq7ohOhvaseZKRVWU4bhz47pCQ7XA5YGBiZCEHUwIPk3_zoD_7b_fTCA5P9JuDW9-UwdM0PlVS1dY9tW6wNBR_8KaHX-kUN8WFhs9fZg7JgFCJuol-vFkipTnd3pWqX6lpfrukb8AEmEaOFrrOjrVGpu7jEUHd0YpAqMDg7QPJjNKKaRiP8FED6b8hEVkyjDoWzFrA2rKFbC4z87VTCFAmzJqoyt-etNopi8Xkx8wNO5u_t5pb-tKONiJ3wzTvAF_EDAgWer9I7VI5_vM4z9isWfcEn2Lw6teu-bXebhyMEAg3eRJ4v8vXRPeMyQa99wR-cSGgt76A5oxEwO2nvNFZvIxrblwbab_kqmyaDzByRwOSqCL2CNLLJ322GmdHDyyCOOmpHlJnnyJl2SR-jSx7M_Ns6hWYF-U2AuKRbexFpKclHBOa-LatvtFbcVtlER7Zvr7IdpcSlq_dqqTSR8tbwVg2p2pVCR0QYlOow31dxwwDGVa9qwaTGWw38H6H_OxSToUrLM8ktaVA_3wmwxCmDEiChBpN9c7um8YZAen-sbt2KqgrMCrtHEQIMuJuXruFTA9BkO3IrBwKJlJAGEZB_YhhKUu0-I0535Y8QYl9MUrQEsfYiKhlWYRXWoL2B1tRSs-9oQbfcjy9-EO8YtZ0AcL5_JkvjdF9hy5rHUG-5fqMC593xmRGZoEUP1e5kM9_ORyNrj-qXBllLKOc2HL3-8AVn7PpVTgqqFuvTxxun99WeUVUnB3E1LFfXkmnxm0-hXJHoKFeKBTtGnkGj2Lo757quUsVtGH1KSwPoEMI12tKG7E7LmDdjoYAPFVdPlUx8DRLtLqc1fIkm6i2Qn60YfVC5u4VhHhABQwqBYNRfAerJMjrCRZvEQ0Y16xEVGtLFmWn2s5EeCXD6JofBi8j3y0_syQhcmnrpOujG4kE7_ByatHIa_Hbfr9mrj5SLxzcEa4q8GWhwlMjKYw-BQZq-_Ctp25x9G_Pm3Ppla-hldvGBDOT3MlqVkCCIkCj_GhyF6qJg1B2uU-z23Nnygq5uzNBuqfS0CKUnilYAIRmNdx_3h_C_nHaf2fgk9H8O01r57Gweij946wy4vMT3jkqQxQ-i5MbhC1WBns5UvcF5R7m6n_t3n0cNvCtUoUexm4L3Wa1RaF7m0jcUgNDvYt5wVOS2hSdECGFFzicdL2gvJ4jN-l0nIJSeg8hgMERXS6KvsmYXf77aEUOXmtwenEBRCW1cYaGNfpe6ihuecF0be_8gNEZcd_zw8dva3bAJZxf2MiRMVNok17mis6HCawS9cIJ-EZY63AABgjWlj2VUgY3tTIRUlrWCTd3bcw-zCd98eg6yXU1h-gdbLtoJrmt9kW9MT5Dg1BH40Eg_Krql-x9cWMzfj6IWCspwxVNjBwi7_RCne-_iNTSzWa-pSMNzc3t26xvdpjc62hBEtOvoUxlD6E0AQRmJtIYV7nM_gyXICnjpjLgYfa-h1M9jZMRJF7OalA750_RQFwg3d8Cuu7Pmy--QqYUl2_X9al719F1xYwPPVl2LfzoKJrjnTRdmqYweEmt-aXeylFsZI64xXdk4sQgeOlexjFZvfsDl6JTMNS7ZcEIzANXJBA0rS78GpX6CNMHWYWqRaCYA1bJac2wMkAl5ftTHUkZfc3EGLAxAlXNHIc7Ju1bcEYH2E"
      }
     ],
     "role": "model"
@@ -28,153 +29,115 @@
     "grounding_chunks": [
      {
       "web": {
-       "domain": "fluidcrm.io",
-       "title": "fluidcrm.io",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE98GirniIk67LpEITtIZWnNt5grO3aFI0Gs5LqbZicoIhKVeha73pfxWhUnb9YfJVBNSVf0D-xT4dsWDd_XKQOI3MI12OT5dLrlM6hIZHXFCdx9N5lijkqstsRSnvPygpgHtHeERW5dz7lXw=="
+       "domain": "saleoid.com",
+       "title": "saleoid.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFhSMyGuhLud008GzLVoZglhZg6LnVXtcHUyM9rCOTvBQGY6IIgxV2XvJ-i58Pl6R4uG4y8IIRc8uUM3kzxRFjke9UNUrAOD2z1h_Gf8k6PVY2Hzw2kVAZ84iey2mn81OQjicFxkbRMVA=="
       }
      },
      {
       "web": {
-       "domain": "officeatlas.org",
-       "title": "officeatlas.org",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHYdV9c-10dLVd3HmjKXOVc5WBEHylXZd8FmdhDaqInwZcLmORhjlQsw0wVbawwiwUrHatnE5iuzDFd1sTysa2wZEcZhXWKy7wRRpJn7RLF130BQCmdkleVzVUpBe8OK9hN-vHZbQWAoHt0aSzeTdb9QWRZHmsYIWYnaXUm"
+       "domain": "ghlcrm.me",
+       "title": "ghlcrm.me",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFqFbkp4dhNPWvLvUX9V4-8ridptbDP2AVcx57X1TAnmNfCwwE_rE29TuQ-XXBIYVUPxR8r2-p6dGJFehoXSwQsiVUdE1LIFpZvKoXqmO2L6mAP5QQ_PUgSL4dWL7tx3TfSY-neymfd"
       }
      },
      {
       "web": {
-       "domain": "nethunt.com",
-       "title": "nethunt.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGmrGD_96vSdEnu9x2lC3NsRE20Q3-4vPdtUqPs1A-5FFalD7E3NWcAJQghg7BqiU6IYAbI4yJIol3-q7FFiu2UWJgxWNwyHuUrSWLe9F2mK2fb1UYxhLgvh3V22GNLo7g32xwkDhDrRWRLcrUN5w=="
+       "domain": "ruzuku.com",
+       "title": "ruzuku.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEaYXNe8MSrUZsuRSbMHEPocD1HCzB9i2krEnyajzlIOh_-4phV7jQrjcB95gSBKkVhg_xreoo82-Utr3PSW0hfWSHDVt2atCzLZNuegB03AJZZyVtXs08WQt9kXcQ5dVndOer5vxszuuThEGIX"
       }
      },
      {
       "web": {
-       "domain": "nutshell.com",
-       "title": "nutshell.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG51eIQtAaE7ZX8sdJGDXu3Y75mFVNsmqEX8_NPtfxJC1Ht79SWVc6BPZNwlWIMEpqyI3XEEoxGsq1AHfkvyCnPiH8EuYR5mEU5TDynDtb1w9q1e39210T8I4OhounkSamNzYo3IpmrUs0="
+       "domain": "ghlexperts.com",
+       "title": "ghlexperts.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG0QWl_-TDVRYx60d0Q44u_u2QX3oC6pEX3wcML1Z8XREv17rTqIC-TlNWNdgY_ZDNcAMwQHnRxsrasHxzrWhqOZzW_uoyGnnkza5-F948GDlsVeZz3UbmdqY9-4s3vT90-bKxpi9YVobpXqoz8G6I="
       }
      },
      {
       "web": {
-       "domain": "salesforce.com",
-       "title": "salesforce.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFm597N_Xf9vl85_-aVvlRzvxvwEoymAcXfcc3o6-2nt5bMMroykz3kVmndX500WsUQdSSl9JAT1wG88ifqui51Ml6qE0-dvjc3INjAVT9dXTqlhZp17Wn6BznFHIdm_1WRkhk="
+       "domain": "saaskart.co",
+       "title": "saaskart.co",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHknqo6GTJVu6hXVUIcDtNfd8q6hZBZlDv8VTKLDDo0gbb2ObOhC3NVMUIoJCfa407x_ddQcVEd1QF0ZeFtwbBk4w-1hYUx7Oj34nTqrVi_P57J3dZYyIoas8P2GOpgKLrtgWMwz1_WEISNeHBcvF9Wcb2zqGY4XyQLSnFusoQlqsmDFZZsHHY="
       }
      },
      {
       "web": {
-       "domain": "uschamber.com",
-       "title": "uschamber.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFuM9j-AAFSE_gcWMUBID0B60F3ovc57D5P5Fb30LyrYZqzYOYELQ7ijvEdRoSzbVk7K3ipjs_RPJwzigWXGeWaYSiQKFC8obScUKvu_Oopg_ElsKNvnvF7Ixsp5h2zJwNLdK56apfT2QaBVUVP1-kIYVosvqYLRGdN"
+       "domain": "crm.org",
+       "title": "crm.org",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEoGKLEpBDm5Zxw_pfBXb9NlyCIHpCUOYz3V7rpSmZb45vhDOJE5Y1gqfTVcel7aX2Be4C9ZiR5L9o1KHzVCXM3vcMHEDZAej8qjcyFvm-0jdwj7jNS_qRofFkBk6xaOOTk"
       }
      },
      {
       "web": {
-       "domain": "monday.com",
-       "title": "monday.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQG9VvFzK8lxIVOA9gViY8yZsHXh86-41WeZiJUZA7BXiGfd1SGcINh88htDjLCqQtysbdWvJtfL_XOXBL9B4mBPvWJQHZz9gAtlgQ_YO4vVi7X2idM5YDpe7HxDvDW29xUomUWYrhKDoCYp0KQmGY9XR4Sp23Wfc1IQG65vZb44URc-Vnd1aBcuHpAz-Bw="
+       "domain": "aspiration.marketing",
+       "title": "aspiration.marketing",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHic6ntPqC9_nYWj75owExYGF_XIJ3_K_2atN83Vj0cuHxRYx5OziEPTbhSB1seaf4YLbKELXNfit7RnUKnoaSVG48mLy1PsTsDfRy609gMwSd-wpqxur0OJcgZRx80re4P8HNmkaEGE9_Fq2l53EBsFz7OJAGKZlP7_G1c3ktpi36C_6ZdBSPIb54u6hFLyMTnCBkxJBSF6zs-"
       }
      },
      {
       "web": {
-       "domain": "omega.ac",
-       "title": "omega.ac",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHSOR1AEQrQ669VlFY9hd7pMhpZJlTStjXMeo9w0vGp_nTXZU7wbFxI8WgsI8mixIyDaMfqsiyMGCP4Sv5EJSmmwaaDSzZ_o9VnJquO23KMCVs8afzTM_t0vcWm-vGzZLLbDciCZ4k1hocR_HBD9xuedFtpQg=="
+       "domain": "sidekickstrategies.com",
+       "title": "sidekickstrategies.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHkcKl3o5BRP6WpMMJG-aFbWihBBp57ycFHibLXJ2FAE_sxWbaDLe0lRWXTkeL4UdqCA6XNtFysPSy_LbxtmPpYGfE1fmbKQ395fyx-U6B83-4uhQjmxy19OPdUi0690HwOKx_PGiXNslAUFA-iO287oE49gVd4yHss5WMAUJW91A=="
       }
      },
      {
       "web": {
-       "domain": "nutshell.com",
-       "title": "nutshell.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHMfkm_yv65cqPIGnOPo_PRVdXAIDux_wAJqMd6urzAER4lHgrUgEg7gpANDq8Yjx4ziB8usC600995xb6_gINnWO4Lv6OMq5E1babyIHI3jLOuwIdPpXUU6xFHF3a_7OYGj6dc1vVonR8oLqX21hsWkYd_pfhPtn47sp9-QF0v9yh3gHo6"
+       "domain": "tinycommand.com",
+       "title": "tinycommand.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHEs8DMhAg6jyWdQwon-yV8ipMqlSZ4ZvG8vLAGI7n0S10w7aNea-jno2LLynYGQ1RMRLjPB9owDFFZbA352Q505pqfwcEyqSPhfxcV5w9A0dWbYs6yRJJ_FxkQ5lbRouRyTmiU6jCJTvqLUM00HLdMQtU="
       }
      },
      {
       "web": {
-       "domain": "productive.io",
-       "title": "productive.io",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFH8cGFtiARM7csfRO8ml0KEdj9WQveTLSd2G9v1zxtdcIfarSfSgiY6a2jS-bEWtGlm0YU8_eFyOQ4680_fVL-BWJokhBXnCe1BISj_6TiMCCuLqLZP9mToaSnB-jg2_Pj-h1iAhP9"
+       "domain": "forbes.com",
+       "title": "forbes.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGf5tL-iCYUQRZWb3G6st33khle99h7-2z-pqasKipKPw2uINFcpqLv10zxdUSuAGnhVlrvoXeZEcGpJ1YUVKPAX0Nz-7Yu8UDPnxHuKFMHW68OSIK1DM4p4FTGQZ1-3iLcxi8I_Y2EI5K9mdqsJesji4XuYMW1cA=="
       }
      },
      {
       "web": {
-       "domain": "expertmarket.com",
-       "title": "expertmarket.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHLf_3By7LVmIdEjCrUQtrtdA-nPv1dd5bI2uo0Q6JbHF-mazF93ubja-LVcVH6WDWp6CjDP923whKQkH2RucR9nvlaECrGQ0P41hrYFa1jjA7FKfjdWivByWGIa2oj2-wJCezTFMEoE2zcDwbryMoD77nytJbE1d56bVSVY5M5G0Y="
+       "domain": "tropicapp.io",
+       "title": "tropicapp.io",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGpsKcCfrOq8DFvnsWAKyVGDOf0Rc4HiAa15gmJmGy6KdRaiV2hf_8RY5aVcYrc0xgKJlf7GAUWV5C9jD2TMW5KTsTY5iWoLurtWNQR-TSAjJw7Y8Y6luVhsW3edLdKIVyx2wf8ynO0gNbp"
       }
      },
      {
       "web": {
-       "domain": "campaignmonitor.com",
-       "title": "campaignmonitor.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGEMNnHIm5O7j3Jd-DcNEwrl1kbyBN_U_tEV0PTXYLlHDyJZ1BM28xndGhgb7ZC7016PGP_d-KEMjcCaFmEp2_kttKP-7-4s4-OeiGg0pDKBAQzkQzz-Wx8hc1K_OTi03v3izF3cld9Ht8HLnyJd9GWdC6CQrfKxFdfmnGmul1knMM="
+       "domain": "axisconsulting.io",
+       "title": "axisconsulting.io",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGe16Hx2C1LowCysFH6ri45GyOy8MDk95ZtPXM2cq1VPYreZVAisuAyRgAapGD0UlbLONnvLLIBurZjFYB6rZZ1NKPbk9Kpa-lOgO5aT7_rGHjqzf1jqO0evY1WUg5pSdqWncbGsbE48B7pIN5G"
       }
      },
      {
       "web": {
-       "domain": "instantly.ai",
-       "title": "instantly.ai",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGGrbx2rb5W2P7KkRe5uBpUmLo5QP0qs9XrkeDUZs2rEFHiWeq95BIOh7FWd3ToA7II1Dyf8I0on5hPRbYuLwdB0Hx99dqNlO8o-qEmUYzJyN1uMQ_x7JvdCNlQrC6zDPHykXVgEGy_nNX8kg3P"
-      }
-     },
-     {
-      "web": {
-       "domain": "slack.com",
-       "title": "slack.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHZ6NinUyThZVJ0bxuC9sp_mgcZd_ErgMAi9hpk5wLtrYsqgDW3If7-wk3M1SU1D_ruilB3Gv8w2XtsGKtRIOLtuof8Im-ZaO7EY1AHtezO8wX6nOJvCONE1WRjdcJgkrIC3Fkf0szQt-TdsBZXkbgQUw=="
-      }
-     },
-     {
-      "web": {
-       "domain": "reddit.com",
-       "title": "reddit.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEske2M0lSHi8mPKbMylvY56UH6RyMjKED6JdC9VI3NL-YT3jJczMYSwPHcgp-QSN42rkugnT_uOZNFywCh6nHn0Gw1m5Y6XIlRXzYUbTGFum1GpEgsr5QEZqOGz7x704hLZXfH9cDMiVQ6zstvQn-AGSlyXqTswRoZ5WXxgCdW3JfFA0yI3iZxNeIb3_WT1kTErIi6F0KhIYfShA=="
-      }
-     },
-     {
-      "web": {
-       "domain": "onepagecrm.com",
-       "title": "onepagecrm.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGMSw2jS4Ksye7mRF969VlEWbuuOWEUF_ccPDe9nANNCsrkv-srjTPyk0Iry4XIVakvy-gnBE_facL5w1leW-hH2nSJjruAcSVWUTNguzQ6d5KeOi2-YA=="
-      }
-     },
-     {
-      "web": {
-       "domain": "onepagecrm.com",
-       "title": "onepagecrm.com",
-       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEaLA1hme9o3n0pgzotOLmxru-chLRZNxpsWUndWkKsr6sKDIGKXUDxrYjCKCHr92S1nLd-Wn_O6-eEhu8ZL25LIpBD7bQv3m3ArtBVD5acspjiesD0sUlUhNgEwXsk4MyjIUt7hWQY_SWKLg=="
+       "domain": "zeeg.me",
+       "title": "zeeg.me",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGWFFjUrpUKqwMhy-iz82puKXf6oPFl-RrtG9oVVuLjDaete9w1dCro8zrjgb3-NhVaO8UveXvNNzujgUVij9xQFs4Y8NTvo2VpIL52E0kk51p2wEMwdSiKXASKrjGja4fb4Ndr-N09u-o="
       }
      }
     ],
     "grounding_supports": [
      {
       "grounding_chunk_indices": [
-       0,
+       0
+      ],
+      "segment": {
+       "start_index": 493,
+       "end_index": 563,
+       "text": "It is designed specifically for agencies rather than single businesses"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
        1
       ],
       "segment": {
-       "end_index": 185,
-       "text": "Choosing the best CRM for a small agency depends heavily on its specific needs, team size, budget, and whether it prioritizes an all-in-one solution or a collection of specialized tools"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       0
-      ],
-      "segment": {
-       "start_index": 187,
-       "end_index": 298,
-       "text": "Many \"best CRM\" lists miss this crucial distinction, often leading to \"tool sprawl\" if the wrong choice is made"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       0
-      ],
-      "segment": {
-       "start_index": 366,
-       "end_index": 633,
-       "text": "Best-of-Breed:** Agencies must decide if they want a single platform handling CRM, project management, and invoicing (e.g., Productive) or individual specialized tools that excel in one area (e.g., Fluid CRM for sales combined with a separate project management tool)"
+       "start_index": 566,
+       "end_index": 676,
+       "text": "* **Why it fits agencies:** You can spin up separate sub-accounts for every client under a single subscription"
       }
      },
      {
@@ -183,9 +146,42 @@
        3
       ],
       "segment": {
-       "start_index": 748,
-       "end_index": 863,
-       "text": "Look for clear interfaces, customizable records and pipelines, simple no-code automation, and familiar integrations"
+       "start_index": 750,
+       "end_index": 845,
+       "text": "* **Pricing:**\n  * **Starter:** $97/month (~$81/month billed annually) \u2014 up to 3 sub-accounts"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       2,
+       3
+      ],
+      "segment": {
+       "start_index": 849,
+       "end_index": 959,
+       "text": "* **Agency Unlimited:** $297/month (~$248/month billed annually) \u2014 unlimited sub-accounts and client portals"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       1,
+       3
+      ],
+      "segment": {
+       "start_index": 963,
+       "end_index": 1116,
+       "text": "* **Agency Pro (SaaS Mode):** $497/month (~$414/month billed annually) \u2014 allows you to fully white-label and resell the CRM as software to your clients"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       2,
+       0
+      ],
+      "segment": {
+       "start_index": 1118,
+       "end_index": 1258,
+       "text": "* **Watch out for:** The user interface can feel clunky, and there are additional pay-as-you-go costs for SMS, phone numbers, and AI credits"
       }
      },
      {
@@ -193,42 +189,61 @@
        4
       ],
       "segment": {
-       "start_index": 865,
-       "end_index": 1058,
-       "text": "*   **Scalability:** While focusing on current needs, it's important to choose a CRM that can adapt and scale as the agency grows, allowing for the addition or subtraction of features and users"
+       "start_index": 1714,
+       "end_index": 1762,
+       "text": "* **Pricing (billed annually, 3-seat minimum):**"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       4
+      ],
+      "segment": {
+       "start_index": 1714,
+       "end_index": 1820,
+       "text": "* **Pricing (billed annually, 3-seat minimum):**\n  * **Basic:** ~$12 per user/month (lead/deal management)"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       4
+      ],
+      "segment": {
+       "start_index": 1824,
+       "end_index": 1911,
+       "text": "* **Standard:** ~$17 per user/month (two-way email sync, custom templates, automations)"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       4
+      ],
+      "segment": {
+       "start_index": 1915,
+       "end_index": 1994,
+       "text": "* **Pro:** ~$28 per user/month (sales forecasting, email tracking, mass emails)"
       }
      },
      {
       "grounding_chunk_indices": [
        5,
+       4
+      ],
+      "segment": {
+       "start_index": 1996,
+       "end_index": 2095,
+       "text": "* **Watch out for:** Has a strict 3-user minimum, so solopreneur agencies still pay for three seats"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
        6,
        7
       ],
       "segment": {
-       "start_index": 1126,
-       "end_index": 1221,
-       "text": "Many CRMs offer free plans for limited users or tiered pricing based on features and user count"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       8
-      ],
-      "segment": {
-       "start_index": 1223,
-       "end_index": 1458,
-       "text": "*   **Essential Features:** Regardless of the chosen platform type, a CRM for a small agency should offer:\n    *   **Contact Management:** A centralized database for all client information, interaction history, and relationship details"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       1,
-       8
-      ],
-      "segment": {
-       "start_index": 1464,
-       "end_index": 1619,
-       "text": "*   **Lead and Deal Tracking:** Flexible pipelines to track leads through the sales process, allowing for clear ownership and visibility into conversations"
+       "start_index": 2110,
+       "end_index": 2260,
+       "text": "Best for Pure Inbound Marketing & Brand Authority: **HubSpot**\nHubSpot offers an intuitive interface, deep integrations, and top-tier contact tracking"
       }
      },
      {
@@ -237,9 +252,44 @@
        8
       ],
       "segment": {
-       "start_index": 1625,
-       "end_index": 1730,
-       "text": "*   **Pipeline Management:** Visual representation of sales processes to see deal status and next actions"
+       "start_index": 2363,
+       "end_index": 2485,
+       "text": "* **Why it fits agencies:** Its free tier is one of the most generous on the market for pure contact and pipeline tracking"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       7,
+       8
+      ],
+      "segment": {
+       "start_index": 2487,
+       "end_index": 2595,
+       "text": "* **Pricing:**\n  * **Free Tools:** $0 (contact records, deal pipelines, form capture, basic email marketing)"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       7,
+       9,
+       8
+      ],
+      "segment": {
+       "start_index": 2599,
+       "end_index": 2737,
+       "text": "* **Starter Customer Platform:** Starts at ~$15\u2013$20/seat/month (removes HubSpot branding, adds simple email automation and lead routing)"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       10,
+       7,
+       8
+      ],
+      "segment": {
+       "start_index": 2741,
+       "end_index": 2840,
+       "text": "* **Professional Tiers:** Jumps to ~$800\u2013$890/month base (plus mandatory ~$3,000 onboarding fees)"
       }
      },
      {
@@ -247,39 +297,71 @@
        8
       ],
       "segment": {
-       "start_index": 1736,
-       "end_index": 1845,
-       "text": "*   **Task Automation:** Automatic reminders, follow-ups, and workflow triggers to ensure no tasks are missed"
+       "start_index": 2842,
+       "end_index": 2891,
+       "text": "* **Watch out for:** The infamous \"pricing cliff\""
       }
      },
      {
       "grounding_chunk_indices": [
+       7,
        8
       ],
       "segment": {
-       "start_index": 1851,
-       "end_index": 1979,
-       "text": "*   **Email Integration:** Two-way synchronization with email to log conversations and send tracked emails directly from the CRM"
+       "start_index": 2893,
+       "end_index": 3022,
+       "text": "It is very affordable at the Free/Starter level, but scaling into HubSpot Pro can be cost-prohibitive for a small boutique agency"
       }
      },
      {
       "grounding_chunk_indices": [
-       8
+       11,
+       12
       ],
       "segment": {
-       "start_index": 1985,
-       "end_index": 2074,
-       "text": "*   **Mobile Access:** Full CRM functionality on phones and tablets for on-the-go updates"
+       "start_index": 3037,
+       "end_index": 3263,
+       "text": "Best for Simple, High-Ticket Sales Pipelines: **Pipedrive**\nIf your agency sells custom, high-ticket retainer contracts and you just need reps (or the founder) to stay on top of follow-ups, Pipedrive is simple and clutter-free"
       }
      },
      {
       "grounding_chunk_indices": [
-       8
+       11
       ],
       "segment": {
-       "start_index": 2080,
-       "end_index": 2191,
-       "text": "*   **Reporting and Analytics:** Dashboards to monitor sales performance, conversion rates, and pipeline health"
+       "start_index": 3434,
+       "end_index": 3466,
+       "text": "* **Pricing (billed annually):**"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       11
+      ],
+      "segment": {
+       "start_index": 3434,
+       "end_index": 3542,
+       "text": "* **Pricing (billed annually):**\n  * **Lite:** ~$14 per user/month (lead, calendar, and pipeline management)"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       11
+      ],
+      "segment": {
+       "start_index": 3546,
+       "end_index": 3630,
+       "text": "* **Growth:** ~$39 per user/month (full email sync, automated follow-ups, scheduler)"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       11
+      ],
+      "segment": {
+       "start_index": 3634,
+       "end_index": 3731,
+       "text": "* **Premium:** ~$59 per user/month (custom reporting, revenue forecasting, contract e-signatures)"
       }
      },
      {
@@ -287,63 +369,9 @@
        0
       ],
       "segment": {
-       "start_index": 2295,
-       "end_index": 2460,
-       "text": "*   **Fluid CRM:** Considered one of the best for small agencies under 10 people seeking a sharp, visual sales pipeline, with all features included at $16/seat/month"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       0,
-       9
-      ],
-      "segment": {
-       "start_index": 2462,
-       "end_index": 2637,
-       "text": "*   **Productive:** A strong all-in-one option for agencies wanting CRM, project management, and invoicing in a single tool, starting at $12/seat/month (with a 3-seat minimum)"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       5,
-       10
-      ],
-      "segment": {
-       "start_index": 2808,
-       "end_index": 2840,
-       "text": "It's praised for its ease of use"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       5,
-       10
-      ],
-      "segment": {
-       "start_index": 2842,
-       "end_index": 3032,
-       "text": "*   **Freshsales (formerly Freshworks CRM):** A budget-friendly choice for growing businesses, offering built-in phone, chat, and email functionality, with a free plan supporting three users"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       10,
-       11
-      ],
-      "segment": {
-       "start_index": 3034,
-       "end_index": 3195,
-       "text": "*   **Zoho CRM:** Recommended for agencies desiring extensive customization and automation without enterprise-level pricing, also offering strong AI capabilities"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       12
-      ],
-      "segment": {
-       "start_index": 3197,
-       "end_index": 3272,
-       "text": "It's also suitable for very small businesses or startups with tight budgets"
+       "start_index": 4014,
+       "end_index": 4140,
+       "text": "| Realistic monthly cost |\n| :--- | :--- | :--- |\n| **Managing/reselling tech stacks & funnels for clients** | **GoHighLevel**"
       }
      },
      {
@@ -351,19 +379,29 @@
        2
       ],
       "segment": {
-       "start_index": 3274,
-       "end_index": 3387,
-       "text": "*   **HubSpot CRM:** Often cited as a good starting point for beginners, with a functional free version available"
+       "start_index": 4014,
+       "end_index": 4163,
+       "text": "| Realistic monthly cost |\n| :--- | :--- | :--- |\n| **Managing/reselling tech stacks & funnels for clients** | **GoHighLevel** | $97 \u2013 $297/mo flat"
       }
      },
      {
       "grounding_chunk_indices": [
-       9
+       4
       ],
       "segment": {
-       "start_index": 3389,
-       "end_index": 3444,
-       "text": "It's also a good option for managing a marketing agency"
+       "start_index": 4014,
+       "end_index": 4281,
+       "text": "| Realistic monthly cost |\n| :--- | :--- | :--- |\n| **Managing/reselling tech stacks & funnels for clients** | **GoHighLevel** | $97 \u2013 $297/mo flat |\n| **Connecting closed deals directly into project workflows** | **monday Sales CRM** | $51 \u2013 $84/mo (for 3 seats)"
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       11
+      ],
+      "segment": {
+       "start_index": 4014,
+       "end_index": 4386,
+       "text": "| Realistic monthly cost |\n| :--- | :--- | :--- |\n| **Managing/reselling tech stacks & funnels for clients** | **GoHighLevel** | $97 \u2013 $297/mo flat |\n| **Connecting closed deals directly into project workflows** | **monday Sales CRM** | $51 \u2013 $84/mo (for 3 seats) |\n| **Simple, reliable sales deal tracking & follow-ups** | **Pipedrive** | $28 \u2013 $78/mo (for 2 seats)"
       }
      },
      {
@@ -372,116 +410,55 @@
        7
       ],
       "segment": {
-       "start_index": 3606,
-       "end_index": 3646,
-       "text": "It offers a free tier for up to 10 users"
+       "start_index": 4014,
+       "end_index": 4473,
+       "text": "| Realistic monthly cost |\n| :--- | :--- | :--- |\n| **Managing/reselling tech stacks & funnels for clients** | **GoHighLevel** | $97 \u2013 $297/mo flat |\n| **Connecting closed deals directly into project workflows** | **monday Sales CRM** | $51 \u2013 $84/mo (for 3 seats) |\n| **Simple, reliable sales deal tracking & follow-ups** | **Pipedrive** | $28 \u2013 $78/mo (for 2 seats) |\n| **Polished UI, inbound contact capture, clean forms** | **HubSpot (Free/Starter)**"
       }
      },
      {
       "grounding_chunk_indices": [
-       6,
-       13
+       7,
+       8
       ],
       "segment": {
-       "start_index": 3648,
-       "end_index": 3837,
-       "text": "*   **Insightly:** Fuses CRM with project management, creating a unified platform that turns closed deals into project workspaces, making it perfect for service-based companies and agencies"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       10,
-       3,
-       14
-      ],
-      "segment": {
-       "start_index": 3839,
-       "end_index": 3949,
-       "text": "*   **Pipedrive:** Highly recommended for its visual pipeline management and focus on detailed lead management"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       2
-      ],
-      "segment": {
-       "start_index": 3951,
-       "end_index": 4067,
-       "text": "*   **Less Annoying CRM:** Praised for its pure simplicity, with a straightforward interface and transparent pricing"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       15,
-       16
-      ],
-      "segment": {
-       "start_index": 4069,
-       "end_index": 4242,
-       "text": "*   **OnePageCRM:** Focuses on simplifying lead tracking and follow-ups, making it suitable for agencies that spend a lot of time nurturing client relationships and pitching"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       1
-      ],
-      "segment": {
-       "start_index": 4245,
-       "end_index": 4337,
-       "text": "Ultimately, the \"best\" CRM will align with an agency's unique workflow and growth trajectory"
-      }
-     },
-     {
-      "grounding_chunk_indices": [
-       1
-      ],
-      "segment": {
-       "start_index": 4339,
-       "end_index": 4459,
-       "text": "It's advisable to prioritize CRMs that adapt to how the agency works, rather than forcing the agency to adapt to the CRM"
+       "start_index": 4014,
+       "end_index": 4507,
+       "text": "| Realistic monthly cost |\n| :--- | :--- | :--- |\n| **Managing/reselling tech stacks & funnels for clients** | **GoHighLevel** | $97 \u2013 $297/mo flat |\n| **Connecting closed deals directly into project workflows** | **monday Sales CRM** | $51 \u2013 $84/mo (for 3 seats) |\n| **Simple, reliable sales deal tracking & follow-ups** | **Pipedrive** | $28 \u2013 $78/mo (for 2 seats) |\n| **Polished UI, inbound contact capture, clean forms** | **HubSpot (Free/Starter)** | $0 \u2013 $40/mo (for 1\u20132 seats)"
       }
      }
     ],
-    "retrieval_metadata": {},
     "search_entry_point": {
-     "rendered_content": "<style>\n.container {\n  align-items: center;\n  border-radius: 8px;\n  display: flex;\n  font-family: Google Sans, Roboto, sans-serif;\n  font-size: 14px;\n  line-height: 20px;\n  padding: 8px 12px;\n}\n.chip {\n  display: inline-block;\n  border: solid 1px;\n  border-radius: 16px;\n  min-width: 14px;\n  padding: 5px 16px;\n  text-align: center;\n  user-select: none;\n  margin: 0 8px;\n  -webkit-tap-highlight-color: transparent;\n}\n.carousel {\n  overflow: auto;\n  scrollbar-width: none;\n  white-space: nowrap;\n  margin-right: -12px;\n}\n.headline {\n  display: flex;\n  margin-right: 4px;\n}\n.gradient-container {\n  position: relative;\n}\n.gradient {\n  position: absolute;\n  transform: translate(3px, -9px);\n  height: 36px;\n  width: 9px;\n}\n@media (prefers-color-scheme: light) {\n  .container {\n    background-color: #fafafa;\n    box-shadow: 0 0 0 1px #0000000f;\n  }\n  .headline-label {\n    color: #1f1f1f;\n  }\n  .chip {\n    background-color: #ffffff;\n    border-color: #d2d2d2;\n    color: #5e5e5e;\n    text-decoration: none;\n  }\n  .chip:hover {\n    background-color: #f2f2f2;\n  }\n  .chip:focus {\n    background-color: #f2f2f2;\n  }\n  .chip:active {\n    background-color: #d8d8d8;\n    border-color: #b6b6b6;\n  }\n  .logo-dark {\n    display: none;\n  }\n  .gradient {\n    background: linear-gradient(90deg, #fafafa 15%, #fafafa00 100%);\n  }\n}\n@media (prefers-color-scheme: dark) {\n  .container {\n    background-color: #1f1f1f;\n    box-shadow: 0 0 0 1px #ffffff26;\n  }\n  .headline-label {\n    color: #fff;\n  }\n  .chip {\n    background-color: #2c2c2c;\n    border-color: #3c4043;\n    color: #fff;\n    text-decoration: none;\n  }\n  .chip:hover {\n    background-color: #353536;\n  }\n  .chip:focus {\n    background-color: #353536;\n  }\n  .chip:active {\n    background-color: #464849;\n    border-color: #53575b;\n  }\n  .logo-light {\n    display: none;\n  }\n  .gradient {\n    background: linear-gradient(90deg, #1f1f1f 15%, #1f1f1f00 100%);\n  }\n}\n</style>\n<div class=\"container\">\n  <div class=\"headline\">\n    <svg class=\"logo-light\" width=\"18\" height=\"18\" viewBox=\"9 9 35 35\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M42.8622 27.0064C42.8622 25.7839 42.7525 24.6084 42.5487 23.4799H26.3109V30.1568H35.5897C35.1821 32.3041 33.9596 34.1222 32.1258 35.3448V39.6864H37.7213C40.9814 36.677 42.8622 32.2571 42.8622 27.0064V27.0064Z\" fill=\"#4285F4\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M26.3109 43.8555C30.9659 43.8555 34.8687 42.3195 37.7213 39.6863L32.1258 35.3447C30.5898 36.3792 28.6306 37.0061 26.3109 37.0061C21.8282 37.0061 18.0195 33.9811 16.6559 29.906H10.9194V34.3573C13.7563 39.9841 19.5712 43.8555 26.3109 43.8555V43.8555Z\" fill=\"#34A853\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M16.6559 29.8904C16.3111 28.8559 16.1074 27.7588 16.1074 26.6146C16.1074 25.4704 16.3111 24.3733 16.6559 23.3388V18.8875H10.9194C9.74388 21.2072 9.06992 23.8247 9.06992 26.6146C9.06992 29.4045 9.74388 32.022 10.9194 34.3417L15.3864 30.8621L16.6559 29.8904V29.8904Z\" fill=\"#FBBC05\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M26.3109 16.2386C28.85 16.2386 31.107 17.1164 32.9095 18.8091L37.8466 13.8719C34.853 11.082 30.9659 9.3736 26.3109 9.3736C19.5712 9.3736 13.7563 13.245 10.9194 18.8875L16.6559 23.3388C18.0195 19.2636 21.8282 16.2386 26.3109 16.2386V16.2386Z\" fill=\"#EA4335\"/>\n    </svg>\n    <svg class=\"logo-dark\" width=\"18\" height=\"18\" viewBox=\"0 0 48 48\" xmlns=\"http://www.w3.org/2000/svg\">\n      <circle cx=\"24\" cy=\"23\" fill=\"#FFF\" r=\"22\"/>\n      <path d=\"M33.76 34.26c2.75-2.56 4.49-6.37 4.49-11.26 0-.89-.08-1.84-.29-3H24.01v5.99h8.03c-.4 2.02-1.5 3.56-3.07 4.56v.75l3.91 2.97h.88z\" fill=\"#4285F4\"/>\n      <path d=\"M15.58 25.77A8.845 8.845 0 0 0 24 31.86c1.92 0 3.62-.46 4.97-1.31l4.79 3.71C31.14 36.7 27.65 38 24 38c-5.93 0-11.01-3.4-13.45-8.36l.17-1.01 4.06-2.85h.8z\" fill=\"#34A853\"/>\n      <path d=\"M15.59 20.21a8.864 8.864 0 0 0 0 5.58l-5.03 3.86c-.98-2-1.53-4.25-1.53-6.64 0-2.39.55-4.64 1.53-6.64l1-.22 3.81 2.98.22 1.08z\" fill=\"#FBBC05\"/>\n      <path d=\"M24 14.14c2.11 0 4.02.75 5.52 1.98l4.36-4.36C31.22 9.43 27.81 8 24 8c-5.93 0-11.01 3.4-13.45 8.36l5.03 3.85A8.86 8.86 0 0 1 24 14.14z\" fill=\"#EA4335\"/>\n    </svg>\n    <div class=\"gradient-container\"><div class=\"gradient\"></div></div>\n  </div>\n  <div class=\"carousel\">\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHgx4KM1McSgJrjWMGvLQCZ3TzPvHNEjnlHH6i6rSpF6So-6rXSiVQentL1yZWrcrWR-ICTm-jgeWHNbEvw3YXstlXztv3_5e67c0OP1RroWj6kQSuRl5jktLiw9wSxPNJiGezP7c77Q9iuLYyRMaKGgdZxJPO6XucqnHJFEL7oOML8eoS0etYdiLJAYuDSgd15pDCdHN1b3FdCKgSYu5RLbVs=\">CRM features small agency needs</a>\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHIXCw-HB6mXiwJh7ZFV8dlBExlf3SBy5OtzRIEYqwlDka1vkHYiLYXGAuvgOgC8X0-SuAemQozt0CYGgC9j4R4v7eqZt_fVPOY53Q0dFfQJuGW8CQbfo9_Vvo-toC2kHCZebMuPgd0lluwXKZdv1ve0xJAoNUEL4Hoq1z3g9LBh2hUayClGXQMX7WQB4-w6tHGLfErhbu7mnndDbqeYg==\">best CRM for small agencies</a>\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHCHFtLFz224pkY-vUZKy_QDXHRjg1q4sv5uKobrxKwLD4d4Xw_hiiLFt91vshuEHseZIDGlna4pVuPslvxavLq_hk99BhvuSxYQa0IHS2-4TjHU5fzZ5vKQVA--ZuhsYHjWBA4ZHsLJa9M0mNbjCW7FkE_I8D4z_4sNi21-e4PoKmgrPShV5IJZCPcCqnm_10ojj_6BHYmm4pQrVTuFezyok9cKA==\">affordable CRM for small agencies</a>\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQF7ozkevJpQxYVnnCg3ZDPSYL34auGuGaCsGrSniu5LH19AmXOKWIKVTAAWy49IpNjl2HIR5I5wMo5vMUdvHE9ZGhTPOBNLJBEcWCWefpvuKNg3Ib5ANLrYuLdQvx9C6LBRPPbFuKeoVi7eSmbFK7xDJh2Sk_USsw4oCBEE0vQK1zfUhDmYt_X3eu0hSk3eIkJeaWm_xaZhVb0urniiG7ZxdCmUAXE=\">easy to use CRM for small agencies</a>\n  </div>\n</div>\n"
+     "rendered_content": "<style>\n.container {\n  align-items: center;\n  border-radius: 8px;\n  display: flex;\n  font-family: Google Sans, Roboto, sans-serif;\n  font-size: 14px;\n  line-height: 20px;\n  padding: 8px 12px;\n}\n.chip {\n  display: inline-block;\n  border: solid 1px;\n  border-radius: 16px;\n  min-width: 14px;\n  padding: 5px 16px;\n  text-align: center;\n  user-select: none;\n  margin: 0 8px;\n  -webkit-tap-highlight-color: transparent;\n}\n.carousel {\n  overflow: auto;\n  scrollbar-width: none;\n  white-space: nowrap;\n  margin-right: -12px;\n}\n.headline {\n  display: flex;\n  margin-right: 4px;\n}\n.gradient-container {\n  position: relative;\n}\n.gradient {\n  position: absolute;\n  transform: translate(3px, -9px);\n  height: 36px;\n  width: 9px;\n}\n@media (prefers-color-scheme: light) {\n  .container {\n    background-color: #fafafa;\n    box-shadow: 0 0 0 1px #0000000f;\n  }\n  .headline-label {\n    color: #1f1f1f;\n  }\n  .chip {\n    background-color: #ffffff;\n    border-color: #d2d2d2;\n    color: #5e5e5e;\n    text-decoration: none;\n  }\n  .chip:hover {\n    background-color: #f2f2f2;\n  }\n  .chip:focus {\n    background-color: #f2f2f2;\n  }\n  .chip:active {\n    background-color: #d8d8d8;\n    border-color: #b6b6b6;\n  }\n  .logo-dark {\n    display: none;\n  }\n  .gradient {\n    background: linear-gradient(90deg, #fafafa 15%, #fafafa00 100%);\n  }\n}\n@media (prefers-color-scheme: dark) {\n  .container {\n    background-color: #1f1f1f;\n    box-shadow: 0 0 0 1px #ffffff26;\n  }\n  .headline-label {\n    color: #fff;\n  }\n  .chip {\n    background-color: #2c2c2c;\n    border-color: #3c4043;\n    color: #fff;\n    text-decoration: none;\n  }\n  .chip:hover {\n    background-color: #353536;\n  }\n  .chip:focus {\n    background-color: #353536;\n  }\n  .chip:active {\n    background-color: #464849;\n    border-color: #53575b;\n  }\n  .logo-light {\n    display: none;\n  }\n  .gradient {\n    background: linear-gradient(90deg, #1f1f1f 15%, #1f1f1f00 100%);\n  }\n}\n</style>\n<div class=\"container\">\n  <div class=\"headline\">\n    <svg class=\"logo-light\" width=\"18\" height=\"18\" viewBox=\"9 9 35 35\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M42.8622 27.0064C42.8622 25.7839 42.7525 24.6084 42.5487 23.4799H26.3109V30.1568H35.5897C35.1821 32.3041 33.9596 34.1222 32.1258 35.3448V39.6864H37.7213C40.9814 36.677 42.8622 32.2571 42.8622 27.0064V27.0064Z\" fill=\"#4285F4\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M26.3109 43.8555C30.9659 43.8555 34.8687 42.3195 37.7213 39.6863L32.1258 35.3447C30.5898 36.3792 28.6306 37.0061 26.3109 37.0061C21.8282 37.0061 18.0195 33.9811 16.6559 29.906H10.9194V34.3573C13.7563 39.9841 19.5712 43.8555 26.3109 43.8555V43.8555Z\" fill=\"#34A853\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M16.6559 29.8904C16.3111 28.8559 16.1074 27.7588 16.1074 26.6146C16.1074 25.4704 16.3111 24.3733 16.6559 23.3388V18.8875H10.9194C9.74388 21.2072 9.06992 23.8247 9.06992 26.6146C9.06992 29.4045 9.74388 32.022 10.9194 34.3417L15.3864 30.8621L16.6559 29.8904V29.8904Z\" fill=\"#FBBC05\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M26.3109 16.2386C28.85 16.2386 31.107 17.1164 32.9095 18.8091L37.8466 13.8719C34.853 11.082 30.9659 9.3736 26.3109 9.3736C19.5712 9.3736 13.7563 13.245 10.9194 18.8875L16.6559 23.3388C18.0195 19.2636 21.8282 16.2386 26.3109 16.2386V16.2386Z\" fill=\"#EA4335\"/>\n    </svg>\n    <svg class=\"logo-dark\" width=\"18\" height=\"18\" viewBox=\"0 0 48 48\" xmlns=\"http://www.w3.org/2000/svg\">\n      <circle cx=\"24\" cy=\"23\" fill=\"#FFF\" r=\"22\"/>\n      <path d=\"M33.76 34.26c2.75-2.56 4.49-6.37 4.49-11.26 0-.89-.08-1.84-.29-3H24.01v5.99h8.03c-.4 2.02-1.5 3.56-3.07 4.56v.75l3.91 2.97h.88z\" fill=\"#4285F4\"/>\n      <path d=\"M15.58 25.77A8.845 8.845 0 0 0 24 31.86c1.92 0 3.62-.46 4.97-1.31l4.79 3.71C31.14 36.7 27.65 38 24 38c-5.93 0-11.01-3.4-13.45-8.36l.17-1.01 4.06-2.85h.8z\" fill=\"#34A853\"/>\n      <path d=\"M15.59 20.21a8.864 8.864 0 0 0 0 5.58l-5.03 3.86c-.98-2-1.53-4.25-1.53-6.64 0-2.39.55-4.64 1.53-6.64l1-.22 3.81 2.98.22 1.08z\" fill=\"#FBBC05\"/>\n      <path d=\"M24 14.14c2.11 0 4.02.75 5.52 1.98l4.36-4.36C31.22 9.43 27.81 8 24 8c-5.93 0-11.01 3.4-13.45 8.36l5.03 3.85A8.86 8.86 0 0 1 24 14.14z\" fill=\"#EA4335\"/>\n    </svg>\n    <div class=\"gradient-container\"><div class=\"gradient\"></div></div>\n  </div>\n  <div class=\"carousel\">\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHyc40Z94mWfP9p7IXsbthNTyMaXBTfEbNCNCH_dsFvkOOavUdd894MM4wREXeNU4fYL12HvfSn_KYkZFtRPkSA1IW4VJuVXxCbB7m6oRpdTthFqWM3U0x3ty-EYySybeV4npyAKLkxLCerV9zLVff_nfsm2e7ZtQS6Owo1Dt98rQ3DIggrz_xwMxl5Qa1Ta86Mqvuoynn-b_qi\">Pipedrive pricing plans</a>\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHJUuShiGls4hGkzjvxYRvDNjW9ch5jyPAhXMi9zCc75mju7TihelU-3QbLkNxIGMif0fiKtotFdElSvziGh67Nv3TB6WQeCaXBdfueI3hYBnLjUAdOBEos53qWD18_HnQnDjuI4IR_Y4m4OIX_8debVDvn_6OQo5y1M8hZaH4wV6d3ii-gcOcWvh_BV0FJDaW5iWyhEXo=\">GoHighLevel pricing</a>\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEepynAZ1NXEJN4HRpDgvZxIpzMBriHS_Ihu5gvKWJN8YyqLXpGeVn9i8MTXs0-d_gayrvClA3jeN7TXFCCZh3dMyYhBi38yEAbghPfnnfC-0oH8vjM5D4WYDcTTdqIbot7hF9GFq3Hnu970md5q1KFLX3GVv4aMCFabEwjlQwgmBFewSsFhKgjFZzv5u-SC3xvR7XSPSksYvrlOpBc_gYKQyn5d9vpfQ==\">HubSpot pricing tiers small business</a>\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHEWapDypZ1qtiHT3S40NXG7yeWlg-GDmJvKP33IbGhr5skISNkrso5Y6tAPsOzWeGOE6lwLOLUzsUokwFWhHmpo07U3nPPrpzBt1Ymic8HPGG7Q2_T7ph0gyApozQ8vp4dD0E2Ejwcc5MA3-_bpKUd9eYvGzssBfhQCxtgscJ6jWILkKYVOQGYQRTUOEiMIy9M8FoHZ46xoQbNWw==\">Monday sales CRM pricing</a>\n  </div>\n</div>\n"
     },
     "web_search_queries": [
-     "best CRM for small agencies",
-     "CRM features small agency needs",
-     "affordable CRM for small agencies",
-     "easy to use CRM for small agencies"
+     "GoHighLevel pricing",
+     "HubSpot pricing tiers small business",
+     "Pipedrive pricing plans",
+     "Monday sales CRM pricing"
     ]
    }
   }
  ],
- "create_time": "2026-09-19T07:39:08.083869Z",
- "model_version": "gemini-2.5-flash",
- "response_id": "HDyuap2PBcevm9IP9vmVkAw",
+ "create_time": "2026-09-19T13:34:36.252467Z",
+ "model_version": "gemini-3.8-flash",
+ "response_id": "bI-uarO0D-2v694P16LdkAY",
  "usage_metadata": {
-  "candidates_token_count": 958,
+  "candidates_token_count": 1445,
   "candidates_tokens_details": [
    {
     "modality": "TEXT",
-    "token_count": 958
+    "token_count": 1445
    }
   ],
-  "prompt_token_count": 8,
+  "prompt_token_count": 42,
   "prompt_tokens_details": [
    {
     "modality": "TEXT",
-    "token_count": 8
+    "token_count": 42
    }
   ],
-  "thoughts_token_count": 358,
-  "tool_use_prompt_token_count": 108,
-  "tool_use_prompt_tokens_details": [
-   {
-    "modality": "TEXT",
-    "token_count": 108
-   }
-  ],
-  "total_token_count": 1432,
+  "thoughts_token_count": 1233,
+  "total_token_count": 2720,
   "traffic_type": "ON_DEMAND"
  },
  "automatic_function_calling_history": []

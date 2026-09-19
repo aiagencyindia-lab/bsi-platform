@@ -12,8 +12,8 @@ class Settings(BaseSettings):
 
     database_url: str = _LOCAL.format(u="bsi_app", p="app")
     owner_database_url: str = _LOCAL.format(u="bsi_owner", p="owner")
-    engine_model: str = "gemini-2.5-flash"
-    extract_model: str = "gemini-2.5-flash-lite"
+    engine_model: str = "gemini-3.8-flash"
+    extract_model: str = "gemini-3.5-flash-lite"
     raw_store_dir: str = "./data"
 
 

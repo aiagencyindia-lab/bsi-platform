@@ -3,7 +3,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from bsi_core.providers import gemini
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from google.genai import errors
 
@@ -38,21 +37,37 @@ def test_cost_counts_tokens_and_the_grounded_prompt():
     assert adapter.cost(ungrounded) == 303
 
 
-def test_per_query_models_pay_for_every_search(monkeypatch):
-    # Gemini 3 bills each search query the model runs, not the prompt.
-    monkeypatch.setitem(
-        gemini.PRICES, "gemini-3-test", gemini.Price(0.30, 2.50, 0, 14_000)
+def test_default_engine_is_gemini_3_8_flash_priced_per_search_query():
+    adapter = GeminiGroundingAdapter(client=object())
+    # min fixture: 10 in, 100 out + 20 thinking, 1 search query.
+    # 10 * 1.50 + 120 * 7.50 = 915 for tokens, plus 14_000 per query.
+    assert adapter.cost(RAW) == 14_915
+
+
+def test_per_query_cost_scales_with_query_count():
+    adapter = GeminiGroundingAdapter(client=object(), model="gemini-3.8-flash")
+    raw = {
+        "usage_metadata": {"prompt_token_count": 0},
+        "candidates": [
+            {"grounding_metadata": {"web_search_queries": ["a", "b", "c"]}}
+        ],
+    }
+    assert adapter.cost(raw) == 42_000
+
+
+def test_ungrounded_answer_has_text_no_citations_and_token_only_cost():
+    # gemini-3.8-flash may answer without searching even with the tool set.
+    raw = json.loads(Path("tests/fixtures/gemini_ungrounded.json").read_text())
+    adapter = GeminiGroundingAdapter(client=object(), model="gemini-3.8-flash")
+    answer = adapter.parse(raw)
+    assert len(answer.text) > 100 and answer.citations == []
+    u = raw["usage_metadata"]
+    tokens_out = u.get("candidates_token_count", 0) + u.get(
+        "thoughts_token_count", 0
     )
-    adapter = GeminiGroundingAdapter(client=object(), model="gemini-3-test")
-    raw = json.loads(Path("tests/fixtures/gemini_crm.json").read_text())
-    queries = len(
-        raw["candidates"][0]["grounding_metadata"]["web_search_queries"]
+    assert adapter.cost(raw) == round(
+        u.get("prompt_token_count", 0) * 1.50 + tokens_out * 7.50
     )
-    assert queries > 1
-    tokens = GeminiGroundingAdapter(client=object()).cost(
-        {"usage_metadata": raw["usage_metadata"]}
-    )
-    assert adapter.cost(raw) == tokens + 14_000 * queries
 
 
 def test_unpriced_model_fails_instead_of_guessing():
@@ -118,4 +133,5 @@ def test_parse_recorded_payloads(name):
     assert answer.citations
     assert all("." in d and "/" not in d for _, d in answer.citations)
     assert "vertexaisearch" not in {d for _, d in answer.citations}
-    assert adapter.cost(raw) > 35_000
+    queries = raw["candidates"][0]["grounding_metadata"]["web_search_queries"]
+    assert adapter.cost(raw) >= 14_000 * len(queries) > 0
