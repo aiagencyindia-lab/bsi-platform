@@ -9,6 +9,13 @@ judgement, so it inherits this failure mode directly. `mention_rate`, `sov`
 and `citation_rate` are unaffected — they come entirely from the
 deterministic matcher, which the prompt text cannot influence.
 
+**Headline risk: engine cost at scale is 3–5× the PRD target** (section 2).
+Grounded search on Gemini 2.5 Flash costs about $0.038 per observation once
+the free allowance is used up, and Gemini 3 about $0.059, against the
+PRD's $0.012. One third-party source says the Gemini 2.5 models retire on
+**16 October 2026**. That is unconfirmed on Google's own page, but if true
+the move to Gemini 3's per-query pricing is weeks away.
+
 ## 1. Run
 
 | | |
@@ -24,20 +31,36 @@ deterministic matcher, which the prompt text cannot influence.
 
 ## 2. Cost per observation
 
-| Component | Value | Basis |
-|---|---|---|
-| Engine (grounding) — measured | avg **16,760.8 micros** ($0.016761), sum 1,005,648 micros ($1.005648), n=60 | `SELECT count(*), avg(cost_micros), sum(cost_micros) FROM observation WHERE brand_id = '<id>' AND status = 'done'` (owner connection) |
-| Extraction (Flash-Lite) — estimated | **≈188.5 micros ($0.0001885)**/obs = ~$0.0113 total | avg built prompt 1,213 input tokens + avg output 168 tokens (measured from all 60 rows) × Flash-Lite list price $0.10/1M in, $0.40/1M out |
-| **Combined per observation** | **≈16,949 micros ≈ $0.0170** | engine + extraction |
-| PRD Gemini estimate | $0.015/observation | measured $0.0170 is ~13% above this |
-| PRD blended target | $0.012/observation | measured $0.0170 is ~42% above this |
-| `GROUNDED_QUERY_MICROS` (14,000) | **confirmed current** | matches Google Search grounding list price, $14/1,000 requests = $0.014/request = 14,000 micros, exactly |
+> **Corrected 2026-09-19.** The first version of this section priced
+> grounding at $14 per 1,000, flat per answer. That is Gemini 3's price
+> for each *search query*. Gemini 2.5 Flash, the engine this run used, is
+> billed **$35 per 1,000 grounded prompts** after a free allowance of
+> 1,500 per day.
+> Sources: [Google AI Developers Forum](https://discuss.ai.google.dev/t/grounding-free-quota-clarifying-2026-rules-for-gemini-2-5-flash-paid-tier-1/144593)
+> and [CloudZero](https://www.cloudzero.com/blog/google-vertex-ai-pricing/).
+> The `cost_micros` stored for this run's 60 rows (avg 16,761) used the
+> old constant. The figures below are recomputed from the 60 stored raw
+> payloads, and the adapter now prices by model (`PRICES` in
+> `bsi_core/providers/gemini.py`).
 
-The gap to both PRD figures is driven by the engine call, not extraction
-(extraction is ~1% of the total cost). Grounded-query flat fee (14,000
-micros) is ~84% of the average per-observation engine cost — this run's
-prompts are consistently grounded, so the flat fee dominates over the
-token-based cost.
+Measured from the 60 raw payloads:
+- Every answer was grounded.
+- Each answer triggered **4.0 search queries on average** (min 2, max 13).
+- Engine tokens averaged **2,761 micros** per answer (Flash $0.30 per 1M in, $2.50 per 1M out; thinking tokens billed as output).
+- Extraction with Flash-Lite averaged **about 189 micros** per answer (1,213 input and 168 output tokens at $0.10 and $0.40 per 1M).
+
+| Scenario | Per observation | vs PRD blended target $0.012 |
+|---|---|---|
+| This run: Gemini 2.5 Flash, inside the 1,500/day free grounding allowance | **≈ $0.0030** (the whole run ≈ $0.18) | 0.25× |
+| **Gemini 2.5 Flash at scale** (paid grounding, $35/1k prompts) | **≈ $0.0380** | **3.2×** |
+| **Gemini 3 at scale** ($14/1k search queries × 4.0 queries) | **≈ $0.0590** | **4.9×** |
+
+Grounding, not tokens and not extraction, sets the price at scale. It is
+more than 90% of each paid observation. The PRD's $0.015 Gemini estimate
+assumed $14 once per answer, so on either current model it is out by 2.5×
+to 4×. This invalidates the PRD §19.3 per-brand cost table until it is
+re-derived. The 1,500 free grounded prompts per day cover only about 25
+brands at 60 observations a day.
 
 ## 3. Interval widths
 
@@ -68,13 +91,12 @@ middle of this run's observed competitor share-of-mentions range,
 
 For a brand-level or cluster-level number to reliably detect a 15-point
 swing, that means **~150 observations**, e.g. 30 prompts × 5 samples, or 50
-prompts × 3 samples (this run used 20×3=60). At the measured $0.0170/obs,
-that raises the cost of a single brand-level measurement from **~$1.02
-(n=60) to ~$2.55 (n=150)** — about **2.5×** the run cost this task
-performed, which should be weighed against PRD §19.3's per-brand cost
-budget before rolling this out as the default sample size (this report does
-not have the PRD §19.3 absolute figure in scope; the multiplier above is
-what changes if n=60 is raised to n=150).
+prompts × 3 samples (this run used 20×3=60). At paid-grounding prices
+(section 2), one brand-level measurement at n=150 costs **about $5.69 on
+Gemini 2.5 Flash, or about $8.84 on Gemini 3**. The same measurement at
+n=60 costs about $2.28 or $3.54. Weigh this against PRD §19.3's per-brand
+budget before making n=150 the default. The absolute §19.3 figure is not
+in scope for this report.
 
 ## 4. Matcher vs. model
 
@@ -138,6 +160,11 @@ already found).
 
 ## Follow-ups for the next sub-project (priority order)
 
+0. **Re-derive the cost model before pricing anything.**
+   - Confirm the grounding prices and the Gemini 2.5 retirement date on Google's own pricing page.
+   - Add Gemini 3's price to `PRICES`. Until a model has a price there, its observations fail instead of being mispriced.
+   - Re-run PRD §19.3.
+   - Test levers: fewer grounded samples per prompt, and caching the search results for a prompt across its samples.
 1. **Harden recommendation labelling** — a structured two-step judge (first
    pass: extract facts; second pass: a critic re-checks `rec_status` against
    only non-instructional sentences) or an independent second-model critic

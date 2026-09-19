@@ -1,6 +1,6 @@
 """Gemini with Google Search grounding, through Vertex AI."""
 
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from google import genai
 from google.auth.exceptions import DefaultCredentialsError
@@ -10,11 +10,24 @@ from ..config import get_settings
 from ..matching import normalize_domain
 from .base import EngineResult, ParsedAnswer
 
-# Micros (1e-6 USD). List prices as read in 2026-09; re-check them in
-# docs/findings-slice1.md before using these numbers for pricing.
-INPUT_MICROS_PER_TOKEN = 0.30
-OUTPUT_MICROS_PER_TOKEN = 2.50
-GROUNDED_QUERY_MICROS = 14_000
+
+class Price(NamedTuple):
+    """Micros (1e-6 USD). Grounding is billed per grounded prompt on
+    Gemini 2.5 and per search query on Gemini 3."""
+
+    input_per_token: float
+    output_per_token: float  # thinking tokens are billed as output
+    per_grounded_prompt: int
+    per_search_query: int
+
+
+# List prices read 2026-09-19; sources in docs/findings-slice1.md.
+# ponytail: marginal price at scale; the free grounding allowance (1,500
+# prompts/day on 2.5, 5,000 queries/month on 3) is not modelled.
+# A model missing here fails its observations rather than being mispriced.
+PRICES = {
+    "gemini-2.5-flash": Price(0.30, 2.50, 35_000, 0),
+}
 
 
 class GeminiGroundingAdapter:
@@ -111,19 +124,24 @@ class GeminiGroundingAdapter:
         return ParsedAnswer(text=text, citations=citations)
 
     def cost(self, raw: dict[str, Any]) -> int:
+        price = PRICES.get(self._model)
+        if price is None:
+            raise KeyError(f"no price for model {self._model!r} in PRICES")
         usage = raw.get("usage_metadata") or {}
         tokens_in = usage.get("prompt_token_count") or 0
         tokens_out = (usage.get("candidates_token_count") or 0) + (
             usage.get("thoughts_token_count") or 0
         )
         meta = self._candidate(raw).get("grounding_metadata") or {}
-        grounded = bool(
-            meta.get("grounding_chunks") or meta.get("web_search_queries")
-        )
+        queries = len(meta.get("web_search_queries") or [])
+        grounded = bool(meta.get("grounding_chunks") or queries)
         return round(
-            tokens_in * INPUT_MICROS_PER_TOKEN
-            + tokens_out * OUTPUT_MICROS_PER_TOKEN
-        ) + (GROUNDED_QUERY_MICROS if grounded else 0)
+            tokens_in * price.input_per_token
+            + tokens_out * price.output_per_token
+        ) + (
+            price.per_grounded_prompt * grounded
+            + price.per_search_query * queries
+        )
 
     def health(self) -> bool:
         return True

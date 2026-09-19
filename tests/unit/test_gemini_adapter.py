@@ -3,6 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from bsi_core.providers import gemini
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from google.genai import errors
 
@@ -28,11 +29,42 @@ def test_parse_survives_empty_payload():
     assert (answer.text, answer.citations) == ("", [])
 
 
-def test_cost_counts_tokens_and_the_grounded_query():
-    # 10 * 0.30 + (100 + 20) * 2.50 = 303, plus 14_000 for grounding.
-    assert GeminiGroundingAdapter(client=object()).cost(RAW) == 14_303
+def test_cost_counts_tokens_and_the_grounded_prompt():
+    # Gemini 2.5 Flash: 10 * 0.30 + (100 + 20) * 2.50 = 303 for tokens,
+    # plus $35 per 1,000 grounded prompts = 35_000 once per grounded answer.
+    adapter = GeminiGroundingAdapter(client=object(), model="gemini-2.5-flash")
+    assert adapter.cost(RAW) == 35_303
     ungrounded = {"usage_metadata": RAW["usage_metadata"]}
-    assert GeminiGroundingAdapter(client=object()).cost(ungrounded) == 303
+    assert adapter.cost(ungrounded) == 303
+
+
+def test_per_query_models_pay_for_every_search(monkeypatch):
+    # Gemini 3 bills each search query the model runs, not the prompt.
+    monkeypatch.setitem(
+        gemini.PRICES, "gemini-3-test", gemini.Price(0.30, 2.50, 0, 14_000)
+    )
+    adapter = GeminiGroundingAdapter(client=object(), model="gemini-3-test")
+    raw = json.loads(Path("tests/fixtures/gemini_crm.json").read_text())
+    queries = len(
+        raw["candidates"][0]["grounding_metadata"]["web_search_queries"]
+    )
+    assert queries > 1
+    tokens = GeminiGroundingAdapter(client=object()).cost(
+        {"usage_metadata": raw["usage_metadata"]}
+    )
+    assert adapter.cost(raw) == tokens + 14_000 * queries
+
+
+def test_unpriced_model_fails_instead_of_guessing():
+    response = SimpleNamespace(model_dump=lambda **_: RAW)
+    client = SimpleNamespace(
+        models=SimpleNamespace(generate_content=lambda **_: response)
+    )
+    result = GeminiGroundingAdapter(client=client, model="gemini-9").query(
+        "q", "IN", "en"
+    )
+    assert result.kind == "fatal"
+    assert "gemini-9" in result.error
 
 
 def test_query_ok():
@@ -40,7 +72,7 @@ def test_query_ok():
     result = adapter_with(lambda **_: response).query("q", "IN", "en")
     assert result.kind == "ok"
     assert result.raw == RAW
-    assert result.cost_micros == 14_303
+    assert result.cost_micros == 35_303
     assert result.model_version == "gemini-2.5-flash"
     assert result.params["country"] == "IN"
 
@@ -86,4 +118,4 @@ def test_parse_recorded_payloads(name):
     assert answer.citations
     assert all("." in d and "/" not in d for _, d in answer.citations)
     assert "vertexaisearch" not in {d for _, d in answer.citations}
-    assert adapter.cost(raw) > 14_000
+    assert adapter.cost(raw) > 35_000
