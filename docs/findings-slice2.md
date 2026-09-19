@@ -1,9 +1,11 @@
 # Slice 2 findings: cost and trust
 
 Date: 2026-09-20. Branch `slice2-cost-and-trust`. Every number below was
-measured, and each comes from a committed result file
-(`eval/results/*.json`), the spend ledger (`data/spend_ledger.jsonl`), or
-the dev database.
+measured. Sources: committed result files (`eval/results/*.json`), the
+spend ledger (`data/spend_ledger.jsonl`), the raw experiment answers
+(`data/experiments/`), and the dev database. The last three are local and
+gitignored, so the per-answer cost figures in sections 1 and 6 cannot be
+reproduced from a fresh clone.
 
 **Headline risk: "grounded" answers mostly do not search.** Across the
 sampling experiment, `gemini-3.8-flash` with the `google_search` tool
@@ -182,7 +184,7 @@ The cap is $15 (spec §7). The spend guard counts ledger entries plus the engine
 4. **`recommendation_rate` stays experimental** until a judge mode passes §5.3 on a larger, double-labelled clean set.
 
 **Surprises**
-- The endorsement rule (R9), not the judge architecture, moved clean agreement the most: legacy went from 0.604 to 0.682. Label definitions matter as much as the model.
+- The endorsement rule (R9) moved clean agreement for every mode: legacy 0.604 to 0.682, batched 0.564 to 0.610, isolated 0.452 to 0.628. Each re-run changed the labels and the prompt together, so the two effects cannot be separated. Label definitions matter at least as much as the judge design.
 - In the re-extraction, `recommended` went from 5 to 22 while the eval says batched *under*-labels recommendations. v1's 5 was therefore a large undercount, and even 22 is probably low.
 - The adapter's cost is bimodal. Whether the model chooses to search sets the price, with about a 3.6× gap between the two modes.
 
