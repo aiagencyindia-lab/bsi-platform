@@ -65,6 +65,14 @@ def make_org(owner):
 
 
 @pytest.fixture
+def client(db):
+    from bsi_api.main import create_app
+    from fastapi.testclient import TestClient
+
+    return TestClient(create_app(), raise_server_exceptions=False)
+
+
+@pytest.fixture
 def make_brand(owner):
     def _make(org, name: str = "Acme", aliases=()) -> uuid.UUID:
         with owner() as s, s.begin():

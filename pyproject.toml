@@ -26,6 +26,8 @@ select = ["E", "F", "I", "B", "UP", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 # Env vars must be set before importing anything that reads them at import time.
 "tests/conftest.py" = ["E402"]
+# FastAPI's Depends(...) default-argument pattern is idiomatic, not a bug.
+"apps/api/**" = ["B008"]
 
 [tool.mypy]
 python_version = "3.12"
