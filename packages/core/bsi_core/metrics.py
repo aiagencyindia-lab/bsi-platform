@@ -234,7 +234,8 @@ def brand_deltas(
     """Compare [to - days, to) with the `days` before it.
 
     Windows use claim time, like /metrics, so a boundary can split a run
-    that is still draining.
+    that is still draining. Any date_from/date_to on f is replaced: days
+    and to define both windows.
     """
     mid, start = to - timedelta(days=days), to - timedelta(days=2 * days)
     before = brand_metrics(
