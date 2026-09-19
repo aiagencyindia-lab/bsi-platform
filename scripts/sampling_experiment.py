@@ -187,8 +187,12 @@ def main():
                 for c, v in r["rates"].items()
                 if v["value"] is not None and base[c]["value"] is not None
             }
+        # every competitor must be rated, so a no-answer design fails
         qualified = [
-            d for d, r in report.items() if all(r["inside_A_interval"].values())
+            d
+            for d, r in report.items()
+            if len(r["inside_A_interval"]) == len(r["rates"])
+            and all(r["inside_A_interval"].values())
         ]
         report["recommended"] = min(
             qualified, key=lambda d: report[d]["cost_per_prompt_usd"]
