@@ -5,7 +5,7 @@ from typing import Any
 from bsi_core import models as m
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..deps import Ctx, brand_or_404, ctx, get_or_404
@@ -19,6 +19,7 @@ PENDING = ("queued", "running", "retry", "fetched")
 
 class RunIn(BaseModel):
     samples: int = Field(3, ge=1, le=10)
+    retry_failed: bool = False
 
 
 def _job_view(c: Ctx, job: m.Job) -> dict[str, Any]:
@@ -70,6 +71,24 @@ def create_run(
             m.Job.scheduled_slot == slot,
         )
     ).one()
+
+    requeued = 0
+    if (body or RunIn()).retry_failed:
+        result = c.s.execute(
+            update(m.Observation)
+            .where(
+                m.Observation.job_id == job.id,
+                m.Observation.status == "failed",
+            )
+            .values(
+                status="queued",
+                attempts=0,
+                error=None,
+                next_attempt_at=None,
+            )
+        )
+        requeued = result.rowcount or 0
+
     rows = [
         {
             "org_id": c.org_id,
@@ -94,6 +113,7 @@ def create_run(
         "job_id": job.id,
         "status_url": f"/v1/jobs/{job.id}",
         "enqueued": len(inserted),
+        "requeued": requeued,
     }
 
 

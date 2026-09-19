@@ -1,4 +1,6 @@
 import pytest
+from bsi_core import models as m
+from sqlalchemy import select
 
 
 @pytest.fixture
@@ -66,6 +68,38 @@ def test_no_active_prompts_is_422(client, make_org, make_brand):
     org = make_org()
     r = client.post(f"/v1/brands/{make_brand(org)}/runs", headers=org.headers)
     assert r.status_code == 422
+
+
+def test_retry_failed_requeues_failed_observations(client, brand, owner):
+    org, bid = brand
+    body = client.post(f"/v1/brands/{bid}/runs", headers=org.headers).json()
+    job_id = body["job_id"]
+
+    with owner() as s, s.begin():
+        obs = s.scalars(
+            select(m.Observation).where(m.Observation.job_id == job_id)
+        ).first()
+        obs.status = "failed"
+        obs.attempts = 3
+        obs_id = obs.id
+
+    r = client.post(
+        f"/v1/brands/{bid}/runs",
+        headers=org.headers,
+        json={"retry_failed": True},
+    )
+    assert r.status_code == 202
+    result = r.json()
+    assert result["requeued"] == 1
+    assert result["enqueued"] == 0
+
+    with owner() as s:
+        refreshed = s.get(m.Observation, obs_id)
+        assert refreshed.status == "queued"
+        assert refreshed.attempts == 0
+
+    again = client.post(f"/v1/brands/{bid}/runs", headers=org.headers).json()
+    assert again["requeued"] == 0
 
 
 def test_list_runs(client, brand):
