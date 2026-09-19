@@ -94,6 +94,7 @@ def get_observation(
             "context",
             "absence_reason",
             "parsed",
+            "cost_micros",
         ),
         "mentions": [
             _columns(
@@ -103,6 +104,7 @@ def get_observation(
                 "position",
                 "rec_status",
                 "sentiment",
+                "evidence_sentence",
             )
             for x in mentions
         ],

@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from bsi_core.config import get_settings
 from bsi_core.extraction import PIPELINE_VERSION
 from bsi_core.metrics import Filters, brand_metrics, brand_sov, failed_count
 from fastapi import APIRouter, Depends, Query
@@ -26,7 +27,12 @@ def get_metrics(
     brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
-    return {"filters": f, **brand_metrics(c.s, brand_id, f)}
+    out = {"filters": f, **brand_metrics(c.s, brand_id, f)}
+    out["recommendation_rate"] = {
+        **out["recommendation_rate"],
+        "experimental": get_settings().rec_rate_experimental,
+    }
+    return out
 
 
 @router.get("/sov")

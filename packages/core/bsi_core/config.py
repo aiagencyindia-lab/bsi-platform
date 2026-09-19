@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     extract_model: str = "gemini-3.5-flash-lite"
     judge_mode: Literal["batched", "isolated"] = "batched"
     raw_store_dir: str = "./data"
+    # Stays true until the chosen judge mode passes the slice-2 bar (§5.3).
+    rec_rate_experimental: bool = True
 
 
 @lru_cache
