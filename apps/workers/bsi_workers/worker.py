@@ -65,7 +65,8 @@ def process_one(
             prompt = s.get_one(m.Prompt, obs.prompt_id).text
             locale = s.get_one(m.Locale, obs.locale_id)
             country, language = locale.country, locale.language
-        # No transaction is held open during the network call.
+        # The engine query runs outside any transaction; extraction below
+        # (which may also call a model) runs inside the write transaction.
         result = adapter.query(prompt, country, language)
         if result.kind != "ok" or result.raw is None:
             _record_failure(
