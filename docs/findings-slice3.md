@@ -29,8 +29,10 @@ finding.
   run. 409 for an archived brand.
 - `run_schedule()`: claims the schedule row `FOR UPDATE`, re-checks that
   it is due, enqueues a run, advances `next_run_at`, and records
-  `last_result` (`enqueued:n`, `skipped:paused`, `skipped:archived`,
-  `skipped:no_prompts`, `skipped:budget`).
+  `last_result`, which is exactly one of `enqueued:n`,
+  `skipped:brand_archived`, `skipped:no_active_prompts` or
+  `skipped:budget`. A paused schedule is not one of these: it is filtered
+  out by `due_schedules()` and left untouched, `last_result` included.
 - Per-organization daily budget, all-or-nothing at enqueue, under a
   per-org advisory lock. Default `DAILY_BUDGET_USD=2`.
 - The worker checks for due schedules every 60 s alongside its queue
@@ -110,7 +112,9 @@ observation rows, not from ledger entries.
 interval built from each window's Wilson bounds. `increase` if the lower
 bound is above 0, `decrease` if the upper bound is below 0, otherwise
 `no significant change`; `insufficient data` if either window is empty.
-`avg_position` gets no delta: it is not a proportion.
+`avg_position` gets no delta: it is not a proportion. For `sov`,
+`insufficient data` also covers "nobody was mentioned at all", since its
+denominator is entity mentions rather than observations.
 
 Verified in Task 8: method 10 reproduces Newcombe 1998 Table II to within
 4e-5, and swapping the bounds fails the tests.
