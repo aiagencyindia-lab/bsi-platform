@@ -98,6 +98,7 @@ def main():
             outcomes = list(pool.map(lambda j: trial(a.mode, j[0]), jobs))
         passed = agree = pairs = errors = cost = 0
         misses = []
+        by_id = {str(r.get("id", r.get("observation_id"))): r for r in rows}
         confusion = Counter()  # want->got over every pair
         row_agree = Counter()
         for (row, _), (got, c, err) in zip(jobs, outcomes, strict=True):
@@ -131,7 +132,8 @@ def main():
             "cost_micros": cost,
             "confusion": dict(confusion.most_common()),
             "row_agreement": {
-                r: n / a.repeats for r, n in row_agree.most_common()
+                r: n / (a.repeats * len(by_id[r]["expected"]))
+                for r, n in row_agree.most_common()
             },
             "misses": misses,
         }
