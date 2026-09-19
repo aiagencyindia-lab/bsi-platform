@@ -289,3 +289,36 @@ clean on `bsi_core`.
 | The judge model changes behaviour between versions | `model_used` and `pipeline_version` are stored per extraction. `judge_eval.py` is rerunnable. |
 | The `global` endpoint conflicts with PRD data residency | Recorded here. Revisit before production (PRD §11). |
 | The sentence splitter mis-splits and a brand's recommending sentence loses its brand | A matcher hit on the whole text with no labelled sentence defaults to `mentioned`, which is conservative. Clean-set agreement will show any regression. |
+
+## 12. Amendments from planning (2026-09-19)
+
+1. **§4.1 absence reason is rule-based in v2.** The judge sees only the
+   sentences that name tracked entities, so it cannot judge why the brand
+   is absent. When the brand has no matcher hit, `absence_reason` is
+   `competitor_dominance` if any competitor is named, otherwise
+   `not_retrieved`. `category_mismatch` and `off_topic` are no longer
+   produced.
+2. **§4.2 `legacy` is not a production mode.** `JUDGE_MODE` takes
+   `batched` or `isolated`. The slice-1 judge survives only as
+   `judge.legacy_judge`, used by `scripts/judge_eval.py --mode legacy`.
+3. **§4.1 splitting needs no URL protection.** A sentence boundary
+   requires whitespace after `.`, `!`, `?` or `।`, so URLs, bare domains
+   and decimals are never split. Lines are split first and list bullets
+   stripped.
+4. **§6 the experiment calls the adapter directly.**
+   `scripts/sampling_experiment.py` stores raw answers under
+   `data/experiments/` and results under `eval/results/`; it creates no
+   observations. Mention rates come from the deterministic matcher only.
+   Judge cost is the same per answer in every design, so it is measured in
+   §5 and left out of the design comparison.
+5. **§7 spend is ledger plus database.** Spend is the sum of
+   `data/spend_ledger.jsonl` (script calls) and the engine and judge cost
+   of observations created at or after `SPEND_SINCE`
+   (default `2026-09-19T10:00:00+00:00`, after slice 1's live run).
+6. **§4.3 the worker keeps the row `running` until the write.** The
+   engine result is committed first, the judge runs with no transaction
+   open, then extraction and `done` are written together. A crash in
+   between leaves the row `running`, and `reset_stale_running()` recovers
+   it. The worker no longer sets `fetched`.
+7. **Entity names are escaped in judge prompts**, like answer text. This
+   closes the slice-1 minor about names containing `</answer>`.
