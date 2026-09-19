@@ -219,6 +219,7 @@ loop:
   row = claim_observation()          # nothing to do → sleep 1 s
   with tenant_session(row.org_id):
       obs, prompt = load(row.observation_id)
+      brand archived → status=failed, error="brand archived" (no engine call)
       result = adapter.query(prompt.text, locale)       # never raises
       match result.kind:
         ok        → raw_uri = store.put(org, obs.id, result.raw)
@@ -226,7 +227,8 @@ loop:
                     extract(obs)                          # §6, same process
                     status=done
         retryable → attempts += 1
-                    attempts < 3 ? status=retry, next_attempt_at = now + 2^attempts s
+                    attempts < 3 ? status=retry, next_attempt_at = now + ~15 s, then ~60 s
+                                   (±20% jitter; together they outlast a per-minute quota)
                                  : status=failed, error
         fatal     → status=failed, error
 ```

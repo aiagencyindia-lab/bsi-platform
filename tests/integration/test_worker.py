@@ -105,6 +105,42 @@ def test_retryable_backs_off_then_fails_after_three(owner, queued):
     assert (obs.status, obs.attempts) == ("failed", 3)
 
 
+def wait_seconds(owner, obs_id):
+    with owner() as s:
+        return s.scalar(
+            select(
+                func.extract(
+                    "epoch", m.Observation.next_attempt_at - func.now()
+                )
+            ).where(m.Observation.id == obs_id)
+        )
+
+
+def test_backoff_outlasts_a_per_minute_quota_window(owner, queued):
+    # Vertex quotas reset per minute; 2 s then 4 s gave up after ~6 s.
+    _, obs_id = queued
+    adapter = FakeAdapter(RETRY, RETRY)
+    process_one(adapter, LocalRawStore(), no_extract)
+    first = wait_seconds(owner, obs_id)
+    make_due(owner, obs_id)
+    process_one(adapter, LocalRawStore(), no_extract)
+    second = wait_seconds(owner, obs_id)
+    assert 12 <= first <= 18  # 15 s +-20% jitter
+    assert 48 <= second <= 72  # 60 s +-20% jitter
+    assert first + second > 60
+
+
+def test_archived_brand_is_not_queried(client, owner, queued):
+    org, obs_id = queued
+    brand_id = load(owner, obs_id).brand_id
+    client.delete(f"/v1/brands/{brand_id}", headers=org.headers)
+    adapter = FakeAdapter()  # any engine call would pop from an empty list
+    assert process_one(adapter, LocalRawStore(), no_extract) is True
+    obs = load(owner, obs_id)
+    assert (obs.status, obs.error) == ("failed", "brand archived")
+    assert adapter.prompts == []
+
+
 def test_retry_then_success(owner, queued):
     _, obs_id = queued
     adapter = FakeAdapter(RETRY, OK)

@@ -1,6 +1,7 @@
 """Queue worker: claim an observation, query the engine, store, extract."""
 
 import logging
+import random
 import time
 import uuid
 from collections.abc import Callable
@@ -18,6 +19,10 @@ from sqlalchemy.orm import Session
 
 log = logging.getLogger("bsi.worker")
 MAX_ATTEMPTS = 3
+# Wait before attempt 2 and 3. Vertex quotas reset per minute, so the two
+# waits together must outlast one window; jitter spreads out a burst.
+BACKOFF_SECONDS = (15, 60)
+JITTER = 0.2
 STALE_RESET_SECONDS = 300
 ExtractFn = Callable[[Session, m.Observation], None]
 
@@ -43,10 +48,10 @@ def _record_failure(
         obs.attempts += 1
         obs.error = error[:2000]
         if retryable and obs.attempts < MAX_ATTEMPTS:
+            wait = BACKOFF_SECONDS[obs.attempts - 1]
+            wait *= random.uniform(1 - JITTER, 1 + JITTER)
             obs.status = "retry"
-            obs.next_attempt_at = func.now() + timedelta(
-                seconds=2**obs.attempts
-            )
+            obs.next_attempt_at = func.now() + timedelta(seconds=wait)
         else:
             obs.status = "failed"
             obs.completed_at = func.now()
@@ -62,9 +67,13 @@ def process_one(
     try:
         with tenant_session(org_id) as s:
             obs = s.get_one(m.Observation, obs_id)
+            archived = s.get_one(m.Brand, obs.brand_id).status == "archived"
             prompt = s.get_one(m.Prompt, obs.prompt_id).text
             locale = s.get_one(m.Locale, obs.locale_id)
             country, language = locale.country, locale.language
+        if archived:  # archived after enqueue: don't spend on it
+            _record_failure(org_id, obs_id, "brand archived", retryable=False)
+            return True
         # The engine query runs outside any transaction; extraction below
         # (which may also call a model) runs inside the write transaction.
         result = adapter.query(prompt, country, language)
