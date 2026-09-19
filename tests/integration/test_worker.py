@@ -1,10 +1,11 @@
 from datetime import UTC, datetime, timedelta
 
+import bsi_workers.worker as worker
 import pytest
 from bsi_core import models as m
 from bsi_core.providers.base import EngineResult, ParsedAnswer
 from bsi_core.storage import LocalRawStore
-from bsi_workers.worker import process_one, reset_stale
+from bsi_workers.worker import process_one, reset_stale, tick
 from sqlalchemy import func, select, update
 
 OK = EngineResult(
@@ -163,3 +164,22 @@ def test_worker_serves_every_tenant(
     while process_one(adapter, LocalRawStore(), no_extract):
         pass
     assert {load(owner, i).status for i in ids} == {"done"}
+
+
+def test_tick_survives_claim_failure(monkeypatch):
+    def boom():
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(worker, "_claim", boom)
+    assert tick(FakeAdapter(), LocalRawStore(), no_extract) is False
+
+
+def test_tick_survives_failure_recording_failure(monkeypatch, owner, queued):
+    _, obs_id = queued
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(worker, "_record_failure", boom)
+    assert tick(FakeAdapter(FATAL), LocalRawStore(), no_extract) is False
+    assert load(owner, obs_id).status == "running"

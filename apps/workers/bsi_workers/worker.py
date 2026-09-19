@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 log = logging.getLogger("bsi.worker")
 MAX_ATTEMPTS = 3
+STALE_RESET_SECONDS = 300
 ExtractFn = Callable[[Session, m.Observation], None]
 
 
@@ -93,14 +94,33 @@ def process_one(
     return True
 
 
+def tick(
+    adapter: EngineAdapter, store: RawStore, extract_fn: ExtractFn
+) -> bool:
+    """One loop step that never raises. False = idle/failed; caller sleeps."""
+    try:
+        return process_one(adapter, store, extract_fn)
+    except Exception:
+        # A row whose failure could not be recorded stays 'running';
+        # reset_stale() hands it back after 10 minutes.
+        log.exception("worker step failed")
+        return False
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-    log.info("reset %d stale rows", reset_stale())
     adapter = GeminiGroundingAdapter()
     store = LocalRawStore()
     extract_fn = partial(
         extract, adapter=adapter, store=store, judge=flash_lite_judge
     )
+    last_reset = -STALE_RESET_SECONDS
     while True:
-        if not process_one(adapter, store, extract_fn):
+        if time.monotonic() - last_reset >= STALE_RESET_SECONDS:
+            try:
+                log.info("reset %d stale rows", reset_stale())
+            except Exception:
+                log.exception("reset_stale failed")
+            last_reset = time.monotonic()
+        if not tick(adapter, store, extract_fn):
             time.sleep(1)
