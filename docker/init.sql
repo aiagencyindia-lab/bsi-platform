@@ -1,0 +1,2 @@
+CREATE ROLE bsi_app LOGIN PASSWORD 'app' NOBYPASSRLS;
+CREATE DATABASE bsi_test OWNER bsi_owner;

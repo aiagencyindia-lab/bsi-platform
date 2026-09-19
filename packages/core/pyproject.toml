@@ -1,0 +1,19 @@
+[project]
+name = "bsi-core"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "sqlalchemy>=2.0.30",
+  "psycopg[binary]>=3.2",
+  "alembic>=1.13",
+  "pydantic>=2.8",
+  "pydantic-settings>=2.4",
+  "google-genai>=1.30",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bsi_core"]
