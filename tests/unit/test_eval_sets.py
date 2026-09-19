@@ -54,3 +54,8 @@ def test_clean_set_covers_every_benchmark_mention():
             benchmark[r["observation_id"]]["expected"]
         ), r["observation_id"]
         assert set(r["expected"].values()) <= STATUSES, r["observation_id"]
+
+
+def test_both_sets_are_reviewed():
+    for name in ("injection_v0.jsonl", "rec_labels_v0.jsonl"):
+        assert all(r["reviewed"] for r in rows(name)), name
