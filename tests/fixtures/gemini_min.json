@@ -1,0 +1,28 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {"text": "hidden reasoning", "thought": true},
+          {"text": "For kids, Nike and Adidas are popular. "},
+          {"text": "Puma is also listed."}
+        ]
+      },
+      "grounding_metadata": {
+        "web_search_queries": ["best kids shoes"],
+        "grounding_chunks": [
+          {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AAA", "title": "nike.com", "domain": "nike.com"}},
+          {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/BBB", "title": "www.RunRepeat.com"}},
+          {"web": {"uri": "https://example.invalid/no-host"}}
+        ]
+      }
+    }
+  ],
+  "model_version": "gemini-2.5-flash",
+  "usage_metadata": {
+    "prompt_token_count": 10,
+    "candidates_token_count": 100,
+    "thoughts_token_count": 20
+  }
+}

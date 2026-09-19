@@ -1,0 +1,265 @@
+{
+ "sdk_http_response": {
+  "headers": {
+   "content-type": "application/json; charset=UTF-8",
+   "vary": "Origin, X-Origin, Referer",
+   "content-encoding": "gzip",
+   "date": "Sat, 19 Sep 2026 07:39:00 GMT",
+   "server": "scaffolding on HTTPServer2",
+   "x-xss-protection": "0",
+   "x-frame-options": "SAMEORIGIN",
+   "x-content-type-options": "nosniff",
+   "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+   "transfer-encoding": "chunked"
+  }
+ },
+ "candidates": [
+  {
+   "content": {
+    "parts": [
+     {
+      "text": "When seeking the best running shoes for children in India, a variety of international and domestic brands offer suitable options focusing on comfort, durability, and support for active kids. Key features to consider include cushioning, flexibility, grip, and ease of wear.\n\n**Recommended Brands for Kids' Running Shoes in India:**\n\n*   **Adidas:** Known for incorporating innovative sportswear and footwear technologies, Adidas offers kids' running shoes with features like Primeknit textile uppers for comfort and support, and Boost midsoles for cushioning and energy return. Their Torsion System provides stability.\n*   **Skechers:** Skechers provides a range of athletic sneakers for kids, emphasizing comfort and a trendy fit.\n*   **Puma:** Puma offers kids' running shoes designed for style and comfort, with features like breathable mesh uppers, Softride foam cushioning, and durable rubber outsoles for support during various activities.\n*   **ASICS:** ASICS provides lightweight, supportive, and durable sports shoes for kids, suitable for active school days and weekends.\n*   **Nike:** The Nike Unisex Kids Cosmic Runner is highlighted for its lightweight comfort, breathable mesh upper, cushioned foam midsole, and reliable grip, making it suitable for sports and everyday wear.\n*   **Decathlon (Kalenji):** Decathlon offers its own line of kids' multisport and running shoes, including options that are lightweight, breathable, and feature rip-tab or Velcro closures for convenience.\n*   **Indian Brands:** Several Indian brands are popular for kids' sports shoes, often providing affordable options. These include Action, G&D, Campus, ABN, ASIAN, and STEFENS, which are frequently listed on e-commerce platforms.\n\n**Key Features to Look for:**\n\nWhen selecting running shoes for children, consider the following attributes:\n\n*   **Lightweight and Flexible:** Shoes that are lightweight and flexible are ideal for active kids, allowing for natural foot movement.\n*   **Cushioned Soles:** Good shock absorption is crucial for children's developing feet, making cushioned soles a vital feature.\n*   **Good Grip/Anti-Slip Outsoles:** A durable rubber outsole with reliable grip ensures safety and stability during play and running.\n*   **Comfortable Fit:** A snug and comfortable fit is essential to prevent discomfort and support growing feet. Breathable mesh uppers contribute to overall comfort.\n*   **Ease of Wear:** Features like Velcro-fit trainers or hook-and-loop closures make shoes easier for children to put on and take off independently.\n*   **Durability:** Given children's active lifestyles, durable materials that can withstand regular wear and tear are important."
+     }
+    ],
+    "role": "model"
+   },
+   "finish_reason": "STOP",
+   "grounding_metadata": {
+    "grounding_chunks": [
+     {
+      "web": {
+       "domain": "adidas.co.in",
+       "title": "adidas.co.in",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGbBPOBd472YGHBZEm-1_9vJS6TbLpwkYwjjbvXe6vphYXD7l5gWcJFh6R2ZexlRhnGL82UiRxZrO0600MFN2OEzxfCwqw7WVF7mPST5N6VYUdyZ2ghQLPIpZ8BivyJyiB_RcfNmA=="
+      }
+     },
+     {
+      "web": {
+       "domain": "skechers.in",
+       "title": "skechers.in",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFAa4m2ARVVrt79JcZuhUb5ycVyataZCRAynQ6pLVn20hERdC-Zkv3QOxm2NrhmWsVyX80fYxwyx7628IM36f8BOSgg-0EjBoHt5ruGzkk7KOuw14BVow5BbFTBL1lPmZX5ji51xv0UeoAx01iassKNrw=="
+      }
+     },
+     {
+      "web": {
+       "domain": "hindustantimes.com",
+       "title": "hindustantimes.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGlioN8R7cADKhd9GkbT_p8kvRqqTgxSvSwPAFfr_OxKxDUnAoLnzBTBc5BLVoeKPUXl4LwAB25NNEaoyXevIYEy00HJ8DQIHHjaGzDfZIvUZ_t4dYaQma2zw5eYpQH_T-zQIeeZnyXaEX45LLiS3eh9QFUwl-b3ETbrzFCZpQlcibQwoyY-F0xLm7_JoJhQ6_xXQJsh-XC3B-l7koCMgW1-vr1B_zJAn6yoWbmGJvLOsZTPjjTuWUKnp4BkH9Nvu5GmNYpCTH4QNRw"
+      }
+     },
+     {
+      "web": {
+       "domain": "puma.com",
+       "title": "puma.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHBiWruL1CtsjQulkLH9kXVRMKf0-RehqXCRl22KmkjKNdv7jkYojcdvQ4dm7HrnueXQF1_dX5llivd3FaX7Dk5HhCloDMzvrCLtCPVZZcZLX-f2xyJBFAs0IcAF2kG"
+      }
+     },
+     {
+      "web": {
+       "domain": "asics.co.in",
+       "title": "asics.co.in",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHhTiJYxpzt_JWZ7zOypVTiEVlyFiN1vyTBU15xSSBVKcXTKd_kovWnopG04wdOMLvELnjyQCpRKMW4SSKzXmke_b4s_GBjRYGChLiIsto80h6tFenLTrWXKlHD"
+      }
+     },
+     {
+      "web": {
+       "domain": "decathlon.in",
+       "title": "decathlon.in",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGXwnXb58qy0fZ0zvWUmbD_bpmPoh0R0UKAMdy2S5HPapSzjSqbmEXa8Wefye2jIq9r_42hR6jkVDwjPQy3g2GjOOze6h08NdNkhbgxmBeMvmEoOM_h-fZvQ5-2utsbljZAqMTP7JnyARusRF1Q"
+      }
+     },
+     {
+      "web": {
+       "domain": "myntra.com",
+       "title": "myntra.com",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQERw1pJ2_drz9BG41HsmugFRvRTLxjeqrxd49wq_tpXNXEYq-tR4n8yxItr4cri7UYbjnv1FY-0Wo0_JDSEsxBZ9L6U_H0TF-uJpk-IBq_3g6XfFD-83CYKg58juMoPe3SxRA=="
+      }
+     },
+     {
+      "web": {
+       "domain": "starkidz.co.in",
+       "title": "starkidz.co.in",
+       "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHQKNl5smHKLhzVEmfpwPhbz8K0B4iXbjOU-_NV58jm44jOH87yI7kx_BKYkSPOJ2l8xuBKU3KzZ0SlIImtZwqO1oDjJD7edUQY3DgB-hA-V89QbFbH9kbcYrfpk08BpxI0YElTnuQ1w9_8GNUTFGe1m6FnffvFSBVaFBbN"
+      }
+     }
+    ],
+    "grounding_supports": [
+     {
+      "grounding_chunk_indices": [
+       0
+      ],
+      "segment": {
+       "start_index": 577,
+       "end_index": 617,
+       "text": "Their Torsion System provides stability."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       1
+      ],
+      "segment": {
+       "start_index": 618,
+       "end_index": 730,
+       "text": "*   **Skechers:** Skechers provides a range of athletic sneakers for kids, emphasizing comfort and a trendy fit."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       2,
+       3
+      ],
+      "segment": {
+       "start_index": 731,
+       "end_index": 944,
+       "text": "*   **Puma:** Puma offers kids' running shoes designed for style and comfort, with features like breathable mesh uppers, Softride foam cushioning, and durable rubber outsoles for support during various activities."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       4
+      ],
+      "segment": {
+       "start_index": 945,
+       "end_index": 1080,
+       "text": "*   **ASICS:** ASICS provides lightweight, supportive, and durable sports shoes for kids, suitable for active school days and weekends."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       2
+      ],
+      "segment": {
+       "start_index": 1081,
+       "end_index": 1288,
+       "text": "*   **Nike:** The Nike Unisex Kids Cosmic Runner is highlighted for its lightweight comfort, breathable mesh upper, cushioned foam midsole, and reliable grip, making it suitable for sports and everyday wear."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       5
+      ],
+      "segment": {
+       "start_index": 1289,
+       "end_index": 1494,
+       "text": "*   **Decathlon (Kalenji):** Decathlon offers its own line of kids' multisport and running shoes, including options that are lightweight, breathable, and feature rip-tab or Velcro closures for convenience."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       6
+      ],
+      "segment": {
+       "start_index": 1612,
+       "end_index": 1724,
+       "text": "These include Action, G&D, Campus, ABN, ASIAN, and STEFENS, which are frequently listed on e-commerce platforms."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       7,
+       2
+      ],
+      "segment": {
+       "start_index": 1836,
+       "end_index": 1972,
+       "text": "*   **Lightweight and Flexible:** Shoes that are lightweight and flexible are ideal for active kids, allowing for natural foot movement."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       7,
+       2
+      ],
+      "segment": {
+       "start_index": 1973,
+       "end_index": 2102,
+       "text": "*   **Cushioned Soles:** Good shock absorption is crucial for children's developing feet, making cushioned soles a vital feature."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       2,
+       3
+      ],
+      "segment": {
+       "start_index": 2103,
+       "end_index": 2238,
+       "text": "*   **Good Grip/Anti-Slip Outsoles:** A durable rubber outsole with reliable grip ensures safety and stability during play and running."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       2,
+       3
+      ],
+      "segment": {
+       "start_index": 2352,
+       "end_index": 2405,
+       "text": "Breathable mesh uppers contribute to overall comfort."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       7,
+       3
+      ],
+      "segment": {
+       "start_index": 2406,
+       "end_index": 2556,
+       "text": "*   **Ease of Wear:** Features like Velcro-fit trainers or hook-and-loop closures make shoes easier for children to put on and take off independently."
+      }
+     },
+     {
+      "grounding_chunk_indices": [
+       4
+      ],
+      "segment": {
+       "start_index": 2557,
+       "end_index": 2686,
+       "text": "*   **Durability:** Given children's active lifestyles, durable materials that can withstand regular wear and tear are important."
+      }
+     }
+    ],
+    "retrieval_metadata": {},
+    "search_entry_point": {
+     "rendered_content": "<style>\n.container {\n  align-items: center;\n  border-radius: 8px;\n  display: flex;\n  font-family: Google Sans, Roboto, sans-serif;\n  font-size: 14px;\n  line-height: 20px;\n  padding: 8px 12px;\n}\n.chip {\n  display: inline-block;\n  border: solid 1px;\n  border-radius: 16px;\n  min-width: 14px;\n  padding: 5px 16px;\n  text-align: center;\n  user-select: none;\n  margin: 0 8px;\n  -webkit-tap-highlight-color: transparent;\n}\n.carousel {\n  overflow: auto;\n  scrollbar-width: none;\n  white-space: nowrap;\n  margin-right: -12px;\n}\n.headline {\n  display: flex;\n  margin-right: 4px;\n}\n.gradient-container {\n  position: relative;\n}\n.gradient {\n  position: absolute;\n  transform: translate(3px, -9px);\n  height: 36px;\n  width: 9px;\n}\n@media (prefers-color-scheme: light) {\n  .container {\n    background-color: #fafafa;\n    box-shadow: 0 0 0 1px #0000000f;\n  }\n  .headline-label {\n    color: #1f1f1f;\n  }\n  .chip {\n    background-color: #ffffff;\n    border-color: #d2d2d2;\n    color: #5e5e5e;\n    text-decoration: none;\n  }\n  .chip:hover {\n    background-color: #f2f2f2;\n  }\n  .chip:focus {\n    background-color: #f2f2f2;\n  }\n  .chip:active {\n    background-color: #d8d8d8;\n    border-color: #b6b6b6;\n  }\n  .logo-dark {\n    display: none;\n  }\n  .gradient {\n    background: linear-gradient(90deg, #fafafa 15%, #fafafa00 100%);\n  }\n}\n@media (prefers-color-scheme: dark) {\n  .container {\n    background-color: #1f1f1f;\n    box-shadow: 0 0 0 1px #ffffff26;\n  }\n  .headline-label {\n    color: #fff;\n  }\n  .chip {\n    background-color: #2c2c2c;\n    border-color: #3c4043;\n    color: #fff;\n    text-decoration: none;\n  }\n  .chip:hover {\n    background-color: #353536;\n  }\n  .chip:focus {\n    background-color: #353536;\n  }\n  .chip:active {\n    background-color: #464849;\n    border-color: #53575b;\n  }\n  .logo-light {\n    display: none;\n  }\n  .gradient {\n    background: linear-gradient(90deg, #1f1f1f 15%, #1f1f1f00 100%);\n  }\n}\n</style>\n<div class=\"container\">\n  <div class=\"headline\">\n    <svg class=\"logo-light\" width=\"18\" height=\"18\" viewBox=\"9 9 35 35\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M42.8622 27.0064C42.8622 25.7839 42.7525 24.6084 42.5487 23.4799H26.3109V30.1568H35.5897C35.1821 32.3041 33.9596 34.1222 32.1258 35.3448V39.6864H37.7213C40.9814 36.677 42.8622 32.2571 42.8622 27.0064V27.0064Z\" fill=\"#4285F4\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M26.3109 43.8555C30.9659 43.8555 34.8687 42.3195 37.7213 39.6863L32.1258 35.3447C30.5898 36.3792 28.6306 37.0061 26.3109 37.0061C21.8282 37.0061 18.0195 33.9811 16.6559 29.906H10.9194V34.3573C13.7563 39.9841 19.5712 43.8555 26.3109 43.8555V43.8555Z\" fill=\"#34A853\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M16.6559 29.8904C16.3111 28.8559 16.1074 27.7588 16.1074 26.6146C16.1074 25.4704 16.3111 24.3733 16.6559 23.3388V18.8875H10.9194C9.74388 21.2072 9.06992 23.8247 9.06992 26.6146C9.06992 29.4045 9.74388 32.022 10.9194 34.3417L15.3864 30.8621L16.6559 29.8904V29.8904Z\" fill=\"#FBBC05\"/>\n      <path fill-rule=\"evenodd\" clip-rule=\"evenodd\" d=\"M26.3109 16.2386C28.85 16.2386 31.107 17.1164 32.9095 18.8091L37.8466 13.8719C34.853 11.082 30.9659 9.3736 26.3109 9.3736C19.5712 9.3736 13.7563 13.245 10.9194 18.8875L16.6559 23.3388C18.0195 19.2636 21.8282 16.2386 26.3109 16.2386V16.2386Z\" fill=\"#EA4335\"/>\n    </svg>\n    <svg class=\"logo-dark\" width=\"18\" height=\"18\" viewBox=\"0 0 48 48\" xmlns=\"http://www.w3.org/2000/svg\">\n      <circle cx=\"24\" cy=\"23\" fill=\"#FFF\" r=\"22\"/>\n      <path d=\"M33.76 34.26c2.75-2.56 4.49-6.37 4.49-11.26 0-.89-.08-1.84-.29-3H24.01v5.99h8.03c-.4 2.02-1.5 3.56-3.07 4.56v.75l3.91 2.97h.88z\" fill=\"#4285F4\"/>\n      <path d=\"M15.58 25.77A8.845 8.845 0 0 0 24 31.86c1.92 0 3.62-.46 4.97-1.31l4.79 3.71C31.14 36.7 27.65 38 24 38c-5.93 0-11.01-3.4-13.45-8.36l.17-1.01 4.06-2.85h.8z\" fill=\"#34A853\"/>\n      <path d=\"M15.59 20.21a8.864 8.864 0 0 0 0 5.58l-5.03 3.86c-.98-2-1.53-4.25-1.53-6.64 0-2.39.55-4.64 1.53-6.64l1-.22 3.81 2.98.22 1.08z\" fill=\"#FBBC05\"/>\n      <path d=\"M24 14.14c2.11 0 4.02.75 5.52 1.98l4.36-4.36C31.22 9.43 27.81 8 24 8c-5.93 0-11.01 3.4-13.45 8.36l5.03 3.85A8.86 8.86 0 0 1 24 14.14z\" fill=\"#EA4335\"/>\n    </svg>\n    <div class=\"gradient-container\"><div class=\"gradient\"></div></div>\n  </div>\n  <div class=\"carousel\">\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHAbL5FduPI0y-W1E9mVb21xJ0w3YaZjYch8ohwJQiUltR0Of7ssHi4mWrBS9WEPtg_C1KYrwg06-2-DTTKvAsje4_XFr1WGZqcKbJJnAV9mZVp77oqH19kiS_I7lqmSwYc9B4kWIUc04dhkDHaOObBNCxkUegePnL01ppeyTmrn8lJAoW0H36VsOl2n80MKpfFSB4ogErGeC5_519BwtirI17ExEwI700=\">top kids&#39; athletic shoe brands India</a>\n    <a class=\"chip\" href=\"https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGqL49b4x8S6rdWE4hoHYDMNNpmGdj3trDkkWWnOUUtkIA6MnEB6_3B5VWUFgiE0BQBBQzBVhfoWLxDUuQJUBttL77icmGuyr6vhH_QShYTT_ksSKV5B-lpHvJ327oRds-KW61sxtK9luRnbrm93aIkq6fs6SvrEtFXuJMCRNZQozM-i6SQg8U2C0WnF8Jv7yfRte9snwEfavSmBvRTK_2X0s-t\">best running shoes for kids India</a>\n  </div>\n</div>\n"
+    },
+    "web_search_queries": [
+     "best running shoes for kids India",
+     "top kids' athletic shoe brands India"
+    ]
+   }
+  }
+ ],
+ "create_time": "2026-09-19T07:38:54.862820Z",
+ "model_version": "gemini-2.5-flash",
+ "response_id": "DjyuauTUNO63idsP89rOiQQ",
+ "usage_metadata": {
+  "candidates_token_count": 551,
+  "candidates_tokens_details": [
+   {
+    "modality": "TEXT",
+    "token_count": 551
+   }
+  ],
+  "prompt_token_count": 7,
+  "prompt_tokens_details": [
+   {
+    "modality": "TEXT",
+    "token_count": 7
+   }
+  ],
+  "thoughts_token_count": 250,
+  "tool_use_prompt_token_count": 87,
+  "tool_use_prompt_tokens_details": [
+   {
+    "modality": "TEXT",
+    "token_count": 87
+   }
+  ],
+  "total_token_count": 895,
+  "traffic_type": "ON_DEMAND"
+ },
+ "automatic_function_calling_history": []
+}
