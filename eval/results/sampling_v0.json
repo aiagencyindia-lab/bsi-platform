@@ -1,0 +1,167 @@
+{
+ "A": {
+  "answers": 58,
+  "missing": 2,
+  "cost_micros": 1161267,
+  "cost_per_prompt_usd": 0.05806335,
+  "grounded_share": {
+   "value": 0.25862068965517243,
+   "n": 58,
+   "ci_low": 0.16345403519517457,
+   "ci_high": 0.383776308133588
+  },
+  "rates": {
+   "Bata": {
+    "value": 0.29310344827586204,
+    "n": 58,
+    "ci_low": 0.1917802782864472,
+    "ci_high": 0.42013144456677776
+   },
+   "Campus": {
+    "value": 0.27586206896551724,
+    "n": 58,
+    "ci_low": 0.17752203680746192,
+    "ci_high": 0.40204899628353175
+   },
+   "Skechers": {
+    "value": 0.3620689655172414,
+    "n": 58,
+    "ci_low": 0.25054734348500335,
+    "ci_high": 0.4907271384171466
+   },
+   "Crocs": {
+    "value": 0.3448275862068966,
+    "n": 58,
+    "ci_low": 0.23560916371859544,
+    "ci_high": 0.4733246284213233
+   },
+   "Adidas": {
+    "value": 0.22413793103448276,
+    "n": 58,
+    "ci_low": 0.13593533332871566,
+    "ci_high": 0.3466136304755843
+   }
+  },
+  "resampled_citing_outside_seeds": null,
+  "b_prompts_without_seeds": null,
+  "inside_A_interval": {
+   "Bata": true,
+   "Campus": true,
+   "Skechers": true,
+   "Crocs": true,
+   "Adidas": true
+  }
+ },
+ "B": {
+  "answers": 60,
+  "missing": 0,
+  "cost_micros": 690883,
+  "cost_per_prompt_usd": 0.03454415,
+  "grounded_share": {
+   "value": 0.3,
+   "n": 20,
+   "ci_low": 0.14547527396899385,
+   "ci_high": 0.5189767762289793
+  },
+  "rates": {
+   "Bata": {
+    "value": 0.23333333333333334,
+    "n": 60,
+    "ci_low": 0.1443943161843107,
+    "ci_high": 0.3543651134039202
+   },
+   "Campus": {
+    "value": 0.26666666666666666,
+    "n": 60,
+    "ci_low": 0.17132496487078852,
+    "ci_high": 0.3900895360189135
+   },
+   "Skechers": {
+    "value": 0.25,
+    "n": 60,
+    "ci_low": 0.1577638557841185,
+    "ci_high": 0.372323109454848
+   },
+   "Crocs": {
+    "value": 0.18333333333333332,
+    "n": 60,
+    "ci_low": 0.1055768903713613,
+    "ci_high": 0.29919993226466285
+   },
+   "Adidas": {
+    "value": 0.15,
+    "n": 60,
+    "ci_low": 0.08097349242295689,
+    "ci_high": 0.26114825891159615
+   }
+  },
+  "resampled_citing_outside_seeds": {
+   "value": 0.025,
+   "n": 40,
+   "ci_low": 0.0044267174077949195,
+   "ci_high": 0.1288165948800778
+  },
+  "b_prompts_without_seeds": 16,
+  "inside_A_interval": {
+   "Bata": true,
+   "Campus": true,
+   "Skechers": false,
+   "Crocs": false,
+   "Adidas": true
+  }
+ },
+ "C": {
+  "answers": 39,
+  "missing": 1,
+  "cost_micros": 983256,
+  "cost_per_prompt_usd": 0.0491628,
+  "grounded_share": {
+   "value": 0.3333333333333333,
+   "n": 39,
+   "ci_low": 0.20632766106915157,
+   "ci_high": 0.4902289567975947
+  },
+  "rates": {
+   "Bata": {
+    "value": 0.28205128205128205,
+    "n": 39,
+    "ci_low": 0.16543325013943294,
+    "ci_high": 0.43775617322477384
+   },
+   "Campus": {
+    "value": 0.3333333333333333,
+    "n": 39,
+    "ci_low": 0.20632766106915157,
+    "ci_high": 0.4902289567975947
+   },
+   "Skechers": {
+    "value": 0.41025641025641024,
+    "n": 39,
+    "ci_low": 0.27079089435400483,
+    "ci_high": 0.5658165152665509
+   },
+   "Crocs": {
+    "value": 0.3076923076923077,
+    "n": 39,
+    "ci_low": 0.1856575344598306,
+    "ci_high": 0.464215486155646
+   },
+   "Adidas": {
+    "value": 0.20512820512820512,
+    "n": 39,
+    "ci_low": 0.10779590197911117,
+    "ci_high": 0.3553427296312862
+   }
+  },
+  "resampled_citing_outside_seeds": null,
+  "b_prompts_without_seeds": null,
+  "inside_A_interval": {
+   "Bata": true,
+   "Campus": true,
+   "Skechers": true,
+   "Crocs": true,
+   "Adidas": true
+  }
+ },
+ "recommended": "C"
+}
