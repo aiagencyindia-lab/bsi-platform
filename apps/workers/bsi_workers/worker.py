@@ -4,7 +4,7 @@ import logging
 import time
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from functools import partial
 
 from bsi_core import models as m
@@ -13,7 +13,7 @@ from bsi_core.extraction import extract, flash_lite_judge
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.storage import LocalRawStore, RawStore
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 log = logging.getLogger("bsi.worker")
@@ -37,17 +37,18 @@ def reset_stale() -> int:
 def _record_failure(
     org_id: uuid.UUID, obs_id: uuid.UUID, error: str, retryable: bool
 ) -> None:
-    now = datetime.now(UTC)
     with tenant_session(org_id) as s:
         obs = s.get_one(m.Observation, obs_id)
         obs.attempts += 1
         obs.error = error[:2000]
         if retryable and obs.attempts < MAX_ATTEMPTS:
             obs.status = "retry"
-            obs.next_attempt_at = now + timedelta(seconds=2**obs.attempts)
+            obs.next_attempt_at = func.now() + timedelta(
+                seconds=2**obs.attempts
+            )
         else:
             obs.status = "failed"
-            obs.completed_at = now
+            obs.completed_at = func.now()
 
 
 def process_one(
@@ -85,7 +86,7 @@ def process_one(
             extract_fn(s, obs)
             obs.status = "done"
             obs.error = None
-            obs.completed_at = datetime.now(UTC)
+            obs.completed_at = func.now()
     except Exception as e:  # one bad row must never stop the loop
         log.exception("observation %s failed", obs_id)
         _record_failure(org_id, obs_id, repr(e), retryable=True)

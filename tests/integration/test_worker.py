@@ -5,7 +5,7 @@ from bsi_core import models as m
 from bsi_core.providers.base import EngineResult, ParsedAnswer
 from bsi_core.storage import LocalRawStore
 from bsi_workers.worker import process_one, reset_stale
-from sqlalchemy import update
+from sqlalchemy import func, select, update
 
 OK = EngineResult(
     "ok",
@@ -66,7 +66,7 @@ def make_due(owner, obs_id):
         s.execute(
             update(m.Observation)
             .where(m.Observation.id == obs_id)
-            .values(next_attempt_at=datetime.now(UTC))
+            .values(next_attempt_at=func.now())
         )
 
 
@@ -89,7 +89,13 @@ def test_retryable_backs_off_then_fails_after_three(owner, queued):
     assert process_one(adapter, store, no_extract)
     obs = load(owner, obs_id)
     assert (obs.status, obs.attempts, obs.error) == ("retry", 1, "429 quota")
-    assert obs.next_attempt_at > datetime.now(UTC)
+    with owner() as s:
+        still_future = s.scalar(
+            select(m.Observation.next_attempt_at > func.now()).where(
+                m.Observation.id == obs_id
+            )
+        )
+    assert still_future is True
     assert process_one(adapter, store, no_extract) is False  # not due yet
     for _ in range(2):
         make_due(owner, obs_id)
