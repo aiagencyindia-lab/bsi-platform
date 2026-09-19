@@ -177,6 +177,7 @@ class Extraction(Tenant, Base):
     context: Mapped[str] = mapped_column(server_default="")
     absence_reason: Mapped[str | None]
     parsed: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    cost_micros: Mapped[int] = mapped_column(server_default="0")
 
 
 class Mention(Tenant, Base):
@@ -189,6 +190,7 @@ class Mention(Tenant, Base):
     position: Mapped[int]
     rec_status: Mapped[str]
     sentiment: Mapped[str]
+    evidence_sentence: Mapped[str | None]
     __table_args__ = (
         UniqueConstraint("observation_id", "entity_id"),
         Index("ix_mention_entity", "org_id", "entity_id", "observation_id"),
