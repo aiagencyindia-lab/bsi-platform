@@ -27,7 +27,7 @@ the move to Gemini 3's per-query pricing is weeks away.
 | Date | 2026-09-19 |
 | Job totals | enqueued 60, **done 60, failed 0**, job-level retry re-posts 0 |
 | Observation-level retries | 0 (all 60 rows `attempts = 0`) |
-| Wall clock | **22m 07s** (09:17:16 UTC → 09:39:23 UTC) |
+| Wall clock | **21m 54s** (09:17:16 UTC first enqueue → 09:39:10 UTC last observation done) |
 
 ## 2. Cost per observation
 
