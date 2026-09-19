@@ -4,6 +4,7 @@ import json
 import sys
 from pathlib import Path
 
+from bsi_core import spend
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 
 prompt, name = sys.argv[1], sys.argv[2]
@@ -13,3 +14,4 @@ if result.kind != "ok":
 out = Path("tests/fixtures") / f"gemini_{name}.json"
 out.write_text(json.dumps(result.raw, indent=1), encoding="utf-8")
 print(out, "cost_micros:", result.cost_micros)
+spend.record(f"fixture:{name}", result.cost_micros)

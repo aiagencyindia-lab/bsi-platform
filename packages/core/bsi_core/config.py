@@ -1,5 +1,6 @@
 """Settings, read once from the environment (and .env)."""
 
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Literal
 
@@ -19,6 +20,10 @@ class Settings(BaseSettings):
     raw_store_dir: str = "./data"
     # Stays true until the chosen judge mode passes the slice-2 bar (§5.3).
     rec_rate_experimental: bool = True
+    # Slice-2 live-spend guard (spec §7): the cap covers ledger entries plus
+    # observations created at or after spend_since (after slice 1's run).
+    spend_cap_usd: float = 15.0
+    spend_since: datetime = datetime(2026, 9, 19, 10, 0, tzinfo=UTC)
 
 
 @lru_cache
