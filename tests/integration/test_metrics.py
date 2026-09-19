@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from bsi_core import models as m
 from bsi_core.db import tenant_session
-from bsi_core.metrics import Filters, brand_metrics, brand_sov
+from bsi_core.metrics import Filters, brand_metrics, brand_sov, failed_count
 from sqlalchemy import select
 
 
@@ -94,6 +94,8 @@ def test_rates(scene):
     assert got["avg_position"] == {"value": 2.0, "n_mentioned": 2}
     assert got["n_failed"] == 1
     assert got["pipeline_version"] == "1"
+    with tenant_session(org.id) as s:
+        assert failed_count(s, bid, Filters()) == 1
     low, high = got["mention_rate"]["ci_low"], got["mention_rate"]["ci_high"]
     assert low == pytest.approx(0.150, abs=1e-3)
     assert high == pytest.approx(0.850, abs=1e-3)

@@ -111,6 +111,20 @@ def brand_sov(
     return rows
 
 
+def failed_count(s: Session, brand_id: uuid.UUID, f: Filters) -> int:
+    """Failed-observation count, shared by `brand_metrics` and `/sov`."""
+    where, params = _where(brand_id, f)
+    return int(
+        s.execute(
+            text(
+                "SELECT count(*) FROM observation o "
+                f"WHERE {where} AND o.status = 'failed'"
+            ),
+            params,
+        ).scalar_one()
+    )
+
+
 def brand_metrics(
     s: Session, brand_id: uuid.UUID, f: Filters
 ) -> dict[str, Any]:
@@ -122,7 +136,6 @@ def brand_metrics(
         text(f"""
         SELECT
           count(*) FILTER (WHERE {done}) AS n,
-          count(*) FILTER (WHERE o.status = 'failed') AS n_failed,
           count(*) FILTER (WHERE {done} AND bm.id IS NOT NULL) AS k_mention,
           count(*) FILTER (
             WHERE {done} AND bm.rec_status = 'recommended') AS k_rec,
@@ -151,7 +164,7 @@ def brand_metrics(
             "value": float(row.avg_pos) if row.avg_pos is not None else None,
             "n_mentioned": row.k_mention,
         },
-        "n_failed": row.n_failed,
+        "n_failed": failed_count(s, brand_id, f),
         "pipeline_version": PIPELINE_VERSION,
         "computed_at": datetime.now(UTC),
     }

@@ -57,8 +57,11 @@ def test_prompt_to_metric(client, make_org):
     assert got["citation_rate"]["value"] == 1.0
     assert got["recommendation_rate"]["value"] == 0.0
     assert got["sov"]["value"] == 0.5
-    sov = client.get(f"{base}/sov", headers=h).json()["entities"]
-    assert [e["mentions"] for e in sov] == [6, 6]
+    sov_resp = client.get(f"{base}/sov", headers=h).json()
+    assert [e["mentions"] for e in sov_resp["entities"]] == [6, 6]
+    assert sov_resp["n_failed"] == 0
+    assert sov_resp["pipeline_version"] == "1"
+    assert "computed_at" in sov_resp
 
     listed = client.get(
         f"/v1/observations?brand_id={bid}&status=done", headers=h
