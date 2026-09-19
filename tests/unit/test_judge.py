@@ -3,7 +3,6 @@ from bsi_core import judge
 from bsi_core.labels import select_sentences
 from bsi_core.matching import Entity
 from google.genai import errors, types
-from pydantic import ValidationError
 
 ENTITIES = [
     Entity("n", "brand", ("Nike",)),
@@ -124,11 +123,21 @@ def test_legacy_judge_parses_the_slice_1_schema(monkeypatch):
     assert (out.entities, cost) == ([], 100)
 
 
-def test_invalid_json_raises_validation_error(monkeypatch):
+def test_invalid_json_raises_judge_failed_with_cost(monkeypatch):
     fake, _ = canned(["not json"])
     monkeypatch.setattr(judge, "_generate", fake)
-    with pytest.raises(ValidationError):
+    with pytest.raises(judge.JudgeFailed) as excinfo:
         judge.batched_judge(select_sentences("Nike.", ENTITIES), ["Nike"])
+    assert excinfo.value.cost_micros == 100
+
+
+def test_isolated_failure_keeps_cost_of_earlier_calls(monkeypatch):
+    fake, _ = canned(['{"labels": [], "context": ""}', "not json"])
+    monkeypatch.setattr(judge, "_generate", fake)
+    selected = select_sentences("I recommend Nike. Puma exists.", ENTITIES)
+    with pytest.raises(judge.JudgeFailed) as excinfo:
+        judge.isolated_judge(selected, ["Nike", "Puma"])
+    assert excinfo.value.cost_micros == 200  # both calls were paid
 
 
 def test_judges_registry():

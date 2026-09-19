@@ -7,7 +7,7 @@ from collections.abc import Callable
 import httpx
 from google import genai
 from google.genai import errors, types
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from .config import get_settings
 from .extraction import ExtractionOut, build_prompt
@@ -20,6 +20,15 @@ from .labels import (
     build_isolated_prompt,
 )
 from .providers.gemini import Price
+
+
+class JudgeFailed(RuntimeError):
+    """A judge call failed after spending; carries what was spent."""
+
+    def __init__(self, cause: Exception, cost_micros: int) -> None:
+        super().__init__(repr(cause))
+        self.cost_micros = cost_micros
+
 
 # Micros per token, read 2026-09-19 (slice-2 spec §2 and slice-1 findings).
 # A judge model missing here fails before any call is made.
@@ -95,7 +104,10 @@ def batched_judge(selected: list[Selected], names: list[str]) -> JudgeReply:
     text, cost, model = _generate(
         build_batched_prompt(selected, names), JudgeOut
     )
-    return JudgeReply(JudgeOut.model_validate_json(text), model, cost)
+    try:
+        return JudgeReply(JudgeOut.model_validate_json(text), model, cost)
+    except ValidationError as e:
+        raise JudgeFailed(e, cost) from e
 
 
 def isolated_judge(selected: list[Selected], names: list[str]) -> JudgeReply:
@@ -103,21 +115,29 @@ def isolated_judge(selected: list[Selected], names: list[str]) -> JudgeReply:
     labels = []
     context, cost, model = "", 0, get_settings().extract_model
     for sel in selected:
-        text, call_cost, model = _generate(build_isolated_prompt(sel), JudgeOut)
-        cost += call_cost
-        out = JudgeOut.model_validate_json(text)
-        labels += [
-            label.model_copy(update={"sentence": sel.index})
-            for label in out.labels
-        ]
-        context = context or out.context
+        try:
+            text, call_cost, model = _generate(
+                build_isolated_prompt(sel), JudgeOut
+            )
+            cost += call_cost
+            out = JudgeOut.model_validate_json(text)
+            labels += [
+                label.model_copy(update={"sentence": sel.index})
+                for label in out.labels
+            ]
+            context = context or out.context
+        except Exception as e:
+            raise JudgeFailed(e, cost) from e
     return JudgeReply(JudgeOut(labels=labels, context=context), model, cost)
 
 
 def legacy_judge(text: str, names: list[str]) -> tuple[ExtractionOut, int]:
     """The slice-1 whole-answer judge, kept only as an evaluation baseline."""
     raw, cost, _ = _generate(build_prompt(text, names), ExtractionOut)
-    return ExtractionOut.model_validate_json(raw), cost
+    try:
+        return ExtractionOut.model_validate_json(raw), cost
+    except ValidationError as e:
+        raise JudgeFailed(e, cost) from e
 
 
 JUDGES: dict[str, SentenceJudge] = {
