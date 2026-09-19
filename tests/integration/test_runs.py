@@ -20,9 +20,9 @@ def test_run_enqueues_prompts_times_samples(client, brand):
     r = client.post(f"/v1/brands/{bid}/runs", headers=org.headers)
     assert r.status_code == 202
     body = r.json()
-    assert body["enqueued"] == 6
+    assert body["enqueued"] == 4
     job = client.get(body["status_url"], headers=org.headers).json()
-    assert (job["total"], job["queued"], job["status"]) == (6, 6, "running")
+    assert (job["total"], job["queued"], job["status"]) == (4, 4, "running")
 
 
 def test_second_post_in_same_slot_adds_nothing(client, brand):
@@ -40,9 +40,9 @@ def test_new_prompt_joins_the_same_slot(client, brand):
         f"/v1/brands/{bid}/prompts", headers=org.headers, json={"text": "new"}
     )
     r = client.post(f"/v1/brands/{bid}/runs", headers=org.headers).json()
-    assert r["enqueued"] == 3
+    assert r["enqueued"] == 2
     job = client.get(r["status_url"], headers=org.headers).json()
-    assert job["total"] == 9
+    assert job["total"] == 6
 
 
 def test_samples_and_paused_prompts(client, brand):

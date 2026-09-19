@@ -20,7 +20,7 @@ PENDING = ("queued", "running", "retry", "fetched")
 class RunIn(BaseModel):
     # A misspelt field would otherwise silently fall back to the defaults.
     model_config = ConfigDict(extra="forbid")
-    samples: int = Field(3, ge=1, le=10)
+    samples: int = Field(2, ge=1, le=10)
     retry_failed: bool = False
 
 

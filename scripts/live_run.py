@@ -35,7 +35,7 @@ for comp in spec["competitors"]:
 post(f"{base}/prompts", [{"text": t} for t in spec["prompts"]])
 run = post(
     f"{base}/runs",
-    {"samples": spec.get("samples", 3), "retry_failed": True},
+    {"samples": spec.get("samples", 2), "retry_failed": True},
 )
 print("brand", brand["id"], "job", run["job_id"], "enqueued", run["enqueued"])
 

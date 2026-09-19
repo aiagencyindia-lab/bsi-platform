@@ -34,7 +34,7 @@ def test_prompt_to_metric(client, make_org):
         f"{base}/prompts", headers=h, json=[{"text": "a"}, {"text": "b"}]
     )
     run = client.post(f"{base}/runs", headers=h).json()
-    assert run["enqueued"] == 6
+    assert run["enqueued"] == 4
 
     adapter, store = CannedGemini(), LocalRawStore()
     extractor = Extractor(
@@ -46,18 +46,18 @@ def test_prompt_to_metric(client, make_org):
         pass
 
     job = client.get(run["status_url"], headers=h).json()
-    assert (job["status"], job["done"], job["failed"]) == ("done", 6, 0)
+    assert (job["status"], job["done"], job["failed"]) == ("done", 4, 0)
     assert client.post(f"{base}/runs", headers=h).json()["enqueued"] == 0
 
     got = client.get(f"{base}/metrics", headers=h).json()
     assert got["mention_rate"]["value"] == 1.0
-    assert got["mention_rate"]["n"] == 6
-    assert got["mention_rate"]["ci_low"] == pytest.approx(0.61, abs=0.01)
+    assert got["mention_rate"]["n"] == 4
+    assert got["mention_rate"]["ci_low"] == pytest.approx(0.51, abs=0.01)
     assert got["citation_rate"]["value"] == 1.0
     assert got["recommendation_rate"]["value"] == 0.0
     assert got["sov"]["value"] == 0.5
     sov_resp = client.get(f"{base}/sov", headers=h).json()
-    assert [e["mentions"] for e in sov_resp["entities"]] == [6, 6]
+    assert [e["mentions"] for e in sov_resp["entities"]] == [4, 4]
     assert sov_resp["n_failed"] == 0
     assert sov_resp["pipeline_version"] == "2"
     assert "computed_at" in sov_resp
@@ -65,7 +65,7 @@ def test_prompt_to_metric(client, make_org):
     listed = client.get(
         f"/v1/observations?brand_id={bid}&status=done", headers=h
     ).json()
-    assert len(listed) == 6
+    assert len(listed) == 4
     oid = listed[0]["id"]
     detail = client.get(f"/v1/observations/{oid}", headers=h).json()
     assert detail["cost_micros"] == 14_915
@@ -80,4 +80,4 @@ def test_prompt_to_metric(client, make_org):
         f"{base}/metrics?engine=gemini&prompt_ids={listed[0]['prompt_id']}",
         headers=h,
     ).json()
-    assert filtered["mention_rate"]["n"] == 3
+    assert filtered["mention_rate"]["n"] == 2
