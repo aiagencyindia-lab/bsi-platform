@@ -1,6 +1,7 @@
 """Settings, read once from the environment (and .env)."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
     owner_database_url: str = _LOCAL.format(u="bsi_owner", p="owner")
     engine_model: str = "gemini-3.8-flash"
     extract_model: str = "gemini-3.5-flash-lite"
+    judge_mode: Literal["batched", "isolated"] = "batched"
     raw_store_dir: str = "./data"
 
 

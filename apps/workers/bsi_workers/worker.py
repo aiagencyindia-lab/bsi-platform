@@ -4,13 +4,14 @@ import logging
 import random
 import time
 import uuid
-from collections.abc import Callable
 from datetime import timedelta
-from functools import partial
+from typing import Any, Protocol
 
 from bsi_core import models as m
+from bsi_core.config import get_settings
 from bsi_core.db import system_session, tenant_session
-from bsi_core.extraction import extract, flash_lite_judge
+from bsi_core.extraction import Extractor
+from bsi_core.judge import JUDGE_PRICES, JUDGES
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.storage import LocalRawStore, RawStore
@@ -24,7 +25,12 @@ MAX_ATTEMPTS = 3
 BACKOFF_SECONDS = (15, 60)
 JITTER = 0.2
 STALE_RESET_SECONDS = 300
-ExtractFn = Callable[[Session, m.Observation], None]
+
+
+class ExtractorLike(Protocol):
+    def prepare(self, org_id: uuid.UUID, obs_id: uuid.UUID) -> Any: ...
+
+    def write(self, s: Session, obs: m.Observation, prepared: Any) -> None: ...
 
 
 def _claim() -> tuple[uuid.UUID, uuid.UUID] | None:
@@ -58,7 +64,7 @@ def _record_failure(
 
 
 def process_one(
-    adapter: EngineAdapter, store: RawStore, extract_fn: ExtractFn
+    adapter: EngineAdapter, store: RawStore, extractor: ExtractorLike
 ) -> bool:
     claimed = _claim()
     if claimed is None:
@@ -74,8 +80,9 @@ def process_one(
         if archived:  # archived after enqueue: don't spend on it
             _record_failure(org_id, obs_id, "brand archived", retryable=False)
             return True
-        # The engine query runs outside any transaction; extraction below
-        # (which may also call a model) runs inside the write transaction.
+        # The engine query and the judge (inside prepare) both run with no
+        # transaction open. The row stays 'running' until the final write,
+        # so a crash in between is recovered by reset_stale().
         result = adapter.query(prompt, country, language)
         if result.kind != "ok" or result.raw is None:
             _record_failure(
@@ -92,9 +99,10 @@ def process_one(
             obs.model_version = result.model_version
             obs.params = result.params
             obs.cost_micros = result.cost_micros
-            obs.status = "fetched"
-            s.flush()
-            extract_fn(s, obs)
+        prepared = extractor.prepare(org_id, obs_id)
+        with tenant_session(org_id) as s:
+            obs = s.get_one(m.Observation, obs_id)
+            extractor.write(s, obs, prepared)
             obs.status = "done"
             obs.error = None
             obs.completed_at = func.now()
@@ -105,11 +113,11 @@ def process_one(
 
 
 def tick(
-    adapter: EngineAdapter, store: RawStore, extract_fn: ExtractFn
+    adapter: EngineAdapter, store: RawStore, extractor: ExtractorLike
 ) -> bool:
     """One loop step that never raises. False = idle/failed; caller sleeps."""
     try:
-        return process_one(adapter, store, extract_fn)
+        return process_one(adapter, store, extractor)
     except Exception:
         # A row whose failure could not be recorded stays 'running';
         # reset_stale() hands it back after 10 minutes.
@@ -119,11 +127,11 @@ def tick(
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+    settings = get_settings()
+    JUDGE_PRICES[settings.extract_model]  # unpriced judge: fail at start
     adapter = GeminiGroundingAdapter()
     store = LocalRawStore()
-    extract_fn = partial(
-        extract, adapter=adapter, store=store, judge=flash_lite_judge
-    )
+    extractor = Extractor(adapter, store, JUDGES[settings.judge_mode])
     last_reset = -STALE_RESET_SECONDS
     while True:
         if time.monotonic() - last_reset >= STALE_RESET_SECONDS:
@@ -132,5 +140,5 @@ def main() -> None:
             except Exception:
                 log.exception("reset_stale failed")
             last_reset = time.monotonic()
-        if not tick(adapter, store, extract_fn):
+        if not tick(adapter, store, extractor):
             time.sleep(1)

@@ -1,27 +1,34 @@
 """Turn a stored raw answer into extraction, mention and citation rows.
 
 Deterministic matching decides WHO is mentioned. The model only labels HOW
-(recommendation status, sentiment). Re-running never queries the engine.
+(recommendation status, sentiment). The judge runs with no DB transaction
+open; re-running never queries the engine.
 """
 
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any, Literal
 
-from google import genai
-from google.genai import types
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from . import models as m
-from .config import get_settings
-from .labels import MentionRow, key
+from .db import tenant_session
+from .labels import (
+    JudgeReply,
+    MentionRow,
+    SentenceJudge,
+    combine,
+    key,
+    select_sentences,
+)
 from .matching import Entity, Hit, find_mentions, is_owned
 from .providers.base import EngineAdapter
 from .storage import RawStore
 
-PIPELINE_VERSION = "1"
+PIPELINE_VERSION = "2"
 CONTEXT_WORDS = 40
 
 RecStatus = Literal["recommended", "listed", "mentioned", "negative"]
@@ -43,9 +50,6 @@ class ExtractionOut(BaseModel):
     entities: list[EntityJudgement] = Field(default_factory=list)
     context: str = ""
     absence_reason: Absence | None = None
-
-
-Judge = Callable[[str, list[str]], ExtractionOut]
 
 
 def apply_sanity(
@@ -91,92 +95,145 @@ def apply_sanity(
     return rows, notes
 
 
-def extract(
-    s: Session,
-    obs: m.Observation,
-    *,
-    adapter: EngineAdapter,
-    store: RawStore,
-    judge: Judge,
-) -> None:
-    brand = s.get_one(m.Brand, obs.brand_id)
+@dataclass
+class Prepared:
+    rows: list[MentionRow]
+    citations: list[tuple[str, str]]
+    hosts: list[str]
+    context: str
+    absence_reason: str | None
+    model_used: str
+    cost_micros: int
+    parsed: dict[str, Any]
+
+
+def load_entities(
+    s: Session, brand_id: uuid.UUID
+) -> tuple[list[Entity], list[str]]:
+    brand = s.get_one(m.Brand, brand_id)
     competitors = s.scalars(
-        select(m.Competitor).where(m.Competitor.brand_id == brand.id)
+        select(m.Competitor)
+        .where(m.Competitor.brand_id == brand.id)
+        .order_by(m.Competitor.created_at, m.Competitor.name)
     ).all()
-    hosts = s.scalars(
-        select(m.Domain.host).where(m.Domain.brand_id == brand.id)
-    ).all()
-    # The brand is always first; flash_lite_judge's prompt relies on it.
+    hosts = list(
+        s.scalars(select(m.Domain.host).where(m.Domain.brand_id == brand.id))
+    )
+    # The brand is always first; the judge prompts rely on it.
     entities = [Entity(str(brand.id), "brand", (brand.name, *brand.aliases))]
     entities += [
         Entity(str(c.id), "competitor", (c.name, *c.aliases))
         for c in competitors
     ]
+    return entities, hosts
 
-    assert obs.raw_uri is not None
-    answer = adapter.parse(store.get(obs.raw_uri, obs.org_id))
-    hits = find_mentions(answer.text, entities)
 
-    out: ExtractionOut | None = None
-    parsed: dict[str, Any] = {}
-    if answer.text.strip():
-        try:
-            out = judge(answer.text, [e.aliases[0] for e in entities])
-            parsed["model"] = out.model_dump()
-        except Exception as e:  # the matcher result still stands
-            parsed["model_error"] = repr(e)[:500]
+def absence_reason(hits: list[Hit]) -> str | None:
+    """Rule-based in v2: the judge only sees sentences that name entities."""
+    if any(h.entity_type == "brand" for h in hits):
+        return None
+    return "competitor_dominance" if hits else "not_retrieved"
 
-    rows, notes = apply_sanity(hits, entities, out)
-    parsed["disagreements"] = notes
-    parsed["fuzzy_aliases"] = [h.alias for h in hits if h.fuzzy]
-    brand_row = next((r for r in rows if r.entity.type == "brand"), None)
 
-    ex = s.scalars(
-        select(m.Extraction).where(m.Extraction.observation_id == obs.id)
-    ).first()
-    if ex is None:
-        ex = m.Extraction(org_id=obs.org_id, observation_id=obs.id)
-        s.add(ex)
-    ex.pipeline_version = PIPELINE_VERSION
-    ex.model_used = get_settings().extract_model if out else "none"
-    ex.brand_mentioned = brand_row is not None
-    ex.position = brand_row.position if brand_row else None
-    ex.rec_status = brand_row.rec_status if brand_row else None
-    ex.sentiment = brand_row.sentiment if brand_row else None
-    ex.sentiment_conf = brand_row.sentiment_conf if brand_row else None
-    words = (out.context if out else "").split()
-    ex.context = " ".join(words[:CONTEXT_WORDS])
-    ex.absence_reason = (
-        out.absence_reason if out and brand_row is None else None
-    )
-    ex.parsed = parsed
+@dataclass
+class Extractor:
+    adapter: EngineAdapter
+    store: RawStore
+    judge: SentenceJudge
 
-    for model in (m.Mention, m.Citation):
-        s.execute(delete(model).where(model.observation_id == obs.id))
-    for row in rows:
-        s.add(
-            m.Mention(
-                org_id=obs.org_id,
-                observation_id=obs.id,
-                entity_type=row.entity.type,
-                entity_id=uuid.UUID(row.entity.id),
-                position=row.position,
-                rec_status=row.rec_status,
-                sentiment=row.sentiment,
-            )
+    def prepare(self, org_id: uuid.UUID, obs_id: uuid.UUID) -> Prepared:
+        # Read in a short transaction, then judge with none open (spec §4.3).
+        with tenant_session(org_id) as s:
+            obs = s.get_one(m.Observation, obs_id)
+            raw_uri = obs.raw_uri
+            entities, hosts = load_entities(s, obs.brand_id)
+        if raw_uri is None:
+            raise ValueError(f"observation {obs_id} has no raw payload")
+        answer = self.adapter.parse(self.store.get(raw_uri, org_id))
+        hits = find_mentions(answer.text, entities)
+        selected = select_sentences(answer.text, entities)
+
+        reply: JudgeReply | None = None
+        parsed: dict[str, Any] = {}
+        spent = 0
+        if selected:
+            try:
+                reply = self.judge(selected, [e.aliases[0] for e in entities])
+                parsed["model"] = reply.out.model_dump()
+            except Exception as e:  # the matcher result still stands
+                parsed["model_error"] = repr(e)[:500]
+                spent = getattr(e, "cost_micros", 0)
+        rows, notes, instructions = combine(
+            hits, entities, selected, reply.out if reply else None
         )
-    for position, (url, domain) in enumerate(answer.citations, start=1):
-        s.add(
-            m.Citation(
-                org_id=obs.org_id,
-                observation_id=obs.id,
-                url=url,
-                domain=domain,
-                position=position,
-                is_brand_owned=is_owned(domain, hosts),
-            )
+        parsed["disagreements"] = notes
+        parsed["instruction_sentences"] = instructions
+        parsed["fuzzy_aliases"] = [h.alias for h in hits if h.fuzzy]
+        words = (reply.out.context if reply else "").split()
+        return Prepared(
+            rows=rows,
+            citations=answer.citations,
+            hosts=hosts,
+            context=" ".join(words[:CONTEXT_WORDS]),
+            absence_reason=absence_reason(hits),
+            model_used=reply.model if reply else "none",
+            cost_micros=reply.cost_micros if reply else spent,
+            parsed=parsed,
         )
-    s.flush()
+
+    def write(self, s: Session, obs: m.Observation, p: Prepared) -> None:
+        brand_row = next((r for r in p.rows if r.entity.type == "brand"), None)
+        ex = s.scalars(
+            select(m.Extraction).where(m.Extraction.observation_id == obs.id)
+        ).first()
+        if ex is None:
+            ex = m.Extraction(org_id=obs.org_id, observation_id=obs.id)
+            s.add(ex)
+        ex.pipeline_version = PIPELINE_VERSION
+        ex.model_used = p.model_used
+        ex.cost_micros = p.cost_micros
+        ex.brand_mentioned = brand_row is not None
+        ex.position = brand_row.position if brand_row else None
+        ex.rec_status = brand_row.rec_status if brand_row else None
+        ex.sentiment = brand_row.sentiment if brand_row else None
+        ex.sentiment_conf = brand_row.sentiment_conf if brand_row else None
+        ex.context = p.context
+        ex.absence_reason = p.absence_reason
+        ex.parsed = p.parsed
+
+        for model in (m.Mention, m.Citation):
+            s.execute(delete(model).where(model.observation_id == obs.id))
+        for row in p.rows:
+            s.add(
+                m.Mention(
+                    org_id=obs.org_id,
+                    observation_id=obs.id,
+                    entity_type=row.entity.type,
+                    entity_id=uuid.UUID(row.entity.id),
+                    position=row.position,
+                    rec_status=row.rec_status,
+                    sentiment=row.sentiment,
+                    evidence_sentence=row.evidence_sentence,
+                )
+            )
+        for position, (url, domain) in enumerate(p.citations, start=1):
+            s.add(
+                m.Citation(
+                    org_id=obs.org_id,
+                    observation_id=obs.id,
+                    url=url,
+                    domain=domain,
+                    position=position,
+                    is_brand_owned=is_owned(domain, p.hosts),
+                )
+            )
+        s.flush()
+
+    def run(self, org_id: uuid.UUID, obs_id: uuid.UUID) -> None:
+        """Prepare, then write in its own transaction (re-extraction)."""
+        prepared = self.prepare(org_id, obs_id)
+        with tenant_session(org_id) as s:
+            self.write(s, s.get_one(m.Observation, obs_id), prepared)
 
 
 _PROMPT = """You label one AI-engine answer for a brand-visibility study.
@@ -223,19 +280,3 @@ def build_prompt(text: str, names: list[str]) -> str:
         names="\n".join(f"- {n}" for n in names),
         answer=text.replace("<", "&lt;"),
     )
-
-
-def flash_lite_judge(text: str, names: list[str]) -> ExtractionOut:
-    prompt = build_prompt(text, names)
-    # a temporary here can be GC'd mid-request
-    client = genai.Client(http_options=types.HttpOptions(timeout=120_000))
-    response = client.models.generate_content(
-        model=get_settings().extract_model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0,
-            response_mime_type="application/json",
-            response_schema=ExtractionOut,
-        ),
-    )
-    return ExtractionOut.model_validate_json(response.text or "")

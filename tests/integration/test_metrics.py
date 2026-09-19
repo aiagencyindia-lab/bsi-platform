@@ -93,7 +93,7 @@ def test_rates(scene):
     )
     assert got["avg_position"] == {"value": 2.0, "n_mentioned": 2}
     assert got["n_failed"] == 1
-    assert got["pipeline_version"] == "1"
+    assert got["pipeline_version"] == "2"
     with tenant_session(org.id) as s:
         assert failed_count(s, bid, Filters()) == 1
     low, high = got["mention_rate"]["ci_low"], got["mention_rate"]["ci_high"]

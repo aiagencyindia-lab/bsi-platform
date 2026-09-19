@@ -1,9 +1,9 @@
 import json
-from functools import partial
 from pathlib import Path
 
 import pytest
-from bsi_core.extraction import ExtractionOut, extract
+from bsi_core.extraction import Extractor
+from bsi_core.labels import JudgeOut, JudgeReply
 from bsi_core.providers.base import EngineResult
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.storage import LocalRawStore
@@ -37,13 +37,12 @@ def test_prompt_to_metric(client, make_org):
     assert run["enqueued"] == 6
 
     adapter, store = CannedGemini(), LocalRawStore()
-    extract_fn = partial(
-        extract,
-        adapter=adapter,
-        store=store,
-        judge=lambda text, names: ExtractionOut(),
+    extractor = Extractor(
+        adapter,
+        store,
+        lambda selected, names: JudgeReply(JudgeOut(), "fake", 0),
     )
-    while process_one(adapter, store, extract_fn):
+    while process_one(adapter, store, extractor):
         pass
 
     job = client.get(run["status_url"], headers=h).json()
@@ -60,7 +59,7 @@ def test_prompt_to_metric(client, make_org):
     sov_resp = client.get(f"{base}/sov", headers=h).json()
     assert [e["mentions"] for e in sov_resp["entities"]] == [6, 6]
     assert sov_resp["n_failed"] == 0
-    assert sov_resp["pipeline_version"] == "1"
+    assert sov_resp["pipeline_version"] == "2"
     assert "computed_at" in sov_resp
 
     listed = client.get(
