@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from . import models as m
 from .config import get_settings
+from .db import tenant_session
 
 CADENCE_DAYS = {"daily": 1, "every_3_days": 3, "weekly": 7}
 
@@ -152,3 +153,32 @@ def enqueue_run(
         .returning(m.Observation.id)
     ).all()
     return job, len(inserted)
+
+
+def run_schedule(org_id: uuid.UUID, schedule_id: uuid.UUID) -> str | None:
+    """Run one due schedule; returns last_result, or None if it wasn't due.
+
+    One transaction: lock the row, re-check it is due by the DB clock,
+    enqueue or skip, then always advance next_run_at.
+    """
+    with tenant_session(org_id) as s:
+        sch = s.get(m.Schedule, schedule_id, with_for_update=True)
+        now = s.scalars(select(func.now())).one()
+        if sch is None or sch.status != "active" or sch.next_run_at > now:
+            return None
+        brand = s.get_one(m.Brand, sch.brand_id)
+        prompts = active_prompts(s, sch.brand_id)
+        if brand.status == "archived":
+            result = "skipped:brand_archived"
+        elif not prompts:
+            result = "skipped:no_active_prompts"
+        elif not budget_fits(s, org_id, prompts * sch.samples):
+            result = "skipped:budget"
+        else:
+            slot = sch.next_run_at.replace(minute=0, second=0, microsecond=0)
+            _, n = enqueue_run(s, org_id, sch.brand_id, sch.samples, slot)
+            result = f"enqueued:{n}"
+        sch.last_run_at = now
+        sch.last_result = result
+        sch.next_run_at = advance(sch.next_run_at, sch.cadence, now)
+        return result
