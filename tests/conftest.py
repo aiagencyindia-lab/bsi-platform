@@ -65,6 +65,67 @@ def make_org(owner):
 
 
 @pytest.fixture
+def make_observation(owner):
+    from datetime import UTC, datetime
+
+    from bsi_core.storage import LocalRawStore
+    from sqlalchemy import select
+
+    def _make(
+        org,
+        brand_id,
+        raw=None,
+        status="fetched",
+        text="best shoes",
+        prompt_id=None,  # reuse a prompt: pass a new sample_index with it
+        sample_index=0,
+    ):
+        slot = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+        with owner() as s, s.begin():
+            locale = s.scalars(
+                select(m.Locale).where(m.Locale.brand_id == brand_id)
+            ).first()
+            engine = s.scalars(select(m.Engine)).first()
+            if prompt_id is None:
+                prompt = m.Prompt(
+                    org_id=org.id,
+                    brand_id=brand_id,
+                    locale_id=locale.id,
+                    text=text,
+                )
+                s.add(prompt)
+                s.flush()
+                prompt_id = prompt.id
+            job = s.scalars(
+                select(m.Job).where(m.Job.brand_id == brand_id)
+            ).first()
+            if job is None:
+                job = m.Job(
+                    org_id=org.id, brand_id=brand_id, scheduled_slot=slot
+                )
+                s.add(job)
+                s.flush()
+            obs = m.Observation(
+                org_id=org.id,
+                brand_id=brand_id,
+                job_id=job.id,
+                prompt_id=prompt_id,
+                engine_id=engine.id,
+                locale_id=locale.id,
+                sample_index=sample_index,
+                scheduled_slot=slot,
+                status=status,
+            )
+            s.add(obs)
+            s.flush()
+            if raw is not None:
+                obs.raw_uri = LocalRawStore().put(org.id, obs.id, raw)
+        return obs.id
+
+    return _make
+
+
+@pytest.fixture
 def client(db):
     from bsi_api.main import create_app
     from fastapi.testclient import TestClient

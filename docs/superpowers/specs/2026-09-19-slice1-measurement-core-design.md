@@ -345,7 +345,7 @@ This runs only when the text is non-empty.
 ```python
 class EntityJudgement(BaseModel):
     name: str
-    position: int | None            # 1-based order among entities named
+    position: int | None            # model's view; stored in parsed only
     rec_status: Literal["recommended", "listed", "mentioned", "negative"]
     sentiment: Literal["positive", "neutral", "negative", "mixed"]
     sentiment_conf: float           # 0..1
@@ -361,9 +361,9 @@ class ExtractionOut(BaseModel):
 
 - **Which entities count:** only entities found by the matcher get a `mention`
   row. If the model names an entity the matcher missed, that goes into
-  `parsed.disagreements` and is not counted. If the matcher found an entity
-  the model left out, the entity gets a row with `position` from the matcher's
-  order, `rec_status="mentioned"` and `sentiment="neutral"`.
+  `parsed.disagreements` and is not counted. `position` always comes from the
+  matcher's order of first appearance. A matcher-found entity the model left
+  out gets `rec_status="mentioned"` and `sentiment="neutral"`.
 - **Absence reason:** `absence_reason` is kept only when the brand was not
   mentioned.
 - **Context:** `context` is truncated to 40 words.
