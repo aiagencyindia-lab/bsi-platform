@@ -1,0 +1,35 @@
+{
+  "brand": "BSOAgentTestBrand",
+  "aliases": ["BSO Agent Test Brand"],
+  "domains": [],
+  "samples": 3,
+  "competitors": [
+    {"name": "Bata", "aliases": ["Bubblegummers"], "domains": ["bata.com"]},
+    {"name": "Campus", "aliases": ["Campus Shoes"], "domains": ["campusshoes.com"]},
+    {"name": "Skechers", "aliases": [], "domains": ["skechers.in"]},
+    {"name": "Crocs", "aliases": [], "domains": ["crocs.in"]},
+    {"name": "Adidas", "aliases": [], "domains": ["adidas.co.in"]}
+  ],
+  "prompts": [
+    "best shoes for kids in India",
+    "which brand makes the most comfortable school shoes for children",
+    "best light-up sneakers for kids",
+    "good running shoes for a 10 year old boy in India",
+    "durable kids shoes under 1500 rupees",
+    "best black school shoes for boys in India",
+    "which kids shoe brand lasts the longest",
+    "best shoes for toddlers learning to walk",
+    "kids joggers with velcro recommendation",
+    "Bata vs Campus shoes for kids which is better",
+    "Skechers or Adidas for kids, which should I buy",
+    "are Crocs good for kids everyday use",
+    "my child's feet hurt in school shoes, what should I buy",
+    "best waterproof shoes for kids during monsoon",
+    "best sports shoes for girls aged 8 to 12",
+    "affordable kids sneakers brands in India",
+    "which kids shoes are good for flat feet",
+    "top rated kids shoe brands on Amazon India",
+    "Is BSOAgentTestBrand a good brand for kids shoes?",
+    "BSOAgentTestBrand light-up sneakers review"
+  ]
+}
