@@ -150,7 +150,27 @@ def test_stale_running_rows_are_reset(owner, queued):
             )
         )
     assert reset_stale() == 1
-    assert load(owner, obs_id).status == "retry"
+    obs = load(owner, obs_id)
+    assert obs.status == "retry"
+    assert obs.attempts == 1
+
+
+def test_stale_running_rows_fail_after_third_attempt(owner, queued):
+    _, obs_id = queued
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Observation)
+            .where(m.Observation.id == obs_id)
+            .values(
+                status="running",
+                attempts=2,
+                requested_at=datetime.now(UTC) - timedelta(minutes=11),
+            )
+        )
+    assert reset_stale() == 1
+    obs = load(owner, obs_id)
+    assert obs.status == "failed"
+    assert obs.attempts == 3
 
 
 def test_worker_serves_every_tenant(

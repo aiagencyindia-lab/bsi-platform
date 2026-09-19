@@ -35,7 +35,9 @@ class GeminiGroundingAdapter:
         }
         try:
             if self._client is None:
-                self._client = genai.Client()
+                self._client = genai.Client(
+                    http_options=types.HttpOptions(timeout=120_000)
+                )
             response = self._client.models.generate_content(
                 model=self._model,
                 contents=prompt,

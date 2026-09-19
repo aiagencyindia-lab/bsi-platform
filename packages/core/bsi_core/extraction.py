@@ -73,7 +73,10 @@ def apply_sanity(
     judged: dict[str, EntityJudgement] = {}
     notes: list[str] = []
     if out is not None:
-        lookup = {_key(a): e.id for e in entities for a in e.aliases}
+        lookup: dict[str, str] = {}
+        for e in entities:
+            for a in e.aliases:
+                lookup.setdefault(_key(a), e.id)
         for judgement in out.entities:
             entity_id = lookup.get(_key(judgement.name))
             if entity_id is None or entity_id not in order:
@@ -237,7 +240,8 @@ def build_prompt(text: str, names: list[str]) -> str:
 
 def flash_lite_judge(text: str, names: list[str]) -> ExtractionOut:
     prompt = build_prompt(text, names)
-    client = genai.Client()  # a temporary here can be GC'd mid-request
+    # a temporary here can be GC'd mid-request
+    client = genai.Client(http_options=types.HttpOptions(timeout=120_000))
     response = client.models.generate_content(
         model=get_settings().extract_model,
         contents=prompt,
