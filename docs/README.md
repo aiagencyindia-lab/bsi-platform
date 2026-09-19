@@ -1,0 +1,36 @@
+# Documents
+
+Everything behind this repo: the documents it was built from, and the ones
+produced while building it.
+
+## Inputs (given)
+
+| Document | What it is |
+|---|---|
+| [inputs/prd-brand-search-intelligence-platform.md](inputs/prd-brand-search-intelligence-platform.md) | The product requirements document (PRD) for the whole platform, v1.0, 2026-09-18. This repo is sub-project 1 of it. |
+| [inputs/handoff-2026-09-19-adk-brand-search-optimization.md](inputs/handoff-2026-09-19-adk-brand-search-optimization.md) | Handoff describing the ADK demo app this platform grew out of. |
+
+## Reference
+
+| Document | What it is |
+|---|---|
+| [reference/adk-brand-search-optimization-test-guide.md](reference/adk-brand-search-optimization-test-guide.md) | The ADK demo's application, features and manual test guide. The PRD lists it as a related document. |
+
+## Produced for slice 1: measurement core
+
+In the order they were written:
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-19-slice1-measurement-core-design.md](superpowers/specs/2026-09-19-slice1-measurement-core-design.md) | Design spec. It is binding for slice 1 and was amended during the build. |
+| [superpowers/plans/2026-09-19-slice1-measurement-core.md](superpowers/plans/2026-09-19-slice1-measurement-core.md) | Implementation plan, Tasks 0–11, with code and tests. |
+| [findings-slice1.md](findings-slice1.md) | Results of the live run: cost, interval widths, matcher accuracy, injection resistance, follow-ups. |
+| [audit-slice1.md](audit-slice1.md) | Task-by-task audit after the build, with the defects it found and the commits that fixed them. |
+
+Run data lives next to the code, because the scripts and tests read it
+there:
+- [../eval/run1.json](../eval/run1.json): the brand, competitors and prompts of the live run.
+- [../eval/benchmark_v0.jsonl](../eval/benchmark_v0.jsonl): 30 hand-labelled observations.
+
+The raw engine answers from the live run are in `data/`. They are
+git-ignored and stay local.

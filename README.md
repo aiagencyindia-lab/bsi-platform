@@ -5,6 +5,8 @@ Brand-visibility measurement platform: a Python uv workspace with
 `apps/workers` (background jobs), backed by Postgres.
 
 Spec: `docs/superpowers/specs/2026-09-19-slice1-measurement-core-design.md`
+All documents: the PRD, the spec, the plan, the findings and the audit are
+indexed in [`docs/README.md`](docs/README.md).
 
 ## Quickstart
 
