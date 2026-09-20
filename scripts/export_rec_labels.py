@@ -7,6 +7,7 @@ usage: python scripts/export_rec_labels.py > eval/rec_labels_v0.jsonl
 
 import json
 import sys
+import uuid
 from pathlib import Path
 
 
@@ -46,7 +47,7 @@ def from_db(org_name: str) -> None:
             .where(m.RecLabel.org_id == org.id)
             .order_by(m.RecLabel.observation_id, m.RecLabel.created_at)
         ).all()
-        by_obs: dict = {}
+        by_obs: dict[uuid.UUID, list[m.RecLabel]] = {}
         for lb in labels:
             by_obs.setdefault(lb.observation_id, []).append(lb)
         for obs_id, rows in by_obs.items():
@@ -83,4 +84,14 @@ def from_db(org_name: str) -> None:
             )
 
 
-from_db(sys.argv[2]) if sys.argv[1:2] == ["--from-db"] else from_benchmark()
+def main() -> None:
+    if sys.argv[1:2] == ["--from-db"]:
+        if len(sys.argv) < 3:
+            sys.exit("usage: export_rec_labels.py --from-db ORG_NAME")
+        from_db(sys.argv[2])
+    else:
+        from_benchmark()
+
+
+if __name__ == "__main__":
+    main()
