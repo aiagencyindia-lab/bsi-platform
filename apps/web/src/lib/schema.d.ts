@@ -389,6 +389,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Ops */
+        get: operations["get_ops_v1_ops_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -638,6 +655,33 @@ export interface components {
             /** Sentiment Conf */
             sentiment_conf: number | null;
         };
+        /** FailureOut */
+        FailureOut: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Brand Id
+             * Format: uuid
+             */
+            brand_id: string;
+            /** Error */
+            error: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Prompt Id
+             * Format: uuid
+             */
+            prompt_id: string;
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+        };
         /** FiltersOut */
         FiltersOut: {
             /** Date From */
@@ -798,6 +842,26 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** OpsOut */
+        OpsOut: {
+            /** Budget Micros */
+            budget_micros: number;
+            /** Estimate Micros */
+            estimate_micros: number;
+            /** Failures */
+            failures: components["schemas"]["FailureOut"][];
+            /** Pending */
+            pending: number;
+            /** Queue */
+            queue: {
+                [key: string]: number;
+            };
+            /** Schedules */
+            schedules: components["schemas"]["ScheduleRow"][];
+            searched: components["schemas"]["Rate"];
+            /** Spent Micros */
+            spent_micros: number;
+        };
         /** PromptIn */
         PromptIn: {
             /** Text */
@@ -927,6 +991,33 @@ export interface components {
             cost_preview: {
                 [key: string]: unknown;
             };
+            /** Hour Utc */
+            hour_utc: number;
+            /** Last Result */
+            last_result: string | null;
+            /** Last Run At */
+            last_run_at: string | null;
+            /**
+             * Next Run At
+             * Format: date-time
+             */
+            next_run_at: string;
+            /** Samples */
+            samples: number;
+            /** Status */
+            status: string;
+        };
+        /** ScheduleRow */
+        ScheduleRow: {
+            /**
+             * Brand Id
+             * Format: uuid
+             */
+            brand_id: string;
+            /** Brand Name */
+            brand_name: string;
+            /** Cadence */
+            cadence: string;
             /** Hour Utc */
             hour_utc: number;
             /** Last Result */
@@ -2161,6 +2252,37 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ops_v1_ops_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpsOut"];
                 };
             };
             /** @description Validation Error */

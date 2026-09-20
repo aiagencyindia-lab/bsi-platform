@@ -730,6 +730,55 @@
         "title": "ExtractionOut",
         "type": "object"
       },
+      "FailureOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "brand_id": {
+            "format": "uuid",
+            "title": "Brand Id",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "prompt_id": {
+            "format": "uuid",
+            "title": "Prompt Id",
+            "type": "string"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "brand_id",
+          "prompt_id",
+          "error",
+          "attempts",
+          "requested_at"
+        ],
+        "title": "FailureOut",
+        "type": "object"
+      },
       "FiltersOut": {
         "properties": {
           "date_from": {
@@ -1207,6 +1256,62 @@
         "title": "ObservationOut",
         "type": "object"
       },
+      "OpsOut": {
+        "properties": {
+          "budget_micros": {
+            "title": "Budget Micros",
+            "type": "integer"
+          },
+          "estimate_micros": {
+            "title": "Estimate Micros",
+            "type": "integer"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/FailureOut"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "integer"
+          },
+          "queue": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Queue",
+            "type": "object"
+          },
+          "schedules": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleRow"
+            },
+            "title": "Schedules",
+            "type": "array"
+          },
+          "searched": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "spent_micros": {
+            "title": "Spent Micros",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spent_micros",
+          "pending",
+          "budget_micros",
+          "estimate_micros",
+          "queue",
+          "searched",
+          "failures",
+          "schedules"
+        ],
+        "title": "OpsOut",
+        "type": "object"
+      },
       "PromptIn": {
         "properties": {
           "text": {
@@ -1587,6 +1692,76 @@
           "last_result"
         ],
         "title": "ScheduleOut",
+        "type": "object"
+      },
+      "ScheduleRow": {
+        "properties": {
+          "brand_id": {
+            "format": "uuid",
+            "title": "Brand Id",
+            "type": "string"
+          },
+          "brand_name": {
+            "title": "Brand Name",
+            "type": "string"
+          },
+          "cadence": {
+            "title": "Cadence",
+            "type": "string"
+          },
+          "hour_utc": {
+            "title": "Hour Utc",
+            "type": "integer"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Result"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "next_run_at": {
+            "format": "date-time",
+            "title": "Next Run At",
+            "type": "string"
+          },
+          "samples": {
+            "title": "Samples",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brand_id",
+          "brand_name",
+          "cadence",
+          "hour_utc",
+          "samples",
+          "status",
+          "next_run_at",
+          "last_run_at",
+          "last_result"
+        ],
+        "title": "ScheduleRow",
         "type": "object"
       },
       "SovEntity": {
@@ -4300,6 +4475,55 @@
         "summary": "Get Raw",
         "tags": [
           "observations"
+        ]
+      }
+    },
+    "/v1/ops": {
+      "get": {
+        "operationId": "get_ops_v1_ops_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Ops",
+        "tags": [
+          "ops"
         ]
       }
     }

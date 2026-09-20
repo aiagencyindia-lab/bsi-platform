@@ -9,3 +9,4 @@ export type PromptMetrics = S["PromptMetricsOut"];
 export type Observation = S["ObservationOut"];
 export type ObservationDetail = S["ObservationDetail"];
 export type Competitor = S["CompetitorOut"];
+export type Ops = S["OpsOut"];
