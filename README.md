@@ -43,3 +43,8 @@ Whenever an endpoint is added later, add its row to `CASES` in `tests/integratio
 Before merging a change to `apps/web`, run `npm run gate` there (typecheck,
 lint, tests, build, and `gen:check` against the live OpenAPI) - it fails
 the moment `schema.d.ts` drifts from a backend response model.
+
+CI (`.github/workflows/ci.yml`) runs both gates on every pull request and
+on pushes to `main`, against the same pgvector image `docker-compose`
+uses - so a stale generated type or an unformatted file fails before
+review rather than after merge.

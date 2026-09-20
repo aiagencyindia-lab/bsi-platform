@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: bsi_owner
+          POSTGRES_PASSWORD: owner
+          POSTGRES_DB: bsi
+        # tests/conftest.py hardcodes localhost:5433, as docker-compose does.
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U bsi_owner"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # docker-compose mounts docker/init.sql into the image's entrypoint;
+      # a service container cannot, so run the same statements by hand.
+      - name: Create the app role and the test database
+        run: psql -v ON_ERROR_STOP=1 -f docker/init.sql
+        env:
+          PGHOST: localhost
+          PGPORT: "5433"
+          PGUSER: bsi_owner
+          PGPASSWORD: owner
+          PGDATABASE: bsi
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+
+      # ruff format --check, not ruff format: CI verifies, it does not rewrite.
+      - name: Backend gate
+        run: |
+          uv run ruff format --check .
+          uv run ruff check .
+          uv run mypy
+          uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+        working-directory: apps/web
+
+      # typecheck, lint, test, build, and the OpenAPI drift check.
+      - name: Frontend gate
+        run: npm run gate
+        working-directory: apps/web
