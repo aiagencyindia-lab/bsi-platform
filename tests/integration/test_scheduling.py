@@ -169,3 +169,19 @@ def test_stale_schedule_runs_once_then_jumps_ahead(owner, make_org, make_brand):
     assert (sch.next_run_at - old.next_run_at) % timedelta(days=1) == (
         timedelta(0)
     )
+
+
+def test_another_orgs_schedule_is_invisible(owner, make_org, make_brand):
+    # RLS hides it, so the lookup finds nothing and nothing is run.
+    a = make_org("A")
+    _, _, sid = _setup(owner, make_org, make_brand)
+    before, _, _ = _state(owner, sid)
+
+    assert scheduling.run_schedule(a.id, sid) is None
+
+    sch, _, queued = _state(owner, sid)
+    assert queued == 0
+    assert (sch.next_run_at, sch.last_result) == (
+        before.next_run_at,
+        before.last_result,
+    )
