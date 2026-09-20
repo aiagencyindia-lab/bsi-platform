@@ -350,3 +350,64 @@ def test_one_failing_schedule_does_not_block_others(
     monkeypatch.setattr(worker, "run_schedule", flaky)
     assert run_due_schedules() == 1
     assert _queued(owner, good_bid) == 2
+
+
+def _job(owner, org, brand_id, kind, status, minutes=0, **kw):
+    with owner() as s, s.begin():
+        job = m.Job(
+            org_id=org.id,
+            brand_id=brand_id,
+            kind=kind,
+            scheduled_slot=datetime.now(UTC) + timedelta(minutes=minutes),
+            status=status,
+            **kw,
+        )
+        s.add(job)
+        s.flush()
+    return job.id
+
+
+def test_claim_job_takes_one_queued_non_run_job(owner, make_org, make_brand):
+    from bsi_core.db import system_session
+
+    org = make_org()
+    bid = make_brand(org)
+    _job(owner, org, bid, "run", None)
+    _job(owner, org, bid, "run", "queued", minutes=1)
+    _job(owner, org, bid, "suggest_competitors", None, minutes=2)
+    wanted = _job(owner, org, bid, "suggest_prompts", "queued", minutes=3)
+
+    with system_session() as s:
+        first = s.execute(text("SELECT * FROM claim_job()")).all()
+    with system_session() as s:
+        second = s.execute(text("SELECT * FROM claim_job()")).all()
+
+    assert [tuple(r) for r in first] == [(wanted, org.id, "suggest_prompts")]
+    assert second == []
+    with owner() as s:
+        claimed = s.get(m.Job, wanted)
+        assert claimed.status == "running"
+        assert claimed.started_at is not None
+
+
+def test_claim_job_fails_stale_running_jobs(owner, make_org, make_brand):
+    from bsi_core.db import system_session
+
+    org = make_org()
+    bid = make_brand(org)
+    stale = _job(
+        owner,
+        org,
+        bid,
+        "suggest_prompts",
+        "running",
+        started_at=datetime.now(UTC) - timedelta(minutes=11),
+    )
+
+    with system_session() as s:
+        rows = s.execute(text("SELECT * FROM claim_job()")).all()
+
+    assert rows == []
+    with owner() as s:
+        job = s.get(m.Job, stale)
+    assert (job.status, job.error) == ("failed", "stale")

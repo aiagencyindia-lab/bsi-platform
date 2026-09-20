@@ -2,13 +2,16 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, ClassVar
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
+    Numeric,
     Text,
     UniqueConstraint,
     func,
@@ -16,6 +19,19 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+INTENTS = (
+    "informational",
+    "commercial",
+    "transactional",
+    "comparison",
+    "alternative",
+    "recommendation",
+    "problem-based",
+    "industry-specific",
+    "persona-specific",
+    "geographic",
+)
 
 TSZ = DateTime(timezone=True)
 
@@ -46,6 +62,10 @@ class Organization(Row, Base):
     plan: Mapped[str] = mapped_column(server_default="starter")
     region: Mapped[str] = mapped_column(server_default="asia-south1")
     settings: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    daily_budget_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    __table_args__ = (
+        CheckConstraint("daily_budget_usd >= 0", name="ck_organization_budget"),
+    )
 
 
 class Workspace(Tenant, Base):
@@ -85,6 +105,14 @@ class Competitor(Tenant, Base):
     name: Mapped[str]
     aliases: Mapped[list[str]] = mapped_column(server_default="{}")
     domains: Mapped[list[str]] = mapped_column(server_default="{}")
+    status: Mapped[str] = mapped_column(server_default="active")
+    # How many of the three suggestion answers named this competitor.
+    evidence: Mapped[int | None]
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('suggested', 'active')", name="ck_competitor_status"
+        ),
+    )
 
 
 class Locale(Tenant, Base):
@@ -101,6 +129,24 @@ class Prompt(Tenant, Base):
     text: Mapped[str]
     source: Mapped[str] = mapped_column(server_default="manual")
     status: Mapped[str] = mapped_column(server_default="active")
+    intent: Mapped[str | None]
+    topic: Mapped[str | None]
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768))
+    __table_args__ = (
+        CheckConstraint(
+            "intent IS NULL OR intent IN ("
+            + ", ".join(f"'{i}'" for i in INTENTS)
+            + ")",
+            name="ck_prompt_intent",
+        ),
+        CheckConstraint(
+            "status IN ('suggested', 'active', 'paused', 'archived')",
+            name="ck_prompt_status",
+        ),
+        CheckConstraint(
+            "source IN ('manual', 'generated')", name="ck_prompt_source"
+        ),
+    )
 
 
 class Engine(Row, Base):
@@ -115,7 +161,25 @@ class Job(Tenant, Base):
     brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
     kind: Mapped[str] = mapped_column(server_default="run")
     scheduled_slot: Mapped[datetime] = mapped_column(TSZ)
-    __table_args__ = (UniqueConstraint("brand_id", "kind", "scheduled_slot"),)
+    # NULL for kind='run': those rows are driven by their observations.
+    status: Mapped[str | None]
+    params: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    error: Mapped[str | None]
+    cost_micros: Mapped[int] = mapped_column(server_default="0")
+    started_at: Mapped[datetime | None] = mapped_column(TSZ)
+    __table_args__ = (
+        UniqueConstraint("brand_id", "kind", "scheduled_slot"),
+        Index(
+            "ix_job_queued",
+            "created_at",
+            postgresql_where=text("status = 'queued'"),
+        ),
+        CheckConstraint(
+            "status IS NULL OR status IN "
+            "('queued', 'running', 'done', 'failed')",
+            name="ck_job_status",
+        ),
+    )
 
 
 class Schedule(Tenant, Base):
