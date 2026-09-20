@@ -201,16 +201,20 @@ def _finish_job(
     """Record the outcome, unless someone else already moved the job.
 
     A stale job is failed by claim_job() while this attempt is still
-    running; its work must then be discarded, not written twice.
+    running; this attempt's outcome is then discarded, not written over
+    whatever moved it. The spend is recorded either way: the money was
+    real, and both budget guards read it from this column.
     """
     with tenant_session(org_id) as s:
         job = s.get(m.Job, job_id, with_for_update=True)
-        if job is None or job.status != "running":
+        if job is None:
+            return
+        job.cost_micros += spent
+        if job.status != "running":
             log.warning("job %s moved mid-flight: discarding", job_id)
             return
         job.status = status
         job.error = error
-        job.cost_micros += spent
 
 
 def process_job(adapter: EngineAdapter, generator: Any, embedder: Any) -> bool:

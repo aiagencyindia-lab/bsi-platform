@@ -479,7 +479,7 @@ def test_a_failing_job_records_the_error_and_keeps_its_cost(
     assert "brand is archived" in job.error
 
 
-def test_a_job_failed_mid_flight_writes_nothing(
+def test_a_job_failed_mid_flight_keeps_its_status(
     monkeypatch, owner, make_org, make_brand
 ):
     org = make_org()
@@ -500,7 +500,10 @@ def test_a_job_failed_mid_flight_writes_nothing(
     _, generator, embedder = _spender()
     assert worker.process_job(FakeAdapter(), generator, embedder) is True
     job = _load_job(owner, job_id)
-    assert (job.status, job.error, job.cost_micros) == ("failed", "stale", 0)
+    # The status is left alone, but the money it spent is still real and
+    # has to stay visible to the budget guards.
+    assert (job.status, job.error) == ("failed", "stale")
+    assert job.cost_micros == 700
 
 
 def test_an_over_budget_job_fails_without_calling_the_model(
