@@ -867,6 +867,135 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LabelIn": {
+        "properties": {
+          "label": {
+            "enum": [
+              "recommended",
+              "listed",
+              "mentioned",
+              "negative"
+            ],
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "LabelIn",
+        "type": "object"
+      },
+      "LabelItem": {
+        "properties": {
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "entity_name": {
+            "title": "Entity Name",
+            "type": "string"
+          },
+          "entity_type": {
+            "title": "Entity Type",
+            "type": "string"
+          },
+          "evidence_sentence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Sentence"
+          },
+          "observation_id": {
+            "format": "uuid",
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "observation_id",
+          "entity_id",
+          "entity_type",
+          "entity_name",
+          "evidence_sentence",
+          "text"
+        ],
+        "title": "LabelItem",
+        "type": "object"
+      },
+      "LabelQueue": {
+        "properties": {
+          "agreement": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LabelItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "labelled": {
+            "title": "Labelled",
+            "type": "integer"
+          },
+          "remaining": {
+            "title": "Remaining",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "item",
+          "labelled",
+          "remaining",
+          "agreement"
+        ],
+        "title": "LabelQueue",
+        "type": "object"
+      },
+      "LabelResult": {
+        "properties": {
+          "agrees": {
+            "title": "Agrees",
+            "type": "boolean"
+          },
+          "judge": {
+            "title": "Judge",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "judge",
+          "agrees"
+        ],
+        "title": "LabelResult",
+        "type": "object"
+      },
       "MentionOut": {
         "properties": {
           "entity_id": {
@@ -2988,6 +3117,65 @@
         ]
       }
     },
+    "/v1/brands/{brand_id}/labels/next": {
+      "get": {
+        "operationId": "next_label_v1_brands__brand_id__labels_next_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelQueue"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Next Label",
+        "tags": [
+          "labels"
+        ]
+      }
+    },
     "/v1/brands/{brand_id}/metrics": {
       "get": {
         "operationId": "get_metrics_v1_brands__brand_id__metrics_get",
@@ -4414,6 +4602,85 @@
         "summary": "Get Observation",
         "tags": [
           "observations"
+        ]
+      }
+    },
+    "/v1/observations/{observation_id}/labels/{entity_id}": {
+      "put": {
+        "operationId": "put_label_v1_observations__observation_id__labels__entity_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "observation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Observation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entity Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabelResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Label",
+        "tags": [
+          "labels"
         ]
       }
     },

@@ -180,6 +180,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brands/{brand_id}/labels/next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Next Label */
+        get: operations["next_label_v1_brands__brand_id__labels_next_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/metrics": {
         parameters: {
             query?: never;
@@ -365,6 +382,23 @@ export interface paths {
         /** Get Observation */
         get: operations["get_observation_v1_observations__observation_id__get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/observations/{observation_id}/labels/{entity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Label */
+        put: operations["put_label_v1_observations__observation_id__labels__entity_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -699,6 +733,53 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** LabelIn */
+        LabelIn: {
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "recommended" | "listed" | "mentioned" | "negative";
+        };
+        /** LabelItem */
+        LabelItem: {
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            /** Entity Name */
+            entity_name: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Evidence Sentence */
+            evidence_sentence: string | null;
+            /**
+             * Observation Id
+             * Format: uuid
+             */
+            observation_id: string;
+            /** Text */
+            text: string | null;
+        };
+        /** LabelQueue */
+        LabelQueue: {
+            agreement: components["schemas"]["Rate"];
+            item: components["schemas"]["LabelItem"] | null;
+            /** Labelled */
+            labelled: number;
+            /** Remaining */
+            remaining: number;
+        };
+        /** LabelResult */
+        LabelResult: {
+            /** Agrees */
+            agrees: boolean;
+            /** Judge */
+            judge: string;
+            /** Label */
+            label: string;
         };
         /** MentionOut */
         MentionOut: {
@@ -1643,6 +1724,39 @@ export interface operations {
             };
         };
     };
+    next_label_v1_brands__brand_id__labels_next_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelQueue"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_metrics_v1_brands__brand_id__metrics_get: {
         parameters: {
             query?: {
@@ -2217,6 +2331,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ObservationDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_label_v1_observations__observation_id__labels__entity_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                observation_id: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabelIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelResult"];
                 };
             };
             /** @description Validation Error */
