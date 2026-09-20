@@ -1,0 +1,1320 @@
+{
+ "threshold": 0.92,
+ "brands": [
+  {
+   "brand": "BSOAgentTestBrand",
+   "category": "kids footwear",
+   "locale": "en-IN",
+   "model": "gemini-3.5-flash-lite",
+   "asked": 63,
+   "wanted": 50,
+   "returned": 63,
+   "seconds_generate": 8.56,
+   "seconds_embed": 24.52,
+   "seconds_total": 33.08,
+   "cost_micros": {
+    "generate": 4861,
+    "embed": 107,
+    "total": 4968
+   },
+   "rejected_by_clean": 0,
+   "candidates": 63,
+   "near_duplicates": 5,
+   "near_duplicate_rate": 0.0794,
+   "post_dedupe": 58,
+   "would_write": 50,
+   "intents": {
+    "informational": 8,
+    "commercial": 8,
+    "transactional": 8,
+    "comparison": 8,
+    "alternative": 8,
+    "recommendation": 8,
+    "problem-based": 8,
+    "industry-specific": 4,
+    "persona-specific": 3
+   },
+   "topics": {
+    "foot health": 17,
+    "sneakers": 15,
+    "school shoes": 9,
+    "budget options": 6,
+    "sizing": 5,
+    "boots": 5,
+    "party wear": 4,
+    "materials": 2
+   },
+   "similarity": {
+    "n_pairs": 1953,
+    "min": 0.7222,
+    "median": 0.82,
+    "p90": 0.8673,
+    "p99": 0.9035,
+    "max": 0.957,
+    "at_or_above": {
+     "0.85": 373,
+     "0.88": 105,
+     "0.9": 27,
+     "0.92": 5,
+     "0.95": 1
+    }
+   },
+   "closest_pairs": [
+    {
+     "sim": 0.957,
+     "a": "Waterproof footwear options for children during the monsoon season",
+     "b": "Top recommended waterproof footwear for kids during heavy monsoon rains",
+     "dropped": true
+    },
+    {
+     "sim": 0.9425,
+     "a": "Waterproof footwear options for children during the monsoon season",
+     "b": "Waterproof synthetic boots versus rubber gumboots for kids monsoon use",
+     "dropped": true
+    },
+    {
+     "sim": 0.934,
+     "a": "Waterproof footwear options for children during the monsoon season",
+     "b": "Order waterproof outdoor boots for children for the rainy season",
+     "dropped": true
+    },
+    {
+     "sim": 0.9295,
+     "a": "Affordable everyday footwear options for fast-growing children",
+     "b": "Affordable alternatives to expensive imported orthotic shoes for kids",
+     "dropped": true
+    },
+    {
+     "sim": 0.9247,
+     "a": "Compare Velcro strap sneakers versus lace-up shoes for kindergarten kids",
+     "b": "Slip-on shoes versus lace shoes which is better for independent toddlers",
+     "dropped": true
+    },
+    {
+     "sim": 0.9199,
+     "a": "Lightweight running shoes for active kids who play sports outdoors",
+     "b": "Best recommended running shoes for kids participating in school sports day",
+     "dropped": false
+    },
+    {
+     "sim": 0.9148,
+     "a": "Comfortable alternatives to stiff leather school shoes for sensitive feet",
+     "b": "Flexible sole alternatives to rigid formal shoes for children parties",
+     "dropped": false
+    },
+    {
+     "sim": 0.9147,
+     "a": "Bureau of Indian Standards guidelines for children footwear manufacturing",
+     "b": "Orthopedic standards for pediatric footwear design in the footwear industry",
+     "dropped": false
+    },
+    {
+     "sim": 0.9147,
+     "a": "Are flexible soles better for toddlers learning to walk?",
+     "b": "Do toddlers really need arch support in their everyday sneakers?",
+     "dropped": false
+    },
+    {
+     "sim": 0.9127,
+     "a": "Leather school shoes versus canvas school shoes for daily wear durability",
+     "b": "Budget kids shoes versus premium branded footwear long term durability",
+     "dropped": false
+    }
+   ],
+   "prompts": [
+    {
+     "text": "What is the best shoe size for a 3-year-old child?",
+     "intent": "informational",
+     "topic": "sizing"
+    },
+    {
+     "text": "How to measure kids shoe size accurately at home in centimeters",
+     "intent": "informational",
+     "topic": "sizing"
+    },
+    {
+     "text": "Are flexible soles better for toddlers learning to walk?",
+     "intent": "informational",
+     "topic": "foot health"
+    },
+    {
+     "text": "What are the signs that my child has outgrown their current shoes?",
+     "intent": "informational",
+     "topic": "sizing"
+    },
+    {
+     "text": "Why do children need wide toe box shoes for proper development?",
+     "intent": "informational",
+     "topic": "foot health"
+    },
+    {
+     "text": "How often should I check my growing child's footwear fit?",
+     "intent": "informational",
+     "topic": "sizing"
+    },
+    {
+     "text": "What materials are safest and most breathable for kids daily wear shoes?",
+     "intent": "informational",
+     "topic": "materials"
+    },
+    {
+     "text": "Do toddlers really need arch support in their everyday sneakers?",
+     "intent": "informational",
+     "topic": "foot health"
+    },
+    {
+     "text": "Best breathable canvas sneakers for kids to wear during summer",
+     "intent": "commercial",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Durable school shoes for boys that can withstand daily playground use",
+     "intent": "commercial",
+     "topic": "school shoes"
+    },
+    {
+     "text": "Lightweight running shoes for active kids who play sports outdoors",
+     "intent": "commercial",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Waterproof footwear options for children during the monsoon season",
+     "intent": "commercial",
+     "topic": "boots"
+    },
+    {
+     "text": "Cute party wear shoes for toddler girls with comfortable cushioning",
+     "intent": "commercial",
+     "topic": "party wear"
+    },
+    {
+     "text": "Slip-on canvas shoes for kids that are easy to wear independently",
+     "intent": "commercial",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Affordable everyday footwear options for fast-growing children",
+     "intent": "commercial",
+     "topic": "budget options"
+    },
+    {
+     "text": "Easy to clean white school shoes for daily uniform requirements",
+     "intent": "commercial",
+     "topic": "school shoes"
+    },
+    {
+     "text": "Where to buy durable school shoes for kids online with free shipping in India",
+     "intent": "transactional",
+     "topic": "school shoes"
+    },
+    {
+     "text": "Buy comfortable running sneakers for kids online with easy returns",
+     "intent": "transactional",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Order waterproof outdoor boots for children for the rainy season",
+     "intent": "transactional",
+     "topic": "boots"
+    },
+    {
+     "text": "Purchase lightweight slip-on shoes for toddlers with fast delivery",
+     "intent": "transactional",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Best online deals on party wear shoes for kids festival season",
+     "intent": "transactional",
+     "topic": "party wear"
+    },
+    {
+     "text": "Shop breathable canvas shoes for boys and girls on discount",
+     "intent": "transactional",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Find budget-friendly kids footwear combos online with cash on delivery",
+     "intent": "transactional",
+     "topic": "budget options"
+    },
+    {
+     "text": "Order corrective footwear for toddler flat feet from trusted online stores",
+     "intent": "transactional",
+     "topic": "foot health"
+    },
+    {
+     "text": "Compare Velcro strap sneakers versus lace-up shoes for kindergarten kids",
+     "intent": "comparison",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Leather school shoes versus canvas school shoes for daily wear durability",
+     "intent": "comparison",
+     "topic": "school shoes"
+    },
+    {
+     "text": "Lightweight mesh sneakers versus heavy rubber soles for active running",
+     "intent": "comparison",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Slip-on shoes versus lace shoes which is better for independent toddlers",
+     "intent": "comparison",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Waterproof synthetic boots versus rubber gumboots for kids monsoon use",
+     "intent": "comparison",
+     "topic": "boots"
+    },
+    {
+     "text": "Cushioned EVA soles versus traditional rubber soles for daily comfort",
+     "intent": "comparison",
+     "topic": "foot health"
+    },
+    {
+     "text": "Open toe sandals versus closed toe sneakers for outdoor playground safety",
+     "intent": "comparison",
+     "topic": "foot health"
+    },
+    {
+     "text": "Budget kids shoes versus premium branded footwear long term durability",
+     "intent": "comparison",
+     "topic": "budget options"
+    },
+    {
+     "text": "Best alternative to traditional lace-up shoes for 5-year-old school kids",
+     "intent": "alternative",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Comfortable alternatives to stiff leather school shoes for sensitive feet",
+     "intent": "alternative",
+     "topic": "school shoes"
+    },
+    {
+     "text": "Lightweight alternatives to heavy winter boots for children in mild climates",
+     "intent": "alternative",
+     "topic": "boots"
+    },
+    {
+     "text": "Breathable alternatives to synthetic plastic sandals for hot summer days",
+     "intent": "alternative",
+     "topic": "foot health"
+    },
+    {
+     "text": "Machine washable alternatives to canvas shoes that get dirty quickly",
+     "intent": "alternative",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Soft cloth booties as an alternative for early walkers before outdoor shoes",
+     "intent": "alternative",
+     "topic": "foot health"
+    },
+    {
+     "text": "Affordable alternatives to expensive imported orthotic shoes for kids",
+     "intent": "alternative",
+     "topic": "budget options"
+    },
+    {
+     "text": "Flexible sole alternatives to rigid formal shoes for children parties",
+     "intent": "alternative",
+     "topic": "party wear"
+    },
+    {
+     "text": "What do podiatrists recommend as the best footwear features for toddlers?",
+     "intent": "recommendation",
+     "topic": "foot health"
+    },
+    {
+     "text": "Top rated school shoes recommended by parents for daily wear comfort",
+     "intent": "recommendation",
+     "topic": "school shoes"
+    },
+    {
+     "text": "Best recommended running shoes for kids participating in school sports day",
+     "intent": "recommendation",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Most recommended durable footwear brands for hyperactive boys and girls",
+     "intent": "recommendation",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Top expert recommended sandals for infants taking their first steps",
+     "intent": "recommendation",
+     "topic": "foot health"
+    },
+    {
+     "text": "Best budget-friendly school shoe recommendations for large families",
+     "intent": "recommendation",
+     "topic": "budget options"
+    },
+    {
+     "text": "Top recommended waterproof footwear for kids during heavy monsoon rains",
+     "intent": "recommendation",
+     "topic": "boots"
+    },
+    {
+     "text": "Best party footwear recommendations for toddlers that will not hurt feet",
+     "intent": "recommendation",
+     "topic": "party wear"
+    },
+    {
+     "text": "My child keeps getting blisters from new school shoes what should I do",
+     "intent": "problem-based",
+     "topic": "school shoes"
+    },
+    {
+     "text": "How to stop kids shoes from smelling bad after outdoor sports activities",
+     "intent": "problem-based",
+     "topic": "foot health"
+    },
+    {
+     "text": "What to do when toddler refuses to keep shoes on during walks",
+     "intent": "problem-based",
+     "topic": "foot health"
+    },
+    {
+     "text": "How to clean muddy white canvas sneakers easily without ruining them",
+     "intent": "problem-based",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Fixing slippery outsoles on children running shoes to prevent falling",
+     "intent": "problem-based",
+     "topic": "sneakers"
+    },
+    {
+     "text": "Shoes wearing out too fast at the toes what causes this in kids",
+     "intent": "problem-based",
+     "topic": "budget options"
+    },
+    {
+     "text": "How to stretch tight school shoes quickly without damaging the leather",
+     "intent": "problem-based",
+     "topic": "school shoes"
+    },
+    {
+     "text": "Managing uneven shoe wear patterns in growing children feet",
+     "intent": "problem-based",
+     "topic": "foot health"
+    },
+    {
+     "text": "What are the Indian school uniform footwear guidelines for primary students",
+     "intent": "industry-specific",
+     "topic": "school shoes"
+    },
+    {
+     "text": "Certified child safe non-toxic materials used in export quality kids shoes",
+     "intent": "industry-specific",
+     "topic": "materials"
+    },
+    {
+     "text": "Bureau of Indian Standards guidelines for children footwear manufacturing",
+     "intent": "industry-specific",
+     "topic": "foot health"
+    },
+    {
+     "text": "Orthopedic standards for pediatric footwear design in the footwear industry",
+     "intent": "industry-specific",
+     "topic": "foot health"
+    },
+    {
+     "text": "Best shoes for a toddler with flat feet and mild pronation issues",
+     "intent": "persona-specific",
+     "topic": "foot health"
+    },
+    {
+     "text": "Durable footwear options for autistic children who need seamless sensory shoes",
+     "intent": "persona-specific",
+     "topic": "foot health"
+    },
+    {
+     "text": "Extra wide width shoes for chubby baby feet that are hard to fit",
+     "intent": "persona-specific",
+     "topic": "sizing"
+    }
+   ]
+  },
+  {
+   "brand": "Northwind CRM",
+   "category": "B2B SaaS CRM software",
+   "locale": "en-US",
+   "model": "gemini-3.5-flash-lite",
+   "asked": 63,
+   "wanted": 50,
+   "returned": 63,
+   "seconds_generate": 10.2,
+   "seconds_embed": 11.8,
+   "seconds_total": 22.0,
+   "cost_micros": {
+    "generate": 7046,
+    "embed": 114,
+    "total": 7160
+   },
+   "rejected_by_clean": 0,
+   "candidates": 63,
+   "near_duplicates": 0,
+   "near_duplicate_rate": 0.0,
+   "post_dedupe": 63,
+   "would_write": 50,
+   "intents": {
+    "informational": 8,
+    "commercial": 7,
+    "transactional": 6,
+    "comparison": 6,
+    "alternative": 6,
+    "recommendation": 6,
+    "problem-based": 6,
+    "industry-specific": 6,
+    "persona-specific": 6,
+    "geographic": 6
+   },
+   "topics": {
+    "crm basics": 9,
+    "pricing": 8,
+    "best solutions": 8,
+    "purchasing": 7,
+    "platform comparison": 6,
+    "competitor alternatives": 6,
+    "pain points": 6,
+    "verticals": 6,
+    "use cases": 6,
+    "industry-specific": 1
+   },
+   "similarity": {
+    "n_pairs": 1953,
+    "min": 0.6843,
+    "median": 0.7987,
+    "p90": 0.8384,
+    "p99": 0.8788,
+    "max": 0.9013,
+    "at_or_above": {
+     "0.85": 117,
+     "0.88": 17,
+     "0.9": 1,
+     "0.92": 0,
+     "0.95": 0
+    }
+   },
+   "closest_pairs": [
+    {
+     "sim": 0.9013,
+     "a": "what is a good alternative to salesforce that is easier to set up",
+     "b": "what are the best budget friendly alternatives to enterprise crm software",
+     "dropped": false
+    },
+    {
+     "sim": 0.8929,
+     "a": "what are the best budget friendly alternatives to enterprise crm software",
+     "b": "is there an open source alternative to commercial b2b crm platforms",
+     "dropped": false
+    },
+    {
+     "sim": 0.8901,
+     "a": "can you recommend the best b2b crm for a team of fifty sales reps",
+     "b": "what are the top rated crm systems for managing complex enterprise sales cycles",
+     "dropped": false
+    },
+    {
+     "sim": 0.8879,
+     "a": "recommend a flexible crm that works well for remote sales departments",
+     "b": "can you recommend the best b2b crm for a team of fifty sales reps",
+     "dropped": false
+    },
+    {
+     "sim": 0.8878,
+     "a": "how does data security work in enterprise crm solutions",
+     "b": "how do financial services firms choose a secure crm system",
+     "dropped": false
+    },
+    {
+     "sim": 0.8868,
+     "a": "where can I buy a scalable b2b crm with advanced automation tools",
+     "b": "can you recommend the best b2b crm for a team of fifty sales reps",
+     "dropped": false
+    },
+    {
+     "sim": 0.8859,
+     "a": "what key features should I look for in a modern b2b crm platform",
+     "b": "how do top b2b crm platforms compare in user interface design",
+     "dropped": false
+    },
+    {
+     "sim": 0.8843,
+     "a": "compare salesforce and hubspot for a midsize b2b tech company",
+     "b": "salesforce versus microsoft dynamics 365 feature breakdown",
+     "dropped": false
+    },
+    {
+     "sim": 0.8832,
+     "a": "where to find crm vendors with local data centers in North America",
+     "b": "find crm implementation partners located in the midwest region",
+     "dropped": false
+    },
+    {
+     "sim": 0.8825,
+     "a": "what is a good alternative to salesforce that is easier to set up",
+     "b": "looking for a simpler substitute to hubspot crm for a growing startup",
+     "dropped": false
+    }
+   ],
+   "prompts": [
+    {
+     "text": "what is b2b crm software and how does it work",
+     "intent": "informational",
+     "topic": "crm basics"
+    },
+    {
+     "text": "explain the main benefits of using a cloud based crm for sales teams",
+     "intent": "informational",
+     "topic": "crm basics"
+    },
+    {
+     "text": "what key features should I look for in a modern b2b crm platform",
+     "intent": "informational",
+     "topic": "crm basics"
+    },
+    {
+     "text": "how does data security work in enterprise crm solutions",
+     "intent": "informational",
+     "topic": "crm basics"
+    },
+    {
+     "text": "what is the difference between operational and analytical crm systems",
+     "intent": "informational",
+     "topic": "crm basics"
+    },
+    {
+     "text": "how do crm tools integrate with existing email and calendar apps",
+     "intent": "informational",
+     "topic": "crm basics"
+    },
+    {
+     "text": "what metrics can a good crm track for sales forecasting",
+     "intent": "informational",
+     "topic": "crm basics"
+    },
+    {
+     "text": "how long does it typically take to deploy a new crm for a midsize company",
+     "intent": "informational",
+     "topic": "crm basics"
+    },
+    {
+     "text": "what is the average cost of implementing a b2b crm software",
+     "intent": "commercial",
+     "topic": "pricing"
+    },
+    {
+     "text": "are there any hidden fees when buying enterprise crm licenses",
+     "intent": "commercial",
+     "topic": "pricing"
+    },
+    {
+     "text": "how do crm vendors structure their monthly versus annual subscription plans",
+     "intent": "commercial",
+     "topic": "pricing"
+    },
+    {
+     "text": "do most crm providers charge extra for API access and integrations",
+     "intent": "commercial",
+     "topic": "pricing"
+    },
+    {
+     "text": "what is the ROI I can expect from upgrading our sales pipeline software",
+     "intent": "commercial",
+     "topic": "pricing"
+    },
+    {
+     "text": "are there volume discounts available for larger user tiers in crm platforms",
+     "intent": "commercial",
+     "topic": "pricing"
+    },
+    {
+     "text": "how do implementation and training costs affect overall crm budgeting",
+     "intent": "commercial",
+     "topic": "pricing"
+    },
+    {
+     "text": "where can I buy a scalable b2b crm with advanced automation tools",
+     "intent": "transactional",
+     "topic": "purchasing"
+    },
+    {
+     "text": "how do I sign up for a team trial of a cloud crm platform",
+     "intent": "transactional",
+     "topic": "purchasing"
+    },
+    {
+     "text": "steps to upgrade our current sales software to an enterprise crm subscription",
+     "intent": "transactional",
+     "topic": "purchasing"
+    },
+    {
+     "text": "how to request a custom sales demo and procurement quote for a crm system",
+     "intent": "transactional",
+     "topic": "purchasing"
+    },
+    {
+     "text": "what documents do we need to finalize a B2B SaaS software contract",
+     "intent": "transactional",
+     "topic": "purchasing"
+    },
+    {
+     "text": "how to purchase add-on modules for an existing customer relationship management tool",
+     "intent": "transactional",
+     "topic": "purchasing"
+    },
+    {
+     "text": "compare salesforce and hubspot for a midsize b2b tech company",
+     "intent": "comparison",
+     "topic": "platform comparison"
+    },
+    {
+     "text": "what are the differences between pipedrive and zoho crm regarding pipeline management",
+     "intent": "comparison",
+     "topic": "platform comparison"
+    },
+    {
+     "text": "salesforce versus microsoft dynamics 365 feature breakdown",
+     "intent": "comparison",
+     "topic": "platform comparison"
+    },
+    {
+     "text": "how do top b2b crm platforms compare in user interface design",
+     "intent": "comparison",
+     "topic": "platform comparison"
+    },
+    {
+     "text": "zendesk sell versus freshsales for growing sales teams",
+     "intent": "comparison",
+     "topic": "platform comparison"
+    },
+    {
+     "text": "comparing mobile apps of leading enterprise crm providers",
+     "intent": "comparison",
+     "topic": "platform comparison"
+    },
+    {
+     "text": "what is a good alternative to salesforce that is easier to set up",
+     "intent": "alternative",
+     "topic": "competitor alternatives"
+    },
+    {
+     "text": "looking for a simpler substitute to hubspot crm for a growing startup",
+     "intent": "alternative",
+     "topic": "competitor alternatives"
+    },
+    {
+     "text": "what are the best budget friendly alternatives to enterprise crm software",
+     "intent": "alternative",
+     "topic": "competitor alternatives"
+    },
+    {
+     "text": "recommend a flexible crm that works well for remote sales departments",
+     "intent": "alternative",
+     "topic": "competitor alternatives"
+    },
+    {
+     "text": "is there an open source alternative to commercial b2b crm platforms",
+     "intent": "alternative",
+     "topic": "competitor alternatives"
+    },
+    {
+     "text": "what crm option should I switch to if zoho is missing advanced automation",
+     "intent": "alternative",
+     "topic": "competitor alternatives"
+    },
+    {
+     "text": "can you recommend the best b2b crm for a team of fifty sales reps",
+     "intent": "recommendation",
+     "topic": "best solutions"
+    },
+    {
+     "text": "what are the top rated crm systems for managing complex enterprise sales cycles",
+     "intent": "recommendation",
+     "topic": "best solutions"
+    },
+    {
+     "text": "suggest a customer database tool with exceptional reporting dashboards",
+     "intent": "recommendation",
+     "topic": "best solutions"
+    },
+    {
+     "text": "which crm platform has the highest customer satisfaction scores this year",
+     "intent": "recommendation",
+     "topic": "best solutions"
+    },
+    {
+     "text": "recommend a crm with built in email tracking and lead scoring",
+     "intent": "recommendation",
+     "topic": "best solutions"
+    },
+    {
+     "text": "what is the most reliable cloud crm for fast scaling technology companies",
+     "intent": "recommendation",
+     "topic": "best solutions"
+    },
+    {
+     "text": "our sales reps forget to update the database what crm fixes this with automation",
+     "intent": "problem-based",
+     "topic": "pain points"
+    },
+    {
+     "text": "how to solve data silos between our marketing automation and sales crm",
+     "intent": "problem-based",
+     "topic": "pain points"
+    },
+    {
+     "text": "why is our current crm so slow when generating quarterly pipeline reports",
+     "intent": "problem-based",
+     "topic": "pain points"
+    },
+    {
+     "text": "how to overcome low user adoption rates for our enterprise sales software",
+     "intent": "problem-based",
+     "topic": "pain points"
+    },
+    {
+     "text": "what to do when crm data gets cluttered with duplicate contact records",
+     "intent": "problem-based",
+     "topic": "pain points"
+    },
+    {
+     "text": "how to fix poor mobile app synchronization in our customer tracking tool",
+     "intent": "problem-based",
+     "topic": "pain points"
+    },
+    {
+     "text": "what compliance standards like gdpr must a b2b crm meet for manufacturing firms",
+     "intent": "industry-specific",
+     "topic": "verticals"
+    },
+    {
+     "text": "best crm features tailored specifically for logistics and supply chain companies",
+     "intent": "industry-specific",
+     "topic": "verticals"
+    },
+    {
+     "text": "how do financial services firms choose a secure crm system",
+     "intent": "industry-specific",
+     "topic": "verticals"
+    },
+    {
+     "text": "what healthcare industry regulations impact crm software selection",
+     "intent": "industry-specific",
+     "topic": "verticals"
+    },
+    {
+     "text": "requirements for a crm used by professional consulting and agency businesses",
+     "intent": "industry-specific",
+     "topic": "verticals"
+    },
+    {
+     "text": "how do wholesale distribution companies track inventory through their crm",
+     "intent": "industry-specific",
+     "topic": "verticals"
+    },
+    {
+     "text": "what does a vp of sales look for in a high level crm dashboard",
+     "intent": "persona-specific",
+     "topic": "use cases"
+    },
+    {
+     "text": "best crm configuration for a startup founder wearing multiple hats",
+     "intent": "persona-specific",
+     "topic": "use cases"
+    },
+    {
+     "text": "how can sales operations managers streamline workflow automation in a crm",
+     "intent": "persona-specific",
+     "topic": "use cases"
+    },
+    {
+     "text": "what tools do business development reps need inside a daily crm interface",
+     "intent": "persona-specific",
+     "topic": "use cases"
+    },
+    {
+     "text": "how do IT directors evaluate cloud crm security and API flexibility",
+     "intent": "persona-specific",
+     "topic": "use cases"
+    },
+    {
+     "text": "what reports do chief revenue officers need from pipeline management software",
+     "intent": "persona-specific",
+     "topic": "use cases"
+    },
+    {
+     "text": "where to find crm vendors with local data centers in North America",
+     "intent": "geographic",
+     "topic": "best solutions"
+    },
+    {
+     "text": "which b2b crm providers offer 24 7 support in United States time zones",
+     "intent": "geographic",
+     "topic": "best solutions"
+    },
+    {
+     "text": "are there any regional compliance differences for cloud crms operating in the US",
+     "intent": "geographic",
+     "topic": "crm basics"
+    },
+    {
+     "text": "how do North American software companies handle multi currency crm billing",
+     "intent": "geographic",
+     "topic": "pricing"
+    },
+    {
+     "text": "find crm implementation partners located in the midwest region",
+     "intent": "geographic",
+     "topic": "purchasing"
+    },
+    {
+     "text": "what US based tech hubs have the highest concentration of crm consultants",
+     "intent": "geographic",
+     "topic": "industry-specific"
+    }
+   ]
+  },
+  {
+   "brand": "Vanaspati Glow",
+   "category": "D2C ayurvedic skincare",
+   "locale": "en-IN",
+   "model": "gemini-3.5-flash-lite",
+   "asked": 63,
+   "wanted": 50,
+   "returned": 63,
+   "seconds_generate": 78.16,
+   "seconds_embed": 17.69,
+   "seconds_total": 95.85,
+   "cost_micros": {
+    "generate": 4657,
+    "embed": 92,
+    "total": 4749
+   },
+   "rejected_by_clean": 0,
+   "candidates": 63,
+   "near_duplicates": 2,
+   "near_duplicate_rate": 0.0317,
+   "post_dedupe": 61,
+   "would_write": 50,
+   "intents": {
+    "informational": 7,
+    "commercial": 7,
+    "transactional": 7,
+    "comparison": 7,
+    "alternative": 7,
+    "recommendation": 7,
+    "problem-based": 7,
+    "industry-specific": 7,
+    "persona-specific": 7
+   },
+   "topics": {
+    "ayurvedic skincare": 11,
+    "skin type": 11,
+    "daily routine": 11,
+    "natural herbs": 10,
+    "ingredients": 10,
+    "sensitive skin": 10
+   },
+   "similarity": {
+    "n_pairs": 1953,
+    "min": 0.6908,
+    "median": 0.8001,
+    "p90": 0.8454,
+    "p99": 0.8859,
+    "max": 0.9323,
+    "at_or_above": {
+     "0.85": 158,
+     "0.88": 32,
+     "0.9": 8,
+     "0.92": 2,
+     "0.95": 0
+    }
+   },
+   "closest_pairs": [
+    {
+     "sim": 0.9323,
+     "a": "Ayurvedic face oil versus modern hyaluronic acid serum",
+     "b": "Ayurvedic anti-aging treatments vs retinol serums",
+     "dropped": true
+    },
+    {
+     "sim": 0.9213,
+     "a": "Regulations on labeling herbal skincare in the Indian market",
+     "b": "Export standards for Indian herbal beauty formulations",
+     "dropped": true
+    },
+    {
+     "sim": 0.9166,
+     "a": "Ayurvedic face oil versus modern hyaluronic acid serum",
+     "b": "Ayurvedic moisturizers vs gel-based synthetic creams",
+     "dropped": false
+    },
+    {
+     "sim": 0.9162,
+     "a": "Ayurvedic moisturizers vs gel-based synthetic creams",
+     "b": "Ayurvedic anti-aging treatments vs retinol serums",
+     "dropped": true
+    },
+    {
+     "sim": 0.9161,
+     "a": "Ayurvedic face oil versus modern hyaluronic acid serum",
+     "b": "Kumkumadi tailam compared to vitamin c face oil",
+     "dropped": false
+    },
+    {
+     "sim": 0.9116,
+     "a": "Best organic anti-aging oils available in India",
+     "b": "Best alternatives to chemical brightening creams in India",
+     "dropped": false
+    },
+    {
+     "sim": 0.9011,
+     "a": "Best ayurvedic face wash for daily use in India",
+     "b": "Best organic anti-aging oils available in India",
+     "dropped": false
+    },
+    {
+     "sim": 0.9011,
+     "a": "Herbal alternatives to alcohol-based facial toners",
+     "b": "Plant-based options instead of commercial anti-aging lotions",
+     "dropped": false
+    },
+    {
+     "sim": 0.8993,
+     "a": "Natural substitutes for synthetic acne spot treatments",
+     "b": "How to treat stubborn hormonal acne using natural ingredients",
+     "dropped": false
+    },
+    {
+     "sim": 0.8992,
+     "a": "Natural substitutes for synthetic acne spot treatments",
+     "b": "Plant-based options instead of commercial anti-aging lotions",
+     "dropped": false
+    }
+   ],
+   "prompts": [
+    {
+     "text": "What is the history of ayurvedic skincare in India?",
+     "intent": "informational",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "How do I know my skin type according to doshas?",
+     "intent": "informational",
+     "topic": "skin type"
+    },
+    {
+     "text": "What are the benefits of using natural herbal face oils?",
+     "intent": "informational",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "How does saffron brighten the skin complexion?",
+     "intent": "informational",
+     "topic": "ingredients"
+    },
+    {
+     "text": "What is the right daily routine for glowing skin?",
+     "intent": "informational",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Are plant-based skincare products safe for sensitive skin?",
+     "intent": "informational",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "What causes dull skin during winter seasons?",
+     "intent": "informational",
+     "topic": "skin type"
+    },
+    {
+     "text": "Best ayurvedic face wash for daily use in India",
+     "intent": "commercial",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "Where to buy authentic herbal serums online",
+     "intent": "commercial",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "Affordable brightening creams made with traditional herbs",
+     "intent": "commercial",
+     "topic": "ingredients"
+    },
+    {
+     "text": "Top rated natural moisturizers for dry climate",
+     "intent": "commercial",
+     "topic": "skin type"
+    },
+    {
+     "text": "Best organic anti-aging oils available in India",
+     "intent": "commercial",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Where can I find chemical-free skincare bundles",
+     "intent": "commercial",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "Top rated herbal cleansers for urban pollution protection",
+     "intent": "commercial",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "Buy pure kumkumadi tailam online with delivery",
+     "intent": "transactional",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "Order herbal night repair cream for glowing skin",
+     "intent": "transactional",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Purchase organic face scrub for gentle exfoliation",
+     "intent": "transactional",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "Get natural hydrating toner delivered to my home",
+     "intent": "transactional",
+     "topic": "skin type"
+    },
+    {
+     "text": "Book an online consultation for custom ayurvedic skincare",
+     "intent": "transactional",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "Buy chemical-free brightening serum with discounts",
+     "intent": "transactional",
+     "topic": "ingredients"
+    },
+    {
+     "text": "Order plant-based anti-blemish pack for quick shipping",
+     "intent": "transactional",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Ayurvedic face oil versus modern hyaluronic acid serum",
+     "intent": "comparison",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "Kumkumadi tailam compared to vitamin c face oil",
+     "intent": "comparison",
+     "topic": "ingredients"
+    },
+    {
+     "text": "Ayurvedic moisturizers vs gel-based synthetic creams",
+     "intent": "comparison",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "Traditional herb powders versus ready-to-use face masks",
+     "intent": "comparison",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Natural sun protection vs chemical sunscreen lotions",
+     "intent": "comparison",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "Herbal cleansing balms compared to foaming face washes",
+     "intent": "comparison",
+     "topic": "skin type"
+    },
+    {
+     "text": "Ayurvedic anti-aging treatments vs retinol serums",
+     "intent": "comparison",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "Best alternatives to chemical brightening creams in India",
+     "intent": "alternative",
+     "topic": "ingredients"
+    },
+    {
+     "text": "Natural substitutes for synthetic acne spot treatments",
+     "intent": "alternative",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "Herbal alternatives to alcohol-based facial toners",
+     "intent": "alternative",
+     "topic": "skin type"
+    },
+    {
+     "text": "Plant-based options instead of commercial anti-aging lotions",
+     "intent": "alternative",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Traditional substitutes for petroleum jelly in winter",
+     "intent": "alternative",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "Ayurvedic alternatives to silicone primers for makeup",
+     "intent": "alternative",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "Clean beauty alternatives to mainstream luxury skincare brands",
+     "intent": "alternative",
+     "topic": "ingredients"
+    },
+    {
+     "text": "Can you recommend a lightweight herbal moisturizer for summer?",
+     "intent": "recommendation",
+     "topic": "skin type"
+    },
+    {
+     "text": "What is the best natural serum for hyperpigmentation?",
+     "intent": "recommendation",
+     "topic": "ingredients"
+    },
+    {
+     "text": "Suggest an organic face wash that does not dry the skin",
+     "intent": "recommendation",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "Which traditional face oil works best for mature skin?",
+     "intent": "recommendation",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Recommend a good botanical scrub for weekly exfoliation",
+     "intent": "recommendation",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "What are top recommendations for clean beauty gifting sets?",
+     "intent": "recommendation",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "Suggest a natural eye cream for dark circles and puffiness",
+     "intent": "recommendation",
+     "topic": "skin type"
+    },
+    {
+     "text": "How to treat stubborn hormonal acne using natural ingredients",
+     "intent": "problem-based",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "Remedies for extremely dry flaky skin during winters",
+     "intent": "problem-based",
+     "topic": "skin type"
+    },
+    {
+     "text": "Solutions for hyperpigmentation caused by sun exposure",
+     "intent": "problem-based",
+     "topic": "ingredients"
+    },
+    {
+     "text": "How to reduce under-eye dark circles with herbal remedies",
+     "intent": "problem-based",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Natural ways to heal skin redness and irritation",
+     "intent": "problem-based",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "How to manage oily T-zone using gentle herbal products",
+     "intent": "problem-based",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "Treating early fine lines with traditional botanical oils",
+     "intent": "problem-based",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "What industry standards define 100 percent natural cosmetics in India?",
+     "intent": "industry-specific",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "How do ayurvedic beauty brands source their raw herbs?",
+     "intent": "industry-specific",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "What certifications should I look for in clean beauty products?",
+     "intent": "industry-specific",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "Regulations on labeling herbal skincare in the Indian market",
+     "intent": "industry-specific",
+     "topic": "ingredients"
+    },
+    {
+     "text": "Sustainable packaging trends in the direct-to-consumer beauty sector",
+     "intent": "industry-specific",
+     "topic": "daily routine"
+    },
+    {
+     "text": "How Ayurvedic pharmacopoeia influences modern skincare formulations",
+     "intent": "industry-specific",
+     "topic": "skin type"
+    },
+    {
+     "text": "Export standards for Indian herbal beauty formulations",
+     "intent": "industry-specific",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "Skincare routine for working professionals exposed to AC all day",
+     "intent": "persona-specific",
+     "topic": "daily routine"
+    },
+    {
+     "text": "Best ayurvedic products for new mothers dealing with postpartum skin changes",
+     "intent": "persona-specific",
+     "topic": "sensitive skin"
+    },
+    {
+     "text": "Gentle natural skincare routine for college students on a budget",
+     "intent": "persona-specific",
+     "topic": "ayurvedic skincare"
+    },
+    {
+     "text": "Anti-pollution skincare regimen for daily commuters in Delhi",
+     "intent": "persona-specific",
+     "topic": "skin type"
+    },
+    {
+     "text": "Skincare products suitable for men with thick beards and dry skin",
+     "intent": "persona-specific",
+     "topic": "ingredients"
+    },
+    {
+     "text": "Ayurvedic routine for brides-to-be looking for pre-wedding glow",
+     "intent": "persona-specific",
+     "topic": "natural herbs"
+    },
+    {
+     "text": "Minimalist natural skincare for frequent travelers",
+     "intent": "persona-specific",
+     "topic": "daily routine"
+    }
+   ]
+  }
+ ]
+}
