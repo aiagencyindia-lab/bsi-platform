@@ -350,3 +350,227 @@ def test_one_failing_schedule_does_not_block_others(
     monkeypatch.setattr(worker, "run_schedule", flaky)
     assert run_due_schedules() == 1
     assert _queued(owner, good_bid) == 2
+
+
+def _job(owner, org, brand_id, kind, status, minutes=0, **kw):
+    with owner() as s, s.begin():
+        job = m.Job(
+            org_id=org.id,
+            brand_id=brand_id,
+            kind=kind,
+            scheduled_slot=datetime.now(UTC) + timedelta(minutes=minutes),
+            status=status,
+            **kw,
+        )
+        s.add(job)
+        s.flush()
+    return job.id
+
+
+def test_claim_job_takes_one_queued_non_run_job(owner, make_org, make_brand):
+    from bsi_core.db import system_session
+
+    org = make_org()
+    bid = make_brand(org)
+    _job(owner, org, bid, "run", None)
+    _job(owner, org, bid, "run", "queued", minutes=1)
+    _job(owner, org, bid, "suggest_competitors", None, minutes=2)
+    wanted = _job(owner, org, bid, "suggest_prompts", "queued", minutes=3)
+
+    with system_session() as s:
+        first = s.execute(text("SELECT * FROM claim_job()")).all()
+    with system_session() as s:
+        second = s.execute(text("SELECT * FROM claim_job()")).all()
+
+    assert [tuple(r) for r in first] == [(wanted, org.id, "suggest_prompts")]
+    assert second == []
+    with owner() as s:
+        claimed = s.get(m.Job, wanted)
+        assert claimed.status == "running"
+        assert claimed.started_at is not None
+
+
+def test_claim_job_fails_stale_running_jobs(owner, make_org, make_brand):
+    from bsi_core.db import system_session
+
+    org = make_org()
+    bid = make_brand(org)
+    stale = _job(
+        owner,
+        org,
+        bid,
+        "suggest_prompts",
+        "running",
+        started_at=datetime.now(UTC) - timedelta(minutes=11),
+    )
+
+    with system_session() as s:
+        rows = s.execute(text("SELECT * FROM claim_job()")).all()
+
+    assert rows == []
+    with owner() as s:
+        job = s.get(m.Job, stale)
+    assert (job.status, job.error) == ("failed", "stale")
+
+
+def _spender(cost=700):
+    """A fake generator and embedder that report what they spend."""
+    calls = []
+
+    def generator(prompt, schema, temperature):
+        calls.append("generate")
+        return "{}", cost, "fake-model"
+
+    def embedder(texts):
+        calls.append("embed")
+        return [[1.0] for _ in texts], 55
+
+    return calls, generator, embedder
+
+
+def _load_job(owner, job_id):
+    with owner() as s:
+        return s.get(m.Job, job_id)
+
+
+def test_a_queued_prompts_job_runs_and_is_marked_done(
+    monkeypatch, owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    job_id = _job(
+        owner, org, bid, "suggest_prompts", "queued", params={"count": 3}
+    )
+    calls, generator, embedder = _spender()
+    seen = []
+
+    def fake(org_id, brand_id, count, gen, emb):
+        seen.append((org_id, brand_id, count))
+        gen("p", None, 1.0)
+        emb(["a"])
+        return f"suggested:{count}"
+
+    monkeypatch.setattr(worker, "suggest_prompts", fake)
+    assert worker.process_job(FakeAdapter(), generator, embedder) is True
+    assert seen == [(org.id, bid, 3)]
+    assert calls == ["generate", "embed"]
+    job = _load_job(owner, job_id)
+    assert (job.status, job.error, job.cost_micros) == ("done", None, 755)
+    assert worker.process_job(FakeAdapter(), generator, embedder) is False
+
+
+def test_a_failing_job_records_the_error_and_keeps_its_cost(
+    monkeypatch, owner, make_org, make_brand
+):
+    from bsi_core.judge import JudgeFailed
+
+    org = make_org()
+    bid = make_brand(org)
+    job_id = _job(owner, org, bid, "suggest_prompts", "queued", cost_micros=100)
+
+    def boom(*args):
+        raise JudgeFailed(ValueError("brand is archived"), 900)
+
+    monkeypatch.setattr(worker, "suggest_prompts", boom)
+    _, generator, embedder = _spender()
+    assert worker.process_job(FakeAdapter(), generator, embedder) is True
+    job = _load_job(owner, job_id)
+    assert (job.status, job.cost_micros) == ("failed", 1000)
+    assert "brand is archived" in job.error
+
+
+def test_a_job_failed_mid_flight_keeps_its_status(
+    monkeypatch, owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    job_id = _job(owner, org, bid, "suggest_prompts", "queued")
+
+    def flip(org_id, brand_id, count, gen, emb):
+        gen("p", None, 1.0)
+        with owner() as s, s.begin():
+            s.execute(
+                update(m.Job)
+                .where(m.Job.id == job_id)
+                .values(status="failed", error="stale")
+            )
+        return "suggested:1"
+
+    monkeypatch.setattr(worker, "suggest_prompts", flip)
+    _, generator, embedder = _spender()
+    assert worker.process_job(FakeAdapter(), generator, embedder) is True
+    job = _load_job(owner, job_id)
+    # The status is left alone, but the money it spent is still real and
+    # has to stay visible to the budget guards.
+    assert (job.status, job.error) == ("failed", "stale")
+    assert job.cost_micros == 700
+
+
+def test_an_over_budget_job_fails_without_calling_the_model(
+    monkeypatch, owner, make_org, make_brand
+):
+    from decimal import Decimal
+
+    org = make_org()
+    bid = make_brand(org)
+    job_id = _job(owner, org, bid, "suggest_prompts", "queued")
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Organization)
+            .where(m.Organization.id == org.id)
+            .values(daily_budget_usd=Decimal("0.01"))
+        )
+
+    def never(*args):
+        raise AssertionError("the model must not be called")
+
+    monkeypatch.setattr(worker, "suggest_prompts", never)
+    calls, generator, embedder = _spender()
+    assert worker.process_job(FakeAdapter(), generator, embedder) is True
+    job = _load_job(owner, job_id)
+    assert (job.status, job.error, job.cost_micros) == ("failed", "budget", 0)
+    assert calls == []
+
+
+def test_an_unknown_kind_fails_the_job_instead_of_the_loop(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    job_id = _job(owner, org, bid, "suggest_haircuts", "queued")
+    _, generator, embedder = _spender()
+    assert worker.process_job(FakeAdapter(), generator, embedder) is True
+    job = _load_job(owner, job_id)
+    assert (job.status, job.error) == ("failed", "unknown kind")
+
+
+def test_tick_prefers_a_job_over_a_queued_observation(
+    monkeypatch, owner, make_org, make_brand, make_observation
+):
+    org = make_org()
+    bid = make_brand(org)
+    obs_id = make_observation(org, bid, status="queued")
+    job_id = _job(owner, org, bid, "suggest_competitors", "queued")
+    seen = []
+
+    def fake(org_id, brand_id, adapter, gen):
+        seen.append(brand_id)
+        gen("p", None, 0.0)
+        return "suggested:2"
+
+    monkeypatch.setattr(worker, "suggest_competitors", fake)
+    _, generator, embedder = _spender()
+    # An empty adapter: an observation query would pop from an empty list.
+    assert (
+        tick(
+            FakeAdapter(),
+            LocalRawStore(),
+            no_extract,
+            generator=generator,
+            embedder=embedder,
+        )
+        is True
+    )
+    assert seen == [bid]
+    assert _load_job(owner, job_id).status == "done"
+    assert load(owner, obs_id).status == "queued"

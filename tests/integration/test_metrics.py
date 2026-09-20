@@ -235,3 +235,37 @@ def test_brand_deltas_refuses_mixed_versions(windows):
     assert got["deltas"] is None
     assert "'1', '2'" in got["reason"]
     assert got["before"]["pipeline_versions"] == ["1"]
+
+
+def test_suggested_competitor_is_not_measured(owner, scene):
+    """A guess with a mention row must not move the customer's numbers."""
+    org, bid, _ = scene
+    with owner() as s, s.begin():
+        comp = m.Competitor(
+            org_id=org.id, brand_id=bid, name="Reebok", status="suggested"
+        )
+        s.add(comp)
+        s.flush()
+        obs = s.scalars(
+            select(m.Observation).where(m.Observation.status == "done")
+        ).first()
+        s.add(
+            m.Mention(
+                org_id=org.id,
+                observation_id=obs.id,
+                entity_type="competitor",
+                entity_id=comp.id,
+                position=9,
+                rec_status="mentioned",
+                sentiment="neutral",
+            )
+        )
+    with tenant_session(org.id) as s:
+        rows = brand_sov(s, bid, Filters())
+    assert [(r["name"], r["mentions"]) for r in rows] == [
+        ("Nike", 2),
+        ("Adidas", 2),
+        ("Puma", 1),
+    ]
+    assert rows[0]["share"] == pytest.approx(0.4)
+    assert metrics(org, bid)["sov"]["value"] == pytest.approx(0.4)

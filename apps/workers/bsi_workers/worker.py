@@ -11,11 +11,19 @@ from bsi_core import models as m
 from bsi_core.config import get_settings
 from bsi_core.db import system_session, tenant_session
 from bsi_core.extraction import Extractor
-from bsi_core.judge import JUDGE_PRICES, JUDGES
+from bsi_core.judge import JUDGE_PRICES, JUDGES, generate
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
-from bsi_core.scheduling import run_schedule
+from bsi_core.scheduling import budget_fits, run_schedule
 from bsi_core.storage import LocalRawStore, RawStore
+from bsi_core.suggest import (
+    COMPETITOR_JOB_MICROS,
+    EMBED_PRICES,
+    PROMPT_JOB_MICROS,
+    embed,
+    suggest_competitors,
+    suggest_prompts,
+)
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -27,6 +35,11 @@ BACKOFF_SECONDS = (15, 60)
 JITTER = 0.2
 STALE_RESET_SECONDS = 300
 SCHEDULE_CHECK_SECONDS = 60
+# What a suggestion job reserves before it spends (spec §5).
+JOB_ESTIMATES = {
+    "suggest_prompts": PROMPT_JOB_MICROS,
+    "suggest_competitors": COMPETITOR_JOB_MICROS,
+}
 
 
 class ExtractorLike(Protocol):
@@ -135,12 +148,141 @@ def process_one(
     return True
 
 
-def tick(
-    adapter: EngineAdapter, store: RawStore, extractor: ExtractorLike
-) -> bool:
-    """One loop step that never raises. False = idle/failed; caller sleeps."""
+class _Meter:
+    """Counts what one job spends, wrapping the work it is given.
+
+    The suggestion jobs return only a summary string: `JudgeFailed`
+    carries the cost of a failure, so a success has to be counted here.
+    Unmetered adapter methods (`parse`) are delegated through.
+    """
+
+    def __init__(
+        self, adapter: EngineAdapter, generator: Any, embedder: Any
+    ) -> None:
+        self.micros = 0
+        self._adapter = adapter
+        self._generator = generator
+        self._embedder = embedder
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._adapter, name)
+
+    def query(self, prompt: str, country: str, language: str) -> Any:
+        result = self._adapter.query(prompt, country, language)
+        self.micros += result.cost_micros
+        return result
+
+    def generate(self, prompt: str, schema: Any, temperature: float) -> Any:
+        raw, cost, model = self._generator(prompt, schema, temperature)
+        self.micros += cost
+        return raw, cost, model
+
+    def embed(self, texts: list[str]) -> Any:
+        vectors, cost = self._embedder(texts)
+        self.micros += cost
+        return vectors, cost
+
+
+def _claim_job() -> tuple[uuid.UUID, uuid.UUID, str] | None:
+    with system_session() as s:
+        row = s.execute(
+            text("SELECT job_id, org_id, kind FROM claim_job()")
+        ).first()
+    return (row.job_id, row.org_id, row.kind) if row else None
+
+
+def _finish_job(
+    org_id: uuid.UUID,
+    job_id: uuid.UUID,
+    status: str,
+    error: str | None,
+    spent: int,
+) -> None:
+    """Record the outcome, unless someone else already moved the job.
+
+    A stale job is failed by claim_job() while this attempt is still
+    running; this attempt's outcome is then discarded, not written over
+    whatever moved it. The spend is recorded either way: the money was
+    real, and both budget guards read it from this column.
+    """
+    with tenant_session(org_id) as s:
+        job = s.get(m.Job, job_id, with_for_update=True)
+        if job is None:
+            return
+        job.cost_micros += spent
+        if job.status != "running":
+            log.warning("job %s moved mid-flight: discarding", job_id)
+            return
+        job.status = status
+        job.error = error
+
+
+def process_job(adapter: EngineAdapter, generator: Any, embedder: Any) -> bool:
+    """Run one claimed suggestion job. False = nothing was queued."""
+    claimed = _claim_job()
+    if claimed is None:
+        return False
+    job_id, org_id, kind = claimed
+    if kind not in JOB_ESTIMATES:
+        _finish_job(org_id, job_id, "failed", "unknown kind", 0)
+        return True
+    with tenant_session(org_id) as s:
+        job = s.get_one(m.Job, job_id)
+        brand_id, params = job.brand_id, job.params
+        fits = budget_fits(s, org_id, 0, extra_micros=JOB_ESTIMATES[kind])
+    if not fits:
+        _finish_job(org_id, job_id, "failed", "budget", 0)
+        return True
+    # Every model call below runs with no transaction open; the row stays
+    # 'running' until the final write.
+    meter = _Meter(adapter, generator, embedder)
     try:
-        return process_one(adapter, store, extractor)
+        if kind == "suggest_prompts":
+            result = suggest_prompts(
+                org_id,
+                brand_id,
+                int(params.get("count", 0)),
+                meter.generate,
+                meter.embed,
+            )
+        else:
+            result = suggest_competitors(
+                org_id, brand_id, meter, meter.generate
+            )
+        log.info("job %s: %s", job_id, result)
+        _finish_job(org_id, job_id, "done", None, meter.micros)
+    except Exception as e:  # one bad job must never stop the loop
+        log.exception("job %s failed", job_id)
+        # repr(JudgeFailed) already carries the cause's message, so an
+        # archived brand reads as such and is never retried.
+        _finish_job(
+            org_id,
+            job_id,
+            "failed",
+            repr(e)[:2000],
+            getattr(e, "cost_micros", 0),
+        )
+    return True
+
+
+def tick(
+    adapter: EngineAdapter,
+    store: RawStore,
+    extractor: ExtractorLike,
+    *,
+    generator: Any = generate,
+    embedder: Any = embed,
+) -> bool:
+    """One loop step that never raises. False = idle/failed; caller sleeps.
+
+    A job is claimed before an observation: jobs are rare, user-facing
+    and about a minute long, so a 9,000-observation run must not delay
+    one for hours.
+    """
+    try:
+        return process_job(adapter, generator, embedder) or process_one(
+            adapter, store, extractor
+        )
     except Exception:
         # A row whose failure could not be recorded stays 'running';
         # reset_stale() hands it back after 10 minutes.
@@ -152,6 +294,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     settings = get_settings()
     JUDGE_PRICES[settings.extract_model]  # unpriced judge: fail at start
+    EMBED_PRICES[settings.embed_model]  # unpriced embedder: same
     adapter = GeminiGroundingAdapter()
     store = LocalRawStore()
     extractor = Extractor(adapter, store, JUDGES[settings.judge_mode])

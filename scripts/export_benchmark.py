@@ -24,7 +24,10 @@ adapter, store = GeminiGroundingAdapter(client=object()), LocalRawStore()
 with Session(owner_engine()) as s:
     brand = s.get_one(m.Brand, brand_id)
     comps = s.scalars(
-        select(m.Competitor).where(m.Competitor.brand_id == brand_id)
+        select(m.Competitor).where(
+            m.Competitor.brand_id == brand_id,
+            m.Competitor.status == "active",
+        )
     ).all()
     entities = [
         {

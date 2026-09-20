@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from bsi_core import models as m
@@ -11,7 +12,11 @@ def other(owner, make_org, make_brand, make_observation):
     b = make_org("B")
     bid = make_brand(b, "Secret")
     with owner() as s, s.begin():
-        comp = m.Competitor(org_id=b.id, brand_id=bid, name="Rival")
+        # Suggested, so the confirm case below can be caught leaking:
+        # an already-active competitor could not show the difference.
+        comp = m.Competitor(
+            org_id=b.id, brand_id=bid, name="Rival", status="suggested"
+        )
         dom = m.Domain(org_id=b.id, brand_id=bid, host="secret.com")
         sch = m.Schedule(
             org_id=b.id,
@@ -20,14 +25,31 @@ def other(owner, make_org, make_brand, make_observation):
             hour_utc=6,
             next_run_at=func.now(),
         )
-        s.add_all([comp, dom, sch])
+        job = m.Job(
+            org_id=b.id,
+            brand_id=bid,
+            kind="suggest_prompts",
+            # An old slot, so a leaked suggest would have to create a
+            # new row rather than collide with this one and vanish.
+            scheduled_slot=datetime(2024, 1, 1, tzinfo=UTC),
+            status="done",
+        )
+        s.add_all([comp, dom, sch, job])
         s.flush()
-        cid, did = comp.id, dom.id
+        cid, did, j2 = comp.id, dom.id, job.id
     oid = make_observation(b, bid, raw={"secret": True}, status="done")
     with owner() as s:
         obs = s.get(m.Observation, oid)
         pid, jid = obs.prompt_id, obs.job_id
-    return {"b": bid, "c": cid, "d": did, "o": oid, "p": pid, "j": jid}
+    return {
+        "b": bid,
+        "c": cid,
+        "d": did,
+        "o": oid,
+        "p": pid,
+        "j": jid,
+        "j2": j2,
+    }
 
 
 CASES = [
@@ -55,14 +77,32 @@ CASES = [
     ("GET", "/v1/brands/{b}/schedule", None),
     ("PUT", "/v1/brands/{b}/schedule", {"cadence": "weekly", "hour_utc": 1}),
     ("DELETE", "/v1/brands/{b}/schedule", None),
+    ("POST", "/v1/brands/{b}/prompts/suggest", {}),
+    ("POST", "/v1/brands/{b}/competitors/suggest", None),
+    # BulkPatch.ids has min_length=1, so an empty list would be a 422
+    # and never reach the tenancy check; _fill puts org B's prompt in.
+    ("PATCH", "/v1/brands/{b}/prompts", {"ids": [], "status": "paused"}),
+    ("GET", "/v1/brands/{b}/clusters", None),
+    ("GET", "/v1/jobs/{j2}", None),
+    ("PATCH", "/v1/brands/{b}/competitors/{c}", {"status": "active"}),
 ]
+
+
+def _fill(body, ids):
+    """Only the fixture knows a real id to put in a bulk PATCH."""
+    if body and "ids" in body:
+        return {**body, "ids": [str(ids["p"])]}
+    return body
 
 
 @pytest.mark.parametrize(("method", "path", "body"), CASES)
 def test_org_a_cannot_reach_org_b(client, make_org, other, method, path, body):
     a = make_org("A")
     r = client.request(
-        method, path.format(**other), headers=a.headers, json=body
+        method,
+        path.format(**other),
+        headers=a.headers,
+        json=_fill(body, other),
     )
     assert r.status_code == 404, (method, path, r.text)
     assert "Secret" not in r.text and "secret" not in r.text
@@ -113,11 +153,16 @@ def test_org_b_data_is_untouched(client, owner, make_org, other):
     a = make_org("A")
     for method, path, body in CASES:
         client.request(
-            method, path.format(**other), headers=a.headers, json=body
+            method,
+            path.format(**other),
+            headers=a.headers,
+            json=_fill(body, other),
         )
     with owner() as s:
         assert s.get(m.Brand, other["b"]).status == "active"
-        assert s.get(m.Competitor, other["c"]).name == "Rival"
+        comp = s.get(m.Competitor, other["c"])
+        assert comp.name == "Rival"
+        assert comp.status == "suggested"  # the confirm case did not land
 
         # Check Domain was not deleted
         domain = s.get(m.Domain, other["d"])
@@ -127,6 +172,10 @@ def test_org_b_data_is_untouched(client, owner, make_org, other):
         # Check Prompt was not modified
         prompt = s.get(m.Prompt, other["p"])
         assert prompt.status == "active"
+        # A leaked suggest_prompts would have labelled and embedded it.
+        assert prompt.intent is None
+        assert prompt.topic is None
+        assert prompt.embedding is None
 
         # Check the schedule was neither replaced nor deleted
         sch = s.scalars(
@@ -151,8 +200,31 @@ def test_org_b_data_is_untouched(client, owner, make_org, other):
                 select(m.Prompt).where(m.Prompt.brand_id == other["b"])
             ).all()
         )
+        n_job = len(
+            s.scalars(select(m.Job).where(m.Job.brand_id == other["b"])).all()
+        )
 
     assert n_obs == 1
     assert n_comp == 1
     assert n_dom == 1
     assert n_prompt == 1
+    # The run job and the suggest job the fixture made, and nothing the
+    # suggest cases queued.
+    assert n_job == 2
+
+
+def test_bulk_patch_cannot_reach_across_brands(
+    client, make_org, make_brand, owner, other
+):
+    """Row-level security alone does not cover this: the path brand is
+    legitimately org A's, only the ids in the body are foreign."""
+    a = make_org("A")
+    mine = make_brand(a, "Acme")
+    r = client.patch(
+        f"/v1/brands/{mine}/prompts",
+        headers=a.headers,
+        json={"ids": [str(other["p"])], "status": "paused"},
+    )
+    assert r.status_code == 404, r.text
+    with owner() as s:
+        assert s.get(m.Prompt, other["p"]).status == "active"

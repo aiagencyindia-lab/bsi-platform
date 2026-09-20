@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     owner_database_url: str = _LOCAL.format(u="bsi_owner", p="owner")
     engine_model: str = "gemini-3.8-flash"
     extract_model: str = "gemini-3.5-flash-lite"
+    embed_model: str = "gemini-embedding-001"
     judge_mode: Literal["batched", "isolated"] = "batched"
     raw_store_dir: str = "./data"
     # Stays true until the chosen judge mode passes the slice-2 bar (§5.3).

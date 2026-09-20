@@ -4,7 +4,11 @@ from pathlib import Path
 import pytest
 from bsi_core import models as m
 from bsi_core.db import tenant_session
-from bsi_core.extraction import PIPELINE_VERSION, Extractor
+from bsi_core.extraction import (
+    PIPELINE_VERSION,
+    Extractor,
+    load_entities,
+)
 from bsi_core.labels import JudgeOut, JudgeReply, SentenceLabel
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.storage import LocalRawStore
@@ -223,3 +227,17 @@ def test_chosen_judge_live():
         "a": "listed",
         "p": "mentioned",
     }
+
+
+def test_load_entities_omits_suggested_competitors(owner, scene):
+    """An unconfirmed guess must never reach the matcher."""
+    org, bid, _ = scene
+    with owner() as s, s.begin():
+        s.add(
+            m.Competitor(
+                org_id=org.id, brand_id=bid, name="Reebok", status="suggested"
+            )
+        )
+    with tenant_session(org.id) as s:
+        entities, _ = load_entities(s, bid)
+    assert [e.aliases[0] for e in entities] == ["Nike", "Adidas", "Puma"]

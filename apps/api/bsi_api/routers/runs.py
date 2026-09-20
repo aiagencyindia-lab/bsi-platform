@@ -7,6 +7,7 @@ from bsi_core.scheduling import active_prompts, enqueue_run, hour_slot
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..deps import TENANT, Ctx, brand_or_404, get_or_404
 from ..problems import Problem
@@ -24,7 +25,62 @@ class RunIn(BaseModel):
     retry_failed: bool = False
 
 
+def queue_suggestion(
+    c: Ctx, brand_id: uuid.UUID, kind: str, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Find or create this hour's job for the brand and kind.
+
+    One job per (brand, kind, hour), except that a failed job is
+    requeued with the new params: one failure must not lock the user out
+    for the hour. Its cost_micros is left alone, so a retry accumulates.
+    """
+    if brand_or_404(c, brand_id).status == "archived":
+        raise Problem(409, "Brand is archived", "Archived brands are not run.")
+    slot = hour_slot(datetime.now(UTC))
+    c.s.execute(
+        pg_insert(m.Job)
+        .values(
+            org_id=c.org_id,
+            brand_id=brand_id,
+            kind=kind,
+            scheduled_slot=slot,
+            status="queued",
+            params=params,
+        )
+        .on_conflict_do_update(
+            index_elements=["brand_id", "kind", "scheduled_slot"],
+            # params too: a retry asking for a different count must not
+            # silently run the failed job's original one.
+            set_={"status": "queued", "error": None, "params": params},
+            where=m.Job.status == "failed",
+        )
+    )
+    job = c.s.scalars(
+        select(m.Job).where(
+            m.Job.brand_id == brand_id,
+            m.Job.kind == kind,
+            m.Job.scheduled_slot == slot,
+        )
+    ).one()
+    # status lets a caller tell "queued your work" from "already done
+    # this hour", which is the same 202 either way.
+    return {
+        "job_id": job.id,
+        "status_url": f"/v1/jobs/{job.id}",
+        "status": job.status,
+    }
+
+
 def _job_view(c: Ctx, job: m.Job) -> dict[str, Any]:
+    if job.kind != "run":
+        return {
+            "id": job.id,
+            "brand_id": job.brand_id,
+            "kind": job.kind,
+            "status": job.status,
+            "error": job.error,
+            "cost_micros": job.cost_micros,
+        }
     q = (
         select(m.Observation.status, func.count())
         .where(m.Observation.job_id == job.id)
@@ -82,7 +138,7 @@ def create_run(
 @router.get("")
 def list_runs(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[dict[str, Any]]:
     brand_or_404(c, brand_id)
-    q = select(m.Job).where(m.Job.brand_id == brand_id)
+    q = select(m.Job).where(m.Job.brand_id == brand_id, m.Job.kind == "run")
     jobs = c.s.scalars(q.order_by(m.Job.scheduled_slot.desc()).limit(50))
     return [_job_view(c, j) for j in jobs]
 

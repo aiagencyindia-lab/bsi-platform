@@ -1,0 +1,925 @@
+{
+ "brand": {
+  "name": "BSOAgentTestBrand",
+  "category": "kids footwear",
+  "country": "IN",
+  "language": "en",
+  "competitors": [
+   "Bata",
+   "Campus",
+   "Skechers",
+   "Crocs",
+   "Adidas"
+  ]
+ },
+ "gen_model": "gemini-3.5-flash-lite",
+ "embed_probes": [
+  {
+   "model": "gemini-embedding-001",
+   "ok": true,
+   "seconds": 3.62,
+   "n_returned": 3,
+   "dims": 768,
+   "token_counts": [
+    7.0,
+    6.0,
+    6.0
+   ],
+   "billable_characters": 79
+  }
+ ],
+ "embed_model": "gemini-embedding-001",
+ "sanity": {
+  "reworded_pair": 0.9324,
+  "unrelated": 0.7265
+ },
+ "generation": {
+  "seconds": 9.35,
+  "asked": 60,
+  "returned": 60,
+  "tokens_in_out": [
+   322,
+   2536
+  ],
+  "cost_micros": 6437,
+  "exact_duplicates": 0,
+  "intents": {
+   "recommendation": 11,
+   "transactional": 6,
+   "comparison": 7,
+   "alternative": 4,
+   "informational": 12,
+   "problem_based": 7,
+   "industry_specific": 3,
+   "persona_specific": 4,
+   "geographic": 6
+  },
+  "topics": {
+   "best brands": 14,
+   "school shoes": 9,
+   "comparison": 7,
+   "toddler shoes": 10,
+   "sizing guide": 5,
+   "comfort issues": 7,
+   "sports shoes": 8
+  },
+  "prompts": [
+   {
+    "text": "What are the best kids footwear brands in India?",
+    "intent": "recommendation",
+    "topic": "best brands"
+   },
+   {
+    "text": "Where can I buy durable school shoes for boys in Mumbai?",
+    "intent": "transactional",
+    "topic": "school shoes"
+   },
+   {
+    "text": "Compare Bata and Skechers for kids running shoes.",
+    "intent": "comparison",
+    "topic": "comparison"
+   },
+   {
+    "text": "What are some alternatives to Crocs for toddlers?",
+    "intent": "alternative",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "How do I measure my child's foot size at home accurately?",
+    "intent": "informational",
+    "topic": "sizing guide"
+   },
+   {
+    "text": "My 7-year-old gets blisters from new sneakers. What should I do?",
+    "intent": "problem_based",
+    "topic": "comfort issues"
+   },
+   {
+    "text": "Best lightweight sports shoes for kids participating in school sports day.",
+    "intent": "recommendation",
+    "topic": "sports shoes"
+   },
+   {
+    "text": "Are Campus shoes good for daily wear for active kids?",
+    "intent": "informational",
+    "topic": "best brands"
+   },
+   {
+    "text": "Looking for comfortable walking sandals for girls aged 5.",
+    "intent": "transactional",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "Which kids shoe brand offers the best arch support in India?",
+    "intent": "industry_specific",
+    "topic": "best brands"
+   },
+   {
+    "text": "As a parent on a budget, where should I buy affordable children's footwear?",
+    "intent": "persona_specific",
+    "topic": "best brands"
+   },
+   {
+    "text": "What are the trending kids footwear styles in Delhi right now?",
+    "intent": "geographic",
+    "topic": "best brands"
+   },
+   {
+    "text": "Adidas vs Skechers kids sneakers durability review.",
+    "intent": "comparison",
+    "topic": "comparison"
+   },
+   {
+    "text": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "intent": "recommendation",
+    "topic": "sports shoes"
+   },
+   {
+    "text": "My toddler refuses to wear hard shoes. Any soft fabric alternatives?",
+    "intent": "alternative",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "How often should you replace growing children's shoes?",
+    "intent": "informational",
+    "topic": "sizing guide"
+   },
+   {
+    "text": "Child's feet smell bad after school. Which shoes prevent odor?",
+    "intent": "problem_based",
+    "topic": "comfort issues"
+   },
+   {
+    "text": "Where to find waterproof monsoon footwear for kids in Bangalore?",
+    "intent": "geographic",
+    "topic": "school shoes"
+   },
+   {
+    "text": "Top-rated lightweight school shoes available online in India.",
+    "intent": "transactional",
+    "topic": "school shoes"
+   },
+   {
+    "text": "Are Crocs appropriate for all-day school wear?",
+    "intent": "informational",
+    "topic": "school shoes"
+   },
+   {
+    "text": "Best shoes for kids with flat feet.",
+    "intent": "recommendation",
+    "topic": "comfort issues"
+   },
+   {
+    "text": "Can you suggest some good alternatives to Bata for formal children's shoes?",
+    "intent": "alternative",
+    "topic": "school shoes"
+   },
+   {
+    "text": "What materials are safest for toddler shoes?",
+    "intent": "informational",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "Comparison of Velcro vs lace-up shoes for kindergarten kids.",
+    "intent": "comparison",
+    "topic": "comparison"
+   },
+   {
+    "text": "Best kids football studs for playing on Indian turf grounds.",
+    "intent": "recommendation",
+    "topic": "sports shoes"
+   },
+   {
+    "text": "As a busy working mom, where can I order easy slip-on shoes for my son?",
+    "intent": "persona_specific",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "How to clean white canvas school shoes easily?",
+    "intent": "informational",
+    "topic": "school shoes"
+   },
+   {
+    "text": "My daughter complains of heel pain after running. Which shoes help?",
+    "intent": "problem_based",
+    "topic": "comfort issues"
+   },
+   {
+    "text": "Best orthotic kids footwear brands in the Indian market.",
+    "intent": "industry_specific",
+    "topic": "best brands"
+   },
+   {
+    "text": "Where to buy LED light-up shoes for kids in Chennai?",
+    "intent": "geographic",
+    "topic": "best brands"
+   },
+   {
+    "text": "Campus vs Bata school shoes: which lasts longer?",
+    "intent": "comparison",
+    "topic": "comparison"
+   },
+   {
+    "text": "Top recommendations for newborn baby walking shoes.",
+    "intent": "recommendation",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "Looking for non-slip bathroom slippers for kids.",
+    "intent": "transactional",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "What are the signs that a child's shoe is too small?",
+    "intent": "informational",
+    "topic": "sizing guide"
+   },
+   {
+    "text": "Alternatives to expensive imported sneaker brands for teenagers.",
+    "intent": "alternative",
+    "topic": "best brands"
+   },
+   {
+    "text": "My son scuffs the toes of his shoes immediately. What are some tough options?",
+    "intent": "problem_based",
+    "topic": "comfort issues"
+   },
+   {
+    "text": "Best running shoes for teenage athletes in India.",
+    "intent": "recommendation",
+    "topic": "sports shoes"
+   },
+   {
+    "text": "As an uncle buying a birthday gift, what are the trendiest kids shoes?",
+    "intent": "persona_specific",
+    "topic": "best brands"
+   },
+   {
+    "text": "Are expensive running shoes worth it for growing kids?",
+    "intent": "informational",
+    "topic": "sports shoes"
+   },
+   {
+    "text": "Where to find traditional ethnic footwear for kids during Diwali in Pune?",
+    "intent": "geographic",
+    "topic": "best brands"
+   },
+   {
+    "text": "Skechers kids vs Adidas kids: cushioning and comfort compared.",
+    "intent": "comparison",
+    "topic": "comparison"
+   },
+   {
+    "text": "Best kids canvas slip-ons for casual outings.",
+    "intent": "recommendation",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "How to prevent shoes from slipping off a toddler's feet?",
+    "intent": "problem_based",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "What size shoe does an average 3-year-old wear?",
+    "intent": "informational",
+    "topic": "sizing guide"
+   },
+   {
+    "text": "Best deals on kids sports shoes during festival sales in India.",
+    "intent": "transactional",
+    "topic": "sports shoes"
+   },
+   {
+    "text": "Looking for eco-friendly and sustainable children's shoe brands.",
+    "intent": "industry_specific",
+    "topic": "best brands"
+   },
+   {
+    "text": "Are there good home-grown Indian brands for kids footwear?",
+    "intent": "informational",
+    "topic": "best brands"
+   },
+   {
+    "text": "My child has wide feet. Which brands accommodate them best?",
+    "intent": "problem_based",
+    "topic": "comfort issues"
+   },
+   {
+    "text": "Crocs vs generic clogs for kids water play.",
+    "intent": "comparison",
+    "topic": "comparison"
+   },
+   {
+    "text": "Best winter boots for kids visiting hill stations in India.",
+    "intent": "recommendation",
+    "topic": "best brands"
+   },
+   {
+    "text": "As a school principal, what guidelines should I suggest for uniform shoes?",
+    "intent": "persona_specific",
+    "topic": "school shoes"
+   },
+   {
+    "text": "Where to buy corrective shoes for children with pigeon toes in Hyderabad?",
+    "intent": "geographic",
+    "topic": "comfort issues"
+   },
+   {
+    "text": "How to properly waterproof canvas shoes for the rainy season.",
+    "intent": "informational",
+    "topic": "school shoes"
+   },
+   {
+    "text": "Best basketball shoes for junior players.",
+    "intent": "recommendation",
+    "topic": "sports shoes"
+   },
+   {
+    "text": "What are the best lightweight sandals for summer camp?",
+    "intent": "transactional",
+    "topic": "toddler shoes"
+   },
+   {
+    "text": "Compare Velcro straps and elastic laces for speed and convenience.",
+    "intent": "comparison",
+    "topic": "comparison"
+   },
+   {
+    "text": "My child gets ankle pain while playing cricket. Which shoes offer better support?",
+    "intent": "problem_based",
+    "topic": "sports shoes"
+   },
+   {
+    "text": "What is the standard European to Indian kids shoe size conversion?",
+    "intent": "informational",
+    "topic": "sizing guide"
+   },
+   {
+    "text": "Top durable school shoe options that survive playground football.",
+    "intent": "recommendation",
+    "topic": "school shoes"
+   },
+   {
+    "text": "Where is the best outlet mall to buy branded kids shoes in Kolkata?",
+    "intent": "geographic",
+    "topic": "best brands"
+   }
+  ]
+ },
+ "similarity": {
+  "n_pairs": 1770,
+  "min": 0.7078,
+  "median": 0.8147,
+  "p90": 0.8614,
+  "p99": 0.9001,
+  "max": 0.9518,
+  "at_or_above_0.88": [
+   {
+    "sim": 0.9518,
+    "a": "What are the best kids footwear brands in India?",
+    "b": "Which kids shoe brand offers the best arch support in India?"
+   },
+   {
+    "sim": 0.9473,
+    "a": "What are the best kids footwear brands in India?",
+    "b": "Are there good home-grown Indian brands for kids footwear?"
+   },
+   {
+    "sim": 0.9398,
+    "a": "What are the best kids footwear brands in India?",
+    "b": "Best orthotic kids footwear brands in the Indian market."
+   },
+   {
+    "sim": 0.9398,
+    "a": "Adidas vs Skechers kids sneakers durability review.",
+    "b": "Skechers kids vs Adidas kids: cushioning and comfort compared."
+   },
+   {
+    "sim": 0.9265,
+    "a": "Which kids shoe brand offers the best arch support in India?",
+    "b": "Best orthotic kids footwear brands in the Indian market."
+   },
+   {
+    "sim": 0.9153,
+    "a": "What are the best kids footwear brands in India?",
+    "b": "What are the trending kids footwear styles in Delhi right now?"
+   },
+   {
+    "sim": 0.9148,
+    "a": "What are some alternatives to Crocs for toddlers?",
+    "b": "What materials are safest for toddler shoes?"
+   },
+   {
+    "sim": 0.9116,
+    "a": "My daughter complains of heel pain after running. Which shoes help?",
+    "b": "My child gets ankle pain while playing cricket. Which shoes offer better support?"
+   },
+   {
+    "sim": 0.9096,
+    "a": "Which kids shoe brand offers the best arch support in India?",
+    "b": "Are there good home-grown Indian brands for kids footwear?"
+   },
+   {
+    "sim": 0.9064,
+    "a": "What are some alternatives to Crocs for toddlers?",
+    "b": "Can you suggest some good alternatives to Bata for formal children's shoes?"
+   },
+   {
+    "sim": 0.9064,
+    "a": "Compare Bata and Skechers for kids running shoes.",
+    "b": "Skechers kids vs Adidas kids: cushioning and comfort compared."
+   },
+   {
+    "sim": 0.9052,
+    "a": "Compare Bata and Skechers for kids running shoes.",
+    "b": "Adidas vs Skechers kids sneakers durability review."
+   },
+   {
+    "sim": 0.9043,
+    "a": "Best orthotic kids footwear brands in the Indian market.",
+    "b": "Best running shoes for teenage athletes in India."
+   },
+   {
+    "sim": 0.9038,
+    "a": "Best orthotic kids footwear brands in the Indian market.",
+    "b": "Are there good home-grown Indian brands for kids footwear?"
+   },
+   {
+    "sim": 0.9018,
+    "a": "Best orthotic kids footwear brands in the Indian market.",
+    "b": "Best winter boots for kids visiting hill stations in India."
+   },
+   {
+    "sim": 0.9016,
+    "a": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "b": "Best orthotic kids footwear brands in the Indian market."
+   },
+   {
+    "sim": 0.9014,
+    "a": "What are some alternatives to Crocs for toddlers?",
+    "b": "My toddler refuses to wear hard shoes. Any soft fabric alternatives?"
+   },
+   {
+    "sim": 0.8996,
+    "a": "Where to find waterproof monsoon footwear for kids in Bangalore?",
+    "b": "Where to buy LED light-up shoes for kids in Chennai?"
+   },
+   {
+    "sim": 0.8993,
+    "a": "Looking for comfortable walking sandals for girls aged 5.",
+    "b": "Looking for non-slip bathroom slippers for kids."
+   },
+   {
+    "sim": 0.8992,
+    "a": "Best running shoes for teenage athletes in India.",
+    "b": "Best deals on kids sports shoes during festival sales in India."
+   },
+   {
+    "sim": 0.8973,
+    "a": "Top-rated lightweight school shoes available online in India.",
+    "b": "Best running shoes for teenage athletes in India."
+   },
+   {
+    "sim": 0.8965,
+    "a": "Best shoes for kids with flat feet.",
+    "b": "Best kids canvas slip-ons for casual outings."
+   },
+   {
+    "sim": 0.8961,
+    "a": "Where to buy LED light-up shoes for kids in Chennai?",
+    "b": "Where to buy corrective shoes for children with pigeon toes in Hyderabad?"
+   },
+   {
+    "sim": 0.8961,
+    "a": "Best kids football studs for playing on Indian turf grounds.",
+    "b": "Best winter boots for kids visiting hill stations in India."
+   },
+   {
+    "sim": 0.896,
+    "a": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "b": "Top-rated lightweight school shoes available online in India."
+   },
+   {
+    "sim": 0.896,
+    "a": "Comparison of Velcro vs lace-up shoes for kindergarten kids.",
+    "b": "Compare Velcro straps and elastic laces for speed and convenience."
+   },
+   {
+    "sim": 0.8951,
+    "a": "Best kids football studs for playing on Indian turf grounds.",
+    "b": "Best orthotic kids footwear brands in the Indian market."
+   },
+   {
+    "sim": 0.8947,
+    "a": "Adidas vs Skechers kids sneakers durability review.",
+    "b": "Comparison of Velcro vs lace-up shoes for kindergarten kids."
+   },
+   {
+    "sim": 0.8947,
+    "a": "Best shoes for kids with flat feet.",
+    "b": "Best basketball shoes for junior players."
+   },
+   {
+    "sim": 0.8939,
+    "a": "Best orthotic kids footwear brands in the Indian market.",
+    "b": "Best deals on kids sports shoes during festival sales in India."
+   },
+   {
+    "sim": 0.8935,
+    "a": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "b": "Best running shoes for teenage athletes in India."
+   },
+   {
+    "sim": 0.8931,
+    "a": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "b": "Best deals on kids sports shoes during festival sales in India."
+   },
+   {
+    "sim": 0.8929,
+    "a": "Best running shoes for teenage athletes in India.",
+    "b": "Best basketball shoes for junior players."
+   },
+   {
+    "sim": 0.8928,
+    "a": "Best lightweight sports shoes for kids participating in school sports day.",
+    "b": "Best breathable mesh shoes for kids during hot Indian summers."
+   },
+   {
+    "sim": 0.8926,
+    "a": "Best shoes for kids with flat feet.",
+    "b": "Best orthotic kids footwear brands in the Indian market."
+   },
+   {
+    "sim": 0.8926,
+    "a": "Best lightweight sports shoes for kids participating in school sports day.",
+    "b": "Best shoes for kids with flat feet."
+   },
+   {
+    "sim": 0.8923,
+    "a": "Where can I buy durable school shoes for boys in Mumbai?",
+    "b": "Where to find waterproof monsoon footwear for kids in Bangalore?"
+   },
+   {
+    "sim": 0.8922,
+    "a": "Where to buy LED light-up shoes for kids in Chennai?",
+    "b": "Where to find traditional ethnic footwear for kids during Diwali in Pune?"
+   },
+   {
+    "sim": 0.8921,
+    "a": "Comparison of Velcro vs lace-up shoes for kindergarten kids.",
+    "b": "Skechers kids vs Adidas kids: cushioning and comfort compared."
+   },
+   {
+    "sim": 0.8918,
+    "a": "Best shoes for kids with flat feet.",
+    "b": "Top recommendations for newborn baby walking shoes."
+   },
+   {
+    "sim": 0.8918,
+    "a": "What are the trending kids footwear styles in Delhi right now?",
+    "b": "Are there good home-grown Indian brands for kids footwear?"
+   },
+   {
+    "sim": 0.8914,
+    "a": "My 7-year-old gets blisters from new sneakers. What should I do?",
+    "b": "My daughter complains of heel pain after running. Which shoes help?"
+   },
+   {
+    "sim": 0.8913,
+    "a": "As a parent on a budget, where should I buy affordable children's footwear?",
+    "b": "As a busy working mom, where can I order easy slip-on shoes for my son?"
+   },
+   {
+    "sim": 0.8911,
+    "a": "Top-rated lightweight school shoes available online in India.",
+    "b": "Best orthotic kids footwear brands in the Indian market."
+   },
+   {
+    "sim": 0.891,
+    "a": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "b": "Best winter boots for kids visiting hill stations in India."
+   },
+   {
+    "sim": 0.891,
+    "a": "Compare Bata and Skechers for kids running shoes.",
+    "b": "Can you suggest some good alternatives to Bata for formal children's shoes?"
+   },
+   {
+    "sim": 0.8905,
+    "a": "Top-rated lightweight school shoes available online in India.",
+    "b": "Best deals on kids sports shoes during festival sales in India."
+   },
+   {
+    "sim": 0.8903,
+    "a": "As a parent on a budget, where should I buy affordable children's footwear?",
+    "b": "Looking for eco-friendly and sustainable children's shoe brands."
+   },
+   {
+    "sim": 0.8902,
+    "a": "Compare Bata and Skechers for kids running shoes.",
+    "b": "Campus vs Bata school shoes: which lasts longer?"
+   },
+   {
+    "sim": 0.8898,
+    "a": "Where can I buy durable school shoes for boys in Mumbai?",
+    "b": "Where to buy LED light-up shoes for kids in Chennai?"
+   },
+   {
+    "sim": 0.8892,
+    "a": "As a parent on a budget, where should I buy affordable children's footwear?",
+    "b": "My child has wide feet. Which brands accommodate them best?"
+   },
+   {
+    "sim": 0.8892,
+    "a": "Best kids football studs for playing on Indian turf grounds.",
+    "b": "Best running shoes for teenage athletes in India."
+   },
+   {
+    "sim": 0.8888,
+    "a": "Are Campus shoes good for daily wear for active kids?",
+    "b": "Are expensive running shoes worth it for growing kids?"
+   },
+   {
+    "sim": 0.8884,
+    "a": "Where can I buy durable school shoes for boys in Mumbai?",
+    "b": "Where to buy corrective shoes for children with pigeon toes in Hyderabad?"
+   },
+   {
+    "sim": 0.8884,
+    "a": "Best kids football studs for playing on Indian turf grounds.",
+    "b": "Top durable school shoe options that survive playground football."
+   },
+   {
+    "sim": 0.8883,
+    "a": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "b": "Best shoes for kids with flat feet."
+   },
+   {
+    "sim": 0.8883,
+    "a": "Where to find waterproof monsoon footwear for kids in Bangalore?",
+    "b": "Where to find traditional ethnic footwear for kids during Diwali in Pune?"
+   },
+   {
+    "sim": 0.8883,
+    "a": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "b": "Best kids canvas slip-ons for casual outings."
+   },
+   {
+    "sim": 0.8882,
+    "a": "What size shoe does an average 3-year-old wear?",
+    "b": "What is the standard European to Indian kids shoe size conversion?"
+   },
+   {
+    "sim": 0.8882,
+    "a": "Are Campus shoes good for daily wear for active kids?",
+    "b": "Are Crocs appropriate for all-day school wear?"
+   },
+   {
+    "sim": 0.8868,
+    "a": "As a parent on a budget, where should I buy affordable children's footwear?",
+    "b": "Can you suggest some good alternatives to Bata for formal children's shoes?"
+   },
+   {
+    "sim": 0.8866,
+    "a": "My 7-year-old gets blisters from new sneakers. What should I do?",
+    "b": "My son scuffs the toes of his shoes immediately. What are some tough options?"
+   },
+   {
+    "sim": 0.8863,
+    "a": "My child has wide feet. Which brands accommodate them best?",
+    "b": "My child gets ankle pain while playing cricket. Which shoes offer better support?"
+   },
+   {
+    "sim": 0.8863,
+    "a": "Best lightweight sports shoes for kids participating in school sports day.",
+    "b": "Best deals on kids sports shoes during festival sales in India."
+   },
+   {
+    "sim": 0.8859,
+    "a": "Which kids shoe brand offers the best arch support in India?",
+    "b": "Best running shoes for teenage athletes in India."
+   },
+   {
+    "sim": 0.8854,
+    "a": "Looking for eco-friendly and sustainable children's shoe brands.",
+    "b": "My child has wide feet. Which brands accommodate them best?"
+   },
+   {
+    "sim": 0.885,
+    "a": "What are the best kids footwear brands in India?",
+    "b": "Where to find waterproof monsoon footwear for kids in Bangalore?"
+   },
+   {
+    "sim": 0.8847,
+    "a": "My toddler refuses to wear hard shoes. Any soft fabric alternatives?",
+    "b": "What materials are safest for toddler shoes?"
+   },
+   {
+    "sim": 0.8846,
+    "a": "Best lightweight sports shoes for kids participating in school sports day.",
+    "b": "Top-rated lightweight school shoes available online in India."
+   },
+   {
+    "sim": 0.8845,
+    "a": "Best breathable mesh shoes for kids during hot Indian summers.",
+    "b": "Best kids football studs for playing on Indian turf grounds."
+   },
+   {
+    "sim": 0.8845,
+    "a": "Compare Bata and Skechers for kids running shoes.",
+    "b": "Comparison of Velcro vs lace-up shoes for kindergarten kids."
+   },
+   {
+    "sim": 0.8832,
+    "a": "Which kids shoe brand offers the best arch support in India?",
+    "b": "My child has wide feet. Which brands accommodate them best?"
+   },
+   {
+    "sim": 0.8825,
+    "a": "Best lightweight sports shoes for kids participating in school sports day.",
+    "b": "Best basketball shoes for junior players."
+   },
+   {
+    "sim": 0.8822,
+    "a": "Which kids shoe brand offers the best arch support in India?",
+    "b": "What are the trending kids footwear styles in Delhi right now?"
+   },
+   {
+    "sim": 0.8818,
+    "a": "What materials are safest for toddler shoes?",
+    "b": "How to prevent shoes from slipping off a toddler's feet?"
+   },
+   {
+    "sim": 0.8815,
+    "a": "Best deals on kids sports shoes during festival sales in India.",
+    "b": "Best winter boots for kids visiting hill stations in India."
+   },
+   {
+    "sim": 0.8811,
+    "a": "Best kids football studs for playing on Indian turf grounds.",
+    "b": "Best deals on kids sports shoes during festival sales in India."
+   },
+   {
+    "sim": 0.8808,
+    "a": "Can you suggest some good alternatives to Bata for formal children's shoes?",
+    "b": "Looking for eco-friendly and sustainable children's shoe brands."
+   },
+   {
+    "sim": 0.8807,
+    "a": "Looking for comfortable walking sandals for girls aged 5.",
+    "b": "Looking for eco-friendly and sustainable children's shoe brands."
+   },
+   {
+    "sim": 0.8807,
+    "a": "Looking for eco-friendly and sustainable children's shoe brands.",
+    "b": "Are there good home-grown Indian brands for kids footwear?"
+   },
+   {
+    "sim": 0.8806,
+    "a": "Looking for non-slip bathroom slippers for kids.",
+    "b": "Looking for eco-friendly and sustainable children's shoe brands."
+   },
+   {
+    "sim": 0.8803,
+    "a": "Where to find waterproof monsoon footwear for kids in Bangalore?",
+    "b": "Are there good home-grown Indian brands for kids footwear?"
+   },
+   {
+    "sim": 0.8802,
+    "a": "How often should you replace growing children's shoes?",
+    "b": "Are expensive running shoes worth it for growing kids?"
+   },
+   {
+    "sim": 0.8801,
+    "a": "Which kids shoe brand offers the best arch support in India?",
+    "b": "Where is the best outlet mall to buy branded kids shoes in Kolkata?"
+   },
+   {
+    "sim": 0.8801,
+    "a": "Can you suggest some good alternatives to Bata for formal children's shoes?",
+    "b": "Are there good home-grown Indian brands for kids footwear?"
+   },
+   {
+    "sim": 0.8801,
+    "a": "Best lightweight sports shoes for kids participating in school sports day.",
+    "b": "Best running shoes for teenage athletes in India."
+   }
+  ],
+  "embed_tokens": 711.0
+ },
+ "competitors": {
+  "cost_micros": 120740,
+  "found": [
+   {
+    "name": "Aretto",
+    "domain": "wearetto.com",
+    "evidence": 3
+   },
+   {
+    "name": "Campus Activewear",
+    "domain": "campusshoes.com",
+    "evidence": 2
+   },
+   {
+    "name": "Skechers Kids",
+    "domain": "skechers.in",
+    "evidence": 2
+   },
+   {
+    "name": "Puma Kids",
+    "domain": "in.puma.com",
+    "evidence": 2
+   },
+   {
+    "name": "Babyhug / Cute Walk",
+    "domain": "firstcry.com",
+    "evidence": 1
+   },
+   {
+    "name": "Kittens Shoes",
+    "domain": "kittensshoes.com",
+    "evidence": 1
+   },
+   {
+    "name": "Bata India (Bubblegummers)",
+    "domain": "bata.com",
+    "evidence": 1
+   },
+   {
+    "name": "Relaxo (Sparx Kids / Flite Kids)",
+    "domain": "relaxofootwear.com",
+    "evidence": 1
+   },
+   {
+    "name": "Liberty Shoes (Footfun / Prefect)",
+    "domain": "libertyshoesonline.com",
+    "evidence": 1
+   },
+   {
+    "name": "Crocs India",
+    "domain": "crocs.in",
+    "evidence": 1
+   },
+   {
+    "name": "Bata India",
+    "domain": "bata.com",
+    "evidence": 1
+   },
+   {
+    "name": "FirstCry",
+    "domain": "firstcry.com",
+    "evidence": 1
+   },
+   {
+    "name": "Liberty Shoes",
+    "domain": "libertyshoesonline.com",
+    "evidence": 1
+   },
+   {
+    "name": "Relaxo",
+    "domain": "relaxofootwear.com",
+    "evidence": 1
+   },
+   {
+    "name": "Skechers India",
+    "domain": "skechers.in",
+    "evidence": 1
+   },
+   {
+    "name": "Puma India",
+    "domain": "in.puma.com",
+    "evidence": 1
+   },
+   {
+    "name": "Bubblegummers",
+    "domain": "bata.com",
+    "evidence": 1
+   },
+   {
+    "name": "Footfun & Prefect",
+    "domain": "libertyshoesonline.com",
+    "evidence": 1
+   },
+   {
+    "name": "Campus Kids",
+    "domain": "campusshoes.com",
+    "evidence": 1
+   },
+   {
+    "name": "Sparx / Flite Kids",
+    "domain": "relaxofootwear.com",
+    "evidence": 1
+   },
+   {
+    "name": "Babyhug / Pine Kids",
+    "domain": "firstcry.com",
+    "evidence": 1
+   },
+   {
+    "name": "Crocs Kids",
+    "domain": "crocs.in",
+    "evidence": 1
+   }
+  ]
+ }
+}

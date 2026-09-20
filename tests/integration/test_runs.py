@@ -111,16 +111,30 @@ def test_list_runs(client, brand):
     assert [r["id"] for r in runs] == [jid]
 
 
-def test_run_larger_than_the_bind_parameter_limit(client, make_org, make_brand):
+def test_run_larger_than_the_bind_parameter_limit(
+    client, make_org, make_brand, owner
+):
     # One VALUES row per observation hit Postgres's 65,535-parameter cap at
     # 8,192 rows; the enqueue must not depend on run size.
     org = make_org()
     bid = make_brand(org)
-    client.post(
-        f"/v1/brands/{bid}/prompts",
-        headers=org.headers,
-        json=[{"text": f"prompt {i}"} for i in range(3000)],
-    )
+    # Seeded through the owner session: 3,000 active prompts are past
+    # every plan limit, and this test is about enqueue_run, not the API.
+    with owner() as s, s.begin():
+        locale = s.scalars(
+            select(m.Locale).where(m.Locale.brand_id == bid)
+        ).one()
+        s.add_all(
+            [
+                m.Prompt(
+                    org_id=org.id,
+                    brand_id=bid,
+                    locale_id=locale.id,
+                    text=f"prompt {i}",
+                )
+                for i in range(3000)
+            ]
+        )
     r = client.post(
         f"/v1/brands/{bid}/runs", headers=org.headers, json={"samples": 3}
     )
