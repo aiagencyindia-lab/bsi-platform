@@ -111,8 +111,17 @@ def test_db_micros_counts_job_cost(
     owner, make_org, make_brand, make_observation
 ):
     org = make_org()
-    make_observation(org, make_brand(org), status="done")
+    bid = make_brand(org)
     cutoff = datetime.now(UTC) - timedelta(minutes=1)
     with owner() as s, s.begin():
-        s.execute(update(m.Job).values(cost_micros=7_500))
+        s.add(
+            m.Job(
+                org_id=org.id,
+                brand_id=bid,
+                kind="suggest_prompts",
+                scheduled_slot=datetime.now(UTC),
+                status="done",
+                cost_micros=7_500,
+            )
+        )
     assert spend.db_micros(cutoff) == 7_500

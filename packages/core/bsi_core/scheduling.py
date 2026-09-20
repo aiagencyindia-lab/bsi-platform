@@ -48,7 +48,7 @@ _SPENT_AND_PENDING = text(
                FILTER (WHERE o.requested_at >= day.start), 0)
       -- Scalar: a join would be fanned out by the extraction join above.
       + (SELECT coalesce(sum(j.cost_micros), 0) FROM job j, day
-         WHERE j.created_at >= day.start) AS spent,
+         WHERE j.kind <> 'run' AND j.created_at >= day.start) AS spent,
       count(*) FILTER (
         WHERE o.status IN ('queued', 'running', 'retry')) AS pending
     FROM observation o

@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -32,6 +32,21 @@ def set_cost(owner, obs_id, micros, **values):
             update(m.Observation)
             .where(m.Observation.id == obs_id)
             .values(cost_micros=micros, **values)
+        )
+
+
+def add_job(owner, org, brand_id, micros, kind="suggest_prompts"):
+    """A suggestion job carrying cost; run jobs never carry any."""
+    with owner() as s, s.begin():
+        s.add(
+            m.Job(
+                org_id=org.id,
+                brand_id=brand_id,
+                kind=kind,
+                scheduled_slot=datetime.now(UTC),
+                status="done",
+                cost_micros=micros,
+            )
         )
 
 
@@ -125,11 +140,17 @@ def test_org_override_replaces_the_settings_default(owner, make_org):
 
 def test_todays_job_cost_counts(owner, make_org, make_brand, make_observation):
     org = make_org()
-    make_observation(org, make_brand(org), status="done")
-    with owner() as s, s.begin():
-        s.execute(update(m.Job).values(cost_micros=50_000))
+    add_job(owner, org, make_brand(org), 50_000)
     assert fits(org, 3)
     assert not fits(org, 4)
+
+
+def test_a_run_jobs_cost_is_not_counted(owner, make_org, make_brand):
+    # Only suggestion jobs carry cost; an observation's cost is counted
+    # through the observation, so a costed run job would double count.
+    org = make_org()
+    add_job(owner, org, make_brand(org), 50_000, kind="run")
+    assert fits(org, 4)
 
 
 def test_job_cost_is_not_fanned_out_by_the_extraction_join(
@@ -154,8 +175,7 @@ def test_job_cost_is_not_fanned_out_by_the_extraction_join(
                     brand_mentioned=False,
                 )
             )
-    with owner() as s, s.begin():
-        s.execute(update(m.Job).values(cost_micros=50_000))
+    add_job(owner, org, bid, 50_000)
     assert fits(org, 3)  # 50,000 once, not 150,000
     assert not fits(org, 4)
 
