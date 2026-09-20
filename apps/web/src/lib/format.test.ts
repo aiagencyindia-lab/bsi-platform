@@ -50,3 +50,19 @@ test("highlight marks evidence sentences in order", () => {
     { text: " B.", hit: false },
   ]);
 });
+
+// Sentences arrive in mention order, which is not document order; a span
+// walked out of order would silently drop every earlier highlight.
+test("highlight orders spans by position, not by argument order", () => {
+  const parts = highlight("A. Nike is best. B. Puma is fine. C.", [
+    "Puma is fine.",
+    "Nike is best.",
+  ]);
+  expect(parts).toEqual([
+    { text: "A. ", hit: false },
+    { text: "Nike is best.", hit: true },
+    { text: " B. ", hit: false },
+    { text: "Puma is fine.", hit: true },
+    { text: " C.", hit: false },
+  ]);
+});

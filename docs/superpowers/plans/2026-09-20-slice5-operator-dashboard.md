@@ -1483,7 +1483,7 @@ Whether an answer actually searched is computed in `gemini.py` for pricing and t
 - Test: `tests/unit/test_gemini_adapter.py`, `tests/integration/test_worker.py`, `tests/integration/test_rls.py`, `tests/integration/test_constraints.py` (append to each)
 
 **Interfaces:**
-- Produces: `models.REC_STATUSES: tuple[str, ...]`; `models.RecLabel` (`observation_id`, `entity_type`, `entity_id`, `label`); `Observation.search_queries: int | None`; `EngineResult.search_queries: int | None`; `GeminiGroundingAdapter.search_queries(raw) -> int` (static); `ObservationOut.search_queries`.
+- Produces: `models.REC_STATUSES: tuple[str, ...]`; `models.RecLabel` (`observation_id`, `entity_type`, `entity_id`, `label`); `Observation.search_queries: int | None`; `EngineResult.search_queries: int | None`; `GeminiGroundingAdapter.search_queries(raw) -> int` (classmethod); `ObservationOut.search_queries`.
 
 - [ ] **Step 1: Failing tests**
 
