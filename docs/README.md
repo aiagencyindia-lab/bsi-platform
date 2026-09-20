@@ -53,10 +53,23 @@ In the order they were written:
 | [superpowers/plans/2026-09-20-slice4-prompt-intelligence.md](superpowers/plans/2026-09-20-slice4-prompt-intelligence.md) | Implementation plan, Tasks 0–10. |
 | [findings-slice4.md](findings-slice4.md) | Results: the embedding probe and duplicate threshold, prompt generation across three brands, the live wizard check, spend, and the known gaps. |
 
-Run data lives next to the code, because the scripts and tests read it
-there:
-- [../eval/run1.json](../eval/run1.json): the brand, competitors and prompts of the live run.
-- [../eval/benchmark_v0.jsonl](../eval/benchmark_v0.jsonl): 30 hand-labelled observations.
+Run data and evaluation sets live next to the code, because the scripts
+and tests read them there.
+
+**Run specs** (a brand, its competitors and its prompts):
+- [../eval/run1.json](../eval/run1.json): slice 1's live run — 20 prompts, 5 competitors, 3 samples.
+- [../eval/run2_check.json](../eval/run2_check.json): the same brand cut to 5 prompts at 1 sample, for a cheap smoke check.
+
+**Labelled sets** (hand-checked, the bar the models are measured against):
+- [../eval/benchmark_v0.jsonl](../eval/benchmark_v0.jsonl): 30 hand-labelled observations for the matcher.
+- [../eval/injection_v0.jsonl](../eval/injection_v0.jsonl): 30 adversarial answers that try to talk the judge into a verdict.
+- [../eval/rec_labels_v0.jsonl](../eval/rec_labels_v0.jsonl): 50 recommendation labels over 30 real answers, reviewed by the user.
+
+**Results** (the evidence behind the findings):
+- [../eval/results/judge_eval_legacy.json](../eval/results/judge_eval_legacy.json), [batched](../eval/results/judge_eval_batched.json), [isolated](../eval/results/judge_eval_isolated.json): judge robustness per mode ([findings-slice2.md](findings-slice2.md) §2).
+- [../eval/results/sampling_v0.json](../eval/results/sampling_v0.json): the sampling designs A, B and C ([findings-slice2.md](findings-slice2.md) §3).
+- [../eval/results/probe_slice4.json](../eval/results/probe_slice4.json): the embedding probe and the similarity distribution behind the 0.92 duplicate threshold ([findings-slice4.md](findings-slice4.md) §1).
+- [../eval/results/prompt_gen_v0.json](../eval/results/prompt_gen_v0.json): prompt generation across three brands ([findings-slice4.md](findings-slice4.md) §2).
 
 The raw engine answers from the live run are in `data/`. They are
 git-ignored and stay local.
