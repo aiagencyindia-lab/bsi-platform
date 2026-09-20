@@ -59,3 +59,55 @@ def test_prompt_metrics_endpoint(
     (row,) = client.get(url, headers=a.headers).json()
     assert row["n"] == 1 and row["brand"]["value"] == 0.0
     assert client.get(url, headers=b.headers).status_code == 404
+
+
+def test_prompt_metrics_projects_what_it_would_take_to_separate(
+    client, owner, make_org, make_brand, make_observation
+):
+    from bsi_core import models as m
+
+    org = make_org()
+    bid = make_brand(org, "Nike")
+    with owner() as s, s.begin():
+        comp = m.Competitor(org_id=org.id, brand_id=bid, name="Adidas")
+        s.add(comp)
+        s.flush()
+        cid = comp.id
+    first = make_observation(org, bid, status="done", text="p")
+    with owner() as s:
+        pid = s.get(m.Observation, first).prompt_id
+    ids = [first] + [
+        make_observation(org, bid, status="done", prompt_id=pid, sample_index=i)
+        for i in (1, 2)
+    ]
+    # Brand in 2 of 3 answers, rival in 1 — a gap too small to call at n=3.
+    with owner() as s, s.begin():
+        for oid, eid, etype in (
+            (ids[0], bid, "brand"),
+            (ids[1], bid, "brand"),
+            (ids[0], cid, "competitor"),
+        ):
+            s.add(
+                m.Mention(
+                    org_id=org.id,
+                    observation_id=oid,
+                    entity_type=etype,
+                    entity_id=eid,
+                    position=1,
+                    rec_status="mentioned",
+                    sentiment="neutral",
+                )
+            )
+    url = f"/v1/brands/{bid}/prompts/metrics"
+    (row,) = client.get(url, headers=org.headers).json()
+    assert (row["n"], row["separated"]) == (3, False)
+    assert row["needs_samples"] == 31
+    assert row["needs_days"] is None  # no schedule yet
+
+    client.put(
+        f"/v1/brands/{bid}/schedule",
+        json={"cadence": "daily", "hour_utc": 3, "samples": 3},
+        headers=org.headers,
+    )
+    (row,) = client.get(url, headers=org.headers).json()
+    assert row["needs_days"] == 10  # 28 more samples at 3/day

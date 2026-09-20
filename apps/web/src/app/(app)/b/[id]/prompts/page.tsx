@@ -96,7 +96,21 @@ export default async function Prompts({
               </td>
               <td>
                 {pts(r.spread)}{" "}
-                {r.separated && <span className="tag">separates</span>}
+                {r.separated ? (
+                  <span className="tag">separates</span>
+                ) : (
+                  r.needs_samples != null && (
+                    // A projection: it holds today's rates fixed. Said
+                    // plainly, because at n=3 the honest answer is
+                    // usually "far more samples than you expect".
+                    <div className="muted">
+                      needs ~{r.needs_samples} samples
+                      {r.needs_days != null && ` · ~${r.needs_days} days`}
+                      <br />
+                      at current rates
+                    </div>
+                  )
+                )}
               </td>
             </tr>
           ))}

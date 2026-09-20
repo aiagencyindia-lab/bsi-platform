@@ -957,6 +957,10 @@ export interface components {
             intent: string | null;
             /** N */
             n: number;
+            /** Needs Days */
+            needs_days: number | null;
+            /** Needs Samples */
+            needs_samples: number | null;
             /**
              * Prompt Id
              * Format: uuid

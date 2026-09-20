@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from bsi_core import models as m
 from bsi_core.config import get_settings
 from bsi_core.extraction import PIPELINE_VERSION
 from bsi_core.metrics import (
@@ -12,7 +13,9 @@ from bsi_core.metrics import (
     failed_count,
     prompt_metrics,
 )
+from bsi_core.scheduling import days_to_accumulate
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 
 from ..deps import TENANT, Ctx, brand_or_404
 from ..problems import Problem
@@ -85,4 +88,17 @@ def get_prompt_metrics(
     brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
 ) -> list[dict[str, Any]]:
     brand_or_404(c, brand_id)
-    return prompt_metrics(c.s, brand_id, f)
+    rows = prompt_metrics(c.s, brand_id, f)
+    # One schedule lookup for the whole table: `needs_days` is the same
+    # projection as `needs_samples`, expressed in this brand's cadence.
+    sch = c.s.scalars(
+        select(m.Schedule).where(m.Schedule.brand_id == brand_id)
+    ).first()
+    for row in rows:
+        needs = row["needs_samples"]
+        row["needs_days"] = (
+            days_to_accumulate(needs - row["n"], sch.cadence, sch.samples)
+            if sch is not None and needs is not None
+            else None
+        )
+    return rows
