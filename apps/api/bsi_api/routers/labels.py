@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from ..deps import TENANT, Ctx, brand_or_404, get_or_404
+from ..deps import TENANT, Ctx, brand_or_404
 from ..problems import Problem
 from .metrics import Rate
 from .observations import answer_text
@@ -78,13 +78,35 @@ def next_label(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
     ).all()
     done = [(mn, lb) for mn, lb in rows if lb is not None]
     todo = [mn for mn, lb in rows if lb is None]
+
+    # A mentioned competitor can be deleted later (DELETE .../competitors/
+    # {id} hard-deletes; Mention.entity_id has no FK, being polymorphic
+    # over brand/competitor), leaving a mention that points at nothing.
+    # Resolve names up front and drop those: an unlabellable mention must
+    # not block the queue, and must not count as work still to do.
+    comp_ids = {mn.entity_id for mn in todo if mn.entity_type == "competitor"}
+    comp_names: dict[uuid.UUID, str] = {}
+    if comp_ids:
+        comp_names = dict(
+            c.s.execute(
+                select(m.Competitor.id, m.Competitor.name).where(
+                    m.Competitor.id.in_(comp_ids)
+                )
+            ).all()
+        )
+    todo = [
+        mn
+        for mn in todo
+        if mn.entity_type == "brand" or mn.entity_id in comp_names
+    ]
+
     item = None
     if todo:
         mn = todo[0]
         name = (
             brand.name
             if mn.entity_type == "brand"
-            else get_or_404(c.s, m.Competitor, mn.entity_id).name
+            else comp_names[mn.entity_id]
         )
         obs = c.s.get_one(m.Observation, mn.observation_id)
         item = {

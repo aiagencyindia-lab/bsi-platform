@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -85,3 +87,102 @@ def test_label_vocabulary_matches_the_model():
     from bsi_api.routers.labels import RecStatus
 
     assert get_args(RecStatus) == m.REC_STATUSES
+
+
+def test_orphaned_competitor_mention_is_skipped(
+    client, owner, make_org, make_brand, make_observation
+):
+    """A mentioned competitor can be hard-deleted later; Mention.entity_id
+    has no FK to it. The queue must skip that mention, not 404."""
+    org = make_org()
+    bid = make_brand(org, "Nike")
+    oid = make_observation(org, bid, raw=RAW, status="done")
+    with owner() as s, s.begin():
+        comp = m.Competitor(org_id=org.id, brand_id=bid, name="Ghost")
+        s.add(comp)
+        s.flush()
+        comp_id = comp.id
+        s.add(
+            m.Mention(
+                org_id=org.id,
+                observation_id=oid,
+                entity_type="competitor",
+                entity_id=comp_id,
+                position=1,
+                rec_status="listed",
+                sentiment="neutral",
+                evidence_sentence="Ghost is fine.",
+            )
+        )
+        s.add(
+            m.Mention(
+                org_id=org.id,
+                observation_id=oid,
+                entity_type="brand",
+                entity_id=bid,
+                position=2,
+                rec_status="recommended",
+                sentiment="positive",
+                evidence_sentence="Nike is best.",
+            )
+        )
+    with owner() as s, s.begin():
+        s.delete(s.get_one(m.Competitor, comp_id))
+
+    queue = client.get(
+        f"/v1/brands/{bid}/labels/next", headers=org.headers
+    ).json()
+    item = queue["item"]
+    assert (item["entity_type"], item["entity_name"]) == ("brand", "Nike")
+    # The orphaned mention is unlabellable: it must not be counted as
+    # remaining work the operator can never actually do.
+    assert queue["remaining"] == 1
+
+
+def test_export_from_db_skips_orphaned_entity(
+    owner, make_org, make_brand, make_observation
+):
+    """from_db must not abort the whole export over one deleted entity."""
+    org_name = "Export Org"
+    org = make_org(org_name)
+    bid = make_brand(org, "Nike")
+    oid = make_observation(org, bid, raw=RAW, status="done")
+    with owner() as s, s.begin():
+        comp = m.Competitor(org_id=org.id, brand_id=bid, name="Ghost")
+        s.add(comp)
+        s.flush()
+        comp_id = comp.id
+        s.add(
+            m.RecLabel(
+                org_id=org.id,
+                observation_id=oid,
+                entity_type="brand",
+                entity_id=bid,
+                label="recommended",
+            )
+        )
+        s.add(
+            m.RecLabel(
+                org_id=org.id,
+                observation_id=oid,
+                entity_type="competitor",
+                entity_id=comp_id,
+                label="listed",
+            )
+        )
+    with owner() as s, s.begin():
+        s.delete(s.get_one(m.Competitor, comp_id))
+
+    result = subprocess.run(
+        [sys.executable, "scripts/export_rec_labels.py", "--from-db", org_name],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    rows = [json.loads(line) for line in result.stdout.splitlines() if line]
+    assert len(rows) == 1
+    assert rows[0]["observation_id"] == str(oid)
+    assert rows[0]["expected"] == {"Nike": "recommended"}
+    assert rows[0]["entities"] == [
+        {"id": "Nike", "type": "brand", "aliases": ["Nike"]}
+    ]

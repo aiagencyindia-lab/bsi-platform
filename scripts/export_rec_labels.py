@@ -55,7 +55,12 @@ def from_db(org_name: str) -> None:
             entities, expected = [], {}
             for lb in rows:
                 model = m.Brand if lb.entity_type == "brand" else m.Competitor
-                e = s.get_one(model, lb.entity_id)
+                e = s.get(model, lb.entity_id)
+                if e is None:
+                    # The entity (almost always a competitor) was deleted
+                    # after being labelled. Skip it rather than aborting
+                    # the whole export over one stale row.
+                    continue
                 entities.append(
                     {
                         "id": e.name,
