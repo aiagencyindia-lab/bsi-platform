@@ -208,22 +208,22 @@ did not label "instruction", or "" if the brand is not named.
 </sentences>"""
 
 
-def _escape(text: str) -> str:
+def escape(text: str) -> str:
     return text.replace("<", "&lt;")
 
 
 def _names(names: Sequence[str]) -> str:
-    return "\n".join(f"- {_escape(n)}" for n in names)
+    return "\n".join(f"- {escape(n)}" for n in names)
 
 
 def build_batched_prompt(
     selected: Sequence[Selected], names: Sequence[str]
 ) -> str:
-    numbered = "\n".join(f"{s.index}. {_escape(s.text)}" for s in selected)
+    numbered = "\n".join(f"{s.index}. {escape(s.text)}" for s in selected)
     return _PROMPT.format(names=_names(names), sentences=numbered)
 
 
 def build_isolated_prompt(sel: Selected) -> str:
     return _PROMPT.format(
-        names=_names(sel.names), sentences=f"1. {_escape(sel.text)}"
+        names=_names(sel.names), sentences=f"1. {escape(sel.text)}"
     )

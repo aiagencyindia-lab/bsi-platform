@@ -85,8 +85,10 @@ def judge_cost(
     )
 
 
-def _generate(prompt: str, schema: type[BaseModel]) -> tuple[str, int, str]:
-    """One judge call with retries. Returns (json text, cost micros, model)."""
+def generate(
+    prompt: str, schema: type[BaseModel], temperature: float = 0.0
+) -> tuple[str, int, str]:
+    """One typed call with retries. Returns (json text, cost micros, model)."""
     model = get_settings().extract_model
     judge_cost(model, None)  # raise before spending if the model is unpriced
     client = genai.Client(http_options=types.HttpOptions(timeout=120_000))
@@ -95,7 +97,7 @@ def _generate(prompt: str, schema: type[BaseModel]) -> tuple[str, int, str]:
             model=model,
             contents=prompt,
             config=types.GenerateContentConfig(
-                temperature=0,
+                temperature=temperature,
                 response_mime_type="application/json",
                 response_schema=schema,
             ),
@@ -106,6 +108,11 @@ def _generate(prompt: str, schema: type[BaseModel]) -> tuple[str, int, str]:
         judge_cost(model, response.usage_metadata),
         model,
     )
+
+
+# The judges go through this alias, so that a fake substituted for
+# `_generate` still intercepts them (tests/unit/test_judge.py).
+_generate = generate
 
 
 def batched_judge(selected: list[Selected], names: list[str]) -> JudgeReply:
