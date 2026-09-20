@@ -38,6 +38,11 @@ export function Filters({ sp, days }: { sp: Params; days?: boolean }) {
       {one(sp.locale_id) && (
         <input type="hidden" name="locale_id" value={one(sp.locale_id)} />
       )}
+      {/* A plain GET form only submits its own fields; without these,
+       * applying a filter would drop the prompt table's sort/dir and
+       * silently reset it. */}
+      {one(sp.sort) && <input type="hidden" name="sort" value={one(sp.sort)} />}
+      {one(sp.dir) && <input type="hidden" name="dir" value={one(sp.dir)} />}
       <button>Apply</button>
     </form>
   );
