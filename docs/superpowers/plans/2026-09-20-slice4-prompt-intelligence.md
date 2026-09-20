@@ -150,9 +150,12 @@ Add `AND c.status = 'active'` (or the ORM equivalent) to:
 - New `packages/core/bsi_core/suggest.py`:
 
   ```python
+  # Exactly the spellings in ck_prompt_intent (migration 0007): hyphens,
+  # not underscores. The step-0 probe asked with underscores and the model
+  # echoed them back, which would violate the CHECK.
   INTENTS = ("informational", "commercial", "transactional", "comparison",
-             "alternative", "recommendation", "problem_based",
-             "industry_specific", "persona_specific", "geographic")
+             "alternative", "recommendation", "problem-based",
+             "industry-specific", "persona-specific", "geographic")
   Generator = Callable[[str, type[BaseModel], float], tuple[str, int, str]]
   Embedder = Callable[[list[str]], tuple[list[list[float]], int]]
   PROMPT_JOB_MICROS = 30_000

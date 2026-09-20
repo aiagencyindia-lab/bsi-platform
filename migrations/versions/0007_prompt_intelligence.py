@@ -2,6 +2,7 @@
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "0007"
 down_revision = "0006"
@@ -67,7 +68,7 @@ COLUMNS = [
         "job",
         sa.Column(
             "params",
-            sa.dialects.postgresql.JSONB(),
+            postgresql.JSONB(),
             server_default="{}",
             nullable=False,
         ),
