@@ -38,7 +38,7 @@ class OpsOut(BaseModel):
     spent_micros: int
     pending: int
     budget_micros: int
-    estimate_micros: int
+    committed_micros: int
     queue: dict[str, int]
     searched: Rate
     failures: list[FailureOut]

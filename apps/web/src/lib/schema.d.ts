@@ -927,8 +927,8 @@ export interface components {
         OpsOut: {
             /** Budget Micros */
             budget_micros: number;
-            /** Estimate Micros */
-            estimate_micros: number;
+            /** Committed Micros */
+            committed_micros: number;
             /** Failures */
             failures: components["schemas"]["FailureOut"][];
             /** Pending */

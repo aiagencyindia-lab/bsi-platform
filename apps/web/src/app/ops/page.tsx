@@ -6,15 +6,19 @@ import type { Ops } from "@/lib/types";
 
 export default async function OpsPage() {
   const o = await api<Ops>("/ops");
-  const committed = o.spent_micros + o.pending * o.estimate_micros;
   // Display-only meter, not a statistic: the marker is spend plus the
-  // pending estimate, the shaded part is money already spent.
+  // pending estimate (committed_micros, computed server-side alongside
+  // budget_fits so this can't drift from it), the shaded part is money
+  // already spent.
   const used = {
-    value: Math.min(committed / o.budget_micros, 1),
+    value: Math.min(o.committed_micros / o.budget_micros, 1),
     n: 0,
     ci_low: 0,
     ci_high: Math.min(o.spent_micros / o.budget_micros, 1),
   };
+  const meterTitle = `${usd(o.spent_micros)} spent, ${usd(
+    o.committed_micros,
+  )} committed of ${usd(o.budget_micros)}`;
   return (
     <>
       <h1>Ops</h1>
@@ -22,10 +26,10 @@ export default async function OpsPage() {
         <div className="card tile">
           <div>Spend today (UTC)</div>
           <div className="value">{usd(o.spent_micros)}</div>
-          <CiBar r={used} />
+          <CiBar r={used} title={meterTitle} />
           <div className="muted">
             of {usd(o.budget_micros)} · {o.pending} pending ≈{" "}
-            {usd(o.pending * o.estimate_micros)}
+            {usd(o.committed_micros - o.spent_micros)}
           </div>
         </div>
         <div className="card tile">

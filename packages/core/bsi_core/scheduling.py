@@ -350,11 +350,14 @@ def ops_summary(s: Session, org_id: uuid.UUID) -> dict[str, Any]:
         .join(m.Brand, m.Brand.id == m.Schedule.brand_id)
         .order_by(m.Schedule.next_run_at)
     ).all()
+    estimate = get_settings().obs_cost_estimate_micros
     return {
         "spent_micros": spent,
         "pending": pending,
         "budget_micros": budget_micros(s, org_id),
-        "estimate_micros": get_settings().obs_cost_estimate_micros,
+        # Same headroom expression as budget_fits, computed once here so
+        # the frontend never re-derives it.
+        "committed_micros": spent + pending * estimate,
         "queue": queue,
         "searched": rate(searched, known),
         "failures": failures,

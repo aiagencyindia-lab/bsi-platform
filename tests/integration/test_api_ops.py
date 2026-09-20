@@ -36,6 +36,8 @@ def test_ops_reports_spend_queue_failures_and_search_rate(
     assert body["spent_micros"] == 60_000  # 46k + 13k + the non-run job
     assert body["pending"] == 1
     assert body["budget_micros"] == 2_000_000
+    # 60k spent + 1 pending * the 50k default estimate.
+    assert body["committed_micros"] == 110_000
     assert body["queue"] == {"done": 2, "failed": 1, "queued": 1}
     assert (body["searched"]["value"], body["searched"]["n"]) == (0.5, 2)
     assert [f["error"] for f in body["failures"]] == ["400 bad"]
