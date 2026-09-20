@@ -14,6 +14,7 @@ from bsi_core.extraction import Extractor
 from bsi_core.judge import JUDGE_PRICES, JUDGES
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
+from bsi_core.scheduling import run_schedule
 from bsi_core.storage import LocalRawStore, RawStore
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -25,6 +26,7 @@ MAX_ATTEMPTS = 3
 BACKOFF_SECONDS = (15, 60)
 JITTER = 0.2
 STALE_RESET_SECONDS = 300
+SCHEDULE_CHECK_SECONDS = 60
 
 
 class ExtractorLike(Protocol):
@@ -44,6 +46,27 @@ def _claim() -> tuple[uuid.UUID, uuid.UUID] | None:
 def reset_stale() -> int:
     with system_session() as s:
         return int(s.execute(text("SELECT reset_stale_running()")).scalar_one())
+
+
+def run_due_schedules() -> int:
+    """Run the due schedules; returns how many ran.
+
+    One schedule's failure never stops the others. Listing them can
+    raise (a dead DB); main() logs that and carries on.
+    """
+    with system_session() as s:
+        due = s.execute(
+            text("SELECT schedule_id, org_id FROM due_schedules()")
+        ).all()
+    ran = 0
+    for schedule_id, org_id in due:
+        try:
+            result = run_schedule(org_id, schedule_id)
+            log.info("schedule %s: %s", schedule_id, result)
+            ran += result is not None
+        except Exception:
+            log.exception("schedule %s failed", schedule_id)
+    return ran
 
 
 def _record_failure(
@@ -133,6 +156,7 @@ def main() -> None:
     store = LocalRawStore()
     extractor = Extractor(adapter, store, JUDGES[settings.judge_mode])
     last_reset = -STALE_RESET_SECONDS
+    last_schedule_check = -SCHEDULE_CHECK_SECONDS
     while True:
         if time.monotonic() - last_reset >= STALE_RESET_SECONDS:
             try:
@@ -140,5 +164,11 @@ def main() -> None:
             except Exception:
                 log.exception("reset_stale failed")
             last_reset = time.monotonic()
+        if time.monotonic() - last_schedule_check >= SCHEDULE_CHECK_SECONDS:
+            try:
+                log.info("ran %d due schedules", run_due_schedules())
+            except Exception:
+                log.exception("run_due_schedules failed")
+            last_schedule_check = time.monotonic()
         if not tick(adapter, store, extractor):
             time.sleep(1)

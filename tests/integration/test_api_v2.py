@@ -66,3 +66,37 @@ def test_flag_can_be_turned_off(client, make_org, make_brand, monkeypatch):
     bid = make_brand(org)
     got = client.get(f"/v1/brands/{bid}/metrics", headers=org.headers).json()
     assert got["recommendation_rate"]["experimental"] is False
+
+
+def test_deltas_on_an_empty_brand(client, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    r = client.get(f"/v1/brands/{bid}/deltas", headers=org.headers)
+    assert r.status_code == 200, r.text
+    got = r.json()
+    assert {d["label"] for d in got["deltas"].values()} == {"insufficient data"}
+    assert got["comparable"] is True
+    for w in ("before", "after"):
+        assert got[w]["recommendation_rate"]["experimental"] is True
+        assert "experimental" not in got[w]["mention_rate"]
+    assert "experimental" not in got["deltas"]["recommendation_rate"]
+
+
+def test_deltas_rejects_date_from(client, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    r = client.get(
+        f"/v1/brands/{bid}/deltas?date_from=2026-01-01T00:00:00Z",
+        headers=org.headers,
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_deltas_rejects_days_out_of_range(client, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    for days in (0, 91):
+        r = client.get(
+            f"/v1/brands/{bid}/deltas?days={days}", headers=org.headers
+        )
+        assert r.status_code == 422, (days, r.text)

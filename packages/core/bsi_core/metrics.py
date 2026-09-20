@@ -1,9 +1,9 @@
 """Visibility metrics. Every rate carries its sample size and a Wilson CI."""
 
 import uuid
-from dataclasses import dataclass
-from datetime import UTC, datetime
-from math import sqrt
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
+from math import hypot, sqrt
 from typing import Any
 
 from sqlalchemy import select, text
@@ -169,6 +169,94 @@ def brand_metrics(
             "n_mentioned": row.k_mention,
         },
         "n_failed": failed_count(s, brand_id, f),
+        "pipeline_versions": window_versions(s, brand_id, f),
         "pipeline_version": PIPELINE_VERSION,
         "computed_at": datetime.now(UTC),
+    }
+
+
+def window_versions(s: Session, brand_id: uuid.UUID, f: Filters) -> list[str]:
+    """Distinct pipeline versions of the done observations in a window."""
+    where, params = _where(brand_id, f)
+    return list(
+        s.scalars(
+            text(
+                "SELECT DISTINCT e.pipeline_version FROM observation o "
+                "JOIN extraction e ON e.observation_id = o.id "
+                f"WHERE {where} AND o.status = 'done' ORDER BY 1"
+            ),
+            params,
+        ).all()
+    )
+
+
+def delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """95% Newcombe (method 10) interval for after - before, and a label.
+
+    Assumes independent samples. Windows share prompts, so this is
+    somewhat optimistic; for sov, mentions cluster within answers, which
+    makes it more so. Across five metrics, expect about one false
+    "significant" label in four comparisons when nothing changed.
+    """
+    p1, p2 = after["value"], before["value"]
+    if p1 is None or p2 is None:
+        return {
+            "value": None,
+            "ci_low": None,
+            "ci_high": None,
+            "label": "insufficient data",
+        }
+    d = p1 - p2
+    low = d - hypot(p1 - after["ci_low"], before["ci_high"] - p2)
+    high = d + hypot(after["ci_high"] - p1, p2 - before["ci_low"])
+    label = (
+        "increase"
+        if low > 0
+        else "decrease"
+        if high < 0
+        else "no significant change"
+    )
+    return {"value": d, "ci_low": low, "ci_high": high, "label": label}
+
+
+DELTA_METRICS = (
+    "mention_rate",
+    "recommendation_rate",
+    "citation_rate",
+    "prompt_coverage",
+    "sov",
+)
+
+
+def brand_deltas(
+    s: Session, brand_id: uuid.UUID, f: Filters, days: int, to: datetime
+) -> dict[str, Any]:
+    """Compare [to - days, to) with the `days` before it.
+
+    Windows use claim time, like /metrics, so a boundary can split a run
+    that is still draining. Any date_from/date_to on f is replaced: days
+    and to define both windows.
+    """
+    mid, start = to - timedelta(days=days), to - timedelta(days=2 * days)
+    before = brand_metrics(
+        s, brand_id, replace(f, date_from=start, date_to=mid)
+    )
+    after = brand_metrics(s, brand_id, replace(f, date_from=mid, date_to=to))
+    versions = set(before["pipeline_versions"]) | set(
+        after["pipeline_versions"]
+    )
+    comparable = len(versions) <= 1
+    return {
+        "before": {"from": start, "to": mid, **before},
+        "after": {"from": mid, "to": to, **after},
+        "comparable": comparable,
+        "reason": None
+        if comparable
+        else (
+            "windows use different pipeline versions "
+            f"{sorted(versions)}; re-extract the older window"
+        ),
+        "deltas": {k: delta(before[k], after[k]) for k in DELTA_METRICS}
+        if comparable
+        else None,
     }

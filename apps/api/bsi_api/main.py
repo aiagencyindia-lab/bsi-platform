@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 
 from . import problems
-from .routers import brands, metrics, observations, prompts, runs
+from .routers import brands, metrics, observations, prompts, runs, schedules
 
 
 def create_app() -> FastAPI:
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
         runs.jobs_router,
         observations.router,
         metrics.router,
+        schedules.router,
     ):
         app.include_router(router, prefix="/v1")
     return app

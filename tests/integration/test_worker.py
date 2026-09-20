@@ -4,9 +4,15 @@ import bsi_workers.worker as worker
 import pytest
 from bsi_core import models as m
 from bsi_core.providers.base import EngineResult, ParsedAnswer
+from bsi_core.scheduling import run_schedule
 from bsi_core.storage import LocalRawStore
-from bsi_workers.worker import process_one, reset_stale, tick
-from sqlalchemy import func, select, update
+from bsi_workers.worker import (
+    process_one,
+    reset_stale,
+    run_due_schedules,
+    tick,
+)
+from sqlalchemy import func, select, text, update
 
 OK = EngineResult(
     "ok",
@@ -277,3 +283,70 @@ def test_tick_survives_failure_recording_failure(monkeypatch, owner, queued):
     monkeypatch.setattr(worker, "_record_failure", boom)
     assert tick(FakeAdapter(FATAL), LocalRawStore(), no_extract) is False
     assert load(owner, obs_id).status == "running"
+
+
+def _due_schedule(owner, make_org, make_brand, name):
+    """An org with a brand, one active prompt and a schedule due now."""
+    org = make_org(name)
+    bid = make_brand(org)
+    with owner() as s, s.begin():
+        loc = s.scalars(select(m.Locale).where(m.Locale.brand_id == bid))
+        s.add(
+            m.Prompt(
+                org_id=org.id,
+                brand_id=bid,
+                locale_id=loc.one().id,
+                text="best shoes",
+                status="active",
+            )
+        )
+        sch = m.Schedule(
+            org_id=org.id,
+            brand_id=bid,
+            cadence="daily",
+            hour_utc=3,
+            next_run_at=func.now() + timedelta(days=1),
+        )
+        s.add(sch)
+    with owner() as s, s.begin():
+        s.execute(
+            text(
+                "UPDATE schedule SET next_run_at = now() - interval '1 hour'"
+                " WHERE id = :id"
+            ),
+            {"id": sch.id},
+        )
+    return sch.id, bid
+
+
+def _queued(owner, bid):
+    with owner() as s:
+        return s.scalar(
+            select(func.count()).where(
+                m.Observation.brand_id == bid,
+                m.Observation.status == "queued",
+            )
+        )
+
+
+def test_run_due_schedules_serves_every_tenant(owner, make_org, make_brand):
+    bids = [_due_schedule(owner, make_org, make_brand, n)[1] for n in "AB"]
+    assert run_due_schedules() == 2
+    assert [_queued(owner, b) for b in bids] == [2, 2]
+    assert run_due_schedules() == 0
+
+
+def test_one_failing_schedule_does_not_block_others(
+    monkeypatch, owner, make_org, make_brand
+):
+    bad, _ = _due_schedule(owner, make_org, make_brand, "A")
+    _, good_bid = _due_schedule(owner, make_org, make_brand, "B")
+
+    def flaky(org_id, schedule_id):
+        if schedule_id == bad:
+            raise RuntimeError("boom")
+        return run_schedule(org_id, schedule_id)
+
+    monkeypatch.setattr(worker, "run_schedule", flaky)
+    assert run_due_schedules() == 1
+    assert _queued(owner, good_bid) == 2

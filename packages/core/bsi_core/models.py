@@ -118,6 +118,31 @@ class Job(Tenant, Base):
     __table_args__ = (UniqueConstraint("brand_id", "kind", "scheduled_slot"),)
 
 
+class Schedule(Tenant, Base):
+    __tablename__ = "schedule"
+    brand_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("brand.id"), unique=True
+    )
+    cadence: Mapped[str]
+    hour_utc: Mapped[int]
+    samples: Mapped[int] = mapped_column(server_default="2")
+    status: Mapped[str] = mapped_column(server_default="active")
+    next_run_at: Mapped[datetime] = mapped_column(TSZ)
+    last_run_at: Mapped[datetime | None] = mapped_column(TSZ)
+    last_result: Mapped[str | None]
+    __table_args__ = (
+        CheckConstraint(
+            "cadence IN ('daily', 'every_3_days', 'weekly')",
+            name="ck_schedule_cadence",
+        ),
+        CheckConstraint("hour_utc BETWEEN 0 AND 23", name="ck_schedule_hour"),
+        CheckConstraint("samples BETWEEN 1 AND 10", name="ck_schedule_samples"),
+        CheckConstraint(
+            "status IN ('active', 'paused')", name="ck_schedule_status"
+        ),
+    )
+
+
 class Observation(Tenant, Base):
     __tablename__ = "observation"
     brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))

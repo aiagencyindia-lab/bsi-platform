@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 from bsi_core import models as m
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 
 @pytest.fixture
@@ -13,7 +13,14 @@ def other(owner, make_org, make_brand, make_observation):
     with owner() as s, s.begin():
         comp = m.Competitor(org_id=b.id, brand_id=bid, name="Rival")
         dom = m.Domain(org_id=b.id, brand_id=bid, host="secret.com")
-        s.add_all([comp, dom])
+        sch = m.Schedule(
+            org_id=b.id,
+            brand_id=bid,
+            cadence="daily",
+            hour_utc=6,
+            next_run_at=func.now(),
+        )
+        s.add_all([comp, dom, sch])
         s.flush()
         cid, did = comp.id, dom.id
     oid = make_observation(b, bid, raw={"secret": True}, status="done")
@@ -44,6 +51,10 @@ CASES = [
     ("GET", "/v1/observations/{o}/raw", None),
     ("GET", "/v1/brands/{b}/metrics", None),
     ("GET", "/v1/brands/{b}/sov", None),
+    ("GET", "/v1/brands/{b}/deltas", None),
+    ("GET", "/v1/brands/{b}/schedule", None),
+    ("PUT", "/v1/brands/{b}/schedule", {"cadence": "weekly", "hour_utc": 1}),
+    ("DELETE", "/v1/brands/{b}/schedule", None),
 ]
 
 
@@ -116,6 +127,12 @@ def test_org_b_data_is_untouched(client, owner, make_org, other):
         # Check Prompt was not modified
         prompt = s.get(m.Prompt, other["p"])
         assert prompt.status == "active"
+
+        # Check the schedule was neither replaced nor deleted
+        sch = s.scalars(
+            select(m.Schedule).where(m.Schedule.brand_id == other["b"])
+        ).one()
+        assert (sch.cadence, sch.hour_utc) == ("daily", 6)
 
         # Count org B's resources
         n_obs = len(s.scalars(select(m.Observation)).all())
