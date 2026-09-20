@@ -1,9 +1,9 @@
 # Slice 4 findings: prompt intelligence and the brand wizard
 
 Date: 2026-09-20. Branch `slice4-prompt-intelligence`. Sources: the
-step-0 probe (`scripts/probe_embed.py`, raw output in
-`eval/results/probe_slice4.json`, gitignored), the spend ledger, and the
-dev database.
+step-0 probe (`scripts/probe_embed.py`, raw output committed at
+`eval/results/probe_slice4.json`), the spend ledger, and the dev
+database.
 
 ## 1. Step-0 probe (2026-09-20, $0.19)
 
