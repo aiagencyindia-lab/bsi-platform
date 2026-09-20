@@ -10,6 +10,7 @@ from bsi_core.judge import JudgeFailed
 from bsi_core.providers.base import EngineResult, ParsedAnswer
 from bsi_core.suggest import (
     EMBED_PRICES,
+    MAX_BACKFILL,
     embed,
     suggest_competitors,
     suggest_prompts,
@@ -366,3 +367,28 @@ def test_embed_raises_for_an_unpriced_model(monkeypatch):
     )
     with pytest.raises(KeyError):
         embed(["hi"], client=FakeClient([1.0]))
+
+
+def test_label_backfill_is_capped_per_job(brand, owner):
+    # Unbounded, a big backlog would be sent in one call, truncate the
+    # reply and re-spend on every rerun. Each job drains one batch.
+    org, bid = brand
+    texts = [f"kids shoe question {i}" for i in range(MAX_BACKFILL + 5)]
+    for text in texts:
+        add_prompt(owner, org, bid, text)
+    gen = FakeGen(
+        (
+            prompt_json(
+                *((t, "commercial", "sizing") for t in texts[:MAX_BACKFILL])
+            ),
+            900,
+        )
+    )
+    emb = FakeEmbed(dict.fromkeys(texts, 0.3))
+
+    assert suggest_prompts(org.id, bid, 0, gen, emb) == "suggested:0"
+
+    asked = gen.calls[0][0]
+    assert sum(t in asked for t in texts) == MAX_BACKFILL
+    labelled = [p for p in prompts(org) if p.intent is not None]
+    assert len(labelled) == MAX_BACKFILL

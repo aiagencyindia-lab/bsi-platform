@@ -54,6 +54,10 @@ MAX_TOPIC_CHARS = 60
 MAX_NAME_CHARS = 200
 MAX_COMPETITORS = 10
 MAX_EXISTING = 100  # existing prompts shown to the generator
+# One job labels at most this many unlabelled prompts. Unbounded, a big
+# backlog would go into a single call, truncate the reply and re-spend
+# the whole cost on every rerun. Reruns drain the rest a batch at a time.
+MAX_BACKFILL = 100
 OVERSHOOT = 1.25  # ask for more than wanted, to absorb dedupe losses
 ANSWERS = 3  # grounded answers behind one competitor suggestion
 
@@ -414,9 +418,10 @@ def _read(s: Session, brand_id: uuid.UUID, active_only: bool) -> _Read:
         brand_keys=brand_keys,
         known_keys=known_keys,
         existing_keys={key(r.text) for r in rows},
+        # Capped: see MAX_BACKFILL.
         need_label=[
             (r.id, r.text) for r in rows if r.intent is None or r.topic is None
-        ],
+        ][:MAX_BACKFILL],
         need_vector=[(r.id, r.text) for r in rows if r.embedding is None],
     )
 
