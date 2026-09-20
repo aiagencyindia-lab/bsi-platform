@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "gen": "cd ../.. && uv run python scripts/export_openapi.py apps/web/openapi.json && cd apps/web && openapi-typescript openapi.json -o src/lib/schema.d.ts",
-    "gen:check": "npm run gen && git diff --exit-code -- openapi.json src/lib/schema.d.ts"
+    "gen:check": "npm run gen && git diff --exit-code -- openapi.json src/lib/schema.d.ts",
+    "gate": "npm run typecheck && npm run lint && npm test && npm run build && npm run gen:check"
   },
   "dependencies": {
     "next": "^15.0.0",
