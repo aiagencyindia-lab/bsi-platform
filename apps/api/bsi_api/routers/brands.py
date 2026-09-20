@@ -1,15 +1,20 @@
 import uuid
+from typing import Annotated, Any, Literal
 
 from bsi_core import models as m
 from bsi_core.matching import normalize_domain
 from fastapi import APIRouter, Response
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..deps import TENANT, Ctx, brand_or_404, child_or_404
 from ..problems import Problem
+from .runs import queue_suggestion
 
 router = APIRouter(prefix="/brands", tags=["brands"])
+
+# Capped because every one of these flows into paid model input.
+Short = Annotated[str, Field(max_length=200)]
 
 
 class Out(BaseModel):
@@ -19,16 +24,16 @@ class Out(BaseModel):
 
 class BrandIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    aliases: list[str] = Field(default_factory=list, max_length=20)
-    category: str | None = None
+    aliases: list[Short] = Field(default_factory=list, max_length=20)
+    category: Short | None = None
 
 
 # PATCH fields default to None when omitted, but only nullable columns accept
 # an explicit null; the others fail validation (422) instead of the database.
 class BrandPatch(BaseModel):
     name: str = Field(None, min_length=1, max_length=200)
-    aliases: list[str] = Field(None, max_length=20)
-    category: str | None = None
+    aliases: list[Short] = Field(None, max_length=20)
+    category: Short | None = None
 
 
 class BrandOut(Out):
@@ -39,21 +44,35 @@ class BrandOut(Out):
 
 
 class CompetitorIn(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    aliases: list[str] = Field(default_factory=list, max_length=20)
-    domains: list[str] = Field(default_factory=list)
+    name: Short = Field(min_length=1)
+    aliases: list[Short] = Field(default_factory=list, max_length=20)
+    domains: list[Short] = Field(default_factory=list)
 
 
 class CompetitorPatch(BaseModel):
-    name: str = Field(None, min_length=1, max_length=200)
-    aliases: list[str] = Field(None)
-    domains: list[str] = Field(None)
+    name: Short = Field(None, min_length=1)
+    aliases: list[Short] = Field(None)
+    domains: list[Short] = Field(None)
+    # Confirming a suggestion is the only status move the API offers.
+    status: Literal["active"] = Field(None)
 
 
 class CompetitorOut(Out):
     name: str
     aliases: list[str]
     domains: list[str]
+    status: str
+    evidence: int | None
+
+
+class ClusterOut(BaseModel):
+    # NULL for prompts no suggestion job has labelled yet: they are a
+    # group of their own rather than dropped, so the count adds up.
+    intent: str | None
+    topic: str | None
+    active: int
+    suggested: int
+    paused: int
 
 
 class DomainIn(BaseModel):
@@ -114,10 +133,14 @@ def archive_brand(brand_id: uuid.UUID, c: Ctx = TENANT) -> Response:
 
 @router.get("/{brand_id}/competitors", response_model=list[CompetitorOut])
 def list_competitors(
-    brand_id: uuid.UUID, c: Ctx = TENANT
+    brand_id: uuid.UUID,
+    status: Literal["suggested", "active"] | None = None,
+    c: Ctx = TENANT,
 ) -> list[m.Competitor]:
     brand_or_404(c, brand_id)
     q = select(m.Competitor).where(m.Competitor.brand_id == brand_id)
+    if status is not None:
+        q = q.where(m.Competitor.status == status)
     return list(c.s.scalars(q.order_by(m.Competitor.created_at)))
 
 
@@ -195,3 +218,26 @@ def delete_domain(
 ) -> Response:
     c.s.delete(child_or_404(c, m.Domain, brand_id, domain_id))
     return Response(status_code=204)
+
+
+@router.post("/{brand_id}/competitors/suggest", status_code=202)
+def suggest_competitors(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
+    return queue_suggestion(c, brand_id, "suggest_competitors", {})
+
+
+@router.get("/{brand_id}/clusters", response_model=list[ClusterOut])
+def list_clusters(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[Any]:
+    brand_or_404(c, brand_id)
+    counts = [
+        func.count().filter(m.Prompt.status == s).label(s)
+        for s in ("active", "suggested", "paused")
+    ]
+    q = (
+        select(m.Prompt.intent, m.Prompt.topic, *counts)
+        .where(m.Prompt.brand_id == brand_id)
+        .group_by(m.Prompt.intent, m.Prompt.topic)
+        # NULL intents sort last within a count, which is where an
+        # unlabelled group belongs.
+        .order_by(counts[0].desc(), m.Prompt.intent, m.Prompt.topic)
+    )
+    return list(c.s.execute(q).all())

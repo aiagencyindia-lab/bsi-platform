@@ -12,6 +12,9 @@ from .config import get_settings
 from .db import tenant_session
 
 CADENCE_DAYS = {"daily": 1, "every_3_days": 3, "weekly": 7}
+# Active prompts per organization, by plan (spec §5).
+PLAN_LIMITS = {"starter": 100, "pro": 500, "agency": 2_000}
+DEFAULT_LIMIT = PLAN_LIMITS["starter"]  # an unknown plan is Starter
 
 
 def first_run(now: datetime, hour_utc: int) -> datetime:
@@ -89,6 +92,29 @@ def budget_fits(
     # headroom absorbs it.
     estimate = settings.obs_cost_estimate_micros
     return bool(spent + extra_micros + (pending + n_obs) * estimate <= cap)
+
+
+def check_active_limit(
+    s: Session, org_id: uuid.UUID, adding: int
+) -> tuple[int, int] | None:
+    """(current, limit) when `adding` active prompts would exceed the
+    organization's plan, else None.
+
+    Call inside the org's tenant transaction: row-level security scopes
+    the count, and the advisory lock - the same one the budget takes -
+    is held to the end of it, so two concurrent activations cannot both
+    pass on the same headroom.
+    """
+    s.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
+        {"org": str(org_id)},
+    )
+    plan = s.get_one(m.Organization, org_id).plan
+    limit = PLAN_LIMITS.get(plan, DEFAULT_LIMIT)
+    current = (
+        s.scalar(select(func.count()).where(m.Prompt.status == "active")) or 0
+    )
+    return (current, limit) if current + adding > limit else None
 
 
 def active_prompts(s: Session, brand_id: uuid.UUID) -> int:
