@@ -745,6 +745,8 @@ export interface components {
              * Format: date-time
              */
             scheduled_slot: string;
+            /** Search Queries */
+            search_queries: number | null;
             /** Status */
             status: string;
             /** Text */
@@ -791,6 +793,8 @@ export interface components {
              * Format: date-time
              */
             scheduled_slot: string;
+            /** Search Queries */
+            search_queries: number | null;
             /** Status */
             status: string;
         };

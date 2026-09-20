@@ -22,6 +22,7 @@ TENANT_TABLES = [
     "mention",
     "citation",
     "schedule",
+    "rec_label",
 ]
 
 
@@ -66,6 +67,13 @@ def org_b(owner, make_org, make_brand, make_observation):
                     cadence="daily",
                     hour_utc=3,
                     next_run_at=datetime.now(UTC),
+                ),
+                m.RecLabel(
+                    org_id=b.id,
+                    observation_id=oid,
+                    entity_type="brand",
+                    entity_id=bid,
+                    label="listed",
                 ),
             ]
         )

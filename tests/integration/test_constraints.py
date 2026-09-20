@@ -204,3 +204,21 @@ def test_job_bookkeeping_defaults(owner, make_org, make_brand):
         job = s.scalars(select(m.Job)).one()
     assert (job.status, job.params, job.cost_micros) == (None, {}, 0)
     assert job.error is None and job.started_at is None
+
+
+def test_rec_label_rejects_an_unknown_label(
+    owner, make_org, make_brand, make_observation
+):
+    org = make_org()
+    bid = make_brand(org)
+    oid = make_observation(org, bid, status="done")
+    with pytest.raises(IntegrityError), owner() as s, s.begin():
+        s.add(
+            m.RecLabel(
+                org_id=org.id,
+                observation_id=oid,
+                entity_type="brand",
+                entity_id=bid,
+                label="brilliant",
+            )
+        )

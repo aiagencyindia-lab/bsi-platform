@@ -96,6 +96,13 @@ def test_ok_path(owner, queued):
     assert process_one(adapter, LocalRawStore(), no_extract) is False
 
 
+def test_ok_path_stores_the_search_query_count(owner, queued):
+    _, obs_id = queued
+    result = EngineResult("ok", raw={"x": 1}, model="fake-1", search_queries=3)
+    process_one(FakeAdapter(result), LocalRawStore(), no_extract)
+    assert load(owner, obs_id).search_queries == 3
+
+
 def test_retryable_backs_off_then_fails_after_three(owner, queued):
     _, obs_id = queued
     adapter = FakeAdapter(RETRY, RETRY, RETRY)

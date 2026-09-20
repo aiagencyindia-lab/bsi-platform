@@ -175,3 +175,10 @@ def test_grounded_query_is_unchanged_by_default():
         True,
         ["google_search"],
     )
+
+
+def test_search_queries_counts_the_queries_run():
+    count = GeminiGroundingAdapter.search_queries
+    meta = {"web_search_queries": ["a", "b"]}
+    assert count({"candidates": [{"grounding_metadata": meta}]}) == 2
+    assert count({"candidates": [{}]}) == 0 and count({}) == 0

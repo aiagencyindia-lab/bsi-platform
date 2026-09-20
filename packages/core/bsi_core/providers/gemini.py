@@ -102,6 +102,7 @@ class GeminiGroundingAdapter:
             # failure deriving fields from `raw` is fatal, not retryable.
             model_version = raw.get("model_version")
             cost_micros = self.cost(raw)
+            search_queries = self.search_queries(raw)
         except Exception as e:
             return EngineResult(
                 "fatal",
@@ -117,6 +118,7 @@ class GeminiGroundingAdapter:
             model_version=model_version,
             params=params,
             cost_micros=cost_micros,
+            search_queries=search_queries,
         )
 
     @staticmethod
@@ -141,6 +143,11 @@ class GeminiGroundingAdapter:
                 citations.append((web.get("uri") or "", host))
         return ParsedAnswer(text=text, citations=citations)
 
+    @classmethod
+    def search_queries(cls, raw: dict[str, Any]) -> int:
+        meta = cls._candidate(raw).get("grounding_metadata") or {}
+        return len(meta.get("web_search_queries") or [])
+
     def cost(self, raw: dict[str, Any]) -> int:
         price = PRICES.get(self._model)
         if price is None:
@@ -151,7 +158,7 @@ class GeminiGroundingAdapter:
             usage.get("thoughts_token_count") or 0
         )
         meta = self._candidate(raw).get("grounding_metadata") or {}
-        queries = len(meta.get("web_search_queries") or [])
+        queries = self.search_queries(raw)
         grounded = bool(meta.get("grounding_chunks") or queries)
         return round(
             tokens_in * price.input_per_token

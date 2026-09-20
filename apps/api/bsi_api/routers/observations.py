@@ -28,6 +28,7 @@ class ObservationOut(BaseModel):
     model: str | None
     model_version: str | None
     cost_micros: int
+    search_queries: int | None
     requested_at: datetime
     completed_at: datetime | None
 

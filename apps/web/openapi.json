@@ -1037,6 +1037,17 @@
             "title": "Scheduled Slot",
             "type": "string"
           },
+          "search_queries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Queries"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -1065,6 +1076,7 @@
           "model",
           "model_version",
           "cost_micros",
+          "search_queries",
           "requested_at",
           "completed_at",
           "params",
@@ -1160,6 +1172,17 @@
             "title": "Scheduled Slot",
             "type": "string"
           },
+          "search_queries": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Queries"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -1177,6 +1200,7 @@
           "model",
           "model_version",
           "cost_micros",
+          "search_queries",
           "requested_at",
           "completed_at"
         ],
