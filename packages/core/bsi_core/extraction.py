@@ -113,7 +113,10 @@ def load_entities(
     brand = s.get_one(m.Brand, brand_id)
     competitors = s.scalars(
         select(m.Competitor)
-        .where(m.Competitor.brand_id == brand.id)
+        .where(
+            m.Competitor.brand_id == brand.id,
+            m.Competitor.status == "active",
+        )
         .order_by(m.Competitor.created_at, m.Competitor.name)
     ).all()
     hosts = list(

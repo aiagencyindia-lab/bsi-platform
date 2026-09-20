@@ -97,7 +97,9 @@ def make_observation(owner):
                 s.flush()
                 prompt_id = prompt.id
             job = s.scalars(
-                select(m.Job).where(m.Job.brand_id == brand_id)
+                select(m.Job).where(
+                    m.Job.brand_id == brand_id, m.Job.kind == "run"
+                )
             ).first()
             if job is None:
                 job = m.Job(
