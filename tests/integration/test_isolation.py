@@ -12,7 +12,11 @@ def other(owner, make_org, make_brand, make_observation):
     b = make_org("B")
     bid = make_brand(b, "Secret")
     with owner() as s, s.begin():
-        comp = m.Competitor(org_id=b.id, brand_id=bid, name="Rival")
+        # Suggested, so the confirm case below can be caught leaking:
+        # an already-active competitor could not show the difference.
+        comp = m.Competitor(
+            org_id=b.id, brand_id=bid, name="Rival", status="suggested"
+        )
         dom = m.Domain(org_id=b.id, brand_id=bid, host="secret.com")
         sch = m.Schedule(
             org_id=b.id,
@@ -158,7 +162,7 @@ def test_org_b_data_is_untouched(client, owner, make_org, other):
         assert s.get(m.Brand, other["b"]).status == "active"
         comp = s.get(m.Competitor, other["c"])
         assert comp.name == "Rival"
-        assert comp.status == "active"
+        assert comp.status == "suggested"  # the confirm case did not land
 
         # Check Domain was not deleted
         domain = s.get(m.Domain, other["d"])
