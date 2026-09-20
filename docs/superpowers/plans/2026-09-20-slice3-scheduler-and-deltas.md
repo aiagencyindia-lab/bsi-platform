@@ -334,7 +334,8 @@ SCHEDULE_CHECK_SECONDS = 60
 
 
 def run_due_schedules() -> int:
-    """Run every due schedule; never raises. Returns how many ran."""
+    """Run the due schedules; returns how many ran (see the code for
+    the exact docstring: listing can raise, main() logs it)."""
     with system_session() as s:
         due = s.execute(
             text("SELECT schedule_id, org_id FROM due_schedules()")

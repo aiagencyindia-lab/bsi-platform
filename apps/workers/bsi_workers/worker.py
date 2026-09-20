@@ -49,7 +49,11 @@ def reset_stale() -> int:
 
 
 def run_due_schedules() -> int:
-    """Run every due schedule; never raises. Returns how many ran."""
+    """Run the due schedules; returns how many ran.
+
+    One schedule's failure never stops the others. Listing them can
+    raise (a dead DB); main() logs that and carries on.
+    """
     with system_session() as s:
         due = s.execute(
             text("SELECT schedule_id, org_id FROM due_schedules()")
