@@ -354,23 +354,46 @@ day.
 
 ## 5. The 0.92 threshold and the quality of the prompts
 
-**Awaiting the user's review. Nothing is concluded here.**
+Both decided by the user on 2026-09-20, on the evidence above: the full
+50-prompt live set at the end of §3, the similarity distributions in §2,
+and every pair the threshold dropped.
 
-The evidence for the two questions the spec's §7 risks name is above:
-the full 50-prompt live set at the end of §3, the similarity
-distributions in §2, and every pair the threshold dropped. Two things
-to decide:
+### (a) The prompts ship as they are
 
-- **(a) Are the generated prompts worth running?** They cost $0.0067 to
-  produce and about $5 a day to measure at 50 × 2 samples.
-- **(b) Is 0.92 the right cut for `gemini-embedding-001`?** §1 kept it
-  on the probe's evidence; §2 adds two more categories, where the
-  prompt-level near-duplicate rate ran 0.0%, 3.2% and 7.9% against the
-  spec's "under 5%" wording, and where the pairs it dropped are listed
-  in full.
+Across 9 of the 10 intents and 8 topics, none naming the brand, reading
+like questions a real shopper would type. They cost $0.0067 to produce
+and about $5 a day to measure at 50 prompts × 2 samples, which is why
+§6 of the spec makes that cost visible before anyone activates them.
 
-Until (b) is answered, `DUPLICATE_THRESHOLD = 0.92` in `suggest.py`
-stands as the probe's decision.
+Not done, deliberately: weighting generation towards commercial,
+comparison and recommendation intents. Those are where a brand can win
+or lose a mention, but which prompts actually discriminate is a question
+the dashboard slice can answer with data instead of a guess.
+
+### (b) 0.92 stands, measured on the written set
+
+The spec's bar is "under 5% near-duplicates". Measured where it
+matters, the bar is met: **the prompts actually written contain no pair
+at or above 0.92**, in any of the three categories, because
+de-duplication removes them before the insert.
+
+The candidate rate — what de-duplication caught and threw away — ran
+0.0% (CRM), 3.2% (skincare) and 7.9% (kids footwear). That is the
+generator's raw quality, not the product's output, and it is the number
+to watch: if it climbs, the generator or the model has drifted and the
+prompt is worth revisiting. The pairs it dropped were genuinely
+redundant, e.g. 0.957 between "Waterproof footwear options for children
+during the monsoon season" and "Top recommended waterproof footwear for
+kids during heavy monsoon". The closest pair it kept, 0.9166, was
+"Ayurvedic face oil versus modern hyaluronic acid serum" against
+"Ayurvedic moisturizers vs gel-based synthetic creams" — related, but
+two different questions.
+
+`DUPLICATE_THRESHOLD = 0.92` therefore stays a constant in
+`suggest.py`. It is tied to `gemini-embedding-001`, whose unrelated
+same-category prompts already sit around 0.80: **re-run
+`scripts/probe_embed.py` before trusting it with any other embedding
+model.**
 
 ## 6. Known gaps and follow-ups
 
