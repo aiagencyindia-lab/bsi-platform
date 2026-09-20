@@ -53,6 +53,9 @@ def ledger_micros(ledger: Path | None = None) -> int:
 
 _DB_SPEND = text(
     "SELECT coalesce(sum(o.cost_micros), 0) + coalesce(sum(e.cost_micros), 0) "
+    # Scalar: the extraction join above would fan a job total out.
+    "+ (SELECT coalesce(sum(j.cost_micros), 0) FROM job j "
+    "   WHERE j.created_at >= :since) "
     "FROM observation o LEFT JOIN extraction e ON e.observation_id = o.id "
     "WHERE o.created_at >= :since"
 )

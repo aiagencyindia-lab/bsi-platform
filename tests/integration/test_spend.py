@@ -105,3 +105,14 @@ def test_naive_spend_since_is_rejected(monkeypatch):
     monkeypatch.setenv("SPEND_SINCE", "2026-09-19 10:00:00")
     with pytest.raises(pydantic.ValidationError):
         Settings()
+
+
+def test_db_micros_counts_job_cost(
+    owner, make_org, make_brand, make_observation
+):
+    org = make_org()
+    make_observation(org, make_brand(org), status="done")
+    cutoff = datetime.now(UTC) - timedelta(minutes=1)
+    with owner() as s, s.begin():
+        s.execute(update(m.Job).values(cost_micros=7_500))
+    assert spend.db_micros(cutoff) == 7_500

@@ -45,7 +45,10 @@ _SPENT_AND_PENDING = text(
              AT TIME ZONE 'UTC' AS start)
     SELECT
       coalesce(sum(o.cost_micros + coalesce(e.cost_micros, 0))
-               FILTER (WHERE o.requested_at >= day.start), 0) AS spent,
+               FILTER (WHERE o.requested_at >= day.start), 0)
+      -- Scalar: a join would be fanned out by the extraction join above.
+      + (SELECT coalesce(sum(j.cost_micros), 0) FROM job j, day
+         WHERE j.created_at >= day.start) AS spent,
       count(*) FILTER (
         WHERE o.status IN ('queued', 'running', 'retry')) AS pending
     FROM observation o
@@ -55,8 +58,13 @@ _SPENT_AND_PENDING = text(
 )
 
 
-def budget_fits(s: Session, org_id: uuid.UUID, n_obs: int) -> bool:
+def budget_fits(
+    s: Session, org_id: uuid.UUID, n_obs: int, extra_micros: int = 0
+) -> bool:
     """True if n_obs more observations fit in the org's budget for today.
+
+    extra_micros is spend about to be made outside the observations, such
+    as a suggestion job's estimate.
 
     Call inside the org's tenant transaction. The advisory lock is held to
     the end of that transaction, so two schedules of one org can't both
@@ -74,11 +82,13 @@ def budget_fits(s: Session, org_id: uuid.UUID, n_obs: int) -> bool:
     # Row-level security scopes this to the org (unlike spend.db_micros).
     spent, pending = s.execute(_SPENT_AND_PENDING).one()
     settings = get_settings()
-    cap = round(settings.daily_budget_usd * 1_000_000)
+    override = s.get_one(m.Organization, org_id).daily_budget_usd
+    budget = settings.daily_budget_usd if override is None else override
+    cap = round(float(budget) * 1_000_000)
     # A paid attempt that then fails records no cost; the estimate's
     # headroom absorbs it.
     estimate = settings.obs_cost_estimate_micros
-    return bool(spent + (pending + n_obs) * estimate <= cap)
+    return bool(spent + extra_micros + (pending + n_obs) * estimate <= cap)
 
 
 def active_prompts(s: Session, brand_id: uuid.UUID) -> int:

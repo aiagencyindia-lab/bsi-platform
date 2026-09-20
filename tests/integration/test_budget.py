@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -20,9 +21,9 @@ def budget(monkeypatch):
     )
 
 
-def fits(org, n: int) -> bool:
+def fits(org, n: int, extra_micros: int = 0) -> bool:
     with tenant_session(org.id) as s:
-        return scheduling.budget_fits(s, org.id, n)
+        return scheduling.budget_fits(s, org.id, n, extra_micros)
 
 
 def set_cost(owner, obs_id, micros, **values):
@@ -101,3 +102,65 @@ def test_refuses_to_run_outside_the_orgs_tenant_session(make_org):
         scheduling.budget_fits(s, a.id, 1)
     with tenant_session(a.id) as s, pytest.raises(RuntimeError, match="tenant"):
         scheduling.budget_fits(s, b.id, 1)
+
+
+def set_budget(owner, org, usd):
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Organization)
+            .where(m.Organization.id == org.id)
+            .values(daily_budget_usd=usd)
+        )
+
+
+def test_org_override_replaces_the_settings_default(owner, make_org):
+    org = make_org()
+    set_budget(owner, org, Decimal("0.50"))
+    assert fits(org, 10)  # its own cap, not the $0.20 default
+    assert not fits(org, 11)
+    set_budget(owner, org, None)
+    assert fits(org, 4)
+    assert not fits(org, 5)
+
+
+def test_todays_job_cost_counts(owner, make_org, make_brand, make_observation):
+    org = make_org()
+    make_observation(org, make_brand(org), status="done")
+    with owner() as s, s.begin():
+        s.execute(update(m.Job).values(cost_micros=50_000))
+    assert fits(org, 3)
+    assert not fits(org, 4)
+
+
+def test_job_cost_is_not_fanned_out_by_the_extraction_join(
+    owner, make_org, make_brand, make_observation
+):
+    org = make_org()
+    bid = make_brand(org)
+    pid = None
+    for i in range(3):
+        oid = make_observation(
+            org, bid, status="done", prompt_id=pid, sample_index=i
+        )
+        with owner() as s, s.begin():
+            obs = s.get_one(m.Observation, oid)
+            pid = obs.prompt_id
+            s.add(
+                m.Extraction(
+                    org_id=org.id,
+                    observation_id=oid,
+                    pipeline_version="2",
+                    model_used="x",
+                    brand_mentioned=False,
+                )
+            )
+    with owner() as s, s.begin():
+        s.execute(update(m.Job).values(cost_micros=50_000))
+    assert fits(org, 3)  # 50,000 once, not 150,000
+    assert not fits(org, 4)
+
+
+def test_extra_micros_shifts_the_boundary(make_org):
+    org = make_org()
+    assert fits(org, 3, extra_micros=50_000)
+    assert not fits(org, 3, extra_micros=50_001)
