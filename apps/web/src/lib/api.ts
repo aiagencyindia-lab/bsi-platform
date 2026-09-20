@@ -1,9 +1,10 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { COOKIE } from "./cookie";
 
 export const API_URL = process.env.API_URL ?? "http://localhost:8000";
-export const COOKIE = "bsi_key";
+export { COOKIE };
 
 /** Server-side call to /v1. The key comes from the httpOnly cookie. */
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {

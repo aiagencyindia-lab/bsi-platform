@@ -40,7 +40,7 @@ export default async function Prompts({
     const q = new URLSearchParams();
     for (const [name, v] of Object.entries(sp)) {
       if (typeof v === "string" && v) q.set(name, v);
-      else if (Array.isArray(v)) for (const one of v) q.append(name, one);
+      else if (Array.isArray(v)) for (const one of v) if (one) q.append(name, one);
     }
     q.set("sort", k);
     q.set("dir", sort === k && dir === -1 ? "asc" : "desc");
