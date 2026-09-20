@@ -16,6 +16,7 @@ from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.scheduling import run_schedule
 from bsi_core.storage import LocalRawStore, RawStore
+from bsi_core.suggest import EMBED_PRICES
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -152,6 +153,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
     settings = get_settings()
     JUDGE_PRICES[settings.extract_model]  # unpriced judge: fail at start
+    EMBED_PRICES[settings.embed_model]  # unpriced embedder: same
     adapter = GeminiGroundingAdapter()
     store = LocalRawStore()
     extractor = Extractor(adapter, store, JUDGES[settings.judge_mode])
