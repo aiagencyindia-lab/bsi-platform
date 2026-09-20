@@ -28,6 +28,20 @@ test("apiQuery keeps known filters and makes dates UTC instants", () => {
     .toBe("?days=14");
 });
 
+test("apiQuery sends date_to as the following midnight, inclusive of the day", () => {
+  expect(apiQuery({ date_to: "2026-09-20" })).toBe(
+    "?date_to=2026-09-21T00%3A00%3A00Z",
+  );
+  // From = To = same day must not collapse to an empty window.
+  expect(apiQuery({ date_from: "2026-09-20", date_to: "2026-09-20" })).toBe(
+    "?date_from=2026-09-20T00%3A00%3A00Z&date_to=2026-09-21T00%3A00%3A00Z",
+  );
+  // Month rollover, handled by Date.UTC without a date library.
+  expect(apiQuery({ date_to: "2026-09-30" })).toBe(
+    "?date_to=2026-10-01T00%3A00%3A00Z",
+  );
+});
+
 test("highlight marks evidence sentences in order", () => {
   const parts = highlight("A. Nike is best. B.", ["Nike is best.", "gone"]);
   expect(parts).toEqual([
