@@ -14,7 +14,22 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     cache: "no-store",
     headers: { ...init.headers, Authorization: `Bearer ${key}` },
   });
-  if (res.status === 401) redirect("/login");
+  if (res.status === 401) {
+    // A revoked/expired key must not keep failing forever. Deleting the
+    // cookie only works from a Server Action or Route Handler; api() is
+    // also called during Server Component render (plain page fetches),
+    // where Next throws on any cookie write (verified: "Cookies can only
+    // be modified in a Server Action or Route Handler"). Try it — this is
+    // the path that matters, api() calls from Server Actions — and if
+    // we're in a render context, fall through to the redirect; middleware
+    // clears the cookie for the /login response either way.
+    try {
+      (await cookies()).delete(COOKIE);
+    } catch {
+      // Render context: cookie write isn't allowed here.
+    }
+    redirect("/login");
+  }
   if (res.status === 404) notFound();
   if (!res.ok) {
     const p = await res.json().catch(() => ({}));
