@@ -12,7 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from ..deps import TENANT, Ctx, brand_or_404
 from ..problems import Problem
-from .metrics import Rate
+from ..schemas import Rate
 from .observations import answer_text
 
 router = APIRouter(tags=["labels"])

@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
 
 from ..deps import TENANT, Ctx
-from .metrics import Rate
+from ..schemas import Rate
 
 router = APIRouter(prefix="/ops", tags=["ops"])
 
