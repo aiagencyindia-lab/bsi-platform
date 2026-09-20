@@ -40,7 +40,10 @@ Embedder = Callable[[list[str]], tuple[list[list[float]], int]]
 
 # Cost previews for the two job kinds (spec §5).
 PROMPT_JOB_MICROS = 30_000
-COMPETITOR_JOB_MICROS = 3 * 50_000 + 10_000  # 3 grounded answers + parse
+# Measured live: one competitor job cost 192,981 micros (three grounded
+# answers plus three parses, docs/findings-slice4.md §3). Reserving less
+# lets an org pass the guard and be charged over its cap.
+COMPETITOR_JOB_MICROS = 220_000
 
 # Cosine at or above this is the same prompt. The PRD's number, confirmed
 # for gemini-embedding-001 by the step-0 probe: a reworded repeat scores
@@ -112,9 +115,16 @@ def clean_prompts(
     out: PromptSet,
     existing_keys: Collection[str],
     brand_keys: Collection[str],
+    known_keys: Collection[str] = (),
 ) -> list[GeneratedPrompt]:
-    """Drop what the model got wrong; normalize what it got right."""
-    seen = set(existing_keys) | set(brand_keys)
+    """Drop what the model got wrong; normalize what it got right.
+
+    A prompt naming the brand or a competitor is dropped wherever the
+    name appears, not only when the whole prompt is that name: once
+    activated it would inflate that entity's own mention rate for good.
+    """
+    named = {k for k in set(brand_keys) | set(known_keys) if k}
+    seen = set(existing_keys) | named
     cleaned: list[GeneratedPrompt] = []
     for prompt in out.prompts:
         text = prompt.text.strip()
@@ -124,6 +134,13 @@ def clean_prompts(
             continue
         text_key = key(text)
         if not text_key or text_key in seen:
+            continue
+        words = text_key.split()
+        if any(
+            n in text_key
+            and all(w in words for w in n.split())  # whole words only
+            for n in named
+        ):
             continue
         seen.add(text_key)
         cleaned.append(
@@ -270,8 +287,11 @@ _COMPETITOR_QUESTION = (
 
 
 def build_competitor_question(brand: str, category: str, country: str) -> str:
+    """The brand and category are tenant text going to a paid engine."""
     return _COMPETITOR_QUESTION.format(
-        brand=brand, category=category or "same", country=country
+        brand=escape(brand),
+        category=escape(category) or "same",
+        country=escape(country),
     )
 
 
@@ -466,6 +486,7 @@ def suggest_prompts(
                 PromptSet.model_validate_json(raw),
                 r.existing_keys,
                 r.brand_keys,
+                r.known_keys,
             )
 
         texts = [t for _, t in r.need_vector] + [p.text for p in fresh]

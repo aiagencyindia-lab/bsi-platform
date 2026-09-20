@@ -6,6 +6,7 @@ from bsi_core.suggest import (
     PromptContext,
     PromptSet,
     build_competitor_parse,
+    build_competitor_question,
     build_prompt_request,
     clean_prompts,
     cosine,
@@ -200,3 +201,32 @@ def test_build_competitor_parse_escapes_the_answer_and_the_brand():
     assert "Nike &lt;b>" in out
     assert "<answer>" in out and "</answer>" in out
     assert "DATA" in out
+
+
+def test_clean_prompts_drops_prompts_naming_the_brand_or_a_rival():
+    # Naming an entity inflates its own mention rate for good once the
+    # prompt is activated, so it must never be written.
+    out = PromptSet(
+        prompts=[
+            GeneratedPrompt(
+                text="Is Nike better than Adidas for kids?",
+                intent="comparison",
+                topic="brands",
+            ),
+            GeneratedPrompt(
+                text="best kids shoes for wide feet",
+                intent="commercial",
+                topic="fit",
+            ),
+        ]
+    )
+
+    kept = clean_prompts(out, (), {"nike"}, {"adidas"})
+
+    assert [p.text for p in kept] == ["best kids shoes for wide feet"]
+
+
+def test_build_competitor_question_escapes_the_brand():
+    q = build_competitor_question("<b>Acme", "shoes", "IN")
+    assert "<" not in q  # escape() neutralises the delimiter character
+    assert "&lt;b>Acme" in q

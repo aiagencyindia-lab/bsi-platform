@@ -475,3 +475,18 @@ def test_activating_nothing_is_allowed_over_the_limit(client, brand, owner):
 
     assert r.status_code == 200, r.text
     assert r.json()["updated"] == 2
+
+
+def test_the_response_says_whether_work_was_queued(client, brand, owner):
+    # A repeat in the same hour returns the finished job and does no new
+    # work; the caller needs to see that rather than infer it.
+    org, bid = brand
+    url = f"/v1/brands/{bid}/prompts/suggest"
+    first = client.post(url, headers=org.headers, json={"count": 5})
+    assert first.json()["status"] == "queued"
+
+    with owner() as s, s.begin():
+        s.get(m.Job, _job(owner, bid).id).status = "done"
+
+    again = client.post(url, headers=org.headers, json={"count": 5})
+    assert again.json()["status"] == "done"

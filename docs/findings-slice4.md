@@ -321,7 +321,7 @@ them:
 - `geographic/outdoor play` — Where to buy breathable kids footwear in Mumbai during monsoon season
 
 The clusters view over that set, which is what a reviewer would group
-by: 21 (intent, topic) groups over 9 intents and 4 topics — sizing,
+by: 21 (intent, topic) groups over all 10 intents and 4 topics — sizing,
 foot health, school shoes and outdoor play — the largest being
 `informational/sizing`, `informational/foot health`,
 `commercial/school shoes` and `transactional/outdoor play` at 5 each.
@@ -360,8 +360,9 @@ and every pair the threshold dropped.
 
 ### (a) The prompts ship as they are
 
-Across 9 of the 10 intents and 8 topics, none naming the brand, reading
-like questions a real shopper would type. They cost $0.0067 to produce
+Across all 10 intents and 4 topics (21 groups, measured on the live 50;
+the three-brand eval in §2 ran 9-10 intents and 6-10 topics), none
+naming the brand, reading like questions a real shopper would type. They cost $0.0067 to produce
 and about $5 a day to measure at 50 prompts × 2 samples, which is why
 §6 of the spec makes that cost visible before anyone activates them.
 
@@ -409,9 +410,13 @@ Carried from the build, in the order they would bite:
 3. **One worker runs jobs serially.** The competitor job took 123.7 s
    and blocked the prompt job behind it; a wizard on one worker is as
    slow as its slowest half.
-4. **A generated prompt can still name an active competitor.** The
-   active competitors are read but are not passed to `clean_prompts`,
-   so only the brand's own names are filtered out.
+4. **Fixed after the final review:** a generated prompt could name the
+   brand or an active competitor. `clean_prompts` compared the whole
+   tokenized prompt against those names, so it only fired when the
+   prompt *was* the name, and the competitor list was never passed in.
+   Both are now dropped wherever the name appears as whole words. Had
+   one been activated, it would have inflated that entity's own mention
+   rate and share of voice for good.
 5. **Embedding spend is lost if a later chunk fails**, and `count` is
    unvalidated inside core (the API enforces 0..100; the worker only
    casts).

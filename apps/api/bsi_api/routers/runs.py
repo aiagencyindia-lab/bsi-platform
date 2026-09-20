@@ -62,7 +62,13 @@ def queue_suggestion(
             m.Job.scheduled_slot == slot,
         )
     ).one()
-    return {"job_id": job.id, "status_url": f"/v1/jobs/{job.id}"}
+    # status lets a caller tell "queued your work" from "already done
+    # this hour", which is the same 202 either way.
+    return {
+        "job_id": job.id,
+        "status_url": f"/v1/jobs/{job.id}",
+        "status": job.status,
+    }
 
 
 def _job_view(c: Ctx, job: m.Job) -> dict[str, Any]:
