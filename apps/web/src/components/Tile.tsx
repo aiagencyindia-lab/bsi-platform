@@ -42,7 +42,9 @@ export function Tile({
       <div className="value">{pct(r.value)}</div>
       <CiBar r={r} />
       <div className="muted">
-        {r.value == null ? "No completed observations in this window" : ciText(r)}
+        {r.value == null
+          ? `No completed observations in this window · n=${r.n}`
+          : ciText(r)}
       </div>
       {delta && (
         <div className={tone}>
