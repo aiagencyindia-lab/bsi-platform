@@ -47,3 +47,15 @@ def test_observation_without_a_payload_has_no_text(
     oid = make_observation(org, make_brand(org), status="queued")
     body = client.get(f"/v1/observations/{oid}", headers=org.headers).json()
     assert body["text"] is None and body["extraction"] is None
+
+
+def test_prompt_metrics_endpoint(
+    client, make_org, make_brand, make_observation
+):
+    a, b = make_org("A"), make_org("B")
+    bid = make_brand(a)
+    make_observation(a, bid, status="done")
+    url = f"/v1/brands/{bid}/prompts/metrics"
+    (row,) = client.get(url, headers=a.headers).json()
+    assert row["n"] == 1 and row["brand"]["value"] == 0.0
+    assert client.get(url, headers=b.headers).status_code == 404

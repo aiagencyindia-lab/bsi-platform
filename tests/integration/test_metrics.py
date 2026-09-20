@@ -10,6 +10,7 @@ from bsi_core.metrics import (
     brand_metrics,
     brand_sov,
     failed_count,
+    prompt_metrics,
 )
 from sqlalchemy import func, select, update
 
@@ -269,3 +270,63 @@ def test_suggested_competitor_is_not_measured(owner, scene):
     ]
     assert rows[0]["share"] == pytest.approx(0.4)
     assert metrics(org, bid)["sov"]["value"] == pytest.approx(0.4)
+
+
+def test_prompt_metrics(scene):
+    org, bid, p2 = scene
+    with tenant_session(org.id) as s:
+        rows = {r["text"]: r for r in prompt_metrics(s, bid, Filters())}
+    p1 = rows["p1"]
+    assert (p1["n"], p1["brand"]["value"]) == (2, 1.0)
+    assert p1["top_competitor"]["name"] == "Adidas"
+    assert p1["top_competitor"]["value"] == 0.5
+    assert p1["spread"] == 0.5 and p1["separated"] is False
+    assert [e["name"] for e in p1["entities"]] == ["Nike", "Adidas", "Puma"]
+    r2 = rows["p2"]
+    assert r2["prompt_id"] == p2 and r2["n"] == 2  # the failed one is out
+    assert r2["brand"]["value"] == 0.0 and r2["spread"] == -0.5
+
+
+def test_prompt_metrics_without_competitors(
+    make_org, make_brand, make_observation
+):
+    org = make_org()
+    bid = make_brand(org)
+    make_observation(org, bid, status="done")
+    with tenant_session(org.id) as s:
+        (row,) = prompt_metrics(s, bid, Filters())
+    assert row["top_competitor"] is None and row["spread"] is None
+    assert row["separated"] is False
+
+
+def test_prompt_metrics_separates_clear_winners(
+    owner, make_org, make_brand, make_observation
+):
+    org = make_org()
+    bid = make_brand(org, "Nike")
+    with owner() as s, s.begin():
+        comp = m.Competitor(org_id=org.id, brand_id=bid, name="Adidas")
+        s.add(comp)
+    first = make_observation(org, bid, status="done", text="p")
+    with owner() as s:
+        pid = s.get(m.Observation, first).prompt_id
+    ids = [first] + [
+        make_observation(org, bid, status="done", prompt_id=pid, sample_index=i)
+        for i in range(1, 12)
+    ]
+    with owner() as s, s.begin():
+        s.add_all(
+            m.Mention(
+                org_id=org.id,
+                observation_id=o,
+                entity_type="brand",
+                entity_id=bid,
+                position=1,
+                rec_status="mentioned",
+                sentiment="neutral",
+            )
+            for o in ids
+        )
+    with tenant_session(org.id) as s:
+        (row,) = prompt_metrics(s, bid, Filters())
+    assert row["separated"] is True  # 12/12 against 0/12

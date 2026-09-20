@@ -10,6 +10,7 @@ from bsi_core.metrics import (
     brand_metrics,
     brand_sov,
     failed_count,
+    prompt_metrics,
 )
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -102,6 +103,25 @@ class SovOut(BaseModel):
     computed_at: datetime
 
 
+class EntityRate(Rate):
+    entity_id: uuid.UUID
+    name: str
+    type: Literal["brand", "competitor"]
+
+
+class PromptMetricsOut(BaseModel):
+    prompt_id: uuid.UUID
+    text: str
+    intent: str | None
+    topic: str | None
+    n: int
+    brand: EntityRate
+    entities: list[EntityRate]
+    top_competitor: EntityRate | None
+    spread: float | None
+    separated: bool
+
+
 def filters(
     engine: str | None = None,
     locale_id: uuid.UUID | None = None,
@@ -159,3 +179,11 @@ def get_sov(
         "pipeline_version": PIPELINE_VERSION,
         "computed_at": datetime.now(UTC),
     }
+
+
+@router.get("/prompts/metrics", response_model=list[PromptMetricsOut])
+def get_prompt_metrics(
+    brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
+) -> list[dict[str, Any]]:
+    brand_or_404(c, brand_id)
+    return prompt_metrics(c.s, brand_id, f)
