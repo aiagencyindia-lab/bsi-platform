@@ -6,6 +6,7 @@ export type Metrics = S["MetricsOut"];
 export type Deltas = S["DeltasOut"];
 export type Sov = S["SovOut"];
 export type PromptMetrics = S["PromptMetricsOut"];
+export type Prompt = S["PromptOut"];
 export type Observation = S["ObservationOut"];
 export type ObservationDetail = S["ObservationDetail"];
 export type Competitor = S["CompetitorOut"];

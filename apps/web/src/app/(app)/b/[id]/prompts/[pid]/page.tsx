@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { usd } from "@/lib/format";
-import type { Observation } from "@/lib/types";
+import type { Observation, Prompt } from "@/lib/types";
 
 export default async function PromptDetail({
   params,
@@ -9,12 +9,20 @@ export default async function PromptDetail({
   params: Promise<{ id: string; pid: string }>;
 }) {
   const { id, pid } = await params;
-  const rows = await api<Observation[]>(
-    `/observations?brand_id=${id}&prompt_id=${pid}&limit=200`,
-  );
+  // There is no GET /brands/{id}/prompts/{pid}; find it in the list instead.
+  const [rows, prompts] = await Promise.all([
+    api<Observation[]>(`/observations?brand_id=${id}&prompt_id=${pid}&limit=200`),
+    api<Prompt[]>(`/brands/${id}/prompts`),
+  ]);
+  const prompt = prompts.find((p) => p.id === pid);
   return (
     <>
-      <h2>Observations for this prompt</h2>
+      {prompt && (
+        <>
+          <h2>{prompt.text}</h2>
+          {prompt.topic && <p className="muted">{prompt.topic}</p>}
+        </>
+      )}
       {rows.length === 0 && <p className="muted">None yet.</p>}
       <table>
         <thead>
