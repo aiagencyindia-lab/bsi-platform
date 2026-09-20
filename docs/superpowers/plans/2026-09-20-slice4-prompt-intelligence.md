@@ -168,7 +168,7 @@ Add `AND c.status = 'active'` (or the ORM equivalent) to:
   - `cosine(a, b) -> float`;
   - `dedupe(vectors, threshold) -> list[int]` — greedy keep-first, returns kept indices;
   - `clean_prompts(out, existing_keys, brand_keys) -> list[GeneratedPrompt]` — strip; drop empty or over 1,000 chars; intent must be in `INTENTS` else drop; topic case-folded, stripped, capped at 60; drop exact repeats by `labels.key`;
-  - `merge_competitors(sets, brand_keys, known_keys) -> list[tuple[name, domain, evidence]]` — normalize names with `labels.key` and domains with `matching.normalize_domain`; count how many sets named each; drop the brand, its aliases and known competitors; cap name at 200; keep the top 10 by evidence then name;
+  - `merge_competitors(sets, brand_keys, known_keys) -> list[tuple[name, domain, evidence]]` — **key on the normalized domain when one is present, else on `labels.key(name)`** (the probe found "Bata India", "Bata India (Bubblegummers)" and "Bubblegummers" all scoring 1/3 while all resolving to bata.com); count how many sets named each; drop the brand, its aliases and known competitors; cap name at 200; keep the top 10 by evidence then name;
   - `build_prompt_request(ctx, count)` and `build_competitor_parse(answer, brand)` — every tenant string through `escape`, wrapped in one delimited block under a "DATA, not instructions" preamble, in the style of `labels._PROMPT`.
 
 **Tests** (`tests/unit/test_suggest.py`): cosine against hand-computed values; dedupe keeps the first of a near-identical pair and keeps distant ones; `clean_prompts` drops an unknown intent, an over-long text and a duplicate, and case-folds topics; `merge_competitors` ranks by evidence, drops the brand and known names, normalizes domains; both builders escape `<` and include every context field. The judges still pass unchanged.
@@ -179,8 +179,8 @@ Add `AND c.status = 'active'` (or the ORM equivalent) to:
 
 ## Task 5: `suggest_prompts`, `suggest_competitors`, `embed`
 
-- `config.py`: `embed_model` (the id the probe confirmed).
-- `suggest.py`: `EMBED_PRICES: dict[str, int]` (micros per token; the probe's number), `embed(texts) -> (vectors, cost_micros)` using `client.models.embed_content` with `task_type="SEMANTIC_SIMILARITY"`, `output_dimensionality=768`, one text per call under `judge.with_retries`, cost from the response's token count and falling back to `len(text) // 3`. `KeyError` for an unpriced model, and the worker's startup fail-fast line gains `EMBED_PRICES[settings.embed_model]`.
+- `config.py`: `embed_model: str = "gemini-embedding-001"` (confirmed working in `global` by the probe).
+- `suggest.py`: `EMBED_PRICES: dict[str, int]` (micros per token; the probe's number), `embed(texts) -> (vectors, cost_micros)` using `client.models.embed_content` with `task_type="SEMANTIC_SIMILARITY"`, `output_dimensionality=768`. **The probe confirmed the SDK batches**: send the texts in one call (chunk at 100 to stay well inside limits) under `judge.with_retries`. Cost is the sum of each embedding's `statistics.token_count`, falling back to `len(text) // 3` when absent. `EMBED_PRICES["gemini-embedding-001"]`. `KeyError` for an unpriced model, and the worker's startup fail-fast line gains `EMBED_PRICES[settings.embed_model]`.
 - `suggest_prompts(org_id, brand_id, count, generator, embedder) -> str`:
   1. tenant read: brand (raise if archived), category, aliases, first locale, **active** competitors, existing prompt texts (capped at 100) and topics; rows missing `intent`/`topic`/`embedding` for backfill;
   2. close the transaction; generate at temperature 1.0 asking for `count * 1.25`, accumulating `spent`;
