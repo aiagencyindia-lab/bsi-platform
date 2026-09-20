@@ -122,12 +122,14 @@ Carried from the plan and what the per-task reviews deferred:
 5. **On-demand runs still have no budget check.** Slice 4 flagged this
    as its top known gap and it is still true here: nothing added in
    this slice puts a ceiling on `POST /brands/{id}/runs`.
-6. **The ops spend bar divides by the daily budget, which may be
-   zero.** `apps/web/src/app/ops/page.tsx` computes
-   `committed / o.budget_micros` and `o.spent_micros / o.budget_micros`
-   directly; an org with no budget configured divides by zero rather
-   than showing an explicit "no budget set" state.
-7. **`api()` does not clear a stale cookie on 401.** `src/lib/api.ts`
-   redirects to `/login` on a 401 but leaves the rejected `bsi_key`
-   cookie in place, so the next request repeats the same failed
-   round-trip before landing on the login page again.
+6. **No trend history.** Every number here is a point-in-time read of
+   the dev database. Nothing in this slice stores a daily series, so
+   "how did the searched rate move last week" cannot be answered
+   without re-querying raw observations by hand.
+
+Two gaps listed when this document was first written have since been
+closed, and are recorded here so the list is not read as still-open:
+the ops spend bar dividing by a possibly-zero budget (now an explicit
+zero-budget branch rendering a full meter), and `api()` leaving a
+rejected `bsi_key` cookie in place on a 401 (now cleared by
+`apps/web/src/middleware.ts` on `/login`).

@@ -129,6 +129,9 @@ Google surfaces, recommendations, sparklines, mobile layouts, deployment.
   the "Run 1" key, and in the browser pane confirm: tile numbers equal
   `curl /v1/brands/{id}/metrics` exactly; a filter change updates the URL and
   the numbers; a prompt row drills to an observation with highlighted
-  evidence; `/ops` spend matches `scripts` ledger figures; saving a label
-  writes a `rec_label` row and the next mention appears.
+  evidence; `/ops` spend equals an independent SQL sum of today's
+  observation and non-run-job costs for that org (it is not comparable
+  to the process-level ledger in `spend.py`, which covers every org
+  since `spend_since`); saving a label writes a `rec_label` row and the
+  next mention appears.
 - A key from a second org sees none of the first org's brands.
