@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import func, literal, select, text, true
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -12,6 +13,7 @@ from .config import get_settings
 from .db import tenant_session
 
 CADENCE_DAYS = {"daily": 1, "every_3_days": 3, "weekly": 7}
+DEFAULT_SAMPLES = 2
 # Active prompts per organization, by plan (spec §5).
 PLAN_LIMITS = {"starter": 100, "pro": 500, "agency": 2_000}
 DEFAULT_LIMIT = PLAN_LIMITS["starter"]  # an unknown plan is Starter
@@ -61,6 +63,13 @@ _SPENT_AND_PENDING = text(
 )
 
 
+def budget_micros(s: Session, org_id: uuid.UUID) -> int:
+    """The org's daily cap in micros: its own override, else the setting."""
+    override = s.get_one(m.Organization, org_id).daily_budget_usd
+    budget = get_settings().daily_budget_usd if override is None else override
+    return round(float(budget) * 1_000_000)
+
+
 def budget_fits(
     s: Session, org_id: uuid.UUID, n_obs: int, extra_micros: int = 0
 ) -> bool:
@@ -85,9 +94,7 @@ def budget_fits(
     # Row-level security scopes this to the org (unlike spend.db_micros).
     spent, pending = s.execute(_SPENT_AND_PENDING).one()
     settings = get_settings()
-    override = s.get_one(m.Organization, org_id).daily_budget_usd
-    budget = settings.daily_budget_usd if override is None else override
-    cap = round(float(budget) * 1_000_000)
+    cap = budget_micros(s, org_id)
     # A paid attempt that then fails records no cost; the estimate's
     # headroom absorbs it.
     estimate = settings.obs_cost_estimate_micros
@@ -132,6 +139,65 @@ def active_prompts(s: Session, brand_id: uuid.UUID) -> int:
         )
         or 0
     )
+
+
+def _brand_micros(prompts: int, samples: int, runs_per_day: float) -> float:
+    return (
+        prompts
+        * samples
+        * runs_per_day
+        * get_settings().obs_cost_estimate_micros
+    )
+
+
+def daily_cost_preview(
+    s: Session, org_id: uuid.UUID, brand_id: uuid.UUID
+) -> dict[str, Any]:
+    """Advisory estimate of a day's spend for one brand and its whole org.
+
+    Call inside the org's tenant session: row-level security scopes both
+    queries. Nothing is refused on it - budget_fits still decides at
+    enqueue time, off the same estimate and the same budget.
+    """
+    own = s.scalars(
+        select(m.Schedule).where(m.Schedule.brand_id == brand_id)
+    ).one_or_none()
+    samples = DEFAULT_SAMPLES if own is None else own.samples
+    # A brand with no active schedule still runs on demand: one a day.
+    # ponytail: a paused schedule contributes its samples at one run a day.
+    runs = (
+        1 / CADENCE_DAYS[own.cadence]
+        if own is not None and own.status == "active"
+        else 1.0
+    )
+    prompts = active_prompts(s, brand_id)
+    brand_micros = _brand_micros(prompts, samples, runs)
+
+    # One count per active schedule: a handful of brands per org.
+    org_micros = sum(
+        _brand_micros(
+            active_prompts(s, sch.brand_id),
+            sch.samples,
+            1 / CADENCE_DAYS[sch.cadence],
+        )
+        for sch in s.scalars(
+            select(m.Schedule).where(m.Schedule.status == "active")
+        )
+    )
+    if own is None or own.status != "active":
+        org_micros += brand_micros
+    cap = budget_micros(s, org_id)
+    return {
+        "brand": {
+            "active_prompts": prompts,
+            "samples": samples,
+            "runs_per_day": round(runs, 4),
+            "est_daily_usd": round(brand_micros / 1_000_000, 4),
+        },
+        "org": {"est_daily_usd": round(org_micros / 1_000_000, 4)},
+        "budget_usd": round(cap / 1_000_000, 4),
+        "fits": org_micros <= cap,
+    }
 
 
 def enqueue_run(

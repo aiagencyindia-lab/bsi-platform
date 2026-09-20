@@ -2,7 +2,7 @@ import uuid
 from typing import Any, Literal
 
 from bsi_core import models as m
-from bsi_core.scheduling import check_active_limit
+from bsi_core.scheduling import check_active_limit, daily_cost_preview
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -140,7 +140,10 @@ def patch_prompts(
         _within_plan(c, sum(r.status != "active" for r in rows))
     for row in rows:
         row.status = body.status
-    return {"updated": len(rows)}
+    return {
+        "updated": len(rows),
+        "cost_preview": daily_cost_preview(c.s, c.org_id, brand_id),
+    }
 
 
 @router.post("/suggest", status_code=202)

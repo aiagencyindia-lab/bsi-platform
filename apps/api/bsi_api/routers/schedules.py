@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from bsi_core import models as m
-from bsi_core.scheduling import first_run
+from bsi_core.scheduling import daily_cost_preview, first_run
 from fastapi import APIRouter, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
@@ -33,6 +33,13 @@ class ScheduleOut(BaseModel):
     next_run_at: datetime
     last_run_at: datetime | None
     last_result: str | None
+    cost_preview: dict[str, Any] = {}
+
+
+def _out(c: Ctx, row: m.Schedule) -> ScheduleOut:
+    out = ScheduleOut.model_validate(row)
+    out.cost_preview = daily_cost_preview(c.s, c.org_id, row.brand_id)
+    return out
 
 
 def _get_or_404(c: Ctx, brand_id: uuid.UUID) -> m.Schedule:
@@ -47,7 +54,7 @@ def _get_or_404(c: Ctx, brand_id: uuid.UUID) -> m.Schedule:
 @router.put("", response_model=ScheduleOut)
 def put_schedule(
     brand_id: uuid.UUID, body: ScheduleIn, c: Ctx = TENANT
-) -> m.Schedule:
+) -> ScheduleOut:
     if brand_or_404(c, brand_id).status == "archived":
         raise Problem(409, "Brand is archived", "Archived brands are not run.")
     now = c.s.scalars(select(func.now())).one()
@@ -58,14 +65,17 @@ def put_schedule(
         .values(org_id=c.org_id, brand_id=brand_id, **fields)
         .on_conflict_do_update(index_elements=["brand_id"], set_=fields)
     )
-    return c.s.scalars(
-        select(m.Schedule).where(m.Schedule.brand_id == brand_id)
-    ).one()
+    return _out(
+        c,
+        c.s.scalars(
+            select(m.Schedule).where(m.Schedule.brand_id == brand_id)
+        ).one(),
+    )
 
 
 @router.get("", response_model=ScheduleOut)
-def get_schedule(brand_id: uuid.UUID, c: Ctx = TENANT) -> m.Schedule:
-    return _get_or_404(c, brand_id)
+def get_schedule(brand_id: uuid.UUID, c: Ctx = TENANT) -> ScheduleOut:
+    return _out(c, _get_or_404(c, brand_id))
 
 
 @router.delete("", status_code=204)
