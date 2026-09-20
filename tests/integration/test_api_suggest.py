@@ -101,6 +101,19 @@ def test_a_failed_job_is_requeued_keeping_its_spend(client, brand, owner):
     assert (job.status, job.error, job.cost_micros) == ("queued", None, 7_000)
 
 
+def test_a_requeue_honours_the_new_count(client, brand, owner):
+    # Retrying with a different count must not silently run the old one.
+    org, bid = brand
+    url = f"/v1/brands/{bid}/prompts/suggest"
+    client.post(url, headers=org.headers, json={"count": 50})
+    with owner() as s, s.begin():
+        s.get(m.Job, _job(owner, bid).id).status = "failed"
+
+    client.post(url, headers=org.headers, json={"count": 20})
+
+    assert _job(owner, bid).params["count"] == 20
+
+
 def test_a_running_job_is_not_disturbed(client, brand, owner):
     org, bid = brand
     first = client.post(

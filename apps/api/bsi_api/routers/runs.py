@@ -31,8 +31,8 @@ def queue_suggestion(
     """Find or create this hour's job for the brand and kind.
 
     One job per (brand, kind, hour), except that a failed job is
-    requeued: one failure must not lock the user out for the hour. Its
-    cost_micros is left alone, so a retry accumulates.
+    requeued with the new params: one failure must not lock the user out
+    for the hour. Its cost_micros is left alone, so a retry accumulates.
     """
     if brand_or_404(c, brand_id).status == "archived":
         raise Problem(409, "Brand is archived", "Archived brands are not run.")
@@ -49,7 +49,9 @@ def queue_suggestion(
         )
         .on_conflict_do_update(
             index_elements=["brand_id", "kind", "scheduled_slot"],
-            set_={"status": "queued", "error": None},
+            # params too: a retry asking for a different count must not
+            # silently run the failed job's original one.
+            set_={"status": "queued", "error": None, "params": params},
             where=m.Job.status == "failed",
         )
     )
