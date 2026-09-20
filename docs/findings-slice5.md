@@ -48,35 +48,71 @@ without naming the model is not a fact about the platform, it is a fact
 about whichever run happened to be sampled.** Treat both 84% and 26–33%
 as measurements of specific small runs, not platform constants.
 
-## 2. Which prompts discriminate — "Run 1", `GET /brands/{id}/prompts/metrics`
+## 2. Which prompts discriminate — measured, then tested
 
-Queried live against the dev database for "Run 1" (brand
-`BSOAgentTestBrand`, the slice-1 test brand, 20 prompts at n=3 samples
-each — the same run behind `findings-slice1.md`):
+"Run 1" (brand `BSOAgentTestBrand`, 20 prompts, the run behind
+`findings-slice1.md`) began this slice at n=3 samples per prompt with
+**0 of 20** prompts separating the brand from its top rival at 95%
+confidence. Read alone, that number invites the conclusion that
+per-prompt discrimination needs sampling far beyond 3. **That
+conclusion is wrong, and we tested it rather than reasoning about it.**
 
-| | |
+`samples_to_separate` projects, from each prompt's observed rates, the
+sample size at which the two Wilson intervals would stop overlapping.
+Before running anything it said:
+
+| Samples needed | Prompts |
 |---|---|
-| Prompts | 20 |
-| Samples per prompt (`n`) | 3, for every prompt |
-| Prompts with `separated: true` (brand's CI does not overlap its top rival's) | **0 of 20** |
+| 4 — one more than we had | **11** |
+| 7 | 5 |
+| 20 | 3 |
+| never (rates identical) | 1 |
 
-Not one of the 20 prompts separates the brand from its top competitor at
-95% confidence, at n=3. This is not a surprising result given
-`findings-slice1.md` §3's own interval-width analysis of this exact run:
-a single prompt's Wilson CI at n=3 spans about 0.56 wide (e.g.
-`[0, 0.56]`), and `BSOAgentTestBrand`'s per-prompt mention rate is
-usually 0 (it is a made-up brand most prompts do not name), so its CI is
-`[0, 0.56]` against a rival's CI that is often `[0.44, 1.0]` at n=3 —
-overlapping by construction unless the rival is mentioned in literally
-every sample and the brand in none, which still leaves the two ranges
-touching at their edges. Reaching separation at the per-prompt level
-needs far more than n=3; `findings-slice1.md` put the brand-level
-threshold at **n≈140–150** for a 15-point swing to be non-overlapping at
-95% confidence, and per-prompt separation from a rival that is mentioned
-far more often is an even harder bar. **Answer to the open question:**
-at today's default sampling (3 per prompt), no prompt is a reliable
-discriminator on its own; discrimination only shows up once results are
-pooled across many prompts or samples are increased well past 3.
+So more than half the table was a single observation short of a
+conclusive answer, which "0 of 20" conceals entirely.
+
+### The experiment
+
+One extra sample per prompt, run live on 2026-09-21: 20 observations,
+0 failures, **$0.7686** (engine $0.7513, judge $0.0173).
+
+Run deliberately with `ENGINE_MODEL=gemini-2.5-flash` rather than the
+configured `gemini-3.8-flash`. `prompt_metrics` pools every done
+observation and `Filters` has no model filter, so adding samples from a
+model that searches ~20% of the time (§1) to a population that searches
+100% of the time would have conflated "one more sample" with "changed
+model" and made the test meaningless.
+
+**Result: the projection was exact.** 11 predicted, 11 separated, no
+prompt separated that was not predicted to, and none predicted failed
+to. Every prompt is now at n=4 and 11 of 20 are conclusive.
+
+### How strong that validation actually is
+
+Weaker than the clean hit rate suggests, and the same run shows why.
+All 11 were extreme cases — brand 0/3, rival 3/3 — which stayed extreme
+at 0/4 and 4/4. The projection assumes today's rates hold; for these it
+held perfectly. The arithmetic is confirmed; the assumption got the
+easiest test available.
+
+The other nine measure the assumption properly, and it is shaky:
+
+| Before (n=3) | After (n=4) | Projection |
+|---|---|---|
+| spread ±0.67, needs 7 | ±0.75, needs 7 | stable |
+| spread −0.33, needs 20 | −0.50, needs **11** | nearly halved |
+| spread −0.33, needs 20 | −0.25, needs **27** | rose by a third |
+
+Only 12 of 20 prompts had an unchanged spread: **one observation moved
+eight of them**, and where the gap is middling the projection swung by
+up to nine samples on that single result.
+
+**Answer to the open question.** At n=3 no prompt discriminates, but the
+deficit is one sample for over half of them, not the large increase the
+bare count implies. The projection is dependable where the gap is
+extreme and noisy where it is not — which is exactly where an operator
+most wants it, so it is labelled a projection in the UI and should not
+be quoted as a plan without re-reading it after the next run.
 
 ## 3. Labels and judge agreement
 

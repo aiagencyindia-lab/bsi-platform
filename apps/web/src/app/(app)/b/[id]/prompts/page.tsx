@@ -100,14 +100,20 @@ export default async function Prompts({
                   <span className="tag">separates</span>
                 ) : (
                   r.needs_samples != null && (
-                    // A projection: it holds today's rates fixed. Said
-                    // plainly, because at n=3 the honest answer is
-                    // usually "far more samples than you expect".
-                    <div className="muted">
+                    // A projection holding today's rates fixed, so it
+                    // moves as they do. Measured on the slice-1 brand,
+                    // one extra sample shifted eight of twenty prompts'
+                    // rates and swung this figure by up to nine samples
+                    // where the gap was middling (findings-slice5 §2) -
+                    // hence "if", not a promise.
+                    <div
+                      className="muted"
+                      title="Projected from this prompt's current rates. It moves as they do, most where the gap is small."
+                    >
                       needs ~{r.needs_samples} samples
                       {r.needs_days != null && ` · ~${r.needs_days} days`}
                       <br />
-                      at current rates
+                      if these rates hold
                     </div>
                   )
                 )}
