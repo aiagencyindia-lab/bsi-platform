@@ -80,6 +80,11 @@ regenerated on a later run** — scores far higher (the reworded sanity
 pair is 0.9324, and identical text is 1.0). Raising the cut to 0.95
 would miss that reworded pair, which is the whole point of the check.
 
+**Decision (user, 2026-09-20): keep 0.92.** It is the PRD's number, it
+catches the reworded repeat, and erring toward fewer prompts also errs
+toward lower spend. It is a constant in `suggest.py`, not a setting; if
+the embedding model ever changes, re-run this probe before trusting it.
+
 ### Competitor suggestion
 
 Three grounded answers, parsed and merged. One clear winner and a long
