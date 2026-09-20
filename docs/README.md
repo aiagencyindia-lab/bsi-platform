@@ -51,6 +51,7 @@ In the order they were written:
 |---|---|
 | [superpowers/specs/2026-09-20-slice4-prompt-intelligence-design.md](superpowers/specs/2026-09-20-slice4-prompt-intelligence-design.md) | Design spec: generated prompts with intents and topics, embedding de-duplication, suggested competitors, prompt states and plan limits, a per-org budget override and a cost preview. |
 | [superpowers/plans/2026-09-20-slice4-prompt-intelligence.md](superpowers/plans/2026-09-20-slice4-prompt-intelligence.md) | Implementation plan, Tasks 0–10. |
+| [findings-slice4.md](findings-slice4.md) | Results: the embedding probe and duplicate threshold, prompt generation across three brands, the live wizard check, spend, and the known gaps. |
 
 Run data lives next to the code, because the scripts and tests read it
 there:
