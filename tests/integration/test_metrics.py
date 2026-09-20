@@ -285,6 +285,10 @@ def test_prompt_metrics(scene):
     r2 = rows["p2"]
     assert r2["prompt_id"] == p2 and r2["n"] == 2  # the failed one is out
     assert r2["brand"]["value"] == 0.0 and r2["spread"] == -0.5
+    # Adidas and Puma are tied at 1 mention each on p2: max() returns the
+    # first maximum, and _entities orders competitors by created_at, so
+    # the first-created rival (Adidas) wins the tie, not Puma.
+    assert r2["top_competitor"]["name"] == "Adidas"
 
 
 def test_prompt_metrics_without_competitors(

@@ -89,6 +89,26 @@ def test_label_vocabulary_matches_the_model():
     assert get_args(RecStatus) == m.REC_STATUSES
 
 
+def test_db_check_constraint_matches_rec_statuses(owner):
+    """The migration hardcodes this CHECK (a migration must be static);
+    models.py generates the identical one from REC_STATUSES. alembic
+    check doesn't diff CHECK constraints, so query the live constraint
+    from the test database rather than trusting the two stay in step."""
+    import re
+
+    from sqlalchemy import text
+
+    with owner() as s:
+        defn = s.execute(
+            text(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                "WHERE conname = 'ck_rec_label_label'"
+            )
+        ).scalar_one()
+    accepted = set(re.findall(r"'([^']*)'", defn))
+    assert accepted == set(m.REC_STATUSES)
+
+
 def test_orphaned_competitor_mention_is_skipped(
     client, owner, make_org, make_brand, make_observation
 ):

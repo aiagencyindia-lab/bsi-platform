@@ -64,11 +64,19 @@ _SPENT_AND_PENDING = text(
 )
 
 
-def spent_and_pending(s: Session) -> tuple[int, int]:
+def spent_and_pending(s: Session, org_id: uuid.UUID) -> tuple[int, int]:
     """Today's spend in micros and the observations still to run.
 
     Scoped by row-level security: call it in the org's tenant session.
     """
+    # Fail closed, as budget_fits and check_active_limit do: outside the
+    # org's tenant session row-level security hides every row, so this
+    # would silently report zero spend and zero pending.
+    tenant = s.scalar(text("SELECT current_setting('app.org_id', true)"))
+    if tenant != str(org_id):
+        raise RuntimeError(
+            "spent_and_pending must run in the org's tenant session"
+        )
     spent, pending = s.execute(_SPENT_AND_PENDING).one()
     return int(spent), int(pending)
 
@@ -102,7 +110,7 @@ def budget_fits(
         {"org": str(org_id)},
     )
     # Row-level security scopes this to the org (unlike spend.db_micros).
-    spent, pending = spent_and_pending(s)
+    spent, pending = spent_and_pending(s, org_id)
     settings = get_settings()
     cap = budget_micros(s, org_id)
     # A paid attempt that then fails records no cost; the estimate's
@@ -321,7 +329,7 @@ _SCHEDULE = (
 
 def ops_summary(s: Session, org_id: uuid.UUID) -> dict[str, Any]:
     """What the operator page shows. Call in the org's tenant session."""
-    spent, pending = spent_and_pending(s)
+    spent, pending = spent_and_pending(s, org_id)
     queue = dict(
         s.execute(
             select(m.Observation.status, func.count()).group_by(
