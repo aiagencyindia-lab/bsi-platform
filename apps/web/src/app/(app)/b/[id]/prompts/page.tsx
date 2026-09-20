@@ -31,13 +31,17 @@ export default async function Prompts({
   const key = KEYS[sort];
   rows.sort((a, b) => {
     const [x, y] = [key(a), key(b)];
+    // Null sort keys (no top competitor) always sink to the bottom
+    // regardless of `dir` — deliberate, not a sign bug.
     if (x == null || y == null) return x == null ? (y == null ? 0 : 1) : -1;
     return (x - y) * dir;
   });
   const head = (k: string, label: string) => {
     const q = new URLSearchParams();
-    for (const [name, v] of Object.entries(sp))
+    for (const [name, v] of Object.entries(sp)) {
       if (typeof v === "string" && v) q.set(name, v);
+      else if (Array.isArray(v)) for (const one of v) q.append(name, one);
+    }
     q.set("sort", k);
     q.set("dir", sort === k && dir === -1 ? "asc" : "desc");
     return (

@@ -10,12 +10,17 @@ export default async function OpsPage() {
   // pending estimate (committed_micros, computed server-side alongside
   // budget_fits so this can't drift from it), the shaded part is money
   // already spent.
-  const used = {
-    value: Math.min(o.committed_micros / o.budget_micros, 1),
-    n: 0,
-    ci_low: 0,
-    ci_high: Math.min(o.spent_micros / o.budget_micros, 1),
-  };
+  // A zero daily budget (allowed by ck_organization_budget) means nothing
+  // may be spent today — that's a full meter, not an empty one from a 0/0.
+  const used =
+    o.budget_micros === 0
+      ? { value: 1, n: 0, ci_low: 0, ci_high: 1 }
+      : {
+          value: Math.min(o.committed_micros / o.budget_micros, 1),
+          n: 0,
+          ci_low: 0,
+          ci_high: Math.min(o.spent_micros / o.budget_micros, 1),
+        };
   const meterTitle = `${usd(o.spent_micros)} spent, ${usd(
     o.committed_micros,
   )} committed of ${usd(o.budget_micros)}`;

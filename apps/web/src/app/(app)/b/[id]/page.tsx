@@ -21,7 +21,10 @@ export default async function Overview({
     api<Deltas>(`/brands/${id}/deltas${dq}`),
     api<Sov>(`/brands/${id}/sov${q}`),
   ]);
-  const days = Number(sp.days) || 7;
+  // sp.days can be a repeated query param (string[]); Number([...]) on a
+  // multi-element array is NaN, which happens to also fall back to 7 — but
+  // say that deliberately instead of relying on a NaN coincidence.
+  const days = typeof sp.days === "string" ? Number(sp.days) || 7 : 7;
   const max = Math.max(...sov.entities.map((e) => e.share ?? 0), 0.0001);
   return (
     <>
