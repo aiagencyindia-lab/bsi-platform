@@ -29,7 +29,10 @@ export default async function ObservationPage({
       <h1>Observation</h1>
       <p className="muted">
         {o.status} · {o.model_version ?? o.model} · engine {usd(o.cost_micros)}
-        {o.extraction && ` + judge ${usd(o.extraction.cost_micros)}`}
+        {o.extraction && ` + judge ${usd(o.extraction.cost_micros)}`} ·{" "}
+        {o.search_queries == null
+          ? "search queries not derived"
+          : `${o.search_queries} search ${o.search_queries === 1 ? "query" : "queries"}`}
       </p>
       {o.error && <p className="error">{o.error}</p>}
       <h2>Mentions</h2>
