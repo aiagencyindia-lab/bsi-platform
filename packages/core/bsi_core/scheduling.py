@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from . import models as m
 from .config import get_settings
 from .db import tenant_session
+from .metrics import rate
 
 CADENCE_DAYS = {"daily": 1, "every_3_days": 3, "weekly": 7}
 DEFAULT_SAMPLES = 2
@@ -63,6 +64,23 @@ _SPENT_AND_PENDING = text(
 )
 
 
+def spent_and_pending(s: Session, org_id: uuid.UUID) -> tuple[int, int]:
+    """Today's spend in micros and the observations still to run.
+
+    Scoped by row-level security: call it in the org's tenant session.
+    """
+    # Fail closed, as budget_fits and check_active_limit do: outside the
+    # org's tenant session row-level security hides every row, so this
+    # would silently report zero spend and zero pending.
+    tenant = s.scalar(text("SELECT current_setting('app.org_id', true)"))
+    if tenant != str(org_id):
+        raise RuntimeError(
+            "spent_and_pending must run in the org's tenant session"
+        )
+    spent, pending = s.execute(_SPENT_AND_PENDING).one()
+    return int(spent), int(pending)
+
+
 def budget_micros(s: Session, org_id: uuid.UUID) -> int:
     """The org's daily cap in micros: its own override, else the setting."""
     override = s.get_one(m.Organization, org_id).daily_budget_usd
@@ -92,7 +110,7 @@ def budget_fits(
         {"org": str(org_id)},
     )
     # Row-level security scopes this to the org (unlike spend.db_micros).
-    spent, pending = s.execute(_SPENT_AND_PENDING).one()
+    spent, pending = spent_and_pending(s, org_id)
     settings = get_settings()
     cap = budget_micros(s, org_id)
     # A paid attempt that then fails records no cost; the estimate's
@@ -295,3 +313,64 @@ def run_schedule(org_id: uuid.UUID, schedule_id: uuid.UUID) -> str | None:
         sch.last_result = result
         sch.next_run_at = advance(sch.next_run_at, sch.cadence, now)
         return result
+
+
+_SCHEDULE = (
+    "brand_id",
+    "cadence",
+    "hour_utc",
+    "samples",
+    "status",
+    "next_run_at",
+    "last_run_at",
+    "last_result",
+)
+
+
+def ops_summary(s: Session, org_id: uuid.UUID) -> dict[str, Any]:
+    """What the operator page shows. Call in the org's tenant session."""
+    spent, pending = spent_and_pending(s, org_id)
+    queue = dict(
+        s.execute(
+            select(m.Observation.status, func.count()).group_by(
+                m.Observation.status
+            )
+        )
+        .tuples()
+        .all()
+    )
+    searched, known = s.execute(
+        text(
+            "SELECT count(*) FILTER (WHERE search_queries > 0), "
+            "count(search_queries) FROM observation "
+            "WHERE status = 'done' "
+            "AND requested_at >= now() - interval '7 days'"
+        )
+    ).one()
+    failures = s.scalars(
+        select(m.Observation)
+        .where(m.Observation.status == "failed")
+        .order_by(m.Observation.requested_at.desc())
+        .limit(20)
+    ).all()
+    schedules = s.execute(
+        select(m.Schedule, m.Brand.name)
+        .join(m.Brand, m.Brand.id == m.Schedule.brand_id)
+        .order_by(m.Schedule.next_run_at)
+    ).all()
+    estimate = get_settings().obs_cost_estimate_micros
+    return {
+        "spent_micros": spent,
+        "pending": pending,
+        "budget_micros": budget_micros(s, org_id),
+        # Same headroom expression as budget_fits, computed once here so
+        # the frontend never re-derives it.
+        "committed_micros": spent + pending * estimate,
+        "queue": queue,
+        "searched": rate(searched, known),
+        "failures": failures,
+        "schedules": [
+            {"brand_name": name, **{c: getattr(row, c) for c in _SCHEDULE}}
+            for row, name in schedules
+        ],
+    }

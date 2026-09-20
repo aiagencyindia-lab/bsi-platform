@@ -25,6 +25,21 @@ are opt-in via `uv run pytest -m live` and need Application Default
 Credentials plus the `.env` variables exported into the shell, e.g.
 `set -a && source .env && set +a`.
 
+### Operator dashboard (`apps/web`)
+
+```sh
+cd apps/web && npm install     # installs the Next.js dashboard
+npm run dev                    # starts it on port 3000
+```
+
+It talks to the API over `API_URL` (`apps/web/.env.example`, default
+`http://localhost:8000`) and expects the API to already be running from
+the steps above. Sign in with an API key printed by `scripts/seed.py`.
+
 ## Testing
 
 Whenever an endpoint is added later, add its row to `CASES` in `tests/integration/test_isolation.py`.
+
+Before merging a change to `apps/web`, run `npm run gate` there (typecheck,
+lint, tests, build, and `gen:check` against the live OpenAPI) - it fails
+the moment `schema.d.ts` drifts from a backend response model.

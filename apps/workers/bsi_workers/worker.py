@@ -135,6 +135,7 @@ def process_one(
             obs.model_version = result.model_version
             obs.params = result.params
             obs.cost_micros = result.cost_micros
+            obs.search_queries = result.search_queries
         prepared = extractor.prepare(org_id, obs_id)
         with tenant_session(org_id) as s:
             obs = s.get_one(m.Observation, obs_id)

@@ -1,0 +1,15 @@
+import type { components } from "./schema";
+
+type S = components["schemas"];
+export type Brand = S["BrandOut"];
+export type Metrics = S["MetricsOut"];
+export type Deltas = S["DeltasOut"];
+export type Sov = S["SovOut"];
+export type PromptMetrics = S["PromptMetricsOut"];
+export type Prompt = S["PromptOut"];
+export type Observation = S["ObservationOut"];
+export type ObservationDetail = S["ObservationDetail"];
+export type Competitor = S["CompetitorOut"];
+export type Ops = S["OpsOut"];
+export type LabelQueue = S["LabelQueue"];
+export type LabelResult = S["LabelResult"];

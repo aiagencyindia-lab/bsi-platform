@@ -10,11 +10,13 @@ from bsi_core.metrics import (
     brand_metrics,
     brand_sov,
     failed_count,
+    prompt_metrics,
 )
 from fastapi import APIRouter, Depends, Query
 
 from ..deps import TENANT, Ctx, brand_or_404
 from ..problems import Problem
+from ..schemas import DeltasOut, MetricsOut, PromptMetricsOut, SovOut
 
 router = APIRouter(prefix="/brands/{brand_id}", tags=["metrics"])
 
@@ -29,7 +31,7 @@ def filters(
     return Filters(engine, locale_id, date_from, date_to, prompt_ids)
 
 
-@router.get("/metrics")
+@router.get("/metrics", response_model=MetricsOut)
 def get_metrics(
     brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
 ) -> dict[str, Any]:
@@ -46,7 +48,7 @@ def _flag(window: dict[str, Any]) -> dict[str, Any]:
     return window
 
 
-@router.get("/deltas")
+@router.get("/deltas", response_model=DeltasOut)
 def get_deltas(
     brand_id: uuid.UUID,
     days: int = Query(7, ge=1, le=90),
@@ -64,7 +66,7 @@ def get_deltas(
     return out
 
 
-@router.get("/sov")
+@router.get("/sov", response_model=SovOut)
 def get_sov(
     brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
 ) -> dict[str, Any]:
@@ -76,3 +78,11 @@ def get_sov(
         "pipeline_version": PIPELINE_VERSION,
         "computed_at": datetime.now(UTC),
     }
+
+
+@router.get("/prompts/metrics", response_model=list[PromptMetricsOut])
+def get_prompt_metrics(
+    brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
+) -> list[dict[str, Any]]:
+    brand_or_404(c, brand_id)
+    return prompt_metrics(c.s, brand_id, f)

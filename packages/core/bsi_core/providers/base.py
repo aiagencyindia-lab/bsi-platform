@@ -13,6 +13,7 @@ class EngineResult:
     model_version: str | None = None
     params: dict[str, Any] = field(default_factory=dict)
     cost_micros: int = 0
+    search_queries: int | None = None
 
 
 @dataclass

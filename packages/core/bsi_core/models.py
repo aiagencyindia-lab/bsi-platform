@@ -33,6 +33,8 @@ INTENTS = (
     "geographic",
 )
 
+REC_STATUSES = ("recommended", "listed", "mentioned", "negative")
+
 TSZ = DateTime(timezone=True)
 
 
@@ -225,6 +227,7 @@ class Observation(Tenant, Base):
     params: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
     raw_uri: Mapped[str | None]
     cost_micros: Mapped[int] = mapped_column(server_default="0")
+    search_queries: Mapped[int | None]
     # Set at insert, overwritten when a worker claims the row.
     requested_at: Mapped[datetime] = mapped_column(
         TSZ, server_default=func.now()
@@ -297,4 +300,23 @@ class Citation(Tenant, Base):
     is_brand_owned: Mapped[bool] = mapped_column(server_default="false")
     __table_args__ = (
         Index("ix_citation_domain", "org_id", "domain", "observation_id"),
+    )
+
+
+class RecLabel(Tenant, Base):
+    """A hand label for one mention, to score the judge against."""
+
+    __tablename__ = "rec_label"
+    observation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("observation.id")
+    )
+    entity_type: Mapped[str]
+    entity_id: Mapped[uuid.UUID]
+    label: Mapped[str]
+    __table_args__ = (
+        UniqueConstraint("observation_id", "entity_id"),
+        CheckConstraint(
+            "label IN (" + ", ".join(f"'{x}'" for x in REC_STATUSES) + ")",
+            name="ck_rec_label_label",
+        ),
     )

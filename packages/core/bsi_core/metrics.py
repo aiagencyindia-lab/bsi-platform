@@ -71,6 +71,24 @@ def _where(brand_id: uuid.UUID, f: Filters) -> tuple[str, dict[str, Any]]:
     return " AND ".join(clauses), params
 
 
+def _entities(
+    s: Session, brand_id: uuid.UUID
+) -> list[tuple[uuid.UUID, str, str]]:
+    """The brand, then its active competitors: who the metrics measure."""
+    brand = s.get_one(m.Brand, brand_id)
+    competitors = s.scalars(
+        select(m.Competitor)
+        .where(
+            m.Competitor.brand_id == brand_id,
+            m.Competitor.status == "active",
+        )
+        .order_by(m.Competitor.created_at, m.Competitor.name)
+    ).all()
+    return [(brand.id, brand.name, "brand")] + [
+        (c.id, c.name, "competitor") for c in competitors
+    ]
+
+
 def brand_sov(
     s: Session, brand_id: uuid.UUID, f: Filters
 ) -> list[dict[str, Any]]:
@@ -87,17 +105,7 @@ def brand_sov(
         .tuples()
         .all()
     )
-    brand = s.get_one(m.Brand, brand_id)
-    competitors = s.scalars(
-        select(m.Competitor)
-        .where(
-            m.Competitor.brand_id == brand_id,
-            m.Competitor.status == "active",
-        )
-        .order_by(m.Competitor.created_at, m.Competitor.name)
-    ).all()
-    entities = [(brand.id, brand.name, "brand")]
-    entities += [(c.id, c.name, "competitor") for c in competitors]
+    entities = _entities(s, brand_id)
     total = sum(counts.get(eid, 0) for eid, _, _ in entities)
     rows = []
     for eid, name, etype in entities:
@@ -112,6 +120,79 @@ def brand_sov(
                 "share": r["value"],
                 "ci_low": r["ci_low"],
                 "ci_high": r["ci_high"],
+            }
+        )
+    return rows
+
+
+def prompt_metrics(
+    s: Session, brand_id: uuid.UUID, f: Filters
+) -> list[dict[str, Any]]:
+    """Mention rate per prompt for the brand and each active competitor.
+
+    A mention is unique per (observation, entity), so a mention count is
+    the number of answers that named the entity.
+    """
+    where, params = _where(brand_id, f)
+    prompts = s.execute(
+        text(
+            "SELECT o.prompt_id, p.text, p.intent, p.topic, count(*) AS n "
+            "FROM observation o JOIN prompt p ON p.id = o.prompt_id "
+            f"WHERE {where} AND o.status = 'done' "
+            "GROUP BY o.prompt_id, p.text, p.intent, p.topic "
+            "ORDER BY p.text, o.prompt_id"
+        ),
+        params,
+    ).all()
+    counts: dict[tuple[uuid.UUID, uuid.UUID], int] = {
+        (pid, eid): k
+        for pid, eid, k in s.execute(
+            text(
+                "SELECT o.prompt_id, mn.entity_id, count(*) FROM mention mn "
+                "JOIN observation o ON o.id = mn.observation_id "
+                f"WHERE {where} AND o.status = 'done' "
+                "GROUP BY o.prompt_id, mn.entity_id"
+            ),
+            params,
+        ).tuples()
+    }
+    entities = _entities(s, brand_id)
+    rows = []
+    for p in prompts:
+        ks = [counts.get((p.prompt_id, eid), 0) for eid, _, _ in entities]
+        rates: list[dict[str, Any]] = [
+            {
+                "entity_id": eid,
+                "name": name,
+                "type": etype,
+                **rate(k, p.n),
+            }
+            for (eid, name, etype), k in zip(entities, ks, strict=True)
+        ]
+        k_brand, k_rivals = ks[0], ks[1:]
+        brand, rivals = rates[0], rates[1:]
+        top_i = max(range(len(rivals)), key=lambda i: k_rivals[i], default=None)
+        top: dict[str, Any] | None = None
+        spread: float | None = None
+        if top_i is not None:
+            top = rivals[top_i]
+            spread = (k_brand - k_rivals[top_i]) / p.n
+        rows.append(
+            {
+                "prompt_id": p.prompt_id,
+                "text": p.text,
+                "intent": p.intent,
+                "topic": p.topic,
+                "n": p.n,
+                "brand": brand,
+                "entities": rates,
+                "top_competitor": top,
+                "spread": spread,
+                "separated": top is not None
+                and (
+                    brand["ci_low"] > top["ci_high"]
+                    or brand["ci_high"] < top["ci_low"]
+                ),
             }
         )
     return rows

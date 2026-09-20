@@ -38,6 +38,22 @@ def other(owner, make_org, make_brand, make_observation):
         s.flush()
         cid, did, j2 = comp.id, dom.id, job.id
     oid = make_observation(b, bid, raw={"secret": True}, status="done")
+    with owner() as s, s.begin():
+        # A real mention, so PUT .../labels/{e} has something for org B
+        # itself to find; only then does a 404 for org A prove RLS is
+        # doing the blocking, rather than the row simply not existing.
+        s.add(
+            m.Mention(
+                org_id=b.id,
+                observation_id=oid,
+                entity_type="brand",
+                entity_id=bid,
+                position=1,
+                rec_status="listed",
+                sentiment="neutral",
+                evidence_sentence="Secret is fine.",
+            )
+        )
     with owner() as s:
         obs = s.get(m.Observation, oid)
         pid, jid = obs.prompt_id, obs.job_id
@@ -49,6 +65,7 @@ def other(owner, make_org, make_brand, make_observation):
         "p": pid,
         "j": jid,
         "j2": j2,
+        "e": bid,
     }
 
 
@@ -85,6 +102,9 @@ CASES = [
     ("GET", "/v1/brands/{b}/clusters", None),
     ("GET", "/v1/jobs/{j2}", None),
     ("PATCH", "/v1/brands/{b}/competitors/{c}", {"status": "active"}),
+    ("GET", "/v1/brands/{b}/prompts/metrics", None),
+    ("GET", "/v1/brands/{b}/labels/next", None),
+    ("PUT", "/v1/observations/{o}/labels/{e}", {"label": "listed"}),
 ]
 
 

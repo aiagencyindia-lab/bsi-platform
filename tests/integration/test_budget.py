@@ -119,6 +119,17 @@ def test_refuses_to_run_outside_the_orgs_tenant_session(make_org):
         scheduling.budget_fits(s, b.id, 1)
 
 
+def test_spent_and_pending_refuses_outside_the_orgs_tenant_session(make_org):
+    # spent_and_pending's counts rely on row-level security too, so it
+    # must fail closed exactly like budget_fits and check_active_limit,
+    # not trust whatever session it is handed.
+    a, b = make_org("A"), make_org("B")
+    with system_session() as s, pytest.raises(RuntimeError, match="tenant"):
+        scheduling.spent_and_pending(s, a.id)
+    with tenant_session(a.id) as s, pytest.raises(RuntimeError, match="tenant"):
+        scheduling.spent_and_pending(s, b.id)
+
+
 def set_budget(owner, org, usd):
     with owner() as s, s.begin():
         s.execute(

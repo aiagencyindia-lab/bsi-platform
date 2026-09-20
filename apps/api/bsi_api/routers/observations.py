@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from bsi_core import models as m
+from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.storage import LocalRawStore
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, ConfigDict
@@ -27,6 +28,7 @@ class ObservationOut(BaseModel):
     model: str | None
     model_version: str | None
     cost_micros: int
+    search_queries: int | None
     requested_at: datetime
     completed_at: datetime | None
 
@@ -56,11 +58,60 @@ def list_observations(
     return list(c.s.scalars(q.limit(limit).offset(offset)))
 
 
-def _columns(row: Any, *names: str) -> dict[str, Any]:
-    return {n: getattr(row, n) for n in names}
+_ORM = ConfigDict(from_attributes=True)
 
 
-@router.get("/{observation_id}")
+class ExtractionOut(BaseModel):
+    model_config = _ORM
+    pipeline_version: str
+    model_used: str
+    brand_mentioned: bool
+    position: int | None
+    rec_status: str | None
+    sentiment: str | None
+    sentiment_conf: float | None
+    context: str
+    absence_reason: str | None
+    parsed: dict[str, Any]
+    cost_micros: int
+
+
+class MentionOut(BaseModel):
+    model_config = _ORM
+    entity_type: str
+    entity_id: uuid.UUID
+    position: int
+    rec_status: str
+    sentiment: str
+    evidence_sentence: str | None
+
+
+class CitationOut(BaseModel):
+    model_config = _ORM
+    url: str
+    domain: str
+    position: int
+    is_brand_owned: bool
+
+
+class ObservationDetail(ObservationOut):
+    params: dict[str, Any]
+    text: str | None
+    extraction: ExtractionOut | None
+    mentions: list[MentionOut]
+    citations: list[CitationOut]
+
+
+def answer_text(obs: m.Observation, org_id: uuid.UUID) -> str | None:
+    if obs.raw_uri is None:
+        return None
+    # ponytail: one engine today; choose the adapter by engine code when
+    # a second one exists.
+    raw = LocalRawStore().get(obs.raw_uri, org_id)
+    return GeminiGroundingAdapter().parse(raw).text
+
+
+@router.get("/{observation_id}", response_model=ObservationDetail)
 def get_observation(
     observation_id: uuid.UUID, c: Ctx = TENANT
 ) -> dict[str, Any]:
@@ -81,37 +132,10 @@ def get_observation(
     return {
         **ObservationOut.model_validate(obs).model_dump(),
         "params": obs.params,
-        "extraction": ex
-        and _columns(
-            ex,
-            "pipeline_version",
-            "model_used",
-            "brand_mentioned",
-            "position",
-            "rec_status",
-            "sentiment",
-            "sentiment_conf",
-            "context",
-            "absence_reason",
-            "parsed",
-            "cost_micros",
-        ),
-        "mentions": [
-            _columns(
-                x,
-                "entity_type",
-                "entity_id",
-                "position",
-                "rec_status",
-                "sentiment",
-                "evidence_sentence",
-            )
-            for x in mentions
-        ],
-        "citations": [
-            _columns(x, "url", "domain", "position", "is_brand_owned")
-            for x in citations
-        ],
+        "text": answer_text(obs, c.org_id),
+        "extraction": ex,
+        "mentions": list(mentions),
+        "citations": list(citations),
     }
 
 
