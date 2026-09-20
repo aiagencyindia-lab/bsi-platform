@@ -234,7 +234,9 @@ def list_clusters(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[Any]:
     ]
     q = (
         select(m.Prompt.intent, m.Prompt.topic, *counts)
-        .where(m.Prompt.brand_id == brand_id)
+        # Archived prompts are counted in no column, so grouping them
+        # would show phantom 0/0/0 rows.
+        .where(m.Prompt.brand_id == brand_id, m.Prompt.status != "archived")
         .group_by(m.Prompt.intent, m.Prompt.topic)
         # NULL intents sort last within a count, which is where an
         # unlabelled group belongs.

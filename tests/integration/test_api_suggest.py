@@ -418,3 +418,60 @@ def test_length_caps(client, make_org, make_brand):
     for method, path, body in cases:
         r = client.request(method, path, headers=org.headers, json=body)
         assert r.status_code == 422, (path, body, r.text)
+
+
+def test_clusters_ignore_archived_prompts(client, brand, owner):
+    # An all-archived group would otherwise render as a phantom 0/0/0 row
+    # and the counts would not sum to the prompts on show.
+    org, bid = brand
+    _seed_prompts(
+        owner,
+        org,
+        bid,
+        [
+            {
+                "text": "gone",
+                "intent": "commercial",
+                "topic": "old",
+                "status": "archived",
+            },
+            {
+                "text": "here",
+                "intent": "commercial",
+                "topic": "kept",
+                "status": "active",
+            },
+        ],
+    )
+
+    rows = client.get(f"/v1/brands/{bid}/clusters", headers=org.headers).json()
+
+    assert [(r["topic"], r["active"]) for r in rows] == [("kept", 1)]
+
+
+def test_activating_nothing_is_allowed_over_the_limit(client, brand, owner):
+    # A downgraded org is over its limit; re-activating rows that are
+    # already active adds nothing, so it must not be refused.
+    org, bid = brand
+    _seed_prompts(
+        owner,
+        org,
+        bid,
+        [{"text": f"p{i}", "status": "active"} for i in range(101)],
+    )
+    with owner() as s:
+        ids = [
+            str(pid)
+            for pid in s.scalars(
+                select(m.Prompt.id).where(m.Prompt.brand_id == bid).limit(2)
+            )
+        ]
+
+    r = client.patch(
+        f"/v1/brands/{bid}/prompts",
+        headers=org.headers,
+        json={"ids": ids, "status": "active"},
+    )
+
+    assert r.status_code == 200, r.text
+    assert r.json()["updated"] == 2

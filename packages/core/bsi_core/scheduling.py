@@ -105,6 +105,12 @@ def check_active_limit(
     is held to the end of it, so two concurrent activations cannot both
     pass on the same headroom.
     """
+    # Fail closed, as budget_fits does: the count below is scoped by
+    # row-level security, so a session set to another org would count
+    # the wrong prompts.
+    tenant = s.scalar(text("SELECT current_setting('app.org_id', true)"))
+    if tenant != str(org_id):
+        raise RuntimeError("check_active_limit needs the org's session")
     s.execute(
         text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
         {"org": str(org_id)},

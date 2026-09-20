@@ -16,6 +16,8 @@ MAX_BULK = 5000
 
 
 def _within_plan(c: Ctx, adding: int) -> None:
+    if adding <= 0:  # an over-limit org can still re-activate or pause
+        return
     over = check_active_limit(c.s, c.org_id, adding)
     if over is not None:
         current, limit = over
