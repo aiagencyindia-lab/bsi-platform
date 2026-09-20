@@ -1483,6 +1483,28 @@
             "title": "N",
             "type": "integer"
           },
+          "needs_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needs Days"
+          },
+          "needs_samples": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needs Samples"
+          },
           "prompt_id": {
             "format": "uuid",
             "title": "Prompt Id",
@@ -1539,6 +1561,8 @@
           "entities",
           "top_competitor",
           "spread",
+          "needs_samples",
+          "needs_days",
           "separated"
         ],
         "title": "PromptMetricsOut",

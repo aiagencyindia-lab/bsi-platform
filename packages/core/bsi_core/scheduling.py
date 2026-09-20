@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from math import ceil
 from typing import Any
 
 from sqlalchemy import func, literal, select, text, true
@@ -30,6 +31,23 @@ def first_run(now: datetime, hour_utc: int) -> datetime:
 def hour_slot(t: datetime) -> datetime:
     """The UTC hour containing t: the slot every run in that hour shares."""
     return t.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+
+
+# Days one run of each cadence covers. An unknown cadence raises rather
+# than guessing, as the price tables do; the CHECK constraint keeps the
+# column to these three.
+_CADENCE_DAYS = {"daily": 1, "every_3_days": 3, "weekly": 7}
+
+
+def days_to_accumulate(needed: int, cadence: str, samples: int) -> int:
+    """Calendar days for `needed` more samples at this cadence.
+
+    A partial run still costs a whole run, so this rounds up.
+    """
+    if needed <= 0:
+        return 0
+    runs = ceil(needed / samples)
+    return runs * _CADENCE_DAYS[cadence]
 
 
 def advance(next_run_at: datetime, cadence: str, now: datetime) -> datetime:

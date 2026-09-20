@@ -4,6 +4,20 @@ import { api } from "@/lib/api";
 import { ciText, pct, usd } from "@/lib/format";
 import type { Ops } from "@/lib/types";
 
+
+// The scheduler records terse outcomes; spell them out, above all the
+// budget refusal, which is all-or-nothing and otherwise looks like
+// nothing happened.
+function lastResult(value: string | null): string {
+  if (value == null) return "never run";
+  if (value === "skipped:budget")
+    return "skipped - today's budget would not cover the whole run";
+  if (value === "skipped:no_active_prompts") return "skipped - no active prompts";
+  if (value === "skipped:brand_archived") return "skipped - brand archived";
+  const enqueued = value.match(/^enqueued:(\d+)$/);
+  return enqueued ? `queued ${enqueued[1]} observations` : value;
+}
+
 export default async function OpsPage() {
   const o = await api<Ops>("/ops");
   // Display-only meter, not a statistic: the marker is spend plus the
@@ -69,7 +83,7 @@ export default async function OpsPage() {
               </td>
               <td>{s.status}</td>
               <td>next {s.next_run_at.slice(0, 16).replace("T", " ")}</td>
-              <td className="muted">{s.last_result ?? "never run"}</td>
+              <td className="muted">{lastResult(s.last_result)}</td>
             </tr>
           ))}
         </tbody>

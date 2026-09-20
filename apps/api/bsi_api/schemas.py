@@ -111,4 +111,7 @@ class PromptMetricsOut(BaseModel):
     entities: list[EntityRate]
     top_competitor: EntityRate | None
     spread: float | None
+    # Projections, not measurements: they hold the observed rates fixed.
+    needs_samples: int | None
+    needs_days: int | None
     separated: bool

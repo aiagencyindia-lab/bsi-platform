@@ -1,7 +1,12 @@
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from bsi_core.scheduling import advance, first_run, hour_slot
+from bsi_core.scheduling import (
+    advance,
+    days_to_accumulate,
+    first_run,
+    hour_slot,
+)
 
 
 def at(day: int, hour: int, minute: int = 0) -> datetime:
@@ -51,3 +56,23 @@ def test_hour_slot_truncates_in_utc_not_the_session_zone():
     due = datetime(2026, 9, 20, 8, 30, tzinfo=ist)
     assert hour_slot(due) == datetime(2026, 9, 20, 3, 0, tzinfo=UTC)
     assert hour_slot(at(20, 3, 59)) == at(20, 3)
+
+
+def test_days_to_accumulate_counts_runs_not_calendar_days():
+    # 30 more samples at 3 per daily run = 10 runs = 10 days.
+    assert days_to_accumulate(30, "daily", 3) == 10
+    # The same 10 runs on a slower cadence take proportionally longer.
+    assert days_to_accumulate(30, "every_3_days", 3) == 30
+    assert days_to_accumulate(30, "weekly", 3) == 70
+    # A partial run still costs a whole run.
+    assert days_to_accumulate(31, "daily", 3) == 11
+
+
+def test_days_to_accumulate_is_zero_when_nothing_is_needed():
+    assert days_to_accumulate(0, "daily", 3) == 0
+    assert days_to_accumulate(-5, "daily", 3) == 0
+
+
+def test_days_to_accumulate_refuses_an_unknown_cadence():
+    with pytest.raises(KeyError):
+        days_to_accumulate(30, "hourly", 3)

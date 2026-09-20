@@ -35,6 +35,34 @@ def rate(k: int, n: int) -> dict[str, float | int | None]:
     }
 
 
+def samples_to_separate(
+    k_brand: int, k_rival: int, n: int, cap: int = 1000
+) -> int | None:
+    """Smallest sample size whose Wilson intervals no longer overlap.
+
+    A projection, not a measurement: it assumes the rates observed in
+    `n` hold as more samples arrive. It answers "how many samples would
+    this prompt need before it could tell these two apart", which at
+    small `n` is usually far more than the operator expects.
+
+    Separation is checked in both directions, as `separated` is, so a
+    rival being detectably ahead counts. None when the observed rates
+    are equal (no sample size separates them) or when the answer is
+    past `cap`.
+    """
+    if n <= 0:
+        return None
+    p_brand, p_rival = k_brand / n, k_rival / n
+    if p_brand == p_rival:
+        return None
+    for size in range(n, cap + 1):
+        low_b, high_b = wilson(round(p_brand * size), size)
+        low_r, high_r = wilson(round(p_rival * size), size)
+        if low_b > high_r or high_b < low_r:
+            return size
+    return None
+
+
 @dataclass
 class Filters:
     engine: str | None = None
@@ -188,6 +216,11 @@ def prompt_metrics(
                 "entities": rates,
                 "top_competitor": top,
                 "spread": spread,
+                "needs_samples": (
+                    samples_to_separate(k_brand, k_rivals[top_i], p.n)
+                    if top_i is not None
+                    else None
+                ),
                 "separated": top is not None
                 and (
                     brand["ci_low"] > top["ci_high"]
