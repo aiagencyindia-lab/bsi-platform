@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -414,15 +414,19 @@ def refresh(s: Session, org_id: uuid.UUID, brand_id: uuid.UUID) -> int:
                 where=m.Recommendation.status == "open",
             )
         )
-    keep = {(c.type, c.subject_key) for c in found}
-    # ponytail: loads the brand's open rows to find stale ones; fine for
-    # hundreds, a NOT IN over the keys once there are thousands.
-    for rec in s.scalars(
-        select(m.Recommendation).where(
-            m.Recommendation.brand_id == brand_id,
-            m.Recommendation.status == "open",
+    # One statement, with status = 'open' in its WHERE: if a dismiss or
+    # accept holds the row, Postgres re-checks the condition after the
+    # lock wait and leaves the decided row alone.
+    stale = delete(m.Recommendation).where(
+        m.Recommendation.brand_id == brand_id,
+        m.Recommendation.status == "open",
+    )
+    if found:
+        keep = [(c.type, c.subject_key) for c in found]
+        stale = stale.where(
+            tuple_(m.Recommendation.type, m.Recommendation.subject_key).not_in(
+                keep
+            )
         )
-    ):
-        if (rec.type, rec.subject_key) not in keep:
-            s.delete(rec)
+    s.execute(stale)
     return len(found)

@@ -1,10 +1,13 @@
+import threading
 from types import SimpleNamespace
 
 import pytest
 from bsi_core import models as m
 from bsi_core.db import tenant_session
 from bsi_core.recommend import generate, refresh
-from sqlalchemy import select
+from sqlalchemy import select, update
+
+from tests.integration.test_api_recommendations import _wait_until_blocked
 
 
 def _mention(org, oid, etype, eid):
@@ -248,3 +251,58 @@ def test_refresh_drops_open_rows_the_evidence_no_longer_supports(owner, world):
         refresh(s, world.org.id, world.brand)
         types = {r.type for r in s.scalars(select(m.Recommendation))}
     assert "add_competitor" not in types
+
+
+def test_refresh_with_no_evidence_drops_every_open_row(owner, world):
+    with tenant_session(world.org.id) as s:
+        refresh(s, world.org.id, world.brand)
+        s.execute(
+            update(m.Recommendation)
+            .where(m.Recommendation.type == "sample_more")
+            .values(status="dismissed", dismiss_reason="later")
+        )
+    with owner() as s, s.begin():
+        s.get(m.Competitor, world.puma).status = "active"
+        s.execute(update(m.Prompt).values(status="paused"))
+    with tenant_session(world.org.id) as s:
+        assert refresh(s, world.org.id, world.brand) == 0
+        left = [(r.type, r.status) for r in s.scalars(select(m.Recommendation))]
+    assert left == [("sample_more", "dismissed")]
+
+
+def test_a_dismiss_racing_refresh_survives(owner, world):
+    """refresh finds a stale open row while a dismiss holds its lock. Once
+    the dismiss commits, the delete must re-check the status and leave the
+    decision alone."""
+    with tenant_session(world.org.id) as s:
+        refresh(s, world.org.id, world.brand)
+    with owner() as s, s.begin():
+        s.get(m.Competitor, world.puma).status = "active"  # now stale
+    holder = owner()
+    holder.begin()
+    rec = holder.execute(
+        select(m.Recommendation)
+        .where(m.Recommendation.type == "add_competitor")
+        .with_for_update()
+    ).scalar_one()
+    rec.status, rec.dismiss_reason = "dismissed", "not a rival"
+    holder.flush()
+
+    def run() -> None:
+        with tenant_session(world.org.id) as s:
+            refresh(s, world.org.id, world.brand)
+
+    t = threading.Thread(target=run)
+    t.start()
+    try:
+        assert _wait_until_blocked(holder), "refresh never blocked"
+        assert t.is_alive()
+        holder.commit()
+        t.join(timeout=5)
+        assert not t.is_alive()
+    finally:
+        holder.close()
+    with owner() as s:
+        got = s.get(m.Recommendation, rec.id)
+        assert got is not None, "the dismissed row was deleted"
+        assert (got.status, got.dismiss_reason) == ("dismissed", "not a rival")
