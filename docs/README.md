@@ -61,6 +61,12 @@ In the order they were written:
 | [superpowers/plans/2026-09-20-slice5-operator-dashboard.md](superpowers/plans/2026-09-20-slice5-operator-dashboard.md) | Implementation plan, Tasks 1–9. |
 | [findings-slice5.md](findings-slice5.md) | Results: the searched rate by model/org, which prompts separate the brand from its top rival on "Run 1" and at what n, label count and judge agreement with its interval, and the known gaps. |
 
+## Slice 6: recommendations and tasks
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-21-slice6-recommendations-and-tasks-design.md](superpowers/specs/2026-09-21-slice6-recommendations-and-tasks-design.md) | Design spec: four rule-generated recommendation types with linked evidence, accept/dismiss, tasks, and a measured-impact window that reuses the deltas code. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 
