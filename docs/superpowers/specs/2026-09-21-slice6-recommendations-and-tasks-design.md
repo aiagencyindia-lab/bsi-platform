@@ -45,9 +45,14 @@ suggested competitors await confirmation.
   open rows refresh their evidence and priority; accepted and dismissed rows
   are never resurrected.
 - **Priority = reach × pressure × feasibility**, each part stored and returned
-  so the weights are visible (PRD F12). Reach = share of the brand's active
-  prompts affected (1.0 for `add_competitor`, which changes every rival
-  rate). Pressure = what is at stake, per type: the share of the relevant
+  so the weights are visible (PRD F12). Reach = share of the brand's
+  answers affected, in one unit: the evidence's answers (citation,
+  content) or the prompt's n (sample_more), over the brand's done answers
+  on active prompts; 1.0 for `add_competitor`, which changes every rival
+  rate. *Amended after review:* reach was first counted in prompts, with
+  one prompt per content or sampling rec, so a prompt the brand is absent
+  from could never outrank a citation spanning two prompts and the
+  overview's top three could not surface a content gap. Pressure = what is at stake, per type: the share of the relevant
   answers naming an active rival (citation, content), evidence / 3
   (competitor), or the size of the gap awaiting confirmation, |spread|
   (sample_more - a rival-rate definition would score zero wherever the brand

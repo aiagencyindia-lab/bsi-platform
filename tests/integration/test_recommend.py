@@ -170,11 +170,12 @@ def test_citation_evidence_and_weights(world):
     assert len(c.evidence["observation_ids"]) == 4
     assert c.evidence["prompt_ids"] == [str(world.dominated)]
     assert c.evidence["rivals"] == ["Adidas"]
+    # 4 brand-absent answers of 16 done ones on active prompts.
     assert (c.reach, c.pressure, c.feasibility, c.priority) == (
-        0.2,
+        0.25,
         1.0,
         0.3,
-        0.06,
+        0.075,
     )
 
 
@@ -193,7 +194,7 @@ def test_content_names_the_reason_and_the_rivals(world):
     assert c.evidence["reason"] == "competitor_dominance"
     assert (c.evidence["absent"], c.evidence["n"]) == (4, 4)
     assert "Adidas" in c.body
-    assert c.priority == 0.08
+    assert (c.reach, c.priority) == (0.25, 0.1)  # 4/16 x 1.0 x 0.4
 
 
 def test_competitor_and_sampling_weights(world):
@@ -206,7 +207,12 @@ def test_competitor_and_sampling_weights(world):
     )
     sample = all_[("sample_more", str(world.close))]
     assert (sample.evidence["n"], sample.evidence["needs_samples"]) == (3, 4)
-    assert (sample.pressure, sample.priority) == (1.0, 0.2)
+    # n=3 of 16 answers x |spread| 1.0 x 1.0
+    assert (sample.reach, sample.pressure, sample.priority) == (
+        0.1875,
+        1.0,
+        0.1875,
+    )
 
 
 def test_generate_ranks_by_priority(world):

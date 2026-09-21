@@ -7,7 +7,9 @@ templates are tested for that directly.
 Priority is reach x pressure x feasibility, every part stored beside the
 product so the weighting is visible (PRD F12):
 
-- reach: the share of the brand's active prompts the action touches;
+- reach: the share of the brand's answers the action touches, counted
+  in one unit - done answers on active prompts - so a gap on a single
+  prompt can outrank a thin citation spread over two;
 - pressure: what is at stake there - the share of the relevant answers
   naming a rival, a suggestion's evidence, or the size of a gap waiting
   to be confirmed, depending on the type;
@@ -20,7 +22,7 @@ from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
 
-from sqlalchemy import delete, select, text, tuple_
+from sqlalchemy import delete, func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -174,7 +176,7 @@ def _citations(
     s: Session,
     brand_id: uuid.UUID,
     brand: str,
-    active: int,
+    total: int,
     rival_domains: list[str],
 ) -> list[Candidate]:
     rows = s.execute(
@@ -218,7 +220,7 @@ def _citations(
                     "prompt_ids": sorted(str(p) for p in row.prompts),
                     "rivals": rivals,
                 },
-                len(row.prompts) / active,
+                len(obs) / total,
                 pressure,
             )
         )
@@ -226,7 +228,7 @@ def _citations(
 
 
 def _content(
-    s: Session, brand_id: uuid.UUID, brand: str, active: int
+    s: Session, brand_id: uuid.UUID, brand: str, total: int
 ) -> list[Candidate]:
     rows = s.execute(
         text(
@@ -274,7 +276,7 @@ def _content(
                     "absent": len(absent),
                     "n": len(answers),
                 },
-                1 / active,
+                len(obs) / total,
                 pressure,
             )
         )
@@ -311,7 +313,11 @@ def _competitors(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
 
 
 def _sampling(
-    s: Session, brand_id: uuid.UUID, brand: str, active: set[uuid.UUID]
+    s: Session,
+    brand_id: uuid.UUID,
+    brand: str,
+    active: set[uuid.UUID],
+    total: int,
 ) -> list[Candidate]:
     out = []
     for row in prompt_metrics(s, brand_id, Filters()):
@@ -336,7 +342,7 @@ def _sampling(
                     "n": n,
                     "needs_samples": needs,
                 },
-                1 / len(active),
+                n / total,
                 abs(row["spread"] or 0.0),
             )
         )
@@ -357,13 +363,24 @@ def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
             )
         )
     )
+    # Reach's denominator: every done answer on an active prompt.
+    total = s.scalar(
+        select(func.count())
+        .select_from(m.Observation)
+        .join(m.Prompt, m.Prompt.id == m.Observation.prompt_id)
+        .where(
+            m.Observation.brand_id == brand_id,
+            m.Observation.status == "done",
+            m.Prompt.status == "active",
+        )
+    )
     found = _competitors(s, brand_id)
-    if active:
+    if total:
         rival_domains = _rival_domains(s, brand_id)
         found += [
-            *_citations(s, brand_id, brand, len(active), rival_domains),
-            *_content(s, brand_id, brand, len(active)),
-            *_sampling(s, brand_id, brand, active),
+            *_citations(s, brand_id, brand, total, rival_domains),
+            *_content(s, brand_id, brand, total),
+            *_sampling(s, brand_id, brand, active, total),
         ]
     return sorted(found, key=lambda c: (-c.priority, c.type, c.subject_key))
 
