@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Slice 3: per-organization daily cap on scheduled runs (spec §3).
     daily_budget_usd: float = 2.0
     obs_cost_estimate_micros: int = 50_000
+    # Slice 6: days either side of a task's done_at that impact compares.
+    # Copied onto the task when it is marked done, so changing it never
+    # moves a window that is already open.
+    impact_window_days: int = 14
 
 
 @lru_cache

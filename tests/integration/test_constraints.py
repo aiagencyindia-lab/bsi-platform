@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -220,5 +221,69 @@ def test_rec_label_rejects_an_unknown_label(
                 entity_type="brand",
                 entity_id=bid,
                 label="brilliant",
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    ("name", "values"),
+    [
+        ("ck_recommendation_type", m.REC_TYPES),
+        ("ck_recommendation_status", m.REC_STATES),
+        ("ck_task_status", m.TASK_STATUSES),
+        ("ck_task_impact_label", m.IMPACT_LABELS),
+    ],
+)
+def test_slice6_checks_match_their_constants(owner, db, name, values):
+    # alembic check does not diff CHECK constraints; the migration spells
+    # the lists out, so compare the live database with the constants.
+    with owner() as s:
+        sql = s.execute(
+            text(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                "WHERE conname = :n"
+            ),
+            {"n": name},
+        ).scalar_one()
+    assert set(re.findall(r"'([a-z_]+)'", sql)) == set(values)
+
+
+def test_a_done_task_must_carry_its_window(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    with pytest.raises(IntegrityError), owner() as s, s.begin():
+        s.add(m.Task(org_id=org.id, brand_id=bid, title="t", status="done"))
+
+
+def test_one_recommendation_becomes_at_most_one_task(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    with owner() as s, s.begin():
+        rec = m.Recommendation(
+            org_id=org.id,
+            brand_id=bid,
+            type="sample_more",
+            subject_key="k",
+            title="t",
+            body="b",
+            reach=0.1,
+            pressure=0.1,
+            feasibility=1.0,
+            priority=0.01,
+        )
+        s.add(rec)
+        s.flush()
+        rid = rec.id
+        s.add(
+            m.Task(
+                org_id=org.id, brand_id=bid, recommendation_id=rid, title="a"
+            )
+        )
+    with pytest.raises(IntegrityError), owner() as s, s.begin():
+        s.add(
+            m.Task(
+                org_id=org.id, brand_id=bid, recommendation_id=rid, title="b"
             )
         )
