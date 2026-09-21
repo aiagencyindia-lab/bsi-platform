@@ -14,7 +14,12 @@ const IMPACT: Record<string, [string, string]> = {
 type Impact = {
   before: Rate;
   after: Rate;
-  delta: { value: number | null } | null;
+  delta: {
+    value: number | null;
+    ci_low: number;
+    ci_high: number;
+    label: string;
+  } | null;
   reason: string | null;
 };
 
@@ -104,7 +109,8 @@ function Outcome({ t }: { t: Task }) {
     <div>
       <p className={tone}>
         <strong>{label}</strong>
-        {i?.delta?.value != null && ` (${pts(i.delta.value)})`}
+        {i?.delta?.value != null &&
+          ` (${pts(i.delta.value)}, 95% interval ${pts(i.delta.ci_low)} to ${pts(i.delta.ci_high)})`}
       </p>
       {i && (
         <p className="muted">

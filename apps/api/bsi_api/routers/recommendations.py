@@ -29,6 +29,9 @@ def _listed(c: Ctx, brand_id: uuid.UUID, status: str) -> list[m.Recommendation]:
             )
             .order_by(
                 m.Recommendation.priority.desc(),
+                # generate()'s tie order, so the page matches it.
+                m.Recommendation.type,
+                m.Recommendation.subject_key,
                 m.Recommendation.created_at,
                 m.Recommendation.id,
             )

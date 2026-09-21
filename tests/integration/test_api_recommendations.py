@@ -215,3 +215,27 @@ def test_concurrent_accept_returns_409_not_500(client, owner, scene):
 
     response = result["response"]
     assert response.status_code == 409, response.text
+
+
+def test_tied_recommendations_list_in_generate_order(client, owner, scene):
+    org, bid = scene
+    with owner() as s, s.begin():
+        # Ids opposite to subject_key order, so id order cannot pass this.
+        for key, n in (("b.com", 1), ("a.com", 2)):
+            s.add(
+                m.Recommendation(
+                    id=uuid.UUID(int=n),
+                    org_id=org.id,
+                    brand_id=bid,
+                    type="pursue_citation_source",
+                    subject_key=key,
+                    title=key,
+                    body="b",
+                    reach=0.5,
+                    pressure=0.5,
+                    feasibility=0.4,
+                    priority=0.1,
+                )
+            )
+    got = client.get(f"/v1/brands/{bid}/recommendations", headers=org.headers)
+    assert [r["subject_key"] for r in got.json()] == ["a.com", "b.com"]
