@@ -1,5 +1,10 @@
+import threading
+import time
+import uuid
+
 import pytest
 from bsi_core import models as m
+from sqlalchemy import select, text
 
 
 @pytest.fixture
@@ -132,3 +137,75 @@ def test_task_status_rules(client, scene):
     assert patch({"owner": None}).json()["owner"] is None
     listed = client.get(f"/v1/brands/{bid}/tasks", headers=org.headers)
     assert [t["id"] for t in listed.json()] == [task["id"]]
+
+
+def _wait_until_blocked(holder, deadline=5.0):
+    """Poll pg_stat_activity for some *other* backend waiting on a lock,
+    so the test cannot pass just because the request happened to arrive
+    late. Postgres reports a row-lock wait via wait_event_type='Lock'
+    (wait_event='transactionid'); the query text it shows alongside a
+    blocked backend is not reliable (it can lag behind the statement
+    actually stuck), so filter on the wait state, not the query text.
+    """
+    my_pid = holder.execute(text("SELECT pg_backend_pid()")).scalar()
+    end = time.monotonic() + deadline
+    while time.monotonic() < end:
+        waiting = holder.execute(
+            text(
+                "SELECT count(*) FROM pg_stat_activity "
+                "WHERE wait_event_type = 'Lock' AND pid != :pid"
+            ),
+            {"pid": my_pid},
+        ).scalar()
+        if waiting:
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_concurrent_accept_returns_409_not_500(client, owner, scene):
+    """Two overlapping accepts on the same recommendation: the second
+    must see 'accepted' and 409, never race a raw IntegrityError into a
+    500 (and never both succeed)."""
+    org, bid = scene
+    rec = generate(client, org, bid).json()[0]
+    rec_id = uuid.UUID(rec["id"])
+    url = f"/v1/brands/{bid}/recommendations/{rec['id']}/accept"
+
+    # Hold a row lock on the recommendation from a separate transaction,
+    # standing in for a first request that has read the row and not yet
+    # committed.
+    holder = owner()
+    holder.begin()
+    locked = holder.execute(
+        select(m.Recommendation)
+        .where(m.Recommendation.id == rec_id)
+        .with_for_update()
+    ).scalar_one()
+
+    result: dict[str, object] = {}
+
+    def call_accept() -> None:
+        result["response"] = client.post(url, headers=org.headers)
+
+    t = threading.Thread(target=call_accept)
+    t.start()
+    try:
+        assert _wait_until_blocked(holder), (
+            "accept request never blocked on the row lock; the test "
+            "would pass regardless of whether _open locks the row"
+        )
+        assert t.is_alive()  # still waiting, not raced ahead
+
+        # Simulate the first accept finishing: flip status, commit, which
+        # releases the lock the second request is waiting on.
+        locked.status = "accepted"
+        holder.commit()
+
+        t.join(timeout=5)
+        assert not t.is_alive()
+    finally:
+        holder.close()
+
+    response = result["response"]
+    assert response.status_code == 409, response.text

@@ -33,7 +33,13 @@ def _listed(c: Ctx, brand_id: uuid.UUID, status: str) -> list[m.Recommendation]:
 
 
 def _open(c: Ctx, brand_id: uuid.UUID, rec_id: uuid.UUID) -> m.Recommendation:
+    # child_or_404 first, so a foreign id still 404s rather than blocking
+    # on a lock for a row RLS would hide anyway. Then lock and re-read: a
+    # racing accept/dismiss on the same row waits here, and under READ
+    # COMMITTED sees the committed status once the lock is released, so
+    # only one of two concurrent requests gets past this check.
     rec: m.Recommendation = child_or_404(c, m.Recommendation, brand_id, rec_id)
+    c.s.refresh(rec, with_for_update=True)
     if rec.status != "open":
         raise Problem(409, "Recommendation is not open", f"It is {rec.status}.")
     return rec
