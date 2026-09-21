@@ -7,6 +7,7 @@ from bsi_core.providers.base import EngineResult, ParsedAnswer
 from bsi_core.scheduling import run_schedule
 from bsi_core.storage import LocalRawStore
 from bsi_workers.worker import (
+    close_due_impact_windows,
     process_one,
     reset_stale,
     run_due_schedules,
@@ -581,3 +582,56 @@ def test_tick_prefers_a_job_over_a_queued_observation(
     assert seen == [bid]
     assert _load_job(owner, job_id).status == "done"
     assert load(owner, obs_id).status == "queued"
+
+
+def _due_and_not_due(owner, org, bid):
+    now = datetime.now(UTC)
+    with owner() as s, s.begin():
+        for title, ago in (("due", 15), ("open window", 1)):
+            s.add(
+                m.Task(
+                    org_id=org.id,
+                    brand_id=bid,
+                    title=title,
+                    status="done",
+                    done_at=now - timedelta(days=ago),
+                    window_days=14,
+                )
+            )
+
+
+def test_close_due_impact_windows_serves_every_tenant(
+    owner, make_org, make_brand
+):
+    for name in ("A", "B"):
+        org = make_org(name)
+        _due_and_not_due(owner, org, make_brand(org))
+    assert close_due_impact_windows() == 2
+    with owner() as s:
+        rows = s.scalars(select(m.Task).order_by(m.Task.title)).all()
+    # No observations anywhere, so each measured task honestly reports it.
+    assert [(t.title, t.impact_label) for t in rows] == [
+        ("due", "insufficient_data"),
+        ("due", "insufficient_data"),
+        ("open window", None),
+        ("open window", None),
+    ]
+
+
+def test_one_failing_impact_window_does_not_block_the_rest(
+    monkeypatch, owner, make_org, make_brand
+):
+    for name in ("A", "B"):
+        org = make_org(name)
+        _due_and_not_due(owner, org, make_brand(org))
+    real, calls = worker.close_window, []
+
+    def flaky(org_id, task_id):
+        calls.append(task_id)
+        if len(calls) == 1:
+            raise RuntimeError("boom")
+        return real(org_id, task_id)
+
+    monkeypatch.setattr(worker, "close_window", flaky)
+    assert close_due_impact_windows() == 1
+    assert len(calls) == 2

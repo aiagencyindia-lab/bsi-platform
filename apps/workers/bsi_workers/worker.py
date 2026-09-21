@@ -11,6 +11,7 @@ from bsi_core import models as m
 from bsi_core.config import get_settings
 from bsi_core.db import system_session, tenant_session
 from bsi_core.extraction import Extractor
+from bsi_core.impact import close_window
 from bsi_core.judge import JUDGE_PRICES, JUDGES, generate
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
@@ -80,6 +81,26 @@ def run_due_schedules() -> int:
         except Exception:
             log.exception("schedule %s failed", schedule_id)
     return ran
+
+
+def close_due_impact_windows() -> int:
+    """Measure every task whose window has closed; returns how many.
+
+    One task's failure never stops the others, as with schedules.
+    """
+    with system_session() as s:
+        due = s.execute(
+            text("SELECT task_id, org_id FROM due_impact_windows()")
+        ).all()
+    closed = 0
+    for task_id, org_id in due:
+        try:
+            label = close_window(org_id, task_id)
+            log.info("task %s impact: %s", task_id, label)
+            closed += label is not None
+        except Exception:
+            log.exception("task %s impact failed", task_id)
+    return closed
 
 
 def _record_failure(
@@ -313,6 +334,10 @@ def main() -> None:
                 log.info("ran %d due schedules", run_due_schedules())
             except Exception:
                 log.exception("run_due_schedules failed")
+            try:
+                log.info("closed %d impact windows", close_due_impact_windows())
+            except Exception:
+                log.exception("close_due_impact_windows failed")
             last_schedule_check = time.monotonic()
         if not tick(adapter, store, extractor):
             time.sleep(1)
