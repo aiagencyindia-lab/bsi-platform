@@ -40,24 +40,35 @@ rules rather than about the table's current decision state.
 
 (`Counter(x['type'] for x in generate_response)` against the empty table.)
 
-Top three by priority (reach x pressure x feasibility), taken in the order
-the API itself returns them (already sorted by priority descending):
+Highest priority (reach x pressure x feasibility):
 
-1. `pursue_citation_source` **youtube.com** -- reach 0.65, pressure
-   0.9655172413793104, feasibility 0.3, priority **0.1883**
-2. `pursue_citation_source` **zappos.com** -- reach 0.35, pressure 1.0,
-   feasibility 0.3, priority **0.105**
-3. `pursue_citation_source` **adidas.com** -- reach 0.35, pressure 1.0,
-   feasibility 0.3, priority **0.105**
+`pursue_citation_source` **youtube.com** -- reach 0.65, pressure
+0.9655172413793104, feasibility 0.3, priority **0.1883**. youtube.com is
+well clear of everything else and is the clear #1.
 
-youtube.com is well clear of everything else. zappos.com, adidas.com and
-wearetto.com are an exact three-way tie at 0.105 (same reach, pressure and
-feasibility); the API's stable sort places them in that order. adidas.com
-sitting at #3 is the same rival-looking domain the citation fix's own
-worked example names as expected residue (§2) — it is not a defect that it
-appears here, but it is notable that undeclared-rival-domain residue can
-reach the very top of the ranked list, not just linger somewhere in the
-middle.
+Immediately behind it, **adidas.com, wearetto.com and zappos.com tie
+exactly at priority 0.105** (all three: reach 0.35, pressure 1.0,
+feasibility 0.3). Their order relative to each other carries no meaning —
+it is a three-way tie, not a #2/#3/#4. Two different places in the code
+would break the tie two different ways if asked to: `generate()` itself
+orders candidates by `(type, subject_key)`, i.e. alphabetically
+(adidas.com, wearetto.com, zappos.com); the list endpoint that drives the
+Recommendations page (`_listed` in
+`apps/api/bsi_api/routers/recommendations.py`) orders by
+`priority desc, created_at, id`, and every row from one `generate()` call
+shares a `created_at`, so among tied rows the page falls back to
+essentially random UUID order. Neither is "the" ranking — an operator
+should read the page's ordering among tied priorities as arbitrary, not as
+a further-refined judgment. This is a real, visible property: a page
+reload after a fresh regeneration can shuffle which of several equally-
+important recommendations appears immediately under the top one.
+
+adidas.com being in this tied group at all is the same rival-looking
+domain the citation fix's own worked example names as expected residue
+(§2) — it is not a defect that it appears here, but it is notable that
+undeclared-rival-domain residue can reach the very top of the ranked list,
+tied with the highest non-youtube priority, not just linger somewhere in
+the middle.
 
 Three highest-cited citation domains: **youtube.com** (29 brand-absent
 answers), **forbes.com** (22), **starkidz.co.in** (18).
@@ -108,8 +119,10 @@ declared, never a name-based guess at corporate ownership. **The residue is
 real, expected, and now visible at the very top of the list (§1)**:
 `adidas.com` is cited in **13** brand-absent answers — the same count as
 zappos.com and facebook.com — and is declared as active only under
-`adidas.co.in`, so `adidas.com` passes the filter untouched and lands at
-priority 0.105, tied for #2/#3 overall. `skechers.com` (6 citing answers)
+`adidas.co.in`, so `adidas.com` passes the filter untouched and lands at priority 0.105,
+tied with wearetto.com and zappos.com for the highest priority after
+youtube.com (§1) — a meaningless tie order, but a meaningful priority.
+`skechers.com` (6 citing answers)
 and `skechers.com.au` (3) are the same story: Skechers is declared active
 with only `skechers.in`. The rule cannot know adidas.com or skechers.com is
 the same company without being told — correctly, per the ruling, since
