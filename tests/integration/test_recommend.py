@@ -23,8 +23,10 @@ def _mention(org, oid, etype, eid):
 def world(owner, make_org, make_brand, make_observation):
     """Five active prompts, each built so exactly one rule fires or not.
 
-    dominated  brand 0/4, Adidas 4/4, forbes.com cited in all four
-               -> create_content, pursue_citation_source (forbes.com);
+    dominated  brand 0/4, Adidas 4/4, forbes.com and adidas.co.in (a
+               declared Adidas domain) cited in all four -> create_content,
+               pursue_citation_source (forbes.com only: adidas.co.in is a
+               rival's own domain and must not be recommended);
                   separated at n=4, so no sample_more
     present    brand 3/4, blog.com cited in all four -> nothing: absent
                only once; blog.com cited in one brand-absent answer;
@@ -39,7 +41,12 @@ def world(owner, make_org, make_brand, make_observation):
     org = make_org()
     bid = make_brand(org, "Nike")
     with owner() as s, s.begin():
-        adidas = m.Competitor(org_id=org.id, brand_id=bid, name="Adidas")
+        adidas = m.Competitor(
+            org_id=org.id,
+            brand_id=bid,
+            name="Adidas",
+            domains=["adidas.co.in"],
+        )
         puma = m.Competitor(
             org_id=org.id,
             brand_id=bid,
@@ -103,7 +110,12 @@ def world(owner, make_org, make_brand, make_observation):
                     )
         return pid
 
-    lost = (False, True, "competitor_dominance", [("forbes.com", False)])
+    lost = (
+        False,
+        True,
+        "competitor_dominance",
+        [("forbes.com", False), ("adidas.co.in", False)],
+    )
     ids.dominated = prompt("dominated", [lost] * 4)
     blog = [("blog.com", False)]
     ids.present = prompt(
@@ -161,6 +173,16 @@ def test_citation_evidence_and_weights(world):
         0.3,
         0.06,
     )
+
+
+def test_citation_rule_skips_a_rivals_declared_domain(world):
+    # adidas.co.in is cited exactly as often as forbes.com (four
+    # brand-absent "dominated" answers) but is declared on the active
+    # Adidas competitor, so it must never be recommended - while
+    # forbes.com, an unrelated domain with the same count, still is.
+    all_ = found(world)
+    assert ("pursue_citation_source", "adidas.co.in") not in all_
+    assert ("pursue_citation_source", "forbes.com") in all_
 
 
 def test_content_names_the_reason_and_the_rivals(world):

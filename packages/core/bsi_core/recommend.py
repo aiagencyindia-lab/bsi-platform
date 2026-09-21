@@ -25,6 +25,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from . import models as m
+from .matching import is_owned
 from .metrics import Filters, prompt_metrics
 from .suggest import ANSWERS
 
@@ -154,8 +155,27 @@ def _rivals(s: Session, obs: list[uuid.UUID]) -> tuple[list[str], float]:
     return [r[0] for r in rows], (named or 0) / len(obs)
 
 
+def _rival_domains(s: Session, brand_id: uuid.UUID) -> list[str]:
+    """Domains declared on the brand's active competitors.
+
+    Suggested (unconfirmed) competitors are excluded, same as everywhere
+    else in the platform.
+    """
+    rows = s.scalars(
+        select(m.Competitor.domains).where(
+            m.Competitor.brand_id == brand_id,
+            m.Competitor.status == "active",
+        )
+    ).all()
+    return [d for domains in rows for d in domains]
+
+
 def _citations(
-    s: Session, brand_id: uuid.UUID, brand: str, active: int
+    s: Session,
+    brand_id: uuid.UUID,
+    brand: str,
+    active: int,
+    rival_domains: list[str],
 ) -> list[Candidate]:
     rows = s.execute(
         text(
@@ -176,6 +196,13 @@ def _citations(
     ).all()
     out = []
     for row in rows:
+        # Only catches domains a rival has declared: adidas.com stays
+        # invisible to this check until someone adds it to that
+        # competitor's domains. Not guessed from the rival's name - a
+        # false match would hide a real publisher, which is worse than
+        # a visible miss the operator can correct.
+        if is_owned(row.domain, rival_domains):
+            continue
         obs = sorted(row.obs, key=str)
         rivals, pressure = _rivals(s, obs)
         title, body = citation_copy(brand, row.domain, len(obs), rivals)
@@ -332,8 +359,9 @@ def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
     )
     found = _competitors(s, brand_id)
     if active:
+        rival_domains = _rival_domains(s, brand_id)
         found += [
-            *_citations(s, brand_id, brand, len(active)),
+            *_citations(s, brand_id, brand, len(active), rival_domains),
             *_content(s, brand_id, brand, len(active)),
             *_sampling(s, brand_id, brand, active),
         ]
