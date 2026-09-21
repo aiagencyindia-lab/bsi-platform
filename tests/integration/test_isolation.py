@@ -57,6 +57,27 @@ def other(owner, make_org, make_brand, make_observation):
     with owner() as s:
         obs = s.get(m.Observation, oid)
         pid, jid = obs.prompt_id, obs.job_id
+    with owner() as s, s.begin():
+        rec = m.Recommendation(
+            org_id=b.id,
+            brand_id=bid,
+            type="sample_more",
+            subject_key="k",
+            title="Secret",
+            body="Secret",
+            reach=0.1,
+            pressure=0.1,
+            feasibility=1.0,
+            priority=0.01,
+        )
+        s.add(rec)
+        s.flush()
+        task = m.Task(
+            org_id=b.id, brand_id=bid, recommendation_id=rec.id, title="Secret"
+        )
+        s.add(task)
+        s.flush()
+        rid, tid = rec.id, task.id
     return {
         "b": bid,
         "c": cid,
@@ -66,6 +87,8 @@ def other(owner, make_org, make_brand, make_observation):
         "j": jid,
         "j2": j2,
         "e": bid,
+        "r": rid,
+        "t": tid,
     }
 
 
@@ -105,6 +128,12 @@ CASES = [
     ("GET", "/v1/brands/{b}/prompts/metrics", None),
     ("GET", "/v1/brands/{b}/labels/next", None),
     ("PUT", "/v1/observations/{o}/labels/{e}", {"label": "listed"}),
+    ("POST", "/v1/brands/{b}/recommendations/generate", None),
+    ("GET", "/v1/brands/{b}/recommendations", None),
+    ("POST", "/v1/brands/{b}/recommendations/{r}/accept", None),
+    ("POST", "/v1/brands/{b}/recommendations/{r}/dismiss", {"reason": "x"}),
+    ("GET", "/v1/brands/{b}/tasks", None),
+    ("PATCH", "/v1/brands/{b}/tasks/{t}", {"notes": "x"}),
 ]
 
 
