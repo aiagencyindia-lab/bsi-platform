@@ -13,3 +13,5 @@ export type Competitor = S["CompetitorOut"];
 export type Ops = S["OpsOut"];
 export type LabelQueue = S["LabelQueue"];
 export type LabelResult = S["LabelResult"];
+export type Recommendation = S["RecommendationOut"];
+export type Task = S["TaskOut"];
