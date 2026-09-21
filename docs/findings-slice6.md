@@ -40,66 +40,67 @@ rules rather than about the table's current decision state.
 
 (`Counter(x['type'] for x in generate_response)` against the empty table.)
 
-Highest priority (reach x pressure x feasibility):
+**Re-measured after the reach change (final review, I1).** Reach was first
+counted in prompts for citations (prompts touched / 20 active) but as one
+prompt for content and sampling (1/20), so the three types were not in one
+unit. It is now counted in answers for every type except `add_competitor`:
+the evidence's answers (citation, content) or the prompt's n (sample_more)
+over the brand's done answers on active prompts - 80 on "Run 1". The rules
+that fire did not change, so the counts above are the same; every priority
+did. Measured from an empty `recommendation` table (0 rows confirmed before
+generating), `POST .../generate` then `GET .../recommendations`, which
+returned the same list in the same order.
 
-`pursue_citation_source` **youtube.com** -- reach 0.65, pressure
-0.9655172413793104, feasibility 0.3, priority **0.1883**. youtube.com is
-well clear of everything else and is the clear #1.
+Top of the list (list endpoint order):
 
-Immediately behind it, **adidas.com, wearetto.com and zappos.com tie
-exactly at priority 0.105** (all three: reach 0.35, pressure 1.0,
-feasibility 0.3). Their order relative to each other carries no meaning —
-it is a three-way tie, not a #2/#3/#4. Two different places in the code
-would break the tie two different ways if asked to: `generate()` itself
-orders candidates by `(type, subject_key)`, i.e. alphabetically
-(adidas.com, wearetto.com, zappos.com); the list endpoint that drives the
-Recommendations page (`_listed` in
-`apps/api/bsi_api/routers/recommendations.py`) orders by
-`priority desc, created_at, id`, and every row from one `generate()` call
-shares a `created_at`, so among tied rows the page falls back to
-essentially random UUID order. Neither is "the" ranking — an operator
-should read the page's ordering among tied priorities as arbitrary, not as
-a further-refined judgment. This is a real, visible property: a page
-reload after a fresh regeneration can shuffle which of several equally-
-important recommendations appears immediately under the top one.
+| # | Type | Subject | Reach | Pressure | Feasibility | Priority |
+|---|---|---|---|---|---|---|
+| 1 | citation | youtube.com | 0.3625 (29/80) | 0.9655 | 0.3 | **0.105** |
+| 2 | citation | starkidz.co.in | 0.225 (18/80) | 1.0 | 0.3 | **0.0675** |
+| 3 | citation | forbes.com | 0.275 (22/80) | 0.7727 | 0.3 | **0.0638** |
+| 4 | citation | wearetto.com | 0.2125 (17/80) | 1.0 | 0.3 | **0.0638** |
 
-adidas.com being in this tied group at all is the same rival-looking
-domain the citation fix's own worked example names as expected residue
-(§2) — it is not a defect that it appears here, but it is notable that
-undeclared-rival-domain residue can reach the very top of the ranked list,
-tied with the highest non-youtube priority, not just linger somewhere in
-the middle.
+forbes.com and wearetto.com tie at 0.0638, exactly at the overview's
+top-three boundary. Ties now list in `generate()`'s order, `(type,
+subject_key)`, so forbes.com is third every time; before the review's
+tie-order fix the list endpoint broke ties by UUID, and which of the two
+the overview showed was arbitrary (fixed per stored row, since the upsert
+keeps each row's id - a reload did not reshuffle it, but nothing about the
+choice was meaningful). Behind them adidas.com, facebook.com, myntra.com,
+walkaroo.in and zappos.com tie at 0.0488 (13 answers each).
+
+**The reach change does not surface a content gap on this data.** The
+highest `create_content` recommendation ("best sports shoes for girls aged
+8 to 12", brand absent from 4 of 4 answers) has reach 4/80 = 0.05,
+pressure 1.0, feasibility 0.4, priority **0.02**, and ranks **29th of 97**
+(`create_content` ranks: 29-41, 50, 51, 75, 86, 94). 21 citation sources
+and 7 `sample_more` recommendations sit above it. The reason is structural,
+not a weight: "Run 1" samples every prompt 4 times, so a content gap can
+never cover more than 4 answers, while a citation source pools answers
+across prompts. With pressure 1.0 on both, a citation outranks the best
+content gap once it is cited in 6 or more brand-absent answers (0.3 x k/80
+> 0.4 x 4/80 when k > 5.33). One unit made the types comparable; it did
+not make a single prompt as wide as a domain cited across many. Before the
+change the content reach was 1/20 = 0.05 too - the same number, because 4
+samples per prompt over 80 answers is 1/20 - while citation reach fell
+(youtube.com from 0.65 to 0.3625), so the gap narrowed but did not close.
+Whether a content gap should outrank a wide citation is a weighting
+decision; it has not been tuned here to make the list look better.
 
 Three highest-cited citation domains: **youtube.com** (29 brand-absent
 answers), **forbes.com** (22), **starkidz.co.in** (18).
 (`len(x['evidence']['observation_ids'])` per citation candidate, sorted
 descending.)
 
-Does the ranking read as sensible? Partly. Citation sources dominate the top
-of the list because pressure is defined as "share of answers naming an
-active rival," which citation rows can hit at or near 1.0 easily (a domain
-cited mostly or only in brand-absent answers that happen to name a rival),
-while `create_content`'s pressure is capped by how many of the prompt's own
-answers are absent. A citation source cited in as few as 3 answers
-(`MIN_CITING_ANSWERS`) can outrank a `create_content` fix for a prompt where
-the brand is absent from every single answer, because reach is defined
-per-type and not comparably: a citation's reach is the fraction of active
-*prompts* its citing answers touch (0.35-0.65 here), while one prompt's
-reach is 1/20 = 0.05 regardless of how badly that prompt is failing. That is
-an artifact of the priority formula, not obviously wrong on its own terms
-(citation problems genuinely span more prompts; content problems are
-concentrated but severe) but worth flagging before an operator trusts the
-ranking blindly. The corrected top three doesn't change this conclusion —
-if anything it sharpens it: youtube.com's 0.65 reach (the widest of any
-citation domain measured here) pushes it further ahead of every
-`create_content` candidate than the first (incomplete) measurement showed.
-
 "Slice4 check" produced **9 `add_competitor`** recommendations and nothing
 else (no citation/content/sampling data exists for that org). All 9 sit at
 priority 0.6-0.9, because `add_competitor`'s reach is fixed at 1.0 (PRD: it
 changes every rival rate) and feasibility is the highest of the four types
-(0.9): confirming a competitor is cheap and touches everything, so it will
-tend to sit at the top of any list that has one. See §7.
+(0.9). That figure is from the first measurement: the reach change does not
+touch `add_competitor`, whose reach stays 1.0, so it holds by construction.
+With every other reach now a share of answers, a confirmation outranks any
+other recommendation on "Run 1" by a factor of 6 or more. Keeping 1.0 is
+**the user's call**, flagged rather than changed. See §7.
 
 ## 2. The citation rule's rival-domain fix, and its honest residue
 
@@ -119,9 +120,9 @@ declared, never a name-based guess at corporate ownership. **The residue is
 real, expected, and now visible at the very top of the list (§1)**:
 `adidas.com` is cited in **13** brand-absent answers — the same count as
 zappos.com and facebook.com — and is declared as active only under
-`adidas.co.in`, so `adidas.com` passes the filter untouched and lands at priority 0.105,
-tied with wearetto.com and zappos.com for the highest priority after
-youtube.com (§1) — a meaningless tie order, but a meaningful priority.
+`adidas.co.in`, so `adidas.com` passes the filter untouched and lands at
+priority 0.0488, fifth on the list, tied with facebook.com, myntra.com,
+walkaroo.in and zappos.com (§1).
 `skechers.com` (6 citing answers)
 and `skechers.com.au` (3) are the same story: Skechers is declared active
 with only `skechers.in`. The rule cannot know adidas.com or skechers.com is
@@ -225,6 +226,16 @@ waits for the first transaction to commit and then sees the now-`accepted`
 or `dismissed` status; a new deterministic integration test drives two
 overlapping requests and asserts the loser gets `409`, not `500`.
 
+The final review found a second race of the same family: `generate`
+deleted stale open recommendations one by one by id after an unlocked
+read, so a dismiss that committed in between was deleted anyway (the
+user's decision and reason lost, and later evidence could bring the row
+back as open), and a racing accept made `generate` 500 on the task's
+foreign key. It is now one `DELETE` with `status = 'open'` in its WHERE,
+which Postgres re-checks after the lock wait; a deterministic test holds
+the row locked mid-dismiss and asserts it survives, dismissed, reason
+intact.
+
 ## 7. Known gaps
 
 Carried from the design's explicit out-of-scope list, plus what this run
@@ -249,11 +260,14 @@ surfaced:
 7. **No snooze.** A recommendation is only `open`, `accepted`, or
    `dismissed` -- there's no way to defer one without dismissing it outright
    (which requires a reason and is meant to be closer to "no").
-8. **`add_competitor`'s fixed reach of 1.0 will tend to put confirmations at
-   the top** whenever any exist, as shown directly in §1: all 9 on "Slice4
-   check" landed at 0.6-0.9, well above anything a citation or content rule
-   produced on "Run 1". This is a property of the priority formula, not a
-   bug, but it means an operator with both suggested competitors and
-   citation/content gaps open at once will see competitor confirmations
-   crowd the top regardless of how urgent the actual content or citation
-   gaps are.
+8. **`add_competitor`'s fixed reach of 1.0 will put confirmations at the
+   top** whenever any exist: all 9 on "Slice4 check" landed at 0.6-0.9,
+   against 0.105 for the best recommendation on "Run 1" (§1). Now that
+   every other reach is a share of answers, 1.0 is not in the same unit as
+   anything else. Whether to keep it is **the user's call**; it was
+   flagged, not changed.
+9. **Confirming a competitor and taking samples have no measured impact.**
+   Mention rate is the only impact metric and neither can move it, so their
+   tasks are stamped `measures_impact = false` at accept and get no impact
+   window; the tasks page says so. Measuring them (share of voice, whether
+   the prompt separates) is a later slice.
