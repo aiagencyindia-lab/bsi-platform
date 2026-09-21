@@ -66,6 +66,7 @@ In the order they were written:
 | Document | What it is |
 |---|---|
 | [superpowers/specs/2026-09-21-slice6-recommendations-and-tasks-design.md](superpowers/specs/2026-09-21-slice6-recommendations-and-tasks-design.md) | Design spec: four rule-generated recommendation types with linked evidence, accept/dismiss, tasks, and a measured-impact window that reuses the deltas code. |
+| [superpowers/plans/2026-09-21-slice6-recommendations-and-tasks.md](superpowers/plans/2026-09-21-slice6-recommendations-and-tasks.md) | Implementation plan, Tasks 1–6. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

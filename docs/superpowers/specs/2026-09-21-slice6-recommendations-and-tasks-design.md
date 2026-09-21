@@ -22,9 +22,9 @@ rules read observations ─> recommendation (evidence linked)
    ├─ dismiss (reason required)
    └─ accept ─> task: open → in_progress → done
                             done opens a window on the affected prompts
-                            worker tick closes it after window_days
-                            └─> impact: improved | no significant change |
-                                         declined | insufficient data
+                            the worker closes it after window_days
+                            └─> impact: improved | no_change | declined |
+                                        insufficient_data | not_comparable
 ```
 
 ## Rules — `packages/core/bsi_core/recommend.py` (new; SQL + templates)
@@ -46,8 +46,13 @@ suggested competitors await confirmation.
   are never resurrected.
 - **Priority = reach × pressure × feasibility**, each part stored and returned
   so the weights are visible (PRD F12). Reach = share of the brand's active
-  prompts affected; pressure = rival mention rate on those prompts;
-  feasibility = a per-type constant in one dict. Computed in `bsi_core` only.
+  prompts affected (1.0 for `add_competitor`, which changes every rival
+  rate). Pressure = what is at stake, per type: the share of the relevant
+  answers naming an active rival (citation, content), evidence / 3
+  (competitor), or the size of the gap awaiting confirmation, |spread|
+  (sample_more - a rival-rate definition would score zero wherever the brand
+  is winning). Feasibility = a per-type constant in one dict. Computed in
+  `bsi_core` only.
 - Templates never promise an outcome. A unit test scans every template's
   output for forbidden words (guarantee, will rank, ensure, boost…).
 
@@ -60,7 +65,9 @@ suggested competitors await confirmation.
 - `metrics.prompt_metrics` / `samples_to_separate` → the `sample_more` rule.
 - `scheduling.due_schedules()` + `worker.run_due_schedules` → the pattern for
   `due_impact_windows()` (SECURITY DEFINER, `system_session`) and a
-  `close_impact_windows()` step in `tick()`. `tick()` must still never raise.
+  `close_due_impact_windows()` call in `main()`'s 60-second loop beside
+  `run_due_schedules()`, one window per `try` so one failure never blocks
+  the rest.
 - `schemas.py` for response models; `deps.child_or_404`; RFC 9457 `Problem`.
 - Frontend: `api()`, `format.ts`, `Tile`/`CiBar`, server actions as in the
   label page (no client components), evidence links into existing `/o/{id}`.
@@ -75,7 +82,11 @@ suggested competitors await confirmation.
 - `task`: brand_id, recommendation_id (nullable FK), title, owner (free text —
   no users exist), due_date, status
   (`open|in_progress|done|impact_measured`), notes, prompt_ids (uuid[]),
-  done_at, window_days, impact_label, impact JSONB (the deltas payload).
+  done_at, window_days, impact_label, impact JSONB (the before/after mention
+  rates and the delta). Impact labels: improved | no_change | declined |
+  insufficient_data | not_comparable - the last because `brand_deltas`
+  refuses to compare windows with mixed pipeline versions, and that refusal
+  must not be reported as a shortage of data.
 - Both tenant tables: `org_id`, ENABLE + FORCE RLS, `tenant` policy, grant to
   `bsi_app`, exactly as `0008`. Both added to `TENANT_TABLES` in
   `tests/integration/test_rls.py` and every id-bearing route to `CASES` in
@@ -125,6 +136,8 @@ attachments; the board view; snooze.
   rows for both tables; `tick()` survives a failing window close.
 - Live on the dev DB ("Run 1"): generate → expect a forbes.com citation rec,
   `create_content` recs for competitor-dominated prompts, `sample_more` for
-  the n=4 prompts needing 7; accept one → task → mark done with
-  `window_days` shortened → run the worker tick → impact label appears
+  the n=4 prompts needing 7; `add_competitor` can only be seen on the
+  "Slice4 check" org, since "Run 1" has no suggested competitors; accept one → task → mark done →
+  backdate `done_at` owner-side, as the tests do → run the worker's
+  `close_due_impact_windows()` → impact label appears
   (likely "insufficient data", which is itself the correct honest output).
