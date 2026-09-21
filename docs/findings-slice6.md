@@ -10,44 +10,78 @@ both orgs, the same way `tests/conftest.py`'s `make_org` does. Every
 recommendation and task row this task created was deleted afterward; nothing
 else was touched.
 
+**Correction (2026-09-21, after review):** the numbers below were first
+measured with the `recommendation` table not fully empty — an earlier
+verification pass had already **accepted** the citation recommendation for
+youtube.com and a `sample_more` recommendation, and **dismissed** the
+citation recommendation for adidas.com. `generate()`'s upsert deliberately
+never resurrects an accepted or dismissed row (decision-safety, by design),
+so those three were correctly absent from the *open* list that first
+measurement recorded — but that made the count and the top three wrong as a
+description of what the rules currently find. This is itself a real
+property an operator will meet: **re-running generate after some
+recommendations have been acted on shows only what remains open, so its
+count understates what the rules actually produce.** The numbers below are
+from a second run against a table restored to empty (0 rows in both
+`recommendation` and `task`, confirmed before generating), which is what
+"what the rules produce" has to mean when it's stated as a fact about the
+rules rather than about the table's current decision state.
+
 ## 1. What `generate` produced on real data
 
 "Run 1", after the citation fix (commit `c6fb701`):
 
 | Type | Count |
 |---|---|
-| `pursue_citation_source` | 70 |
+| `pursue_citation_source` | 72 |
 | `create_content` | 18 |
-| `sample_more` | 6 |
+| `sample_more` | 7 |
 | `add_competitor` | 0 (expected -- no suggested competitors on this org) |
 
-Top three by priority (reach x pressure x feasibility):
+(`Counter(x['type'] for x in generate_response)` against the empty table.)
 
-1. `pursue_citation_source` **zappos.com** -- reach 0.35, pressure 1.0,
-   feasibility 0.3, priority **0.105**
-2. `pursue_citation_source` **wearetto.com** -- reach 0.35, pressure 1.0,
-   feasibility 0.3, priority **0.105**
-3. `pursue_citation_source` **forbes.com** -- reach 0.4, pressure 0.773,
-   feasibility 0.3, priority **0.0927**
+Top three by priority (reach x pressure x feasibility), taken in the order
+the API itself returns them (already sorted by priority descending):
 
-Three highest-cited citation domains: **forbes.com** (22 brand-absent
-answers), **starkidz.co.in** (18), **wearetto.com** (17).
+1. `pursue_citation_source` **youtube.com** -- reach 0.65, pressure
+   0.9655172413793104, feasibility 0.3, priority **0.1883**
+2. `pursue_citation_source` **zappos.com** -- reach 0.35, pressure 1.0,
+   feasibility 0.3, priority **0.105**
+3. `pursue_citation_source` **adidas.com** -- reach 0.35, pressure 1.0,
+   feasibility 0.3, priority **0.105**
+
+youtube.com is well clear of everything else. zappos.com, adidas.com and
+wearetto.com are an exact three-way tie at 0.105 (same reach, pressure and
+feasibility); the API's stable sort places them in that order. adidas.com
+sitting at #3 is the same rival-looking domain the citation fix's own
+worked example names as expected residue (§2) — it is not a defect that it
+appears here, but it is notable that undeclared-rival-domain residue can
+reach the very top of the ranked list, not just linger somewhere in the
+middle.
+
+Three highest-cited citation domains: **youtube.com** (29 brand-absent
+answers), **forbes.com** (22), **starkidz.co.in** (18).
+(`len(x['evidence']['observation_ids'])` per citation candidate, sorted
+descending.)
 
 Does the ranking read as sensible? Partly. Citation sources dominate the top
 of the list because pressure is defined as "share of answers naming an
-active rival," which citation rows can hit at 1.0 easily (a domain cited
-only in brand-absent answers that happen to name a rival), while
-`create_content`'s pressure is capped by how many of the prompt's own
+active rival," which citation rows can hit at or near 1.0 easily (a domain
+cited mostly or only in brand-absent answers that happen to name a rival),
+while `create_content`'s pressure is capped by how many of the prompt's own
 answers are absent. A citation source cited in as few as 3 answers
 (`MIN_CITING_ANSWERS`) can outrank a `create_content` fix for a prompt where
 the brand is absent from every single answer, because reach is defined
 per-type and not comparably: a citation's reach is the fraction of active
-*prompts* its citing answers touch (0.35-0.4 here), while one prompt's
+*prompts* its citing answers touch (0.35-0.65 here), while one prompt's
 reach is 1/20 = 0.05 regardless of how badly that prompt is failing. That is
 an artifact of the priority formula, not obviously wrong on its own terms
 (citation problems genuinely span more prompts; content problems are
 concentrated but severe) but worth flagging before an operator trusts the
-ranking blindly.
+ranking blindly. The corrected top three doesn't change this conclusion —
+if anything it sharpens it: youtube.com's 0.65 reach (the widest of any
+citation domain measured here) pushes it further ahead of every
+`create_content` candidate than the first (incomplete) measurement showed.
 
 "Slice4 check" produced **9 `add_competitor`** recommendations and nothing
 else (no citation/content/sampling data exists for that org). All 9 sit at
@@ -65,42 +99,59 @@ declared `domains` once per `generate()` call and skips any cited domain
 matching them via `matching.is_owned`, the same helper `extraction` uses for
 `is_brand_owned`.
 
-After the fix, "Run 1" has **70** citation recommendations. None of the 5
+After the fix, "Run 1" has **72** citation recommendations. None of the 5
 active competitors' *declared* domains (bata.com, campusshoes.com,
-skechers.in, crocs.in, adidas.co.in) appear anywhere in those 70.
+skechers.in, crocs.in, adidas.co.in) appear anywhere in those 72.
 
 The fix is deliberately narrow: it only catches domains a rival has
 declared, never a name-based guess at corporate ownership. **The residue is
-real and expected**: `skechers.com` and `skechers.com.au` both still appear
-in the 70, because Skechers is declared active with only `skechers.in`. The
-rule cannot know skechers.com is the same company without being told --
-correctly, per the ruling, since guessing from the name risks silently
-hiding an unrelated publisher that happens to share it. `puma.com` also
-appears, but Puma is not a competitor on this brand at all (no competitor
-record, active or otherwise) on "Run 1" -- that is not residue from the fix,
-it is just an untracked domain.
+real, expected, and now visible at the very top of the list (§1)**:
+`adidas.com` is cited in **13** brand-absent answers — the same count as
+zappos.com and facebook.com — and is declared as active only under
+`adidas.co.in`, so `adidas.com` passes the filter untouched and lands at
+priority 0.105, tied for #2/#3 overall. `skechers.com` (6 citing answers)
+and `skechers.com.au` (3) are the same story: Skechers is declared active
+with only `skechers.in`. The rule cannot know adidas.com or skechers.com is
+the same company without being told — correctly, per the ruling, since
+guessing from the name risks silently hiding an unrelated publisher that
+happens to share it. `puma.com` (11 citing answers) also appears, but Puma
+is not a competitor on this brand at all (no competitor record, active or
+otherwise) on "Run 1" — that is not residue from the fix, it is just an
+untracked domain.
+
+(All counts above and the full 72-domain list are from
+`{x['subject_key']: len(x['evidence']['observation_ids']) for x in cites}`
+against the clean-table generation.)
 
 ## 3. The citation threshold, and what raising it would cost
 
 `MIN_CITING_ANSWERS = 3` is the spec's chosen value, kept as configured; the
 controller ruled to report it rather than change it. At 80 observations it
-is permissive -- recomputed directly from the live "Run 1" generation:
+is permissive -- recomputed directly from the live "Run 1" generation
+against the clean table, by
+`sum(1 for v in counts.values() if v >= threshold)` over the same
+`{domain: citing-answer count}` mapping used in §2:
 
 | Threshold | Citation recommendations remaining |
 |---|---|
-| 3 (current) | 70 |
-| 5 | 34 |
-| 10 | 11 |
+| 3 (current) | 72 |
+| 5 | 36 |
+| 10 | 13 |
 
-Raising the threshold to 5 would cut the citation list by roughly half;
-raising it to 10 would cut it to 11 -- closer to a shortlist an operator
-could act on in a week, at the cost of dropping domains cited in 4-9
-brand-absent answers, several of which (myntra.com at 13, decathlon.in,
-flipkart.com) are large retail/marketplace sites plausibly worth pursuing
-regardless of citation count. This is exactly the judgment call the
-controller deferred to the user: 3 is right for *seeing everything the data
-supports*, 10 is right for *acting on the top handful without
-re-prioritizing weekly*.
+Raising the threshold to 5 would cut the citation list roughly in half;
+raising it to 10 would cut it to 13 -- closer to a shortlist an operator
+could act on in a week, at the cost of dropping every domain cited in 4-9
+brand-absent answers. The 13 that survive at 10 are: `youtube.com` (29),
+`forbes.com` (22), `starkidz.co.in` (18), `wearetto.com` (17),
+`adidas.com`, `facebook.com`, `myntra.com`, `reddit.com`, `walkaroo.in`,
+`zappos.com` (13 each), `firstcry.com`, `puma.com` (11 each), and
+`pediped.com` (10) — from the same domain -> count listing in §2. Several
+of those, and several dropped at 10 (`flipkart.com` at 9, `tatacliq.com`
+at 8, `decathlon.in` at 5), are large retail/marketplace or platform sites
+plausibly worth pursuing regardless of citation count. This is exactly the
+judgment call the controller deferred to the user: 3 is right for *seeing
+everything the data supports*, 10 is right for *acting on the top handful
+without re-prioritizing weekly*.
 
 ## 4. The loop end to end, and why its first honest answer is "insufficient data"
 
