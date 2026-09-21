@@ -2190,6 +2190,10 @@
             ],
             "title": "Impact Label"
           },
+          "measures_impact": {
+            "title": "Measures Impact",
+            "type": "boolean"
+          },
           "notes": {
             "title": "Notes",
             "type": "string"
@@ -2259,6 +2263,7 @@
           "window_days",
           "impact_label",
           "impact",
+          "measures_impact",
           "created_at"
         ],
         "title": "TaskOut",

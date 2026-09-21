@@ -13,6 +13,10 @@ from ..problems import Problem
 from ..schemas import DismissIn, RecommendationOut, TaskOut
 
 router = APIRouter(prefix="/brands/{brand_id}", tags=["recommendations"])
+# Mention rate is the impact metric; these cannot move it. Confirming a
+# competitor changes share of voice, and more samples change only whether
+# a prompt separates, so their tasks get no window.
+NO_IMPACT = {"add_competitor", "sample_more"}
 
 
 def _listed(c: Ctx, brand_id: uuid.UUID, status: str) -> list[m.Recommendation]:
@@ -80,6 +84,7 @@ def accept(brand_id: uuid.UUID, rec_id: uuid.UUID, c: Ctx = TENANT) -> m.Task:
         recommendation_id=rec.id,
         title=rec.title,
         prompt_ids=[uuid.UUID(p) for p in rec.evidence.get("prompt_ids", [])],
+        measures_impact=rec.type not in NO_IMPACT,
     )
     c.s.add(task)
     c.s.flush()

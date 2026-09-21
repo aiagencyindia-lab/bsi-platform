@@ -157,6 +157,7 @@ class TaskOut(BaseModel):
     window_days: int | None
     impact_label: str | None
     impact: dict[str, Any] | None
+    measures_impact: bool
     created_at: datetime
 
 

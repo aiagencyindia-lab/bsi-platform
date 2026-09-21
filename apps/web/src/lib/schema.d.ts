@@ -1341,6 +1341,8 @@ export interface components {
             } | null;
             /** Impact Label */
             impact_label: string | null;
+            /** Measures Impact */
+            measures_impact: boolean;
             /** Notes */
             notes: string;
             /** Owner */

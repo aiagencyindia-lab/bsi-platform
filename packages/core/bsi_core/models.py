@@ -394,6 +394,9 @@ class Task(Tenant, Base):
     window_days: Mapped[int | None]
     impact_label: Mapped[str | None]
     impact: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # False where mention rate is not what the task can move (confirming a
+    # competitor, taking samples): no window is opened or measured.
+    measures_impact: Mapped[bool] = mapped_column(server_default="true")
     __table_args__ = (
         UniqueConstraint("recommendation_id"),
         CheckConstraint(_in("status", TASK_STATUSES), name="ck_task_status"),

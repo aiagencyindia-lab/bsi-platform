@@ -65,6 +65,7 @@ def close_window(org_id: uuid.UUID, task_id: uuid.UUID) -> str | None:
         if (
             task is None
             or task.status != "done"
+            or not task.measures_impact
             or task.done_at is None
             or task.window_days is None
         ):

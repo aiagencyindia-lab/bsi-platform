@@ -74,7 +74,15 @@ function Card({ t, id }: { t: Task; id: string }) {
         </label>
         <button>Save</button>
       </form>
-      {t.status === "done" && (
+      {t.status === "done" && !t.measures_impact && (
+        <p className="muted">
+          Done {t.done_at?.slice(0, 10)}. No impact is measured for this task:
+          the impact measure is mention rate, which confirming a competitor or
+          taking more samples does not move. Watch the metric named in the
+          recommendation instead.
+        </p>
+      )}
+      {t.status === "done" && t.measures_impact && (
         <p className="muted">
           Done {t.done_at?.slice(0, 10)}. Impact is measured after{" "}
           {t.window_days} days, on{" "}

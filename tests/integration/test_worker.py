@@ -3,6 +3,8 @@ from datetime import UTC, datetime, timedelta
 import bsi_workers.worker as worker
 import pytest
 from bsi_core import models as m
+from bsi_core.db import system_session
+from bsi_core.impact import close_window
 from bsi_core.providers.base import EngineResult, ParsedAnswer
 from bsi_core.scheduling import run_schedule
 from bsi_core.storage import LocalRawStore
@@ -616,6 +618,32 @@ def test_close_due_impact_windows_serves_every_tenant(
         ("open window", None),
         ("open window", None),
     ]
+
+
+def test_a_task_without_impact_gets_no_window(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    with owner() as s, s.begin():
+        t = m.Task(
+            org_id=org.id,
+            brand_id=bid,
+            title="confirm Puma",
+            status="done",
+            done_at=datetime.now(UTC) - timedelta(days=30),
+            window_days=14,
+            measures_impact=False,
+        )
+        s.add(t)
+        s.flush()
+        tid = t.id
+    with system_session() as s:
+        due = s.execute(text("SELECT task_id FROM due_impact_windows()"))
+        assert tid not in {r[0] for r in due}
+    assert close_due_impact_windows() == 0
+    assert close_window(org.id, tid) is None
+    with owner() as s:
+        t = s.get(m.Task, tid)
+        assert (t.status, t.impact_label) == ("done", None)
 
 
 def test_one_failing_impact_window_does_not_block_the_rest(

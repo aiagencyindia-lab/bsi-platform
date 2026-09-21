@@ -57,6 +57,8 @@ def test_accept_creates_exactly_one_task(client, scene):
         "open",
         rec["id"],
     )
+    # add_competitor cannot move mention rate: no impact window.
+    assert (rec["type"], body["measures_impact"]) == ("add_competitor", False)
     assert client.post(url, headers=org.headers).status_code == 409
     accepted = client.get(
         f"/v1/brands/{bid}/recommendations?status=accepted",
@@ -65,8 +67,12 @@ def test_accept_creates_exactly_one_task(client, scene):
     assert [r["id"] for r in accepted] == [rec["id"]]
 
 
+@pytest.mark.parametrize(
+    ("rtype", "measures"),
+    [("sample_more", False), ("create_content", True)],
+)
 def test_accept_carries_the_evidence_prompts(
-    client, owner, make_observation, scene
+    client, owner, make_observation, scene, rtype, measures
 ):
     org, bid = scene
     oid = make_observation(org, bid)
@@ -75,7 +81,7 @@ def test_accept_carries_the_evidence_prompts(
         rec = m.Recommendation(
             org_id=org.id,
             brand_id=bid,
-            type="sample_more",
+            type=rtype,
             subject_key=str(pid),
             title="t",
             body="b",
@@ -91,7 +97,7 @@ def test_accept_carries_the_evidence_prompts(
     t = client.post(
         f"/v1/brands/{bid}/recommendations/{rid}/accept", headers=org.headers
     ).json()
-    assert t["prompt_ids"] == [str(pid)]
+    assert (t["prompt_ids"], t["measures_impact"]) == ([str(pid)], measures)
 
 
 def test_dismissing_needs_a_reason_and_sticks(client, scene):
