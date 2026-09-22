@@ -23,6 +23,8 @@ TENANT_TABLES = [
     "citation",
     "schedule",
     "rec_label",
+    "recommendation",
+    "task",
 ]
 
 
@@ -76,6 +78,26 @@ def org_b(owner, make_org, make_brand, make_observation):
                     label="listed",
                 ),
             ]
+        )
+    with owner() as s, s.begin():
+        rec = m.Recommendation(
+            org_id=b.id,
+            brand_id=bid,
+            type="sample_more",
+            subject_key="k",
+            title="t",
+            body="b",
+            reach=0.1,
+            pressure=0.1,
+            feasibility=1.0,
+            priority=0.01,
+        )
+        s.add(rec)
+        s.flush()
+        s.add(
+            m.Task(
+                org_id=b.id, brand_id=bid, recommendation_id=rec.id, title="t"
+            )
         )
     return b
 

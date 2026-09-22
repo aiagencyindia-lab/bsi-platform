@@ -7,10 +7,10 @@ document is unchanged.
 """
 
 import uuid
-from datetime import datetime
-from typing import Literal
+from datetime import date, datetime
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 
 class Rate(BaseModel):
@@ -115,3 +115,60 @@ class PromptMetricsOut(BaseModel):
     needs_samples: int | None
     needs_days: int | None
     separated: bool
+
+
+class RecommendationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    brand_id: uuid.UUID
+    type: str
+    subject_key: str
+    status: str
+    dismiss_reason: str | None
+    title: str
+    body: str
+    evidence: dict[str, Any]
+    reach: float
+    pressure: float
+    feasibility: float
+    priority: float
+    created_at: datetime
+
+
+class DismissIn(BaseModel):
+    reason: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=500),
+    ]
+
+
+class TaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    brand_id: uuid.UUID
+    recommendation_id: uuid.UUID | None
+    title: str
+    owner: str | None
+    due_date: date | None
+    status: str
+    notes: str
+    prompt_ids: list[uuid.UUID]
+    done_at: datetime | None
+    window_days: int | None
+    impact_label: str | None
+    impact: dict[str, Any] | None
+    measures_impact: bool
+    created_at: datetime
+
+
+class TaskPatch(BaseModel):
+    # Fields defaulting to Field(None) reject an explicit null with a 422;
+    # owner and due_date are the two that may be cleared.
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["open", "in_progress", "done", "impact_measured"] = Field(
+        None
+    )
+    title: str = Field(None, min_length=1, max_length=300)
+    notes: str = Field(None, max_length=5000)
+    owner: str | None = Field(None, max_length=200)
+    due_date: date | None = None

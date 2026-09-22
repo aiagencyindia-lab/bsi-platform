@@ -11,8 +11,10 @@ from .routers import (
     observations,
     ops,
     prompts,
+    recommendations,
     runs,
     schedules,
+    tasks,
 )
 
 
@@ -44,6 +46,8 @@ def create_app() -> FastAPI:
         schedules.router,
         ops.router,
         labels.router,
+        recommendations.router,
+        tasks.router,
     ):
         app.include_router(router, prefix="/v1")
     return app

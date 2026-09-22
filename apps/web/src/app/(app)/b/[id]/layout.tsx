@@ -19,6 +19,8 @@ export default async function BrandLayout({
         <Link href={`/b/${id}`}>Overview</Link>
         <Link href={`/b/${id}/prompts`}>Prompts</Link>
         <Link href={`/b/${id}/label`}>Label</Link>
+        <Link href={`/b/${id}/recommendations`}>Recommendations</Link>
+        <Link href={`/b/${id}/tasks`}>Tasks</Link>
       </div>
       {children}
     </>

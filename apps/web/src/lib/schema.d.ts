@@ -284,6 +284,74 @@ export interface paths {
         patch: operations["patch_prompt_v1_brands__brand_id__prompts__prompt_id__patch"];
         trace?: never;
     };
+    "/v1/brands/{brand_id}/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Recommendations */
+        get: operations["list_recommendations_v1_brands__brand_id__recommendations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/recommendations/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Recommendations */
+        post: operations["generate_recommendations_v1_brands__brand_id__recommendations_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/recommendations/{rec_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept */
+        post: operations["accept_v1_brands__brand_id__recommendations__rec_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/recommendations/{rec_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss */
+        post: operations["dismiss_v1_brands__brand_id__recommendations__rec_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/runs": {
         parameters: {
             query?: never;
@@ -336,6 +404,40 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tasks */
+        get: operations["list_tasks_v1_brands__brand_id__tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Task */
+        patch: operations["patch_task_v1_brands__brand_id__tasks__task_id__patch"];
         trace?: never;
     };
     "/v1/jobs/{job_id}": {
@@ -616,6 +718,11 @@ export interface components {
             } | null;
             /** Reason */
             reason: string | null;
+        };
+        /** DismissIn */
+        DismissIn: {
+            /** Reason */
+            reason: string;
         };
         /** DomainIn */
         DomainIn: {
@@ -1026,6 +1133,48 @@ export interface components {
             /** Value */
             value: number | null;
         };
+        /** RecommendationOut */
+        RecommendationOut: {
+            /** Body */
+            body: string;
+            /**
+             * Brand Id
+             * Format: uuid
+             */
+            brand_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Dismiss Reason */
+            dismiss_reason: string | null;
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Feasibility */
+            feasibility: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Pressure */
+            pressure: number;
+            /** Priority */
+            priority: number;
+            /** Reach */
+            reach: number;
+            /** Status */
+            status: string;
+            /** Subject Key */
+            subject_key: string;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+        };
         /** RunIn */
         RunIn: {
             /**
@@ -1164,6 +1313,66 @@ export interface components {
              * @default 50
              */
             count: number;
+        };
+        /** TaskOut */
+        TaskOut: {
+            /**
+             * Brand Id
+             * Format: uuid
+             */
+            brand_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Done At */
+            done_at: string | null;
+            /** Due Date */
+            due_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Impact */
+            impact: {
+                [key: string]: unknown;
+            } | null;
+            /** Impact Label */
+            impact_label: string | null;
+            /** Measures Impact */
+            measures_impact: boolean;
+            /** Notes */
+            notes: string;
+            /** Owner */
+            owner: string | null;
+            /** Prompt Ids */
+            prompt_ids: string[];
+            /** Recommendation Id */
+            recommendation_id: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /** Window Days */
+            window_days: number | null;
+        };
+        /** TaskPatch */
+        TaskPatch: {
+            /** Due Date */
+            due_date?: string | null;
+            /** Notes */
+            notes?: string;
+            /** Owner */
+            owner?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status?: "open" | "in_progress" | "done" | "impact_measured";
+            /** Title */
+            title?: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -2028,6 +2237,146 @@ export interface operations {
             };
         };
     };
+    list_recommendations_v1_brands__brand_id__recommendations_get: {
+        parameters: {
+            query?: {
+                status?: "open" | "accepted" | "dismissed";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_recommendations_v1_brands__brand_id__recommendations_generate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_v1_brands__brand_id__recommendations__rec_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                rec_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_v1_brands__brand_id__recommendations__rec_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                rec_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_runs_v1_brands__brand_id__runs_get: {
         parameters: {
             query?: never;
@@ -2229,6 +2578,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SovOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tasks_v1_brands__brand_id__tasks_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_task_v1_brands__brand_id__tasks__task_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskOut"];
                 };
             };
             /** @description Validation Error */
