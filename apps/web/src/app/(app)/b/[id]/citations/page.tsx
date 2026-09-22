@@ -41,19 +41,12 @@ export default async function Citations({
   const gaps = rows.filter((r) => r.gap).length;
   return (
     <>
-      <Filters sp={sp} />
-      <form method="get" className="filters">
-        {Object.entries(sp).map(([n, v]) =>
-          typeof v === "string" && n !== "gap" ? (
-            <input key={n} type="hidden" name={n} value={v} />
-          ) : null,
-        )}
+      <Filters sp={sp}>
         <label>
           <input type="checkbox" name="gap" value="1" defaultChecked={gapOnly} />{" "}
           Gaps only
         </label>
-        <button>Apply</button>
-      </form>
+      </Filters>
       <p className="muted">
         {rows.length} domains · {gaps} gaps (cite two or more rivals, never the
         brand) · source type is a keyword guess

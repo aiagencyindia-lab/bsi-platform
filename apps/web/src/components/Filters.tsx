@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Params } from "@/lib/format";
 
 const one = (v: Params[string]) => (typeof v === "string" ? v : "");
@@ -5,7 +6,15 @@ const one = (v: Params[string]) => (typeof v === "string" ? v : "");
 /** A plain GET form: the filters live in the URL with no client code.
  * ponytail: no locale picker; a locale_id in the URL is still honoured.
  * Add one when a brand has two locales. */
-export function Filters({ sp, days }: { sp: Params; days?: boolean }) {
+export function Filters({
+  sp,
+  days,
+  children,
+}: {
+  sp: Params;
+  days?: boolean;
+  children?: ReactNode;
+}) {
   return (
     <form className="filters" method="get">
       <label>
@@ -43,6 +52,7 @@ export function Filters({ sp, days }: { sp: Params; days?: boolean }) {
        * silently reset it. */}
       {one(sp.sort) && <input type="hidden" name="sort" value={one(sp.sort)} />}
       {one(sp.dir) && <input type="hidden" name="dir" value={one(sp.dir)} />}
+      {children}
       <button>Apply</button>
     </form>
   );
