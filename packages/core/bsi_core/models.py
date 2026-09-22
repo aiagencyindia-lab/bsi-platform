@@ -115,6 +115,10 @@ class Brand(Tenant, Base):
     aliases: Mapped[list[str]] = mapped_column(server_default="{}")
     category: Mapped[str | None]
     status: Mapped[str] = mapped_column(server_default="active")
+    # Null = never refreshed, which due_recommendation_refreshes() treats
+    # as due. Stamped by the worker's weekly pass, not by on-demand
+    # generation: an operator's click should not defer the next pass.
+    recs_refreshed_at: Mapped[datetime | None] = mapped_column(TSZ)
 
 
 class Domain(Tenant, Base):

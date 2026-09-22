@@ -11,6 +11,7 @@ from bsi_core.storage import LocalRawStore
 from bsi_workers.worker import (
     close_due_impact_windows,
     process_one,
+    refresh_due_recommendations,
     reset_stale,
     run_due_schedules,
     tick,
@@ -663,3 +664,93 @@ def test_one_failing_impact_window_does_not_block_the_rest(
     monkeypatch.setattr(worker, "close_window", flaky)
     assert close_due_impact_windows() == 1
     assert len(calls) == 2
+
+
+def _suggested_rival(owner, org, bid, name="Puma", evidence=2):
+    """A suggested competitor is enough evidence for one recommendation."""
+    with owner() as s, s.begin():
+        s.add(
+            m.Competitor(
+                org_id=org.id,
+                brand_id=bid,
+                name=name,
+                status="suggested",
+                evidence=evidence,
+            )
+        )
+
+
+def test_refresh_due_recommendations_serves_every_tenant(
+    owner, make_org, make_brand
+):
+    ids = []
+    for name in ("A", "B"):
+        org = make_org(name)
+        bid = make_brand(org)
+        _suggested_rival(owner, org, bid)
+        ids.append(bid)
+    # Never refreshed, so both are due.
+    assert refresh_due_recommendations() == 2
+    with owner() as s:
+        recs = s.scalars(select(m.Recommendation)).all()
+        stamps = s.scalars(
+            select(m.Brand.recs_refreshed_at).where(m.Brand.id.in_(ids))
+        ).all()
+    assert sorted(r.brand_id for r in recs) == sorted(ids)
+    assert all(t is not None for t in stamps)
+    # Stamped, so the next pass leaves them alone.
+    assert refresh_due_recommendations() == 0
+
+
+def test_a_brand_is_due_again_after_a_week(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    _suggested_rival(owner, org, bid)
+    assert refresh_due_recommendations() == 1
+    for days, due in ((6, 0), (8, 1)):
+        with owner() as s, s.begin():
+            s.execute(
+                update(m.Brand)
+                .where(m.Brand.id == bid)
+                .values(
+                    recs_refreshed_at=func.now()
+                    - func.make_interval(0, 0, 0, days)
+                )
+            )
+        assert refresh_due_recommendations() == due
+
+
+def test_an_archived_brand_is_never_refreshed(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    _suggested_rival(owner, org, bid)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Brand).where(m.Brand.id == bid).values(status="archived")
+        )
+    assert refresh_due_recommendations() == 0
+    with owner() as s:
+        assert s.scalars(select(m.Recommendation)).all() == []
+
+
+def test_one_failing_refresh_does_not_block_the_rest(
+    monkeypatch, owner, make_org, make_brand
+):
+    for name in ("A", "B"):
+        org = make_org(name)
+        _suggested_rival(owner, org, make_brand(org))
+    real, calls = worker.refresh, []
+
+    def flaky(s, org_id, brand_id):
+        calls.append(brand_id)
+        if len(calls) == 1:
+            raise RuntimeError("boom")
+        return real(s, org_id, brand_id)
+
+    monkeypatch.setattr(worker, "refresh", flaky)
+    assert refresh_due_recommendations() == 1
+    assert len(calls) == 2
+    with owner() as s:
+        # The failed brand kept its null stamp, so it stays due.
+        stamps = s.scalars(select(m.Brand.recs_refreshed_at)).all()
+    assert sorted(t is None for t in stamps) == [False, True]
