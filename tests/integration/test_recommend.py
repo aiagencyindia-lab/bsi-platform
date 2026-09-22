@@ -444,3 +444,22 @@ def test_a_domain_audit_with_no_declared_domain_yields_nothing(owner, world):
             )
         )
     assert not [k for k in found(world) if k[0] == "fix_crawlability"]
+
+
+def test_an_unrecognized_check_is_skipped_not_fatal(owner, world):
+    """An unknown code or severity (an older row surviving a future code
+    rename, or edited data) must not raise out of generate(): it is
+    skipped, and every other recommendation type still comes back."""
+    _site_audit(
+        owner,
+        world,
+        [
+            _check("bogus_future_check", False, "high"),
+            _check("llms_missing", False, "low"),
+        ],
+    )
+    recs = found(world)
+    assert ("fix_crawlability", "nike.com:bogus_future_check") not in recs
+    assert ("fix_crawlability", "nike.com:llms_missing") in recs
+    # generate() still returns the brand's other types.
+    assert ("add_competitor", str(world.puma)) in recs

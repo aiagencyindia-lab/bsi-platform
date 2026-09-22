@@ -21,6 +21,7 @@ product so the weighting is visible (PRD F12):
 - feasibility: how cheaply the operator can act, per type, below.
 """
 
+import logging
 import uuid
 from collections import Counter
 from collections.abc import Sequence
@@ -37,6 +38,8 @@ from .crawl import expected, family
 from .matching import is_owned
 from .metrics import Filters, prompt_metrics
 from .suggest import ANSWERS
+
+log = logging.getLogger("bsi.recommend")
 
 # Confirming a competitor or scheduling samples takes minutes; content
 # takes weeks; outreach takes weeks and depends on someone else.
@@ -423,6 +426,19 @@ def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
     for audit_id, domain, checks in rows:
         for check in checks:
             if check["ok"]:
+                continue
+            code = check["code"]
+            if (
+                family(code) not in _CRAWL_TITLES
+                or check["severity"] not in PRESSURE_BY_SEVERITY
+            ):
+                log.warning(
+                    "skipping unrecognized crawl check: brand=%s domain=%s "
+                    "code=%s",
+                    brand,
+                    domain,
+                    code,
+                )
                 continue
             title, body = crawl_copy(brand, domain, check)
             out.append(
