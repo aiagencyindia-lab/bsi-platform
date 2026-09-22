@@ -15,7 +15,9 @@ class Settings(BaseSettings):
 
     database_url: str = _LOCAL.format(u="bsi_app", p="app")
     owner_database_url: str = _LOCAL.format(u="bsi_owner", p="owner")
-    engine_model: str = "gemini-3.8-flash"
+    # 2.5 searched in 80 of 80 answers; 3.8 in about 1 in 4, so most of its
+    # answers had no citations (findings-slice2 §7, findings-slice5 §1).
+    engine_model: str = "gemini-2.5-flash"
     extract_model: str = "gemini-3.5-flash-lite"
     embed_model: str = "gemini-embedding-001"
     judge_mode: Literal["batched", "isolated"] = "batched"
