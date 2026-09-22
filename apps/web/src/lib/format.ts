@@ -77,4 +77,5 @@ export const KIND: Record<string, string> = {
   create_content: "Content",
   add_competitor: "Competitor",
   sample_more: "Measurement",
+  fix_crawlability: "Site fix",
 };

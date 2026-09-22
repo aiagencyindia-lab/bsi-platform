@@ -15,8 +15,9 @@ from ..schemas import DismissIn, RecommendationOut, TaskOut
 router = APIRouter(prefix="/brands/{brand_id}", tags=["recommendations"])
 # Mention rate is the impact metric; these cannot move it. Confirming a
 # competitor changes share of voice, and more samples change only whether
-# a prompt separates, so their tasks get no window.
-NO_IMPACT = {"add_competitor", "sample_more"}
+# a prompt separates, so their tasks get no window. A site fix changes
+# what an engine *can* read, not what it says within a window.
+NO_IMPACT = {"add_competitor", "sample_more", "fix_crawlability"}
 
 
 def _listed(c: Ctx, brand_id: uuid.UUID, status: str) -> list[m.Recommendation]:

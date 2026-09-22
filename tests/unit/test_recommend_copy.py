@@ -3,6 +3,7 @@ from bsi_core.recommend import (
     citation_copy,
     competitor_copy,
     content_copy,
+    crawl_copy,
     names,
     sample_copy,
 )
@@ -33,6 +34,39 @@ CASES = [
     competitor_copy("Puma", 2),
     sample_copy("Nike", "best shoes", 3, 4, "Adidas"),
     sample_copy("Nike", "best shoes", 3, 7, "Adidas"),
+    crawl_copy(
+        "Nike",
+        "nike.com",
+        {
+            "code": "bot_blocked:GPTBot",
+            "observed": "User-agent: GPTBot\nDisallow: /",
+            "expected": "robots.txt lets this crawler fetch the homepage.",
+            "url": "https://nike.com/robots.txt",
+            "severity": "high",
+        },
+    ),
+    crawl_copy(
+        "Nike",
+        "nike.com",
+        {
+            "code": "sitemap_missing",
+            "observed": "HTTP 404",
+            "expected": "x",
+            "url": "https://nike.com/sitemap.xml",
+            "severity": "medium",
+        },
+    ),
+    crawl_copy(
+        "Nike",
+        "nike.com",
+        {
+            "code": "llms_missing",
+            "observed": "HTTP 404",
+            "expected": "x",
+            "url": "https://nike.com/llms.txt",
+            "severity": "low",
+        },
+    ),
 ]
 
 
@@ -62,3 +96,19 @@ def test_sample_copy_counts_the_shortfall():
     assert sample_copy("N", "p", 3, 7, "R")[0].startswith(
         "Take 4 more samples of"
     )
+
+
+def test_crawl_copy_names_the_bot_and_the_file():
+    title, body = crawl_copy(
+        "Nike",
+        "nike.com",
+        {
+            "code": "bot_ua_blocked:ClaudeBot",
+            "observed": "HTTP 403",
+            "expected": "x",
+            "url": "https://nike.com/",
+            "severity": "high",
+        },
+    )
+    assert "ClaudeBot" in title and "nike.com" in title
+    assert "HTTP 403" in body and "https://nike.com/" in body
