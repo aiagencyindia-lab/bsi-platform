@@ -179,7 +179,10 @@ def queue_due_crawl_audits() -> int:
     """Queue an audit for every brand due one; returns how many.
 
     Idempotent within the hour: enqueue_job's unique key makes a repeat a
-    no-op. One brand's failure never stops the others.
+    no-op. requeue_failed=False: this runs every minute, and a failed
+    audit must wait for the next hour's slot rather than being re-run
+    (and re-crawling the customer's site) on every sweep. One brand's
+    failure never stops the others.
     """
     with system_session() as s:
         due = s.execute(
@@ -189,7 +192,14 @@ def queue_due_crawl_audits() -> int:
     for brand_id, org_id in due:
         try:
             with tenant_session(org_id) as s:
-                enqueue_job(s, org_id, brand_id, "audit_crawl", {})
+                enqueue_job(
+                    s,
+                    org_id,
+                    brand_id,
+                    "audit_crawl",
+                    {},
+                    requeue_failed=False,
+                )
             queued += 1
         except Exception:
             log.exception("brand %s audit queue failed", brand_id)
@@ -350,7 +360,11 @@ def process_job(
     with tenant_session(org_id) as s:
         job = s.get_one(m.Job, job_id)
         brand_id, params = job.brand_id, job.params
-        fits = budget_fits(s, org_id, 0, extra_micros=JOB_ESTIMATES[kind])
+        # A job that spends nothing (audit_crawl) is never failed as
+        # "budget": that would make a busy org's audits fail and get
+        # re-claimed every minute, re-crawling the customer's site.
+        estimate = JOB_ESTIMATES[kind]
+        fits = estimate == 0 or budget_fits(s, org_id, 0, extra_micros=estimate)
     if not fits:
         _finish_job(org_id, job_id, "failed", "budget", 0)
         return True

@@ -255,3 +255,47 @@ def test_production_pauses_between_fetches(
     fetch = _fake_fetch()
     worker.process_job(FakeAdapter(), generator, embedder, fetch=fetch)
     assert sleeps == [0.25] * 11
+
+
+def test_an_audit_still_runs_when_the_org_budget_is_exhausted(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _domain(owner, org, bid)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Organization)
+            .where(m.Organization.id == org.id)
+            .values(daily_budget_usd=0)
+        )
+    job_id = _job(owner, org, bid, "audit_crawl", "queued")
+    _, generator, embedder = _spender()
+    fetch = _fake_fetch()
+    assert worker.process_job(FakeAdapter(), generator, embedder, fetch=fetch)
+    assert _load_job(owner, job_id).status == "done"
+
+
+def test_queue_due_crawl_audits_leaves_a_failed_audit_for_the_next_hour(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _domain(owner, org, bid)
+    # A job already sitting failed in *this hour's* slot (the same slot
+    # queue_due_crawl_audits would use).
+    with tenant_session(org.id) as s:
+        job_id = enqueue_job(s, org.id, bid, "audit_crawl", {}).id
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Job)
+            .where(m.Job.id == job_id)
+            .values(status="failed", error="boom")
+        )
+    assert worker.queue_due_crawl_audits() == 1  # counted...
+    with owner() as s:
+        jobs = s.scalars(select(m.Job).where(m.Job.kind == "audit_crawl")).all()
+    # ...but the failed job for this hour is untouched: no new row, and
+    # not flipped back to queued (which would re-run it every minute).
+    assert [j.id for j in jobs] == [job_id]
+    assert _load_job(owner, job_id).status == "failed"
