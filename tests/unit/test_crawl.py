@@ -370,3 +370,36 @@ def test_a_billion_laughs_sitemap_does_not_hang_or_raise():
     pages = {**GOOD, "/sm.xml": Response(200, body)}
     audit = audit_domain("nike.com", site(pages))
     assert any(c.code == "sitemap_invalid" for c in audit.checks)
+
+
+def _bot_check(robots, bot):
+    pages = {**GOOD, "/robots.txt": Response(200, robots)}
+    audit = audit_domain("nike.com", site(pages))
+    return next(c for c in audit.checks if c.code == f"bot_blocked:{bot}")
+
+
+def test_bot_blocked_observed_is_only_the_first_applicable_group():
+    # robotparser applies the first matching named group and ignores the
+    # rest, so the evidence must be that group alone.
+    allow = "User-agent: Claude\nAllow: /\n"
+    block = "User-agent: ClaudeBot\nDisallow: /\n"
+    first_allows = _bot_check(allow + block, "ClaudeBot")
+    assert first_allows.ok
+    assert "Allow: /" in first_allows.observed
+    assert "Disallow" not in first_allows.observed
+    first_blocks = _bot_check(block + allow, "ClaudeBot")
+    assert not first_blocks.ok
+    assert "Disallow: /" in first_blocks.observed
+    assert "Allow" not in first_blocks.observed.replace("Disallow", "")
+
+
+def test_a_group_naming_star_is_the_default_not_a_named_match():
+    # robotparser files any group containing `*` as the default entry,
+    # so GPTBot in that group does not count as naming it.
+    robots = (
+        "User-agent: *\nUser-agent: GPTBot\nDisallow: /\n\n"
+        "User-agent: GPT\nAllow: /\n"
+    )
+    check = _bot_check(robots, "GPTBot")
+    assert check.ok
+    assert check.observed == "User-agent: GPT\nAllow: /"

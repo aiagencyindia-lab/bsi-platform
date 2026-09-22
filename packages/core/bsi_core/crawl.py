@@ -278,24 +278,23 @@ def _robots_groups(robots: str) -> list[tuple[list[str], list[str]]]:
 
 
 def _group_lines(robots: str, bot: str) -> str:
-    """The robots.txt group(s) naming this bot, for `observed`.
+    """The first applicable robots.txt group for this bot, for `observed`.
 
-    Follows robotparser's own precedence (Entry.applies_to): a group
-    applies when one of its agent tokens is a substring of the bot's name
-    token, so `User-agent: Claude` covers ClaudeBot; a `*` group is the
-    fallback only when no named group applies.
+    Mirrors robotparser's choice: a group containing `*` is the default
+    entry (only the first one counts), never a named match; the first
+    other group with an agent token that is a substring of the bot's
+    name token applies (Entry.applies_to), so `User-agent: Claude`
+    covers ClaudeBot; the default applies only when none does.
     """
     bot_l = bot.split("/")[0].lower()
     groups = _robots_groups(robots)
     named = [
         lines
         for agents, lines in groups
-        if any(a != "*" and a in bot_l for a in agents)
+        if "*" not in agents and any(a in bot_l for a in agents)
     ]
-    if named:
-        return "\n".join(line for lines in named for line in lines)
     starred = [lines for agents, lines in groups if "*" in agents]
-    return "\n".join(line for lines in starred for line in lines)
+    return "\n".join((named or starred or [[]])[0])
 
 
 def _strip_wildcards(robots: str) -> str:
