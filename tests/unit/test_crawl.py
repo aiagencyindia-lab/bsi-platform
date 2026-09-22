@@ -316,3 +316,17 @@ def test_a_subdomain_sitemap_is_trusted():
     audit_domain("nike.com", fetch)
     urls = [u for u, _ in fetch.calls]
     assert "https://cdn.nike.com/sm.xml" in urls
+
+
+def test_bot_blocked_observed_matches_robotparser_substring_rule():
+    # robotparser applies `User-agent: Claude` to any bot whose name
+    # contains "claude", so the evidence must be that group, not `*`.
+    robots = "User-agent: *\nAllow: /\n\nUser-agent: Claude\nDisallow: /\n"
+    pages = {**GOOD, "/robots.txt": Response(200, robots)}
+    audit = audit_domain("nike.com", site(pages))
+    for bot in ("ClaudeBot", "Claude-SearchBot"):
+        check = next(c for c in audit.checks if c.code == f"bot_blocked:{bot}")
+        assert not check.ok
+        assert "User-agent: Claude" in check.observed
+        assert "Disallow: /" in check.observed
+        assert "User-agent: *" not in check.observed

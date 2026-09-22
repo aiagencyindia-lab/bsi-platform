@@ -275,12 +275,18 @@ def _robots_groups(robots: str) -> list[tuple[list[str], list[str]]]:
 def _group_lines(robots: str, bot: str) -> str:
     """The robots.txt group(s) naming this bot, for `observed`.
 
-    Follows robotparser's own precedence: a group naming the bot itself,
-    falling back to a `*` group only when no group names the bot.
+    Follows robotparser's own precedence (Entry.applies_to): a group
+    applies when one of its agent tokens is a substring of the bot's name
+    token, so `User-agent: Claude` covers ClaudeBot; a `*` group is the
+    fallback only when no named group applies.
     """
-    bot_l = bot.lower()
+    bot_l = bot.split("/")[0].lower()
     groups = _robots_groups(robots)
-    named = [lines for agents, lines in groups if bot_l in agents]
+    named = [
+        lines
+        for agents, lines in groups
+        if any(a != "*" and a in bot_l for a in agents)
+    ]
     if named:
         return "\n".join(line for lines in named for line in lines)
     starred = [lines for agents, lines in groups if "*" in agents]
