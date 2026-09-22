@@ -41,6 +41,7 @@ REC_TYPES = (
     "create_content",
     "add_competitor",
     "sample_more",
+    "fix_crawlability",
 )
 REC_STATES = ("open", "accepted", "dismissed")
 TASK_STATUSES = ("open", "in_progress", "done", "impact_measured")
@@ -413,4 +414,21 @@ class Task(Tenant, Base):
             "OR (done_at IS NOT NULL AND window_days IS NOT NULL)",
             name="ck_task_done_has_window",
         ),
+    )
+
+
+class SiteAudit(Tenant, Base):
+    """One crawlability audit of one brand domain; the latest row per
+    domain is what the Site tab and the fix_crawlability rule read."""
+
+    __tablename__ = "site_audit"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job.id"))
+    domain: Mapped[str]
+    checks: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default="[]"
+    )
+    fetches: Mapped[int] = mapped_column(server_default="0")
+    __table_args__ = (
+        Index("ix_site_audit_latest", "brand_id", "domain", "created_at"),
     )
