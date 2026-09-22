@@ -330,3 +330,30 @@ def test_bot_blocked_observed_matches_robotparser_substring_rule():
         assert "User-agent: Claude" in check.observed
         assert "Disallow: /" in check.observed
         assert "User-agent: *" not in check.observed
+
+
+def test_an_empty_sitemap_body_has_no_root():
+    pages = {**GOOD, "/sm.xml": Response(200, "")}
+    audit = audit_domain("nike.com", site(pages))
+    check = next(c for c in audit.checks if c.code == "sitemap_invalid")
+    assert (check.ok, check.observed) == (False, "root <none>")
+
+
+def test_bom_declaration_and_doctype_before_the_root_are_fine():
+    body = (
+        '﻿<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE urlset>\n'
+        + (SITEMAP.split("?>", 1)[1])
+    )
+    pages = {**GOOD, "/sm.xml": Response(200, body)}
+    assert codes(audit_domain("nike.com", site(pages)), False) == []
+
+
+def test_a_billion_laughs_sitemap_does_not_hang_or_raise():
+    # expat's amplification limit (expat >= 2.4) stops the expansion.
+    ents = ['<!ENTITY lol0 "lol">'] + [
+        f'<!ENTITY lol{i} "{f"&lol{i - 1};" * 10}">' for i in range(1, 10)
+    ]
+    body = f"<!DOCTYPE lolz [{''.join(ents)}]><lolz>&lol9;</lolz>"
+    pages = {**GOOD, "/sm.xml": Response(200, body)}
+    audit = audit_domain("nike.com", site(pages))
+    assert any(c.code == "sitemap_invalid" for c in audit.checks)

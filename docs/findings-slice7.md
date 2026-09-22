@@ -266,9 +266,9 @@ unchanged:
    `Content-Encoding: gzip`, httpx decompresses it to 601,518 characters,
    and the cap cut it at 524,288 — hence "no element found: line 9002". An
    earlier draft of these findings blamed gzip; that was wrong, since httpx
-   decodes `Content-Encoding` itself. The check now reads only the first
-   start tag with a pull parser (`crawl._root_tag`), so a truncated tail no
-   longer matters; `test_a_sitemap_cut_off_at_the_body_cap_is_still_valid`
+   decodes `Content-Encoding` itself. The check now feeds the capped body
+   to a pull parser and the root element decides (`crawl._root_tag`); the
+   parser is never closed, so a truncated tail no longer matters; `test_a_sitemap_cut_off_at_the_body_cap_is_still_valid`
    pins it. Still unhandled: a `.gz` file served as raw `application/gzip`
    with no `Content-Encoding` header arrives compressed and is reported
    invalid.

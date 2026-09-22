@@ -79,7 +79,7 @@ expected, url)`. For one domain, in this order:
 | `title_missing`, `description_missing`, `h1_missing`, `canonical_missing`, `org_schema_missing` | same body | tag absent; JSON-LD lacks `"@type": "Organization"`. Parsed with `html.parser` (a small `HTMLParser` subclass collecting head tags, first h1, `ld+json` scripts) |
 | `bot_blocked:{bot}` for GPTBot, OAI-SearchBot, ClaudeBot, Claude-SearchBot, PerplexityBot, Google-Extended, Googlebot, Bingbot | `/robots.txt` once | `urllib.robotparser` says the bot may not fetch `/`. A missing robots.txt passes (allow-all). |
 | `bot_ua_blocked:{bot}` for the same eight | `/` once per bot UA | status 401/403/429/5xx while the browser UA got 2xx — CDN bot blocking, PRD F10 |
-| `sitemap_missing`, `sitemap_invalid` | robots `Sitemap:` lines, else `/sitemap.xml` | not 2xx; or root element is neither `urlset` nor `sitemapindex` (`xml.etree`, `defusedxml` not needed: no entity expansion on a tree we only inspect the root of) |
+| `sitemap_missing`, `sitemap_invalid` | robots `Sitemap:` lines, else `/sitemap.xml` | not 2xx; or root element is neither `urlset` nor `sitemapindex` (`xml.etree`; `defusedxml` not needed: the first start tag decides, and entity expansion is bounded by expat's amplification limits, expat >= 2.4) |
 | `llms_missing` | `/llms.txt` | not 2xx. Severity low; expected text says the file is unofficial |
 
 Severity: `high` for `bot_blocked`/`bot_ua_blocked`/`home_unreachable`,

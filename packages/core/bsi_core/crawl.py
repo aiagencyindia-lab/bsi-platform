@@ -217,11 +217,16 @@ def _has_org(scripts: list[str]) -> bool:
 
 
 def _root_tag(body: str) -> str:
-    """The sitemap's root element name, read from the first start tag.
+    """The sitemap's root element name: the first start tag decides.
 
     http_fetch keeps only the first BODY_CAP characters, so a large
-    sitemap arrives cut off mid-element. The root is all this check
-    needs, so the rest of the document is never parsed.
+    sitemap arrives cut off mid-element. The whole capped body is fed to
+    the parser; feed() queues a later parse error as an event instead of
+    raising it, and the root's start event is read first. close() is
+    never called, so an unterminated or malformed tail after the root no
+    longer matters. Entity expansion (billion laughs) is bounded by
+    expat's own amplification limits (expat >= 2.4), not by stopping at
+    the root.
     """
     parser: ET.XMLPullParser[ET.Element] = ET.XMLPullParser(events=("start",))
     try:
