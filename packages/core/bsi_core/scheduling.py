@@ -236,6 +236,47 @@ def daily_cost_preview(
     }
 
 
+def enqueue_job(
+    s: Session,
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    kind: str,
+    params: dict[str, Any],
+    slot: datetime | None = None,
+) -> m.Job:
+    """Find or create this hour's job for the brand and kind.
+
+    One job per (brand, kind, hour), except that a failed job is requeued
+    with the new params: one failure must not lock the caller out for the
+    hour. Its cost_micros is left alone, so a retry accumulates. Used by
+    the API for suggestions and audits, and by the worker's weekly pass.
+    """
+    slot = slot or hour_slot(datetime.now(UTC))
+    s.execute(
+        pg_insert(m.Job)
+        .values(
+            org_id=org_id,
+            brand_id=brand_id,
+            kind=kind,
+            scheduled_slot=slot,
+            status="queued",
+            params=params,
+        )
+        .on_conflict_do_update(
+            index_elements=["brand_id", "kind", "scheduled_slot"],
+            set_={"status": "queued", "error": None, "params": params},
+            where=m.Job.status == "failed",
+        )
+    )
+    return s.scalars(
+        select(m.Job).where(
+            m.Job.brand_id == brand_id,
+            m.Job.kind == kind,
+            m.Job.scheduled_slot == slot,
+        )
+    ).one()
+
+
 def enqueue_run(
     s: Session,
     org_id: uuid.UUID,
