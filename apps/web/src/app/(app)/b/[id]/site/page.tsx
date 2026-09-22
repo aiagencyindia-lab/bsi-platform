@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import type { Params } from "@/lib/format";
+import { auditNote, type Params } from "@/lib/format";
 import type { SiteAudit } from "@/lib/types";
 import { runAudit } from "./actions";
 
@@ -18,10 +18,8 @@ export default async function Site({
       <form action={runAudit} className="row">
         <input type="hidden" name="brand_id" value={id} />
         <button className="primary">Run audit now</button>
-        {sp.queued === "1" && (
-          <span className="muted">
-            Queued; the worker runs it within a minute.
-          </span>
+        {auditNote(sp.queued) && (
+          <span className="muted">{auditNote(sp.queued)}</span>
         )}
       </form>
       {audits.length === 0 && (
