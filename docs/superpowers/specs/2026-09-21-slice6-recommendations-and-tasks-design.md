@@ -31,7 +31,7 @@ rules read observations ─> recommendation (evidence linked)
 
 | Type | Fires when | Evidence |
 |---|---|---|
-| `pursue_citation_source` | a non-owned domain is cited in ≥ 3 done answers that omit the brand | observation ids, rivals named there |
+| `pursue_citation_source` | a non-owned, non-rival domain is cited in ≥ 5 done answers that omit the brand (raised from 3 on 2026-09-22; see findings-slice6 §3) | observation ids, rivals named there |
 | `create_content` | a prompt's dominant `extraction.absence_reason` is `competitor_dominance` or `not_retrieved` | prompt id, its observation ids |
 | `add_competitor` | a `competitor.status='suggested'` row has `evidence >= 2` | competitor id |
 | `sample_more` | a prompt's `needs_samples - n` is ≤ 10 and it is not yet separated | prompt id, n, needs_samples |

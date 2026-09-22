@@ -137,19 +137,35 @@ untracked domain.
 `{x['subject_key']: len(x['evidence']['observation_ids']) for x in cites}`
 against the clean-table generation.)
 
-## 3. The citation threshold, and what raising it would cost
+## 3. The citation threshold, and what raising it did
 
-`MIN_CITING_ANSWERS = 3` is the spec's chosen value, kept as configured; the
-controller ruled to report it rather than change it. At 80 observations it
-is permissive -- recomputed directly from the live "Run 1" generation
+**Update, 2026-09-22: the threshold is now 5**, at the user's request. It was
+3, the spec's original value. Measured read-only with `generate()` on
+"Run 1" after the change: 36 citation, 18 content and 7 sampling
+recommendations, 61 in all (from 97). The top three are unchanged:
+youtube.com, starkidz.co.in, and forbes.com tied with wearetto.com.
+
+**It did not move content gaps up.** The best `create_content`
+recommendation still ranks **29th** - now of 61 rather than 97. Raising the
+threshold only removes citations cited in 3 or 4 answers, and those already
+ranked below it. The 28 above it each cover 6 or more answers: a content gap
+on a 4-answer prompt scores 4/80 x 1.0 x 0.4 = 0.02, and a citation beats it
+whenever 0.3 x k/80 > 0.02, i.e. k >= 6, whatever the threshold. The
+threshold shortens the list; the ordering between types is set by
+`FEASIBILITY` and by how many answers each prompt has.
+
+The analysis below was written at threshold 3 and is kept as the record of
+why 5 was chosen.
+
+At 3, the value was permissive -- recomputed directly from the live "Run 1" generation
 against the clean table, by
 `sum(1 for v in counts.values() if v >= threshold)` over the same
 `{domain: citing-answer count}` mapping used in §2:
 
 | Threshold | Citation recommendations remaining |
 |---|---|
-| 3 (current) | 72 |
-| 5 | 36 |
+| 3 (original) | 72 |
+| 5 (current) | 36 |
 | 10 | 13 |
 
 Raising the threshold to 5 would cut the citation list roughly in half;
@@ -203,15 +219,15 @@ anticipated).
 `sample_more` 1.0, `create_content` 0.4, `pursue_citation_source` 0.3 -- an
 ordering the code's own comment justifies ("confirming a competitor or
 scheduling samples takes minutes; content takes weeks; outreach takes weeks
-and depends on someone else"), not a measured cost. `MIN_CITING_ANSWERS = 3`,
-`MIN_COMPETITOR_EVIDENCE = 2`, `SAMPLE_MORE_WITHIN = 10` are similarly
+and depends on someone else"), not a measured cost. `MIN_CITING_ANSWERS = 5`
+(raised from 3; §3), `MIN_COMPETITOR_EVIDENCE = 2`, `SAMPLE_MORE_WITHIN = 10` are similarly
 chosen, not derived. None of these have been tuned against outcomes -- there
 are no outcomes yet, per §4 -- so they should be read as reasonable starting
 points awaiting real use, not calibrated weights. §1 and §3 above are the
 concrete evidence for where that shows up first: `add_competitor`'s
 feasibility plus its fixed reach of 1.0 means it will tend to sit at the top
-of any list that has one at all, and the citation threshold's permissiveness
-is a direct, visible consequence of `MIN_CITING_ANSWERS`'s value.
+of any list that has one at all, and the ordering between recommendation types is set by `FEASIBILITY` and
+answers-per-prompt, not by the citation threshold (§3).
 
 ## 6. A concurrency defect found and fixed during review
 

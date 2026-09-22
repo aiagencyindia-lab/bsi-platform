@@ -26,14 +26,17 @@ def _mention(org, oid, etype, eid):
 def world(owner, make_org, make_brand, make_observation):
     """Five active prompts, each built so exactly one rule fires or not.
 
-    dominated  brand 0/4, Adidas 4/4, forbes.com and adidas.co.in (a
-               declared Adidas domain) cited in all four -> create_content,
-               pursue_citation_source (forbes.com only: adidas.co.in is a
-               rival's own domain and must not be recommended);
-                  separated at n=4, so no sample_more
+    dominated  brand 0/4, Adidas 4/4; forbes.com, adidas.co.in (a
+               declared Adidas domain) and four.com cited in all four
+               -> create_content; separated at n=4, so no sample_more
     present    brand 3/4, blog.com cited in all four -> nothing: absent
                only once; blog.com cited in one brand-absent answer;
-               needs 16 samples, a shortfall of 12, just past the 10
+               needs 16 samples, a shortfall of 12, just past the 10.
+               Its one brand-absent answer also cites forbes.com and
+               adidas.co.in, bringing each to five - the threshold:
+               forbes.com -> pursue_citation_source; adidas.co.in -> nothing,
+               since a rival's own domain must never be recommended;
+               four.com stays at four, one short -> nothing
     mismatch   brand 0/2, reason category_mismatch, nike.com (owned) and
                rare.com (two answers) cited -> nothing
     close      brand 3/3, Adidas 0/3 -> sample_more (needs 4)
@@ -117,14 +120,25 @@ def world(owner, make_org, make_brand, make_observation):
         False,
         True,
         "competitor_dominance",
-        [("forbes.com", False), ("adidas.co.in", False)],
+        [
+            ("forbes.com", False),
+            ("adidas.co.in", False),
+            ("four.com", False),
+        ],
     )
     ids.dominated = prompt("dominated", [lost] * 4)
     blog = [("blog.com", False)]
     ids.present = prompt(
         "present",
         [(True, False, None, blog)] * 3
-        + [(False, True, "competitor_dominance", blog)],
+        + [
+            (
+                False,
+                True,
+                "competitor_dominance",
+                [*blog, ("forbes.com", False), ("adidas.co.in", False)],
+            )
+        ],
     )
     ids.mismatch = prompt(
         "mismatch",
@@ -167,21 +181,24 @@ def test_each_rule_fires_exactly_where_it_should(world):
 
 def test_citation_evidence_and_weights(world):
     c = found(world)[("pursue_citation_source", "forbes.com")]
-    assert len(c.evidence["observation_ids"]) == 4
-    assert c.evidence["prompt_ids"] == [str(world.dominated)]
+    assert len(c.evidence["observation_ids"]) == 5
+    assert c.evidence["prompt_ids"] == sorted(
+        [str(world.dominated), str(world.present)]
+    )
     assert c.evidence["rivals"] == ["Adidas"]
-    # 4 brand-absent answers of 16 done ones on active prompts.
+    # 5 brand-absent answers of 16 done ones on active prompts; all five
+    # name Adidas. 0.3125 x 1.0 x 0.3 = 0.09375 -> 0.0938.
     assert (c.reach, c.pressure, c.feasibility, c.priority) == (
-        0.25,
+        0.3125,
         1.0,
         0.3,
-        0.075,
+        0.0938,
     )
 
 
 def test_citation_rule_skips_a_rivals_declared_domain(world):
-    # adidas.co.in is cited exactly as often as forbes.com (four
-    # brand-absent "dominated" answers) but is declared on the active
+    # adidas.co.in is cited exactly as often as forbes.com (five
+    # brand-absent answers, at the threshold) but is declared on the active
     # Adidas competitor, so it must never be recommended - while
     # forbes.com, an unrelated domain with the same count, still is.
     all_ = found(world)

@@ -39,7 +39,9 @@ FEASIBILITY = {
     "create_content": 0.4,
     "pursue_citation_source": 0.3,
 }
-MIN_CITING_ANSWERS = 3
+# 3 recommended 72 citation sources on an 80-answer brand, burying every
+# content gap; 5 halves that (findings-slice6 section 3).
+MIN_CITING_ANSWERS = 5
 MIN_COMPETITOR_EVIDENCE = 2
 # More samples than this is a change to sampling, not a task.
 SAMPLE_MORE_WITHIN = 10
