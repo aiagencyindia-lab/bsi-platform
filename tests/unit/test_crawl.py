@@ -2,6 +2,7 @@
 
 import pytest
 from bsi_core.crawl import (
+    BODY_CAP,
     BOTS,
     BROWSER_UA,
     Response,
@@ -174,6 +175,19 @@ def test_sitemap_index_is_valid_and_junk_is_not():
     assert codes(audit_domain("nike.com", site(pages)), False) == [
         "sitemap_invalid"
     ]
+
+
+def test_a_sitemap_cut_off_at_the_body_cap_is_still_valid():
+    # http_fetch keeps the first BODY_CAP characters, so a large sitemap
+    # arrives truncated mid-element. Only the root element decides.
+    url = "<url><loc>https://nike.com/p</loc></url>"
+    body = SITEMAP.replace("</urlset>", url * 20_000)[:BODY_CAP]
+    assert len(body) == BODY_CAP  # really truncated
+    pages = {**GOOD, "/sm.xml": Response(200, body)}
+    audit = audit_domain("nike.com", site(pages))
+    assert codes(audit, False) == []
+    check = next(c for c in audit.checks if c.code == "sitemap_invalid")
+    assert check.observed == "root <urlset>"
 
 
 def test_a_fetch_error_is_a_failed_check_not_an_exception():

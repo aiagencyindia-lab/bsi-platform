@@ -216,6 +216,25 @@ def _has_org(scripts: list[str]) -> bool:
     return False
 
 
+def _root_tag(body: str) -> str:
+    """The sitemap's root element name, read from the first start tag.
+
+    http_fetch keeps only the first BODY_CAP characters, so a large
+    sitemap arrives cut off mid-element. The root is all this check
+    needs, so the rest of the document is never parsed.
+    """
+    parser: ET.XMLPullParser[ET.Element] = ET.XMLPullParser(events=("start",))
+    try:
+        parser.feed(body)
+        for event in parser.read_events():
+            element = event[-1]
+            if isinstance(element, ET.Element):
+                return str(element.tag).rsplit("}", 1)[-1]
+    except ET.ParseError as e:
+        return f"unparseable: {e}"
+    return "none"
+
+
 def _clip(s: str) -> str:
     return s.strip()[:OBSERVED_CAP]
 
@@ -390,10 +409,7 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
     sm = get(sm_url)
     add("sitemap_missing", sm.ok, sm.error or f"HTTP {sm.status}", sm_url)
     if sm.ok:
-        try:
-            root = ET.fromstring(sm.body).tag.rsplit("}", 1)[-1]
-        except ET.ParseError as e:
-            root = f"unparseable: {e}"
+        root = _root_tag(sm.body)
         add(
             "sitemap_invalid",
             root in ("urlset", "sitemapindex"),

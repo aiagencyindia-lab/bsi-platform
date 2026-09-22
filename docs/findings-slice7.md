@@ -137,7 +137,7 @@ no baseline. That is why the user agent changed.
 | Fetches | 4 |
 | Elapsed | 4.36s |
 | Checks run | 12 (on-page and bot-UA checks skipped: home unreachable) |
-| Failing | 9 |
+| Failing | 8 |
 
 Failing checks:
 
@@ -150,7 +150,6 @@ Failing checks:
 | `bot_blocked:Claude-SearchBot` | high | same | `User-agent: Claude-SearchBot\nDisallow: /` |
 | `bot_blocked:PerplexityBot` | high | same | `User-agent: PerplexityBot\nDisallow: /` |
 | `bot_blocked:Google-Extended` | high | same | `User-agent: Google-Extended\nDisallow: /` |
-| `sitemap_invalid` | medium | `https://www.nytimes.com/sitemaps/new/news.xml.gz` | `root <unparseable: no element found: line 9002, column 15>` |
 | `llms_missing` | low | `https://nytimes.com/llms.txt` | `HTTP 404` |
 
 This confirms the premise: nytimes.com's robots.txt disallows GPTBot (and
@@ -164,8 +163,10 @@ without the misleading part: because the homepage gave no baseline, the 5
 on-page checks and the 8 `bot_ua_blocked:*` checks were skipped and never
 fetched, where the first run fetched all 8 bot user agents and reported
 each as "not blocked" regardless of what it got. The robots-declared
-sitemap (`sitemaps/new/news.xml.gz`) answered `200` but did not parse
-(§5.3).
+sitemap (`sitemaps/new/news.xml.gz`) answered `200` and is valid. The
+first two runs reported it as `sitemap_invalid` ("no element found: line
+9002"). That was a defect in the audit, fixed before merge (§5.3); the table
+above shows the result with the fix.
 
 ### example.com
 
@@ -198,12 +199,14 @@ Inside one owner-session transaction (rolled back, never committed): a
 nytimes.com audit were inserted for Run 1, then `generate()` and
 `top_by_type()` were called.
 
-(This used the first run's nytimes.com audit; the re-run in §3 has the
-same 9 failing checks, so the counts below are unchanged.)
+(This used the first run's nytimes.com audit, whose 9 failing checks
+included the false `sitemap_invalid` fixed in §5.3. With the fix it is 8
+failures and 88 candidates; the top-three below does not change, since the
+false check was medium severity.)
 
 `generate()` returned **89 candidates**: 9 `fix_crawlability` (one per
-failing check, §3's 9 failures), plus the same 56 `pursue_citation_source`,
-18 `create_content` and 6 `sample_more` from §2.
+failing check), plus the same 56 `pursue_citation_source`, 18
+`create_content` and 6 `sample_more` from §2.
 
 All 7 `high`-severity `fix_crawlability` checks tie at **priority 0.8**
 (reach 1.0 x pressure 1.0 x feasibility 0.8) — higher than every other
@@ -255,15 +258,20 @@ unchanged:
    subdomain), falling back to `/sitemap.xml`; any further sitemap entries,
    and any off-host or non-http(s) entries, go unread. A sitemap index that
    fans out to many per-section sitemaps is not walked.
-3. **A gzip-encoded sitemap fails `sitemap_invalid` for the wrong reason.**
-   nytimes.com's live sitemap (`sitemaps/new/news.xml.gz`, §3) is served
-   gzip-compressed; `audit_domain()` reads the response body as text
-   without decompressing it, so `ET.fromstring` sees compressed bytes and
-   raises a parse error. `sitemap_invalid` happens to come back `false`,
-   the same as any other unparseable sitemap, but the observed text ("root
-   <unparseable: ...>") does not say the file is gzipped, and a
-   *correctly* gzip-encoded sitemap — a normal, valid practice for large
-   sitemaps — would be wrongly flagged as invalid.
+3. **Fixed before merge: large sitemaps were reported invalid.**
+   `http_fetch` keeps the first 512 KiB (`BODY_CAP`) of a body, and the
+   sitemap check parsed the whole of what it kept, so any sitemap larger
+   than the cap arrived cut off mid-element and failed to parse. nytimes.com
+   showed it: its sitemap is served as `text/xml` with
+   `Content-Encoding: gzip`, httpx decompresses it to 601,518 characters,
+   and the cap cut it at 524,288 — hence "no element found: line 9002". An
+   earlier draft of these findings blamed gzip; that was wrong, since httpx
+   decodes `Content-Encoding` itself. The check now reads only the first
+   start tag with a pull parser (`crawl._root_tag`), so a truncated tail no
+   longer matters; `test_a_sitemap_cut_off_at_the_body_cap_is_still_valid`
+   pins it. Still unhandled: a `.gz` file served as raw `application/gzip`
+   with no `Content-Encoding` header arrives compressed and is reported
+   invalid.
 4. **No page crawl.** The audit reads the homepage and the declared site
    files only — robots.txt, one sitemap, llms.txt. It never follows a link
    or fetches a second page, so it cannot see whether *other* pages on the
