@@ -239,3 +239,35 @@ def test_tied_recommendations_list_in_generate_order(client, owner, scene):
             )
     got = client.get(f"/v1/brands/{bid}/recommendations", headers=org.headers)
     assert [r["subject_key"] for r in got.json()] == ["a.com", "b.com"]
+
+
+def test_top_takes_the_best_of_each_type(client, owner, scene):
+    org, bid = scene
+    rows = [
+        ("pursue_citation_source", "a.com", 0.9),
+        ("pursue_citation_source", "b.com", 0.8),
+        ("pursue_citation_source", "c.com", 0.7),
+        ("create_content", "p1", 0.1),
+        ("sample_more", "p2", 0.05),
+    ]
+    with owner() as s, s.begin():
+        s.add_all(
+            m.Recommendation(
+                org_id=org.id,
+                brand_id=bid,
+                type=t,
+                subject_key=key,
+                title=key,
+                body="b",
+                reach=p,
+                pressure=1.0,
+                feasibility=1.0,
+                priority=p,
+            )
+            for t, key, p in rows
+        )
+    top = client.get(
+        f"/v1/brands/{bid}/recommendations/top", headers=org.headers
+    )
+    assert top.status_code == 200
+    assert [r["subject_key"] for r in top.json()] == ["a.com", "p1", "p2"]

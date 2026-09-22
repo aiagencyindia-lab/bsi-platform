@@ -130,6 +130,7 @@ CASES = [
     ("PUT", "/v1/observations/{o}/labels/{e}", {"label": "listed"}),
     ("POST", "/v1/brands/{b}/recommendations/generate", None),
     ("GET", "/v1/brands/{b}/recommendations", None),
+    ("GET", "/v1/brands/{b}/recommendations/top", None),
     ("POST", "/v1/brands/{b}/recommendations/{r}/accept", None),
     ("POST", "/v1/brands/{b}/recommendations/{r}/dismiss", {"reason": "x"}),
     ("GET", "/v1/brands/{b}/tasks", None),

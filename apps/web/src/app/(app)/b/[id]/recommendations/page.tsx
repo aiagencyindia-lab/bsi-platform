@@ -1,14 +1,9 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { KIND } from "@/lib/format";
 import type { Recommendation } from "@/lib/types";
 import { accept, dismiss, generate } from "./actions";
 
-const KIND: Record<string, string> = {
-  pursue_citation_source: "Citation source",
-  create_content: "Content",
-  add_competitor: "Competitor",
-  sample_more: "Measurement",
-};
 
 type Evidence = { prompt_ids?: string[]; observation_ids?: string[] };
 

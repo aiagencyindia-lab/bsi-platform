@@ -18,6 +18,7 @@ product so the weighting is visible (PRD F12):
 
 import uuid
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
@@ -449,3 +450,24 @@ def refresh(s: Session, org_id: uuid.UUID, brand_id: uuid.UUID) -> int:
         )
     s.execute(stale)
     return len(found)
+
+
+def top_by_type(
+    ranked: Sequence[m.Recommendation], k: int = 3
+) -> list[m.Recommendation]:
+    """The shortlist: the best of each type first, then the next best.
+
+    `ranked` must already be in priority order. Priority compares well
+    within a type, where reach and pressure mean the same thing, but only
+    loosely across types, where feasibility is a judgement. Taking the top
+    k overall lets one type crowd out the rest - on the slice-1 brand,
+    citations held all ten top places at every feasibility weighting short
+    of one that flooded the top with content instead.
+    """
+    firsts: list[m.Recommendation] = []
+    rest: list[m.Recommendation] = []
+    seen: set[str] = set()
+    for rec in ranked:
+        (rest if rec.type in seen else firsts).append(rec)
+        seen.add(rec.type)
+    return (firsts + rest)[:k]

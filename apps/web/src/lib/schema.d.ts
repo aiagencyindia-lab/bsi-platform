@@ -318,6 +318,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brands/{brand_id}/recommendations/top": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Top Recommendations
+         * @description The overview's shortlist: the best open recommendation of each type,
+         *     then the next best, up to three.
+         */
+        get: operations["top_recommendations_v1_brands__brand_id__recommendations_top_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/recommendations/{rec_id}/accept": {
         parameters: {
             query?: never;
@@ -2273,6 +2294,39 @@ export interface operations {
         };
     };
     generate_recommendations_v1_brands__brand_id__recommendations_generate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    top_recommendations_v1_brands__brand_id__recommendations_top_get: {
         parameters: {
             query?: never;
             header?: {

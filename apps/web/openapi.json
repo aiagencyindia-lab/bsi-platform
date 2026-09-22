@@ -4345,6 +4345,70 @@
         ]
       }
     },
+    "/v1/brands/{brand_id}/recommendations/top": {
+      "get": {
+        "description": "The overview's shortlist: the best open recommendation of each type,\nthen the next best, up to three.",
+        "operationId": "top_recommendations_v1_brands__brand_id__recommendations_top_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RecommendationOut"
+                  },
+                  "title": "Response Top Recommendations V1 Brands  Brand Id  Recommendations Top Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Top Recommendations",
+        "tags": [
+          "recommendations"
+        ]
+      }
+    },
     "/v1/brands/{brand_id}/recommendations/{rec_id}/accept": {
       "post": {
         "operationId": "accept_v1_brands__brand_id__recommendations__rec_id__accept_post",
