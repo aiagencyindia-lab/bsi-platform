@@ -157,9 +157,15 @@ def run_crawl_audit(
                 .order_by(m.Domain.created_at, m.Domain.host)
             )
         )
-    audits = [
-        (host, audit_domain(host, fetch, pause=PAUSE_SECONDS)) for host in hosts
-    ]
+    audits = []
+    for host in hosts:
+        # One host crashing must not lose the others' rows.
+        try:
+            audits.append(
+                (host, audit_domain(host, fetch, pause=PAUSE_SECONDS))
+            )
+        except Exception:
+            log.exception("brand %s: audit of %s failed", brand_id, host)
     with tenant_session(org_id) as s:
         for host, audit in audits:
             s.add(
@@ -172,6 +178,11 @@ def run_crawl_audit(
                     fetches=audit.fetches,
                 )
             )
+        s.flush()
+        # Results reach recommendations now, not at the weekly pass.
+        # recs_refreshed_at is deliberately not stamped: an on-demand
+        # refresh must not defer the weekly one.
+        refresh(s, org_id, brand_id)
     return len(audits)
 
 

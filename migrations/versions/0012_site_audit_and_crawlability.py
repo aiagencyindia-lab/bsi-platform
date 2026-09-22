@@ -77,15 +77,27 @@ def upgrade() -> None:
         CREATE FUNCTION due_crawl_audits()
         RETURNS TABLE(brand_id uuid, org_id uuid)
         LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+          -- Due when any declared domain has no audit in the window.
+          -- Oldest per-domain latest audit first; a never-audited
+          -- domain (NULL) sorts first.
           SELECT b.id, b.org_id FROM brand b
-          LEFT JOIN (SELECT a.brand_id, max(a.created_at) AS last
-                     FROM site_audit a GROUP BY a.brand_id) a
-            ON a.brand_id = b.id
           WHERE b.status = 'active'
-            AND EXISTS (SELECT 1 FROM domain d WHERE d.brand_id = b.id)
-            AND (a.last IS NULL
-                 OR a.last <= now() - make_interval(days => {AUDIT_DAYS}))
-          ORDER BY a.last NULLS FIRST, b.id
+            AND EXISTS (
+              SELECT 1 FROM domain d
+              WHERE d.brand_id = b.id
+                AND NOT EXISTS (
+                  SELECT 1 FROM site_audit a
+                  WHERE a.brand_id = b.id AND a.domain = d.host
+                    AND a.created_at
+                        > now() - make_interval(days => {AUDIT_DAYS})))
+          ORDER BY (SELECT CASE WHEN bool_and(l.last IS NOT NULL)
+                                THEN min(l.last) END
+                    FROM (SELECT (SELECT max(a.created_at) FROM site_audit a
+                                  WHERE a.brand_id = b.id
+                                    AND a.domain = d.host) AS last
+                          FROM domain d WHERE d.brand_id = b.id) l)
+                   NULLS FIRST,
+                   b.id
         $$""")
     op.execute("REVOKE ALL ON FUNCTION due_crawl_audits() FROM PUBLIC")
     op.execute("GRANT EXECUTE ON FUNCTION due_crawl_audits() TO bsi_app")
@@ -93,6 +105,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute(
+        "DELETE FROM task WHERE recommendation_id IN "
+        "(SELECT id FROM recommendation WHERE type = 'fix_crawlability')"
+    )
+    op.execute("DELETE FROM recommendation WHERE type = 'fix_crawlability'")
     _rec_type_check(OLD_TYPES)
     op.execute("DROP FUNCTION due_crawl_audits()")
     op.drop_index("ix_site_audit_latest", table_name="site_audit")

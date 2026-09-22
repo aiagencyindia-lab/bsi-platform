@@ -299,3 +299,71 @@ def test_queue_due_crawl_audits_leaves_a_failed_audit_for_the_next_hour(
     # not flipped back to queued (which would re-run it every minute).
     assert [j.id for j in jobs] == [job_id]
     assert _load_job(owner, job_id).status == "failed"
+
+
+def _open_crawl_recs(owner):
+    with owner() as s:
+        return sorted(
+            s.scalars(
+                select(m.Recommendation.subject_key).where(
+                    m.Recommendation.type == "fix_crawlability",
+                    m.Recommendation.status == "open",
+                )
+            )
+        )
+
+
+def test_an_audit_refreshes_recommendations_at_once(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _domain(owner, org, bid)
+    _, generator, embedder = _spender()
+    blocked = Response(200, "User-agent: GPTBot\nDisallow: /\n")
+    _job(owner, org, bid, "audit_crawl", "queued")
+    fetch = _fake_fetch({"https://nike.com/robots.txt": blocked})
+    assert worker.process_job(FakeAdapter(), generator, embedder, fetch=fetch)
+    assert "nike.com:bot_blocked:GPTBot" in _open_crawl_recs(owner)
+    with owner() as s:
+        # The weekly pass is not deferred by an audit's refresh.
+        assert s.get(m.Brand, bid).recs_refreshed_at is None
+
+    _job(owner, org, bid, "audit_crawl", "queued", minutes=1)
+    assert worker.process_job(
+        FakeAdapter(), generator, embedder, fetch=_fake_fetch()
+    )
+    assert "nike.com:bot_blocked:GPTBot" not in _open_crawl_recs(owner)
+
+
+def test_a_newly_declared_domain_makes_the_brand_due(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _domain(owner, org, bid, "nike.com")
+    _audit(owner, org, bid, 0, "nike.com")
+    assert due() == []
+    _domain(owner, org, bid, "nike.in")
+    assert due() == [bid]
+
+
+def test_one_domain_crashing_keeps_the_others_rows(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    _domain(owner, org, bid, "nike.com")
+    _domain(owner, org, bid, "nike.in")
+    job_id = _job(owner, org, bid, "audit_crawl", "queued")
+    _, generator, embedder = _spender()
+    ok = _fake_fetch()
+
+    def fetch(url, ua):
+        if "nike.com" in url:
+            raise RuntimeError("boom")
+        return ok(url, ua)
+
+    assert worker.process_job(FakeAdapter(), generator, embedder, fetch=fetch)
+    assert _load_job(owner, job_id).status == "done"
+    with owner() as s:
+        rows = s.scalars(select(m.SiteAudit)).all()
+    assert [r.domain for r in rows] == ["nike.in"]
