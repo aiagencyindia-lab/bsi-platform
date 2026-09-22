@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Filters } from "@/components/Filters";
 import { Tile } from "@/components/Tile";
 import { api } from "@/lib/api";
-import { apiQuery, pct, type Params } from "@/lib/format";
+import { apiQuery, KIND, pct, type Params } from "@/lib/format";
 import type { Deltas, Metrics, Recommendation, Sov } from "@/lib/types";
 
 export default async function Overview({
@@ -21,7 +21,7 @@ export default async function Overview({
     api<Metrics>(`/brands/${id}/metrics${q}`),
     api<Deltas>(`/brands/${id}/deltas${dq}`),
     api<Sov>(`/brands/${id}/sov${q}`),
-    api<Recommendation[]>(`/brands/${id}/recommendations`),
+    api<Recommendation[]>(`/brands/${id}/recommendations/top`),
   ]);
   // sp.days can be a repeated query param (string[]); Number([...]) on a
   // multi-element array is NaN, which happens to also fall back to 7 — but
@@ -74,6 +74,7 @@ export default async function Overview({
         </tbody>
       </table>
       <h2>Top recommendations</h2>
+      <p className="muted">The best of each kind, so one kind cannot crowd out the rest.</p>
       {recs.length === 0 ? (
         <p className="muted">
           None open. <Link href={`/b/${id}/recommendations`}>Generate</Link>{" "}
@@ -81,10 +82,10 @@ export default async function Overview({
         </p>
       ) : (
         <ol>
-          {recs.slice(0, 3).map((r) => (
+          {recs.map((r) => (
             <li key={r.id}>
-              <Link href={`/b/${id}/recommendations`}>{r.title}</Link>{" "}
-              <span className="muted">priority {r.priority.toFixed(3)}</span>
+              <span className="tag">{KIND[r.type] ?? r.type}</span>{" "}
+              <Link href={`/b/${id}/recommendations`}>{r.title}</Link>
             </li>
           ))}
         </ol>

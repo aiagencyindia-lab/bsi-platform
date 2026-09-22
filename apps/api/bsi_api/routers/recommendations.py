@@ -4,7 +4,7 @@ import uuid
 from typing import Literal
 
 from bsi_core import models as m
-from bsi_core.recommend import refresh
+from bsi_core.recommend import refresh, top_by_type
 from fastapi import APIRouter
 from sqlalchemy import select
 
@@ -71,6 +71,16 @@ def list_recommendations(
 ) -> list[m.Recommendation]:
     brand_or_404(c, brand_id)
     return _listed(c, brand_id, status)
+
+
+@router.get("/recommendations/top", response_model=list[RecommendationOut])
+def top_recommendations(
+    brand_id: uuid.UUID, c: Ctx = TENANT
+) -> list[m.Recommendation]:
+    """The overview's shortlist: the best open recommendation of each type,
+    then the next best, up to three."""
+    brand_or_404(c, brand_id)
+    return top_by_type(_listed(c, brand_id, "open"))
 
 
 @router.post(

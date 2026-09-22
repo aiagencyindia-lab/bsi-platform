@@ -70,3 +70,11 @@ export function highlight(text: string, sentences: string[]) {
   if (at < text.length) out.push({ text: text.slice(at), hit: false });
   return out;
 }
+
+// Display names for recommendation types.
+export const KIND: Record<string, string> = {
+  pursue_citation_source: "Citation source",
+  create_content: "Content",
+  add_competitor: "Competitor",
+  sample_more: "Measurement",
+};
