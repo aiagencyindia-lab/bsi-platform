@@ -37,8 +37,13 @@ def test_cost_counts_tokens_and_the_grounded_prompt():
     assert adapter.cost(ungrounded) == 303
 
 
-def test_default_engine_is_gemini_3_8_flash_priced_per_search_query():
-    adapter = GeminiGroundingAdapter(client=object())
+def test_default_engine_is_gemini_2_5_flash_priced_per_grounded_prompt():
+    # 2.5 searched in every answer; 3.8 in about 1 in 4 (findings-slice5).
+    assert GeminiGroundingAdapter(client=object()).cost(RAW) == 35_303
+
+
+def test_gemini_3_8_flash_is_priced_per_search_query():
+    adapter = GeminiGroundingAdapter(client=object(), model="gemini-3.8-flash")
     # min fixture: 10 in, 100 out + 20 thinking, 1 search query.
     # 10 * 1.50 + 120 * 7.50 = 915 for tokens, plus 14_000 per query.
     assert adapter.cost(RAW) == 14_915
@@ -127,7 +132,8 @@ def test_query_never_raises_on_malformed_payload():
 @pytest.mark.parametrize("name", ["kids_shoes", "crm"])
 def test_parse_recorded_payloads(name):
     raw = json.loads(Path(f"tests/fixtures/gemini_{name}.json").read_text())
-    adapter = GeminiGroundingAdapter(client=object())
+    # Recorded from gemini-3.8-flash, so priced per search query.
+    adapter = GeminiGroundingAdapter(client=object(), model="gemini-3.8-flash")
     answer = adapter.parse(raw)
     assert len(answer.text) > 100
     assert answer.citations

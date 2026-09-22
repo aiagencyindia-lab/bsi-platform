@@ -68,7 +68,7 @@ def test_prompt_to_metric(client, make_org):
     assert len(listed) == 4
     oid = listed[0]["id"]
     detail = client.get(f"/v1/observations/{oid}", headers=h).json()
-    assert detail["cost_micros"] == 14_915
+    assert detail["cost_micros"] == 35_303
     assert [x["entity_type"] for x in detail["mentions"]] == [
         "brand",
         "competitor",
