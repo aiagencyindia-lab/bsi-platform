@@ -16,3 +16,5 @@ export type LabelResult = S["LabelResult"];
 export type Recommendation = S["RecommendationOut"];
 export type Task = S["TaskOut"];
 export type Source = S["SourceOut"];
+export type SiteAudit = S["SiteAuditOut"];
+export type Queued = S["QueuedOut"];

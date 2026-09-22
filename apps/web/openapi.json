@@ -170,6 +170,49 @@
         "title": "BulkPatch",
         "type": "object"
       },
+      "CheckOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "expected": {
+            "title": "Expected",
+            "type": "string"
+          },
+          "observed": {
+            "title": "Observed",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "severity": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "ok",
+          "severity",
+          "observed",
+          "expected",
+          "url"
+        ],
+        "title": "CheckOut",
+        "type": "object"
+      },
       "CitationOut": {
         "properties": {
           "domain": {
@@ -1655,6 +1698,30 @@
         "title": "PromptPatch",
         "type": "object"
       },
+      "QueuedOut": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_url": {
+            "title": "Status Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "status_url",
+          "status"
+        ],
+        "title": "QueuedOut",
+        "type": "object"
+      },
       "Rate": {
         "properties": {
           "ci_high": {
@@ -2037,6 +2104,57 @@
           "last_result"
         ],
         "title": "ScheduleRow",
+        "type": "object"
+      },
+      "SiteAuditOut": {
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "fetches": {
+            "title": "Fetches",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          }
+        },
+        "required": [
+          "id",
+          "domain",
+          "created_at",
+          "fetches",
+          "job_id",
+          "checks"
+        ],
+        "title": "SiteAuditOut",
         "type": "object"
       },
       "SourceOut": {
@@ -2777,6 +2895,127 @@
         "summary": "Patch Brand",
         "tags": [
           "brands"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/audits/crawl": {
+      "get": {
+        "description": "The latest audit of each of the brand's currently declared\ndomains. A domain later removed from `domain` no longer surfaces\nits last audit.",
+        "operationId": "latest_crawl_v1_brands__brand_id__audits_crawl_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SiteAuditOut"
+                  },
+                  "title": "Response Latest Crawl V1 Brands  Brand Id  Audits Crawl Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Latest Crawl",
+        "tags": [
+          "audits"
+        ]
+      },
+      "post": {
+        "operationId": "queue_crawl_v1_brands__brand_id__audits_crawl_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Queue Crawl",
+        "tags": [
+          "audits"
         ]
       }
     },

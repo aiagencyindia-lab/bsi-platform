@@ -58,6 +58,29 @@ export interface paths {
         patch: operations["patch_brand_v1_brands__brand_id__patch"];
         trace?: never;
     };
+    "/v1/brands/{brand_id}/audits/crawl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest Crawl
+         * @description The latest audit of each of the brand's currently declared
+         *     domains. A domain later removed from `domain` no longer surfaces
+         *     its last audit.
+         */
+        get: operations["latest_crawl_v1_brands__brand_id__audits_crawl_get"];
+        put?: never;
+        /** Queue Crawl */
+        post: operations["queue_crawl_v1_brands__brand_id__audits_crawl_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/citations": {
         parameters: {
             query?: never;
@@ -635,6 +658,24 @@ export interface components {
              */
             status: "suggested" | "active" | "paused" | "archived";
         };
+        /** CheckOut */
+        CheckOut: {
+            /** Code */
+            code: string;
+            /** Expected */
+            expected: string;
+            /** Observed */
+            observed: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "high" | "medium" | "low";
+            /** Url */
+            url: string;
+        };
         /** CitationOut */
         CitationOut: {
             /** Domain */
@@ -1147,6 +1188,18 @@ export interface components {
              */
             status: "suggested" | "active" | "paused" | "archived";
         };
+        /** QueuedOut */
+        QueuedOut: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Status */
+            status: string;
+            /** Status Url */
+            status_url: string;
+        };
         /** Rate */
         Rate: {
             /** Ci High */
@@ -1312,6 +1365,27 @@ export interface components {
             samples: number;
             /** Status */
             status: string;
+        };
+        /** SiteAuditOut */
+        SiteAuditOut: {
+            /** Checks */
+            checks: components["schemas"]["CheckOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Domain */
+            domain: string;
+            /** Fetches */
+            fetches: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Job Id */
+            job_id: string | null;
         };
         /**
          * SourceOut
@@ -1657,6 +1731,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latest_crawl_v1_brands__brand_id__audits_crawl_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteAuditOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_crawl_v1_brands__brand_id__audits_crawl_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueuedOut"];
                 };
             };
             /** @description Validation Error */

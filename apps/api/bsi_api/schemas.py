@@ -193,3 +193,29 @@ class TaskPatch(BaseModel):
     notes: str = Field(None, max_length=5000)
     owner: str | None = Field(None, max_length=200)
     due_date: date | None = None
+
+
+class QueuedOut(BaseModel):
+    job_id: uuid.UUID
+    status_url: str
+    status: str
+
+
+class CheckOut(BaseModel):
+    code: str
+    ok: bool
+    severity: Literal["high", "medium", "low"]
+    observed: str
+    expected: str
+    url: str
+
+
+class SiteAuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    domain: str
+    created_at: datetime
+    fetches: int
+    job_id: uuid.UUID | None
+    checks: list[CheckOut]

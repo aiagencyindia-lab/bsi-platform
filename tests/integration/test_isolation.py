@@ -136,6 +136,8 @@ CASES = [
     ("GET", "/v1/brands/{b}/tasks", None),
     ("PATCH", "/v1/brands/{b}/tasks/{t}", {"notes": "x"}),
     ("GET", "/v1/brands/{b}/citations", None),
+    ("POST", "/v1/brands/{b}/audits/crawl", None),
+    ("GET", "/v1/brands/{b}/audits/crawl", None),
 ]
 
 
