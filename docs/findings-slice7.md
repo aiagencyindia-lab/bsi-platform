@@ -90,10 +90,11 @@ docstring in `citations.py`).
 at 55% of domains it is a filter for browsing the citation table, not a
 prioritized list — it answers "is this domain even a candidate" without
 saying which of 136 candidates to work first. `generate()`'s
-`pursue_citation_source` rule (§ below) is the ranked, actionable cut: it
-adds a floor of 5+ citing answers and excludes rival-declared domains,
-producing 56 recommendations ordered by priority instead of 136 unranked
-rows.
+`pursue_citation_source` rule (§ below) is the ranked, actionable list, but
+it is a different selection, not a cut of `gap`: it needs 5+ brand-free
+citing answers on active prompts and excludes rival-declared domains, with
+no two-rival requirement, so its 56 recommendations are not a subset of
+the 136 gap rows.
 
 **Comparison with `generate()`'s `pursue_citation_source` count.**
 `generate(s, BRAND)` (called read-only, not `refresh`) produced:
@@ -106,11 +107,15 @@ rows.
 | `add_competitor` | 0 (no suggested competitors on this org) |
 
 56 is well below 136. The two numbers measure different things and are not
-expected to match: `sources()`'s `gap` only requires 2+ active rivals named
-and the brand absent, with no floor on how many answers cite the domain;
-`generate()`'s citation rule additionally requires `MIN_CITING_ANSWERS = 5`
-citing answers (findings-slice6 §3) **and** excludes any domain a rival has
-declared (`_rival_domains`, findings-slice6 §2). Most of the gap between
+expected to match: `sources()`'s `gap` requires 2+ active rivals named and
+the brand never named in any citing answer, with no floor on how many
+answers cite the domain; `generate()`'s citation rule instead requires
+`MIN_CITING_ANSWERS = 5` brand-free citing answers on active prompts
+(findings-slice6 §3), has no rival-count requirement, and excludes any
+domain a rival has declared (`_rival_domains`, findings-slice6 §2). A
+domain can be recommended without being a gap (the brand is named in some
+of its other answers, or fewer than two rivals are), so the 56 are not a
+subset of the 136. Most of the gap between
 the two counts (136 vs. 56) is the citing-answer floor: the bulk of the 136
 gap domains beyond the top few dozen are cited in only 1-4 answers, which
 the recommendation rule intentionally excludes as too thin to act on (same
@@ -165,8 +170,9 @@ fetched, where the first run fetched all 8 bot user agents and reported
 each as "not blocked" regardless of what it got. The robots-declared
 sitemap (`sitemaps/new/news.xml.gz`) answered `200` and is valid. The
 first two runs reported it as `sitemap_invalid` ("no element found: line
-9002"). That was a defect in the audit, fixed before merge (§5.3); the table
-above shows the result with the fix.
+9002"). That was a defect in the audit, fixed before merge (§5.3). The
+table above was not produced by a fresh run: it is the pre-fix run's output
+with the false `sitemap_invalid` removed, and Elapsed is from that run.
 
 ### example.com
 
@@ -294,10 +300,12 @@ unchanged:
    other hosts' rows: the worker skips that host and writes the rest, and
    the skipped host stays due.
 7. **The fetch budget is 12 per domain, not 11.** The design spec counted
-   11; the actual budget, confirmed by both live runs above (`fetches: 12`
-   in each), is home (1) + robots.txt (1) + 8 bot-UA homepage fetches (8)
-   + sitemap (1) + llms.txt (1) = 12. The spec's 11 was a miscount, not a
-   deliberate reduction; this findings doc is the correction of record.
+   11; the actual budget, confirmed by example.com's live run (12 fetches;
+   nytimes.com's made 4 because its homepage failed, so the bot-UA and
+   on-page checks were skipped), is home (1) + robots.txt (1) + 8 bot-UA
+   homepage fetches (8) + sitemap (1) + llms.txt (1) = 12. The spec's 11
+   was a miscount, not a deliberate reduction; this findings doc is the
+   correction of record.
 8. **Security gap to close before any hosted deployment: SSRF.**
    `audit_domain()`/`http_fetch()` fetches whatever host it is given, with
    no check that the resolved address is public. Nothing is typed into the
