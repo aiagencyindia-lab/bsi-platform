@@ -119,9 +119,18 @@ def test_cdn_blocking_only_counts_when_the_browser_got_through():
     down = {**GOOD, "/": Response(503, "")}
     audit = audit_domain("nike.com", site(down, blocked_uas=BOTS))
     # Home is down for everyone: that is home_unreachable, not eight
-    # CDN blocks, and the on-page checks are skipped.
+    # CDN blocks; the on-page and bot-UA checks are skipped entirely.
     assert codes(audit, False) == ["home_unreachable"]
     assert "title_missing" not in codes(audit, True)
+    assert not [c for c in audit.checks if c.code.startswith("bot_ua")]
+    # home + robots + sitemap + llms.txt: no bot-UA fetches
+    assert audit.fetches == 4
+
+
+def test_the_browser_ua_is_a_real_browser():
+    # A bot-like UA gets 403 from bot-managed sites and blinds the audit.
+    assert BROWSER_UA.startswith("Mozilla/5.0 (")
+    assert "Chrome/" in BROWSER_UA and "compatible" not in BROWSER_UA
 
 
 def test_on_page_checks_fail_individually():
@@ -261,6 +270,9 @@ def test_pause_is_applied_between_fetches(monkeypatch):
     monkeypatch.setattr("bsi_core.crawl.time.sleep", slept.append)
     audit_domain("nike.com", site(GOOD), pause=0.5)
     assert slept == [0.5] * 11  # between 12 fetches
+    slept.clear()
+    audit_domain("nike.com", site({**GOOD, "/": Response(503, "")}), pause=0.5)
+    assert slept == [0.5] * 3  # home down: between 4 fetches
 
 
 def test_a_non_http_sitemap_scheme_is_ignored():

@@ -20,7 +20,12 @@ import httpx
 
 from bsi_core.matching import is_owned, normalize_domain
 
-BROWSER_UA = "Mozilla/5.0 (compatible; BSI-Audit/1.0)"
+# A real desktop Chrome: bot-managed sites answer a bot-like UA 403,
+# which would blind the audit to its own baseline.
+BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+)
 BOTS = (
     "GPTBot",
     "OAI-SearchBot",
@@ -114,6 +119,9 @@ def expected(code: str) -> str:
     return EXPECTED[family(code)]
 
 
+# SECURITY: no private-address check and redirects are followed —
+# see docs/findings-slice7.md §5 (SSRF). Must be closed before any hosted
+# deployment.
 def http_fetch(url: str, user_agent: str) -> Response:
     """The real fetch. Never raises: an error is a Response with status 0.
 
@@ -298,7 +306,8 @@ def _owned_sitemap(host: str, url: str) -> bool:
 
 def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
     """Every check for one host. Skipped checks are not emitted: on-page
-    checks need a reachable homepage, sitemap_invalid needs a sitemap."""
+    and bot-UA checks need a reachable homepage, sitemap_invalid needs a
+    sitemap."""
     checks: list[Check] = []
     fetches = 0
 
@@ -362,9 +371,10 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
             robots_url,
         )
 
-    for bot in BOTS:
+    # With no browser baseline a bot's answer means nothing: skip them.
+    for bot in BOTS if home.ok else ():
         r = get(home_url, bot)
-        blocked = home.ok and (r.status in BLOCKED or r.status >= 500)
+        blocked = r.status in BLOCKED or r.status >= 500
         add(
             f"bot_ua_blocked:{bot}",
             not blocked,
