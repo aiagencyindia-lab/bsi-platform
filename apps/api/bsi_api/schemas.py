@@ -161,6 +161,27 @@ class TaskOut(BaseModel):
     created_at: datetime
 
 
+class RivalOut(BaseModel):
+    name: str
+    answers: int
+
+
+class SourceOut(BaseModel):
+    """One cited domain. `source_type` is a keyword heuristic."""
+
+    domain: str
+    owner: Literal["brand", "rival", "third_party"]
+    source_type: Literal["vendor", "video", "community", "review", "other"]
+    answers: int
+    prompts: int
+    first_seen: datetime
+    last_seen: datetime
+    brand_named: int
+    rivals: list[RivalOut]
+    gap: bool
+    observation_ids: list[uuid.UUID]
+
+
 class TaskPatch(BaseModel):
     # Fields defaulting to Field(None) reject an explicit null with a 422;
     # owner and due_date are the two that may be cleared.
@@ -172,3 +193,29 @@ class TaskPatch(BaseModel):
     notes: str = Field(None, max_length=5000)
     owner: str | None = Field(None, max_length=200)
     due_date: date | None = None
+
+
+class QueuedOut(BaseModel):
+    job_id: uuid.UUID
+    status_url: str
+    status: str
+
+
+class CheckOut(BaseModel):
+    code: str
+    ok: bool
+    severity: Literal["high", "medium", "low"]
+    observed: str
+    expected: str
+    url: str
+
+
+class SiteAuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    domain: str
+    created_at: datetime
+    fetches: int
+    job_id: uuid.UUID | None
+    checks: list[CheckOut]

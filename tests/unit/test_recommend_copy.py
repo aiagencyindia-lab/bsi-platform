@@ -1,8 +1,10 @@
 import pytest
+from bsi_core.crawl import SEVERITY
 from bsi_core.recommend import (
     citation_copy,
     competitor_copy,
     content_copy,
+    crawl_copy,
     names,
     sample_copy,
 )
@@ -35,6 +37,23 @@ CASES = [
     sample_copy("Nike", "best shoes", 3, 7, "Adidas"),
 ]
 
+# Every crawl family, so the scans below cover each template.
+CRAWL_CODES = [f"{c}:GPTBot" if c.startswith("bot_") else c for c in SEVERITY]
+CASES += [
+    crawl_copy(
+        "Nike",
+        "nike.com",
+        {
+            "code": code,
+            "observed": "HTTP 404",
+            "expected": "x",
+            "url": "https://nike.com/",
+            "severity": SEVERITY[code.split(":", 1)[0]],
+        },
+    )
+    for code in CRAWL_CODES
+]
+
 
 @pytest.mark.parametrize("copy", CASES)
 def test_copy_never_promises_an_outcome(copy):
@@ -46,6 +65,11 @@ def test_copy_never_promises_an_outcome(copy):
 @pytest.mark.parametrize("copy", CASES)
 def test_copy_names_the_metric_to_watch(copy):
     assert "Metric to watch:" in copy[1]
+
+
+def test_every_crawl_family_is_covered():
+    assert len(CRAWL_CODES) == 11
+    assert "bot_ua_blocked:GPTBot" in CRAWL_CODES
 
 
 def test_rival_lists_read_naturally():
@@ -62,3 +86,19 @@ def test_sample_copy_counts_the_shortfall():
     assert sample_copy("N", "p", 3, 7, "R")[0].startswith(
         "Take 4 more samples of"
     )
+
+
+def test_crawl_copy_names_the_bot_and_the_file():
+    title, body = crawl_copy(
+        "Nike",
+        "nike.com",
+        {
+            "code": "bot_ua_blocked:ClaudeBot",
+            "observed": "HTTP 403",
+            "expected": "x",
+            "url": "https://nike.com/",
+            "severity": "high",
+        },
+    )
+    assert "ClaudeBot" in title and "nike.com" in title
+    assert "HTTP 403" in body and "https://nike.com/" in body

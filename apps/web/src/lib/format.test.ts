@@ -1,5 +1,13 @@
 import { expect, test } from "vitest";
-import { apiQuery, ciText, highlight, pct, pts, usd } from "./format";
+import {
+  apiQuery,
+  auditNote,
+  ciText,
+  highlight,
+  pct,
+  pts,
+  usd,
+} from "./format";
 
 test("pct", () => {
   expect(pct(0.4167)).toBe("41.7%");
@@ -65,4 +73,15 @@ test("highlight orders spans by position, not by argument order", () => {
     { text: "Puma is fine.", hit: true },
     { text: " C.", hit: false },
   ]);
+});
+
+test("auditNote says what the run button actually did", () => {
+  const queued = "Queued; the worker runs it within a minute.";
+  expect(auditNote("queued")).toBe(queued);
+  expect(auditNote("running")).toBe(queued);
+  expect(auditNote("done")).toBe(
+    "Already audited this hour; a new run can start from the next hour.",
+  );
+  expect(auditNote("failed")).toBe("Queued again after a failed run.");
+  expect(auditNote(undefined)).toBeNull();
 });

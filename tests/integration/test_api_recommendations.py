@@ -67,6 +67,39 @@ def test_accept_creates_exactly_one_task(client, scene):
     assert [r["id"] for r in accepted] == [rec["id"]]
 
 
+def test_a_crawl_task_measures_no_impact(client, owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    with owner() as s, s.begin():
+        s.add(m.Domain(org_id=org.id, brand_id=bid, host="nike.com"))
+        s.add(
+            m.SiteAudit(
+                org_id=org.id,
+                brand_id=bid,
+                domain="nike.com",
+                checks=[
+                    {
+                        "code": "llms_missing",
+                        "ok": False,
+                        "severity": "low",
+                        "observed": "HTTP 404",
+                        "expected": "e",
+                        "url": "https://nike.com/llms.txt",
+                    }
+                ],
+            )
+        )
+    recs = client.post(
+        f"/v1/brands/{bid}/recommendations/generate", headers=org.headers
+    ).json()
+    rec = next(r for r in recs if r["type"] == "fix_crawlability")
+    task = client.post(
+        f"/v1/brands/{bid}/recommendations/{rec['id']}/accept",
+        headers=org.headers,
+    ).json()
+    assert task["measures_impact"] is False
+
+
 @pytest.mark.parametrize(
     ("rtype", "measures"),
     [("sample_more", False), ("create_content", True)],

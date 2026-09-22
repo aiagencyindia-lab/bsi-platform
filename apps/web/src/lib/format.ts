@@ -77,4 +77,17 @@ export const KIND: Record<string, string> = {
   create_content: "Content",
   add_competitor: "Competitor",
   sample_more: "Measurement",
+  fix_crawlability: "Site fix",
 };
+
+const QUEUED = "Queued; the worker runs it within a minute.";
+const AUDIT_NOTES: Record<string, string> = {
+  queued: QUEUED,
+  running: QUEUED,
+  done: "Already audited this hour; a new run can start from the next hour.",
+  failed: "Queued again after a failed run.",
+};
+
+/** What "Run audit now" did, from the job status the API returned. */
+export const auditNote = (status: string | string[] | undefined) =>
+  (typeof status === "string" && AUDIT_NOTES[status]) || null;

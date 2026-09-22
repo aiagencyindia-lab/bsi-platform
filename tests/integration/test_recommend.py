@@ -5,7 +5,7 @@ import pytest
 from bsi_core import models as m
 from bsi_core.db import tenant_session
 from bsi_core.recommend import generate, refresh
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from tests.integration.test_api_recommendations import _wait_until_blocked
 
@@ -330,3 +330,136 @@ def test_a_dismiss_racing_refresh_survives(owner, world):
         got = s.get(m.Recommendation, rec.id)
         assert got is not None, "the dismissed row was deleted"
         assert (got.status, got.dismiss_reason) == ("dismissed", "not a rival")
+
+
+def _site_audit(owner, w, checks):
+    with owner() as s, s.begin():
+        s.add(m.Domain(org_id=w.org.id, brand_id=w.brand, host="nike.com"))
+        s.add(
+            m.SiteAudit(
+                org_id=w.org.id,
+                brand_id=w.brand,
+                domain="nike.com",
+                checks=checks,
+            )
+        )
+
+
+def _check(code, ok, severity):
+    return {
+        "code": code,
+        "ok": ok,
+        "severity": severity,
+        "observed": "o",
+        "expected": "e",
+        "url": "https://nike.com/",
+    }
+
+
+def test_each_failing_check_is_one_crawl_recommendation(owner, world):
+    _site_audit(
+        owner,
+        world,
+        [
+            _check("bot_blocked:GPTBot", False, "high"),
+            _check("sitemap_missing", False, "medium"),
+            _check("llms_missing", False, "low"),
+            _check("title_missing", True, "low"),
+        ],
+    )
+    recs = {k: c for k, c in found(world).items() if k[0] == "fix_crawlability"}
+    assert set(recs) == {
+        ("fix_crawlability", "nike.com:bot_blocked:GPTBot"),
+        ("fix_crawlability", "nike.com:sitemap_missing"),
+        ("fix_crawlability", "nike.com:llms_missing"),
+    }
+    gpt = recs[("fix_crawlability", "nike.com:bot_blocked:GPTBot")]
+    # Nothing measures a site fix against answers: reach is 1.0 and
+    # pressure is the severity weight. 1.0 x 1.0 x 0.8.
+    assert (gpt.reach, gpt.pressure, gpt.feasibility, gpt.priority) == (
+        1.0,
+        1.0,
+        0.8,
+        0.8,
+    )
+    assert (
+        recs[("fix_crawlability", "nike.com:sitemap_missing")].priority == 0.4
+    )
+    assert recs[("fix_crawlability", "nike.com:llms_missing")].priority == 0.16
+    assert gpt.evidence["domain"] == "nike.com"
+    assert gpt.evidence["code"] == "bot_blocked:GPTBot"
+    assert "audit_id" in gpt.evidence
+
+
+def test_only_the_latest_audit_per_domain_counts(owner, world):
+    _site_audit(owner, world, [_check("sitemap_missing", False, "medium")])
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.SiteAudit).values(
+                created_at=func.now() - func.make_interval(0, 0, 0, 1)
+            )
+        )
+        s.add(
+            m.SiteAudit(
+                org_id=world.org.id,
+                brand_id=world.brand,
+                domain="nike.com",
+                checks=[_check("sitemap_missing", True, "medium")],
+            )
+        )
+    assert not [k for k in found(world) if k[0] == "fix_crawlability"]
+
+
+def test_a_fixed_check_disappears_on_refresh(owner, world):
+    _site_audit(owner, world, [_check("llms_missing", False, "low")])
+    with tenant_session(world.org.id) as s:
+        refresh(s, world.org.id, world.brand)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.SiteAudit).values(
+                checks=[_check("llms_missing", True, "low")]
+            )
+        )
+    with tenant_session(world.org.id) as s:
+        refresh(s, world.org.id, world.brand)
+        left = s.scalars(
+            select(m.Recommendation).where(
+                m.Recommendation.type == "fix_crawlability"
+            )
+        ).all()
+    assert left == []
+
+
+def test_a_domain_audit_with_no_declared_domain_yields_nothing(owner, world):
+    """Controller ruling: _crawl only considers audits of domains still
+    declared for the brand. A domain removed after its audit ran must not
+    keep producing recommendations."""
+    with owner() as s, s.begin():
+        s.add(
+            m.SiteAudit(
+                org_id=world.org.id,
+                brand_id=world.brand,
+                domain="nike.com",
+                checks=[_check("sitemap_missing", False, "medium")],
+            )
+        )
+    assert not [k for k in found(world) if k[0] == "fix_crawlability"]
+
+
+def test_an_unrecognized_check_is_skipped_not_fatal(owner, world):
+    """An unknown code or severity (an older row surviving a future code
+    rename, or edited data) must not raise out of generate(): it is
+    skipped, and every other recommendation type still comes back."""
+    _site_audit(
+        owner,
+        world,
+        [
+            _check("bogus_future_check", False, "high"),
+            _check("llms_missing", False, "low"),
+        ],
+    )
+    recs = found(world)
+    assert ("fix_crawlability", "nike.com:bogus_future_check") not in recs
+    assert ("fix_crawlability", "nike.com:llms_missing") in recs
+    # generate() still returns the brand's other types.
+    assert ("add_competitor", str(world.puma)) in recs

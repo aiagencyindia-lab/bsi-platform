@@ -4,11 +4,14 @@ import logging
 import random
 import time
 import uuid
+from collections.abc import Callable
+from dataclasses import asdict
 from datetime import timedelta
 from typing import Any, Protocol
 
 from bsi_core import models as m
 from bsi_core.config import get_settings
+from bsi_core.crawl import PAUSE_SECONDS, Fetch, audit_domain, http_fetch
 from bsi_core.db import system_session, tenant_session
 from bsi_core.extraction import Extractor
 from bsi_core.impact import close_window
@@ -16,7 +19,7 @@ from bsi_core.judge import JUDGE_PRICES, JUDGES, generate
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.recommend import refresh
-from bsi_core.scheduling import budget_fits, run_schedule
+from bsi_core.scheduling import budget_fits, enqueue_job, run_schedule
 from bsi_core.storage import LocalRawStore, RawStore
 from bsi_core.suggest import (
     COMPETITOR_JOB_MICROS,
@@ -26,7 +29,7 @@ from bsi_core.suggest import (
     suggest_competitors,
     suggest_prompts,
 )
-from sqlalchemy import func, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 log = logging.getLogger("bsi.worker")
@@ -41,6 +44,7 @@ SCHEDULE_CHECK_SECONDS = 60
 JOB_ESTIMATES = {
     "suggest_prompts": PROMPT_JOB_MICROS,
     "suggest_competitors": COMPETITOR_JOB_MICROS,
+    "audit_crawl": 0,  # HTTP only: no model, no spend
 }
 
 
@@ -132,6 +136,85 @@ def refresh_due_recommendations() -> int:
         except Exception:
             log.exception("brand %s refresh failed", brand_id)
     return done
+
+
+def run_crawl_audit(
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    job_id: uuid.UUID,
+    fetch: Fetch = http_fetch,
+) -> int:
+    """Audit every declared domain of the brand; returns how many.
+
+    Fetching happens with no transaction open, as model calls do; the
+    rows are written together at the end.
+    """
+    with tenant_session(org_id) as s:
+        hosts = list(
+            s.scalars(
+                select(m.Domain.host)
+                .where(m.Domain.brand_id == brand_id)
+                .order_by(m.Domain.created_at, m.Domain.host)
+            )
+        )
+    audits = []
+    for host in hosts:
+        # One host crashing must not lose the others' rows.
+        try:
+            audits.append(
+                (host, audit_domain(host, fetch, pause=PAUSE_SECONDS))
+            )
+        except Exception:
+            log.exception("brand %s: audit of %s failed", brand_id, host)
+    with tenant_session(org_id) as s:
+        for host, audit in audits:
+            s.add(
+                m.SiteAudit(
+                    org_id=org_id,
+                    brand_id=brand_id,
+                    job_id=job_id,
+                    domain=host,
+                    checks=[asdict(c) for c in audit.checks],
+                    fetches=audit.fetches,
+                )
+            )
+        s.flush()
+        # Results reach recommendations now, not at the weekly pass.
+        # recs_refreshed_at is deliberately not stamped: an on-demand
+        # refresh must not defer the weekly one.
+        refresh(s, org_id, brand_id)
+    return len(audits)
+
+
+def queue_due_crawl_audits() -> int:
+    """Queue an audit for every brand due one; returns how many.
+
+    Idempotent within the hour: enqueue_job's unique key makes a repeat a
+    no-op. requeue_failed=False: this runs every minute, and a failed
+    audit must wait for the next hour's slot rather than being re-run
+    (and re-crawling the customer's site) on every sweep. One brand's
+    failure never stops the others.
+    """
+    with system_session() as s:
+        due = s.execute(
+            text("SELECT brand_id, org_id FROM due_crawl_audits()")
+        ).all()
+    queued = 0
+    for brand_id, org_id in due:
+        try:
+            with tenant_session(org_id) as s:
+                enqueue_job(
+                    s,
+                    org_id,
+                    brand_id,
+                    "audit_crawl",
+                    {},
+                    requeue_failed=False,
+                )
+            queued += 1
+        except Exception:
+            log.exception("brand %s audit queue failed", brand_id)
+    return queued
 
 
 def _record_failure(
@@ -270,8 +353,14 @@ def _finish_job(
         job.error = error
 
 
-def process_job(adapter: EngineAdapter, generator: Any, embedder: Any) -> bool:
-    """Run one claimed suggestion job. False = nothing was queued."""
+def process_job(
+    adapter: EngineAdapter,
+    generator: Any,
+    embedder: Any,
+    *,
+    fetch: Fetch = http_fetch,
+) -> bool:
+    """Run one claimed job. False = nothing was queued."""
     claimed = _claim_job()
     if claimed is None:
         return False
@@ -282,26 +371,33 @@ def process_job(adapter: EngineAdapter, generator: Any, embedder: Any) -> bool:
     with tenant_session(org_id) as s:
         job = s.get_one(m.Job, job_id)
         brand_id, params = job.brand_id, job.params
-        fits = budget_fits(s, org_id, 0, extra_micros=JOB_ESTIMATES[kind])
+        # A job that spends nothing (audit_crawl) is never failed as
+        # "budget": that would make a busy org's audits fail and get
+        # re-claimed every minute, re-crawling the customer's site.
+        estimate = JOB_ESTIMATES[kind]
+        fits = estimate == 0 or budget_fits(s, org_id, 0, extra_micros=estimate)
     if not fits:
         _finish_job(org_id, job_id, "failed", "budget", 0)
         return True
     # Every model call below runs with no transaction open; the row stays
     # 'running' until the final write.
     meter = _Meter(adapter, generator, embedder)
+    # keep in step with JOB_ESTIMATES
+    runners: dict[str, Callable[[], Any]] = {
+        "suggest_prompts": lambda: suggest_prompts(
+            org_id,
+            brand_id,
+            int(params.get("count", 0)),
+            meter.generate,
+            meter.embed,
+        ),
+        "suggest_competitors": lambda: suggest_competitors(
+            org_id, brand_id, meter, meter.generate
+        ),
+        "audit_crawl": lambda: run_crawl_audit(org_id, brand_id, job_id, fetch),
+    }
     try:
-        if kind == "suggest_prompts":
-            result = suggest_prompts(
-                org_id,
-                brand_id,
-                int(params.get("count", 0)),
-                meter.generate,
-                meter.embed,
-            )
-        else:
-            result = suggest_competitors(
-                org_id, brand_id, meter, meter.generate
-            )
+        result = runners[kind]()
         log.info("job %s: %s", job_id, result)
         _finish_job(org_id, job_id, "done", None, meter.micros)
     except Exception as e:  # one bad job must never stop the loop
@@ -325,6 +421,7 @@ def tick(
     *,
     generator: Any = generate,
     embedder: Any = embed,
+    fetch: Fetch = http_fetch,
 ) -> bool:
     """One loop step that never raises. False = idle/failed; caller sleeps.
 
@@ -333,9 +430,9 @@ def tick(
     one for hours.
     """
     try:
-        return process_job(adapter, generator, embedder) or process_one(
-            adapter, store, extractor
-        )
+        return process_job(
+            adapter, generator, embedder, fetch=fetch
+        ) or process_one(adapter, store, extractor)
     except Exception:
         # A row whose failure could not be recorded stays 'running';
         # reset_stale() hands it back after 10 minutes.
@@ -373,6 +470,10 @@ def main() -> None:
                 log.info("refreshed %d brands", refresh_due_recommendations())
             except Exception:
                 log.exception("refresh_due_recommendations failed")
+            try:
+                log.info("queued %d crawl audits", queue_due_crawl_audits())
+            except Exception:
+                log.exception("queue_due_crawl_audits failed")
             last_schedule_check = time.monotonic()
         if not tick(adapter, store, extractor):
             time.sleep(1)

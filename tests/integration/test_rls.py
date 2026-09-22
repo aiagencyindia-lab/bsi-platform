@@ -25,6 +25,7 @@ TENANT_TABLES = [
     "rec_label",
     "recommendation",
     "task",
+    "site_audit",
 ]
 
 
@@ -97,6 +98,14 @@ def org_b(owner, make_org, make_brand, make_observation):
         s.add(
             m.Task(
                 org_id=b.id, brand_id=bid, recommendation_id=rec.id, title="t"
+            )
+        )
+        s.add(
+            m.SiteAudit(
+                org_id=b.id,
+                brand_id=bid,
+                domain="b.com",
+                checks=[{"code": "llms_missing", "ok": False}],
             )
         )
     return b

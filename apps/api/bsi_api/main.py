@@ -5,7 +5,9 @@ from fastapi import FastAPI, Request, Response
 
 from . import problems
 from .routers import (
+    audits,
     brands,
+    citations,
     labels,
     metrics,
     observations,
@@ -48,6 +50,8 @@ def create_app() -> FastAPI:
         labels.router,
         recommendations.router,
         tasks.router,
+        citations.router,
+        audits.router,
     ):
         app.include_router(router, prefix="/v1")
     return app

@@ -236,6 +236,55 @@ def daily_cost_preview(
     }
 
 
+def enqueue_job(
+    s: Session,
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    kind: str,
+    params: dict[str, Any],
+    slot: datetime | None = None,
+    *,
+    requeue_failed: bool = True,
+) -> m.Job:
+    """Find or create this hour's job for the brand and kind.
+
+    One job per (brand, kind, hour). By default a failed job is requeued
+    with the new params: one failure must not lock the caller out for the
+    hour. Its cost_micros is left alone, so a retry accumulates. Used by
+    the API for suggestions and audits.
+
+    requeue_failed=False leaves a failed job alone (on_conflict_do_nothing):
+    used by the worker's due-audit sweep, which runs every minute and would
+    otherwise re-run a failing audit every minute too, instead of waiting
+    for the next hour's slot.
+    """
+    slot = slot or hour_slot(datetime.now(UTC))
+    insert = pg_insert(m.Job).values(
+        org_id=org_id,
+        brand_id=brand_id,
+        kind=kind,
+        scheduled_slot=slot,
+        status="queued",
+        params=params,
+    )
+    s.execute(
+        insert.on_conflict_do_update(
+            index_elements=["brand_id", "kind", "scheduled_slot"],
+            set_={"status": "queued", "error": None, "params": params},
+            where=m.Job.status == "failed",
+        )
+        if requeue_failed
+        else insert.on_conflict_do_nothing()
+    )
+    return s.scalars(
+        select(m.Job).where(
+            m.Job.brand_id == brand_id,
+            m.Job.kind == kind,
+            m.Job.scheduled_slot == slot,
+        )
+    ).one()
+
+
 def enqueue_run(
     s: Session,
     org_id: uuid.UUID,

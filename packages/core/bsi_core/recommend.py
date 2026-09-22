@@ -15,10 +15,13 @@ product so the weighting is visible (PRD F12):
 - pressure: what is at stake there - the share of the relevant answers
   naming a rival, or the size of a gap waiting to be confirmed,
   depending on the type. add_competitor has nothing to measure, so it
-  is 1.0 and priority there is reach x feasibility;
+  is 1.0 and priority there is reach x feasibility; fix_crawlability
+  joins add_competitor as a judged, not measured, type: reach is 1.0
+  and pressure is the check's severity weight.
 - feasibility: how cheaply the operator can act, per type, below.
 """
 
+import logging
 import uuid
 from collections import Counter
 from collections.abc import Sequence
@@ -31,18 +34,27 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from . import models as m
+from .crawl import expected, family
 from .matching import is_owned
 from .metrics import Filters, prompt_metrics
 from .suggest import ANSWERS
+
+log = logging.getLogger("bsi.recommend")
 
 # Confirming a competitor or scheduling samples takes minutes; content
 # takes weeks; outreach takes weeks and depends on someone else.
 FEASIBILITY = {
     "add_competitor": 0.9,
     "sample_more": 1.0,
+    # A robots or head-tag change is minutes of work once someone with
+    # site access is found; that person is the cost.
+    "fix_crawlability": 0.8,
     "create_content": 0.4,
     "pursue_citation_source": 0.3,
 }
+# Nothing measures a site check against answers, so pressure is the
+# check's severity, stated as a weight the operator can see.
+PRESSURE_BY_SEVERITY = {"high": 1.0, "medium": 0.5, "low": 0.2}
 # 3 recommended 72 citation sources on an 80-answer brand, burying every
 # content gap; 5 halves that (findings-slice6 section 3).
 MIN_CITING_ANSWERS = 5
@@ -137,6 +149,38 @@ def sample_copy(
         "projection from current rates and moves as they do. Metric to "
         "watch: whether this prompt separates.",
     )
+
+
+_CRAWL_TITLES = {
+    "home_unreachable": "{domain} does not answer",
+    "bot_blocked": "{domain} blocks {bot} in robots.txt",
+    "bot_ua_blocked": "{domain} turns {bot} away",
+    "sitemap_missing": "{domain} has no sitemap",
+    "sitemap_invalid": "The sitemap on {domain} is not a sitemap",
+    "org_schema_missing": "{domain} declares no Organization",
+    "title_missing": "The {domain} homepage has no title",
+    "description_missing": "The {domain} homepage has no description",
+    "h1_missing": "The {domain} homepage has no H1",
+    "canonical_missing": "The {domain} homepage has no canonical",
+    "llms_missing": "{domain} has no llms.txt",
+}
+
+
+def crawl_copy(
+    brand: str, domain: str, check: dict[str, Any]
+) -> tuple[str, str]:
+    code = str(check["code"])
+    bot = code.split(":", 1)[1] if ":" in code else ""
+    title = _CRAWL_TITLES[family(code)].format(domain=domain, bot=bot)
+    body = (
+        f"The weekly audit of {check['url']} observed: {check['observed']}. "
+        f"Expected: {expected(code)} "
+        f"An engine that cannot read {brand}'s own pages has only other "
+        "sites to describe it from. "
+        "Metric to watch: this check on the next weekly audit, then the "
+        "citation rate."
+    )
+    return title, body
 
 
 _RIVALS = (
@@ -361,6 +405,57 @@ def _sampling(
     return out
 
 
+def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
+    """One candidate per failing check in each domain's latest audit.
+
+    Only domains still declared for the brand count: a removed domain's
+    old audit must not keep producing recommendations.
+    """
+    rows = s.execute(
+        text(
+            "SELECT DISTINCT ON (a.domain) a.id, a.domain, a.checks "
+            "FROM site_audit a "
+            "JOIN domain d ON d.brand_id = a.brand_id "
+            "  AND d.host = a.domain "
+            "WHERE a.brand_id = :brand "
+            "ORDER BY a.domain, a.created_at DESC, a.id DESC"
+        ),
+        {"brand": brand_id},
+    ).all()
+    out = []
+    for audit_id, domain, checks in rows:
+        for check in checks:
+            if check["ok"]:
+                continue
+            code = check["code"]
+            if (
+                family(code) not in _CRAWL_TITLES
+                or check["severity"] not in PRESSURE_BY_SEVERITY
+            ):
+                log.warning(
+                    "skipping unrecognized crawl check: brand=%s domain=%s "
+                    "code=%s",
+                    brand,
+                    domain,
+                    code,
+                )
+                continue
+            title, body = crawl_copy(brand, domain, check)
+            out.append(
+                Candidate(
+                    "fix_crawlability",
+                    f"{domain}:{check['code']}",
+                    title,
+                    body,
+                    {**check, "domain": domain, "audit_id": str(audit_id)},
+                    # Not measured against answers; see PRESSURE_BY_SEVERITY.
+                    1.0,
+                    PRESSURE_BY_SEVERITY[check["severity"]],
+                )
+            )
+    return out
+
+
 def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
     """Every recommendation the brand's evidence supports, best first.
 
@@ -386,7 +481,7 @@ def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
             m.Prompt.status == "active",
         )
     )
-    found = _competitors(s, brand_id)
+    found = _competitors(s, brand_id) + _crawl(s, brand_id, brand)
     if total:
         rival_domains = _rival_domains(s, brand_id)
         found += [
