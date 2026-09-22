@@ -439,20 +439,41 @@ def test_observed_is_always_the_group_robotparser_applied():
     # Seeded fuzz: every group gets a unique marker rule, and the evidence
     # must carry exactly the markers of the entry robotparser chose.
     rng = random.Random(7)
-    tokens = ["*", "Claude", "ClaudeBot", "Google", "GPTBot", "Bot", "gpt"]
-    noise = ["", "# c", "Sitemap: https://nike.com/s.xml", "Host: nike.com"]
+    tokens = ["*", "Claude", "ClaudeBot", "Google", "GPTBot", "Bot", "gpt", ""]
+    noise = [
+        "",
+        "   ",
+        "# c",
+        "Sitemap: https://nike.com/s.xml",
+        "Host: nike.com",
+        "Crawl-delay: 5",
+        "Request-rate: x",
+        "no colon here",
+    ]
     for _ in range(3000):
-        lines = []
+        lines = ["Disallow: /g9"] if rng.random() < 0.2 else []
         for g in range(rng.randint(1, 4)):
             for _ in range(rng.randint(1, 3)):
                 lines.append(f"User-agent: {rng.choice(tokens)}")
                 if rng.random() < 0.3:
                     lines.append(rng.choice(noise))
-            lines.append(f"{rng.choice(['Allow', 'Disallow'])}: /g{g}")
+            rule = f"{rng.choice(['Allow', 'Disallow'])}: /g{g}"
+            lines.append(rule + (" # why" if rng.random() < 0.2 else ""))
             if rng.random() < 0.3:
                 lines.append(rng.choice(noise))
-        robots = "\n".join(lines) + "\n"
+        robots = rng.choice(["\n", "\r\n"]).join(lines) + "\n"
+        pages = {**GOOD, "/robots.txt": Response(200, robots)}
+        checks = {
+            c.code: c for c in audit_domain("nike.com", site(pages)).checks
+        }
         for bot in BOTS:
-            observed = _bot_check(robots, bot).observed
+            observed = checks[f"bot_blocked:{bot}"].observed
             shown = set(re.findall(r"/g\d", observed))
             assert shown == _applied_markers(robots, bot), (robots, bot)
+
+
+def test_a_comment_after_a_wildcard_rule_still_blocks():
+    # The comment must go before the trailing `*` is stripped, or
+    # robotparser is handed the literal path `/*` and allows everything.
+    check = _bot_check("User-agent: *\nDisallow: /* # block all\n", "GPTBot")
+    assert not check.ok

@@ -322,7 +322,8 @@ def _strip_wildcards(robots: str) -> str:
     for line in robots.splitlines():
         key, sep, value = line.partition(":")
         if sep and key.strip().lower() in ("allow", "disallow"):
-            path = value.strip()
+            # Drop the comment first, or `Disallow: /* # all` keeps its `*`.
+            path = value.split("#", 1)[0].strip()
             while path and path[-1] in "*$":
                 path = path[:-1]
             out.append(f"{key}: {path}")
