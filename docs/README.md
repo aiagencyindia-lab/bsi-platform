@@ -59,7 +59,7 @@ In the order they were written:
 |---|---|
 | [superpowers/specs/2026-09-20-slice5-operator-dashboard-design.md](superpowers/specs/2026-09-20-slice5-operator-dashboard-design.md) | Design spec: a Next.js operator dashboard (overview, prompt table and evidence, ops and spend, judge labelling) and the API changes it needs. |
 | [superpowers/plans/2026-09-20-slice5-operator-dashboard.md](superpowers/plans/2026-09-20-slice5-operator-dashboard.md) | Implementation plan, Tasks 1–9. |
-| [findings-slice5.md](findings-slice5.md) | Results: the searched rate by model/org, which prompts separate the brand from its top rival on "Run 1" and at what n, label count and judge agreement with its interval, and the known gaps. |
+| [findings-slice5.md](findings-slice5.md) | Results: the searched rate by model/org, which prompts separate the brand from its top rival on "Run 1" and at what n, label count and judge agreement with its interval, and the known gaps. Ends with the 2026-09-22 follow-up run at n=5, which tested the projection on the nine prompts the first run could not. |
 
 ## Slice 6: recommendations and tasks
 

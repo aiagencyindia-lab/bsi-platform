@@ -169,3 +169,48 @@ the ops spend bar dividing by a possibly-zero budget (now an explicit
 zero-budget branch rendering a full meter), and `api()` leaving a
 rejected `bsi_key` cookie in place on a 401 (now cleared by
 `apps/web/src/middleware.ts` on `/login`).
+
+## Follow-up: a fifth sample, 2026-09-22
+
+The n=4 run above tested the projection on the eleven easy prompts.
+This run tests it on the nine that were left: 20 observations, one more
+sample for every active "Run 1" prompt, 0 failures, **$0.7715** (engine
+$0.7536, judge $0.0180). Every prompt is now at n=5.
+
+Run on `gemini-2.5-flash`, which is now the configured engine (PR #10),
+so this sample is drawn from the same population as the other four.
+**All 20 answers searched**, matching the 80 of 80 that decided the
+engine switch.
+
+**Result: the projection was right again, this time by predicting
+nothing.** At n=4 it said none of the nine would separate at n=5, and
+none did. Separated prompts stayed at 11 of 20, and all 11 that were
+separated still are.
+
+What moved is the projection itself:
+
+| Prompt | Spread n=4 → n=5 | Needs n=4 → n=5 |
+|---|---|---|
+| best sports shoes for girls aged 8 to 12 | −0.75 → −0.80 | 7 → **6** |
+| best waterproof shoes for kids | −0.75 → −0.60 | 7 → **10** |
+| kids joggers with velcro | −0.75 → −0.60 | 7 → **10** |
+| which brand makes the most comfortable… | −0.50 → −0.60 | 11 → **10** |
+| which kids shoes are good for flat feet | −0.50 → −0.40 | 11 → **17** |
+| my child's feet hurt in school shoes | −0.25 → −0.20 | 27 → **33** |
+| BSOAgentTestBrand light-up sneakers review | +0.75 → +0.80 | 7 → **6** |
+| Is BSOAgentTestBrand a good brand for kids | +0.75 → +0.80 | 7 → **6** |
+| best shoes for toddlers learning to walk | 0.00 → 0.00 | never |
+
+Eight of the nine middling prompts moved on one observation, and the
+sample size each would need moved with them, by up to six samples. The
+twelve prompts whose spread did not move are the eleven extremes and
+the one tie.
+
+**What this settles.** The arithmetic is sound: across two runs it has
+never claimed a separation that failed to arrive, nor missed one that
+did. The "rates hold" assumption is what stays shaky, exactly where the
+operator cares most — a prompt whose answer is genuinely close. Treat
+`needs_samples` at a middling spread as an order of magnitude, not a
+number: "about ten more" rather than "ten".
+
+**Spend after this run: $9.2762 of the $15 cap.**
