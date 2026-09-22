@@ -261,3 +261,32 @@ def test_pause_is_applied_between_fetches(monkeypatch):
     monkeypatch.setattr("bsi_core.crawl.time.sleep", slept.append)
     audit_domain("nike.com", site(GOOD), pause=0.5)
     assert slept == [0.5] * 11  # between 12 fetches
+
+
+def test_a_non_http_sitemap_scheme_is_ignored():
+    robots = "User-agent: *\nDisallow:\nSitemap: javascript:alert(1)\n"
+    pages = {**GOOD, "/robots.txt": Response(200, robots)}
+    fetch = site(pages)
+    audit = audit_domain("nike.com", fetch)
+    urls = [u for u, _ in fetch.calls]
+    assert "https://nike.com/sitemap.xml" in urls
+    assert not any(c.url.startswith("javascript:") for c in audit.checks)
+
+
+def test_an_off_host_sitemap_is_ignored():
+    robots = "User-agent: *\nDisallow:\nSitemap: https://evil.example/sm.xml\n"
+    pages = {**GOOD, "/robots.txt": Response(200, robots)}
+    fetch = site(pages)
+    audit_domain("nike.com", fetch)
+    urls = [u for u, _ in fetch.calls]
+    assert "https://nike.com/sitemap.xml" in urls
+    assert not any("evil.example" in u for u in urls)
+
+
+def test_a_subdomain_sitemap_is_trusted():
+    robots = "User-agent: *\nDisallow:\nSitemap: https://cdn.nike.com/sm.xml\n"
+    pages = {**GOOD, "/robots.txt": Response(200, robots)}
+    fetch = site(pages)
+    audit_domain("nike.com", fetch)
+    urls = [u for u, _ in fetch.calls]
+    assert "https://cdn.nike.com/sm.xml" in urls

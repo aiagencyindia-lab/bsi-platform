@@ -58,7 +58,12 @@ export default async function Site({
                       {c.ok ? "✓" : "✗"}
                     </td>
                     <td>
-                      <a href={c.url}>{c.code}</a>
+                      {c.url.startsWith("https://") ||
+                      c.url.startsWith("http://") ? (
+                        <a href={c.url}>{c.code}</a>
+                      ) : (
+                        c.code
+                      )}
                     </td>
                     <td>
                       <span className="tag">{c.severity}</span>

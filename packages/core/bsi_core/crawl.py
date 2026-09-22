@@ -14,8 +14,11 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Any, NamedTuple
 from urllib import robotparser
+from urllib.parse import urlsplit
 
 import httpx
+
+from bsi_core.matching import is_owned, normalize_domain
 
 BROWSER_UA = "Mozilla/5.0 (compatible; BSI-Audit/1.0)"
 BOTS = (
@@ -280,6 +283,19 @@ def _strip_wildcards(robots: str) -> str:
     return "\n".join(out)
 
 
+def _owned_sitemap(host: str, url: str) -> bool:
+    """True if `url` is an http(s) URL on `host` or a subdomain of it.
+
+    Guards against a robots.txt `Sitemap:` line pointing the audit's
+    fetch, and the dashboard's rendered link, at an arbitrary or
+    non-http(s) target (e.g. `javascript:...`).
+    """
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return False
+    return is_owned(normalize_domain(parts.hostname), [host])
+
+
 def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
     """Every check for one host. Skipped checks are not emitted: on-page
     checks need a reachable homepage, sitemap_invalid needs a sitemap."""
@@ -357,12 +373,10 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
         )
 
     default_sitemap = f"https://{host}/sitemap.xml"
-    sitemaps = (
-        (rp.site_maps() or [default_sitemap])
-        if robots.ok
-        else [default_sitemap]
-    )
-    sm_url = sitemaps[0]  # ponytail: the first listed; the rest are unread
+    owned = [u for u in (rp.site_maps() or []) if _owned_sitemap(host, u)]
+    # ponytail: the first owned sitemap; the rest (and any off-host or
+    # non-http(s) entries) are unread.
+    sm_url = owned[0] if owned else default_sitemap
     sm = get(sm_url)
     add("sitemap_missing", sm.ok, sm.error or f"HTTP {sm.status}", sm_url)
     if sm.ok:
