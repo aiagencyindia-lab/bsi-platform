@@ -72,17 +72,28 @@ Of the top 10, the brand is named in only **3** (youtube.com, forbes.com,
 reddit.com); the other 7, including 6 of the top 9 third-party domains,
 cite the brand's rivals without ever naming the brand itself.
 
-**The gap count is 136, not 0, and it is large because Run 1 has 5 active
-competitors, not because it has none.** The brief's working assumption —
-that Run 1 might have few or no active competitors — does not hold on the
-live data: all 5 competitors are `active` and each carries a declared
-domain (§1). PRD F06's `gap` definition only needs 2+ *active* rivals named
-in a domain's citing answers and the brand never named; with 5 active
-rivals and 100 answers spread across a long tail of publishers, blogs and
-retailers, most third-party domains clear that bar easily. `campusshoes.com`
-is the one top-10 exception: it is a rival's own declared domain
-(`owner: rival`), so it is excluded from `gap` by construction — a rival's
-site is not an outreach opportunity (see the docstring in `citations.py`).
+**The gap count is 136 of 247 domains, about 55%, and it is large because
+Run 1 has 5 active competitors, not because it has none.** The brief's
+working assumption — that Run 1 might have few or no active competitors —
+does not hold on the live data: all 5 competitors are `active` and each
+carries a declared domain (§1). PRD F06's `gap` definition only needs 2+
+*active* rivals named in a domain's citing answers and the brand never
+named; with 5 active rivals and 100 answers spread across a long tail of
+publishers, blogs and retailers, most brand-free answers name two or more
+of them, so the raw gap flag marks a majority of domains rather than a
+short list. `campusshoes.com` is the one top-10 exception: it is a rival's
+own declared domain (`owner: rival`), so it is excluded from `gap` by
+construction — a rival's site is not an outreach opportunity (see the
+docstring in `citations.py`).
+
+**What this means for using the flag.** `gap` alone is too broad to act on:
+at 55% of domains it is a filter for browsing the citation table, not a
+prioritized list — it answers "is this domain even a candidate" without
+saying which of 136 candidates to work first. `generate()`'s
+`pursue_citation_source` rule (§ below) is the ranked, actionable cut: it
+adds a floor of 5+ citing answers and excludes rival-declared domains,
+producing 56 recommendations ordered by priority instead of 136 unranked
+rows.
 
 **Comparison with `generate()`'s `pursue_citation_source` count.**
 `generate(s, BRAND)` (called read-only, not `refresh`) produced:
@@ -109,7 +120,7 @@ reasoning as findings-slice6 §3).
 
 Both runs used the real fetch (`http_fetch`), `pause=0.5` between calls, 8
 bot user agents, and the standard 12-fetch budget (home, robots.txt, 8 bot
-homepage fetches, sitemap, llms.txt — see §5.6).
+homepage fetches, sitemap, llms.txt — see §5.7).
 
 ### nytimes.com
 
@@ -144,14 +155,17 @@ gzip-compressed) came back as unparsed XML because the audit reads the raw
 (still-compressed) bytes as text rather than decompressing them —
 `sitemap_invalid` is correctly `false`, but for a reason the check's copy
 ("root <urlset> or <sitemapindex>") doesn't name. Because `home_unreachable`
-failed, `bot_ua_blocked:*` and the 5 on-page checks (title, description,
-h1, canonical, org schema) were skipped by design ("on-page checks need a
-reachable homepage" — `crawl.py`), and `bot_ua_blocked:*` for the 8 bots
-came back `ok` — not because nytimes.com answers those bots, but because
-the check's own logic (`blocked = home.ok and (...)`) can't tell "the
-browser UA itself was blocked" from "no bot-specific block exists" when
-the baseline homepage fetch already failed. That is a real edge case in
-the check, not a defect in the finding: nytimes.com's status is accurately
+failed, the 5 on-page checks (title, description, h1, canonical, org
+schema) were skipped by design ("on-page checks need a reachable
+homepage" — `crawl.py`). The `bot_ua_blocked:*` checks are not skipped:
+`audit_domain()`'s bot loop always fetches the homepage once per bot and
+always emits a check, computing `blocked = home.ok and (...)` — so with
+`home.ok` already `False`, all 8 ran and were forced to `ok`, regardless
+of what each bot actually got back. In other words: on a site that refuses
+our own browser user agent, the audit cannot tell whether it also refuses
+AI bots — `bot_ua_blocked` needs a working baseline to mean anything, and
+nytimes.com never gave it one. That is a real edge case in the check, not
+a defect in the finding: nytimes.com's status is accurately
 "home unreachable, high severity," which already dominates.
 
 ### example.com
@@ -233,35 +247,46 @@ unchanged:
    subdomain), falling back to `/sitemap.xml`; any further sitemap entries,
    and any off-host or non-http(s) entries, go unread. A sitemap index that
    fans out to many per-section sitemaps is not walked.
-3. **No page crawl.** The audit reads the homepage and the declared site
+3. **A gzip-encoded sitemap fails `sitemap_invalid` for the wrong reason.**
+   nytimes.com's live sitemap (`sitemaps/new/news.xml.gz`, §3) is served
+   gzip-compressed; `audit_domain()` reads the response body as text
+   without decompressing it, so `ET.fromstring` sees compressed bytes and
+   raises a parse error. `sitemap_invalid` happens to come back `false`,
+   the same as any other unparseable sitemap, but the observed text ("root
+   <unparseable: ...>") does not say the file is gzipped, and a
+   *correctly* gzip-encoded sitemap — a normal, valid practice for large
+   sitemaps — would be wrongly flagged as invalid.
+4. **No page crawl.** The audit reads the homepage and the declared site
    files only — robots.txt, one sitemap, llms.txt. It never follows a link
    or fetches a second page, so it cannot see whether *other* pages on the
    site are crawlable, have their own metadata, or are blocked differently
    than the homepage.
-4. **`bot_ua_blocked` cannot tell a CDN challenge from a hard block.** The
-   check treats any `401`/`403`/`429`/`5xx` response to a bot's user agent
-   as "blocked," which is also what a generic anti-bot challenge (rate
-   limiting, a CAPTCHA wall, a WAF rule keyed on request shape rather than
-   UA) looks like from the outside. Section 3's nytimes.com run shows the
-   contrapositive of this gap directly: the *browser* UA itself got a 403,
-   which the check correctly treats as `home_unreachable` rather than
-   `bot_ua_blocked`, but it means every `bot_ua_blocked:*` check was
-   silently skipped-as-passing rather than evaluated, because the
-   check's logic only flags a bot as blocked relative to a homepage that
-   itself answered successfully.
-5. **A failing weekly audit retries at most hourly.** `audit_crawl` is
+5. **`bot_ua_blocked` cannot tell a CDN challenge from a hard block, and
+   needs a reachable homepage to mean anything.** The check treats any
+   `401`/`403`/`429`/`5xx` response to a bot's user agent as "blocked,"
+   which is also what a generic anti-bot challenge (rate limiting, a
+   CAPTCHA wall, a WAF rule keyed on request shape rather than UA) looks
+   like from the outside. Section 3's nytimes.com run shows a second,
+   related failure mode: the *browser* UA itself got a 403
+   (`home_unreachable`), but `audit_domain()`'s bot loop still ran all 8
+   `bot_ua_blocked:*` fetches and still emitted a check for each — its
+   `blocked = home.ok and (...)` forces every one to `ok` once `home.ok`
+   is `False`, whatever each bot actually got back. So on a site that
+   refuses our own browser user agent, the audit cannot tell whether it
+   also refuses AI bots; it silently reports "not blocked" instead.
+6. **A failing weekly audit retries at most hourly.** `audit_crawl` is
    queued weekly by `due_crawl_audits()`; if a run fails (network error,
    timeout), the next attempt is gated by the job system's normal retry
    backoff, not before an hour has passed — so a domain that starts
    failing outside the weekly window can go most of a week before the next
    audit even attempts to reach it again, longer if the retry itself keeps
    failing.
-6. **The fetch budget is 12 per domain, not 11.** The design spec counted
+7. **The fetch budget is 12 per domain, not 11.** The design spec counted
    11; the actual budget, confirmed by both live runs above (`fetches: 12`
    in each), is home (1) + robots.txt (1) + 8 bot-UA homepage fetches (8)
    + sitemap (1) + llms.txt (1) = 12. The spec's 11 was a miscount, not a
    deliberate reduction; this findings doc is the correction of record.
-7. **Security gap to close before any hosted deployment: SSRF.**
+8. **Security gap to close before any hosted deployment: SSRF.**
    `audit_domain()`/`http_fetch()` fetches whatever host is passed to it,
    following redirects, with no check that the resolved address is
    public. The host comes from an operator-declared domain (the `domain`
