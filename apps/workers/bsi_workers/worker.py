@@ -15,6 +15,7 @@ from bsi_core.impact import close_window
 from bsi_core.judge import JUDGE_PRICES, JUDGES, generate
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
+from bsi_core.recommend import refresh
 from bsi_core.scheduling import budget_fits, run_schedule
 from bsi_core.storage import LocalRawStore, RawStore
 from bsi_core.suggest import (
@@ -25,7 +26,7 @@ from bsi_core.suggest import (
     suggest_competitors,
     suggest_prompts,
 )
-from sqlalchemy import func, text
+from sqlalchemy import func, text, update
 from sqlalchemy.orm import Session
 
 log = logging.getLogger("bsi.worker")
@@ -101,6 +102,36 @@ def close_due_impact_windows() -> int:
         except Exception:
             log.exception("task %s impact failed", task_id)
     return closed
+
+
+def refresh_due_recommendations() -> int:
+    """Regenerate recommendations for brands due a refresh; returns how
+    many brands were refreshed.
+
+    Pure SQL over stored answers, so this costs nothing and never calls a
+    model. One brand's failure never stops the others, as with schedules.
+    """
+    with system_session() as s:
+        due = s.execute(
+            text("SELECT brand_id, org_id FROM due_recommendation_refreshes()")
+        ).all()
+    done = 0
+    for brand_id, org_id in due:
+        try:
+            with tenant_session(org_id) as s:
+                found = refresh(s, org_id, brand_id)
+                # Stamped from the database clock, like every other time
+                # this system records; the host clock runs ahead of it.
+                s.execute(
+                    update(m.Brand)
+                    .where(m.Brand.id == brand_id)
+                    .values(recs_refreshed_at=func.now())
+                )
+            log.info("brand %s: %d recommendations", brand_id, found)
+            done += 1
+        except Exception:
+            log.exception("brand %s refresh failed", brand_id)
+    return done
 
 
 def _record_failure(
@@ -338,6 +369,10 @@ def main() -> None:
                 log.info("closed %d impact windows", close_due_impact_windows())
             except Exception:
                 log.exception("close_due_impact_windows failed")
+            try:
+                log.info("refreshed %d brands", refresh_due_recommendations())
+            except Exception:
+                log.exception("refresh_due_recommendations failed")
             last_schedule_check = time.monotonic()
         if not tick(adapter, store, extractor):
             time.sleep(1)
