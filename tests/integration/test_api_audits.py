@@ -86,3 +86,25 @@ def test_get_excludes_audits_of_undeclared_domains(
     r = client.get(f"/v1/brands/{bid}/audits/crawl", headers=org.headers)
     assert r.status_code == 200, r.text
     assert r.json() == []
+
+
+def test_get_dedupes_two_audits_with_the_same_created_at(
+    client, owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _domain(owner, org, bid, "nike.com")
+    with owner() as s, s.begin():
+        a = m.SiteAudit(org_id=org.id, brand_id=bid, domain="nike.com")
+        b = m.SiteAudit(org_id=org.id, brand_id=bid, domain="nike.com")
+        s.add_all([a, b])
+        s.flush()
+        s.execute(
+            update(m.SiteAudit)
+            .where(m.SiteAudit.id.in_([a.id, b.id]))
+            .values(created_at="2026-01-01T00:00:00Z")
+        )
+    r = client.get(f"/v1/brands/{bid}/audits/crawl", headers=org.headers)
+    assert r.status_code == 200, r.text
+    rows = r.json()
+    assert [x["domain"] for x in rows] == ["nike.com"]

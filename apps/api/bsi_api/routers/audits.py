@@ -5,7 +5,7 @@ from typing import Any
 
 from bsi_core import models as m
 from fastapi import APIRouter
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from ..deps import TENANT, Ctx, brand_or_404
 from ..schemas import QueuedOut, SiteAuditOut
@@ -25,26 +25,23 @@ def latest_crawl(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[m.SiteAudit]:
     domains. A domain later removed from `domain` no longer surfaces
     its last audit."""
     brand_or_404(c, brand_id)
-    latest = (
-        select(m.SiteAudit.domain, func.max(m.SiteAudit.created_at).label("at"))
-        .where(m.SiteAudit.brand_id == brand_id)
-        .group_by(m.SiteAudit.domain)
-        .subquery()
-    )
+    # DISTINCT ON with id as the tie-break: two audits for the same
+    # domain can share a created_at (two inserts in quick succession),
+    # so ordering by created_at alone isn't a stable pick of one row.
     return list(
         c.s.scalars(
             select(m.SiteAudit)
-            .join(
-                latest,
-                (m.SiteAudit.domain == latest.c.domain)
-                & (m.SiteAudit.created_at == latest.c.at),
-            )
             .join(
                 m.Domain,
                 (m.Domain.brand_id == m.SiteAudit.brand_id)
                 & (m.Domain.host == m.SiteAudit.domain),
             )
             .where(m.SiteAudit.brand_id == brand_id)
-            .order_by(m.SiteAudit.domain)
+            .order_by(
+                m.SiteAudit.domain,
+                m.SiteAudit.created_at.desc(),
+                m.SiteAudit.id.desc(),
+            )
+            .distinct(m.SiteAudit.domain)
         )
     )
