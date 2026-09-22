@@ -18,6 +18,7 @@ export default async function BrandLayout({
       <div className="row" style={{ marginBottom: 16 }}>
         <Link href={`/b/${id}`}>Overview</Link>
         <Link href={`/b/${id}/prompts`}>Prompts</Link>
+        <Link href={`/b/${id}/citations`}>Citations</Link>
         <Link href={`/b/${id}/label`}>Label</Link>
         <Link href={`/b/${id}/recommendations`}>Recommendations</Link>
         <Link href={`/b/${id}/tasks`}>Tasks</Link>
