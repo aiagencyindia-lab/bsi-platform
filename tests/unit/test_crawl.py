@@ -1,0 +1,223 @@
+"""audit_domain from canned responses. Nothing here touches the network."""
+
+import pytest
+from bsi_core.crawl import (
+    BOTS,
+    BROWSER_UA,
+    Response,
+    audit_domain,
+    expected,
+    family,
+    severity,
+)
+
+HOME = """<html><head><title>Nike</title>
+<meta name="description" content="Shoes">
+<link rel="canonical" href="https://nike.com/">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[{"@type":["Organization","Brand"],"name":"Nike"}]}
+</script></head><body><h1>Nike</h1></body></html>"""
+
+ROBOTS_OPEN = "User-agent: *\nDisallow:\nSitemap: https://nike.com/sm.xml\n"
+ROBOTS_BLOCK = (
+    "User-agent: *\nDisallow: /private\n\n"
+    "User-agent: GPTBot\nUser-agent: ClaudeBot\nDisallow: /\n"
+)
+SITEMAP = '<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://nike.com/</loc></url></urlset>'
+INDEX = '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>https://nike.com/a.xml</loc></sitemap></sitemapindex>'
+
+
+def site(pages, *, blocked_uas=()):
+    """A fetch over a dict of path -> Response; records every call."""
+    calls = []
+
+    def fetch(url, ua):
+        calls.append((url, ua))
+        path = url.split("nike.com", 1)[1] or "/"
+        if path == "/" and ua in blocked_uas:
+            return Response(403, "blocked")
+        return pages.get(path, Response(404, ""))
+
+    fetch.calls = calls
+    return fetch
+
+
+GOOD = {
+    "/": Response(200, HOME),
+    "/robots.txt": Response(200, ROBOTS_OPEN),
+    "/sm.xml": Response(200, SITEMAP),
+    "/llms.txt": Response(200, "# Nike"),
+}
+
+
+def codes(audit, ok):
+    return sorted(c.code for c in audit.checks if c.ok is ok)
+
+
+def test_a_healthy_site_passes_every_check():
+    audit = audit_domain("nike.com", site(GOOD))
+    assert codes(audit, False) == []
+    assert set(codes(audit, True)) >= {
+        "home_unreachable",
+        "title_missing",
+        "description_missing",
+        "h1_missing",
+        "canonical_missing",
+        "org_schema_missing",
+        "sitemap_missing",
+        "sitemap_invalid",
+        "llms_missing",
+        *[f"bot_blocked:{b}" for b in BOTS],
+        *[f"bot_ua_blocked:{b}" for b in BOTS],
+    }
+    # 1 home + 1 robots + 8 bot UAs + 1 sitemap + 1 llms.txt
+    assert audit.fetches == 12
+
+
+def test_fetch_count_and_order_are_deterministic():
+    fetch = site(GOOD)
+    audit_domain("nike.com", fetch)
+    urls = [u for u, _ in fetch.calls]
+    assert urls[0] == "https://nike.com/"
+    assert fetch.calls[0][1] == BROWSER_UA
+    assert urls[1] == "https://nike.com/robots.txt"
+    assert urls[2:10] == ["https://nike.com/"] * 8
+    assert [ua for _, ua in fetch.calls[2:10]] == list(BOTS)
+    assert urls[10] == "https://nike.com/sm.xml"  # from the robots Sitemap line
+    assert urls[11] == "https://nike.com/llms.txt"
+
+
+def test_robots_groups_block_named_bots_only():
+    pages = {**GOOD, "/robots.txt": Response(200, ROBOTS_BLOCK)}
+    audit = audit_domain("nike.com", site(pages))
+    assert codes(audit, False) == [
+        "bot_blocked:ClaudeBot",
+        "bot_blocked:GPTBot",
+        "sitemap_missing",  # no Sitemap line and /sitemap.xml is 404
+    ]
+    blocked = next(c for c in audit.checks if c.code == "bot_blocked:GPTBot")
+    assert "Disallow: /" in blocked.observed
+    assert blocked.severity == "high"
+    assert blocked.url == "https://nike.com/robots.txt"
+
+
+def test_missing_robots_allows_every_bot():
+    pages = {k: v for k, v in GOOD.items() if k != "/robots.txt"}
+    pages["/sitemap.xml"] = Response(200, INDEX)
+    audit = audit_domain("nike.com", site(pages))
+    assert codes(audit, False) == []
+
+
+def test_cdn_blocking_only_counts_when_the_browser_got_through():
+    audit = audit_domain(
+        "nike.com", site(GOOD, blocked_uas=("PerplexityBot", "Bingbot"))
+    )
+    assert codes(audit, False) == [
+        "bot_ua_blocked:Bingbot",
+        "bot_ua_blocked:PerplexityBot",
+    ]
+    down = {**GOOD, "/": Response(503, "")}
+    audit = audit_domain("nike.com", site(down, blocked_uas=BOTS))
+    # Home is down for everyone: that is home_unreachable, not eight
+    # CDN blocks, and the on-page checks are skipped.
+    assert codes(audit, False) == ["home_unreachable"]
+    assert "title_missing" not in codes(audit, True)
+
+
+def test_on_page_checks_fail_individually():
+    bare = "<html><head></head><body><p>hi</p></body></html>"
+    audit = audit_domain("nike.com", site({**GOOD, "/": Response(200, bare)}))
+    assert codes(audit, False) == [
+        "canonical_missing",
+        "description_missing",
+        "h1_missing",
+        "org_schema_missing",
+        "title_missing",
+    ]
+
+
+def test_org_schema_is_found_in_a_plain_object_and_a_list():
+    plain = HOME.replace(
+        '{"@context":"https://schema.org","@graph":[{"@type":["Organization","Brand"],"name":"Nike"}]}',
+        '{"@type":"Organization","name":"Nike"}',
+    )
+    listed = HOME.replace(
+        '{"@context":"https://schema.org","@graph":[{"@type":["Organization","Brand"],"name":"Nike"}]}',
+        '[{"@type":"WebSite"},{"@type":"Organization"}]',
+    )
+    for body in (plain, listed):
+        audit = audit_domain(
+            "nike.com", site({**GOOD, "/": Response(200, body)})
+        )
+        assert "org_schema_missing" not in codes(audit, False)
+    broken = HOME.replace('"name":"Nike"', '"name":')  # invalid JSON
+    audit = audit_domain("nike.com", site({**GOOD, "/": Response(200, broken)}))
+    assert "org_schema_missing" in codes(audit, False)
+
+
+def test_sitemap_index_is_valid_and_junk_is_not():
+    pages = {**GOOD, "/sm.xml": Response(200, INDEX)}
+    assert codes(audit_domain("nike.com", site(pages)), False) == []
+    pages = {**GOOD, "/sm.xml": Response(200, "<html>not a sitemap</html>")}
+    audit = audit_domain("nike.com", site(pages))
+    assert codes(audit, False) == ["sitemap_invalid"]
+    pages = {**GOOD, "/sm.xml": Response(200, "<<<")}
+    assert codes(audit_domain("nike.com", site(pages)), False) == [
+        "sitemap_invalid"
+    ]
+
+
+def test_a_fetch_error_is_a_failed_check_not_an_exception():
+    def fetch(url, ua):
+        return Response(0, "", "ConnectError('boom')")
+
+    audit = audit_domain("nike.com", fetch)
+    assert codes(audit, False) == [
+        "home_unreachable",
+        "llms_missing",
+        "sitemap_missing",
+    ]
+    home = audit.checks[0]
+    assert "ConnectError" in home.observed
+
+
+def test_observed_is_capped_and_body_over_the_cap_still_parses():
+    long_title = "<title>" + "x" * 5000 + "</title>"
+    body = HOME.replace("<title>Nike</title>", long_title)
+    audit = audit_domain("nike.com", site({**GOOD, "/": Response(200, body)}))
+    assert all(len(c.observed) <= 300 for c in audit.checks)
+    assert "title_missing" not in codes(audit, False)
+
+
+def test_llms_txt_is_low_severity_and_says_unofficial():
+    pages = {k: v for k, v in GOOD.items() if k != "/llms.txt"}
+    audit = audit_domain("nike.com", site(pages))
+    llms = next(c for c in audit.checks if c.code == "llms_missing")
+    assert (llms.ok, llms.severity) == (False, "low")
+    assert "unofficial" in llms.expected
+
+
+@pytest.mark.parametrize(
+    ("code", "sev"),
+    [
+        ("home_unreachable", "high"),
+        ("bot_blocked:GPTBot", "high"),
+        ("bot_ua_blocked:Bingbot", "high"),
+        ("sitemap_missing", "medium"),
+        ("sitemap_invalid", "medium"),
+        ("org_schema_missing", "medium"),
+        ("title_missing", "low"),
+        ("llms_missing", "low"),
+    ],
+)
+def test_severity_and_expected_are_defined_for_every_code(code, sev):
+    assert severity(code) == sev
+    assert expected(code)
+    assert family("bot_blocked:GPTBot") == "bot_blocked"
+
+
+def test_pause_is_applied_between_fetches(monkeypatch):
+    slept = []
+    monkeypatch.setattr("bsi_core.crawl.time.sleep", slept.append)
+    audit_domain("nike.com", site(GOOD), pause=0.5)
+    assert slept == [0.5] * 11  # between 12 fetches
