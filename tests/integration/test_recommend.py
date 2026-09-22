@@ -217,9 +217,10 @@ def test_content_names_the_reason_and_the_rivals(world):
 def test_competitor_and_sampling_weights(world):
     all_ = found(world)
     puma = all_[("add_competitor", str(world.puma))]
-    assert (puma.reach, round(puma.pressure, 4), puma.priority) == (
-        1.0,
+    # 2 of the 3 suggestion answers named Puma; pressure is not measured.
+    assert (round(puma.reach, 4), puma.pressure, puma.priority) == (
         0.6667,
+        1.0,
         0.6,
     )
     sample = all_[("sample_more", str(world.close))]

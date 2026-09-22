@@ -9,10 +9,13 @@ product so the weighting is visible (PRD F12):
 
 - reach: the share of the brand's answers the action touches, counted
   in one unit - done answers on active prompts - so a gap on a single
-  prompt can outrank a thin citation spread over two;
+  prompt can outrank a thin citation spread over two. add_competitor is
+  the exception: a suggested rival has no mentions to count, so its
+  reach is the share of the three suggestion answers that named it;
 - pressure: what is at stake there - the share of the relevant answers
-  naming a rival, a suggestion's evidence, or the size of a gap waiting
-  to be confirmed, depending on the type;
+  naming a rival, or the size of a gap waiting to be confirmed,
+  depending on the type. add_competitor has nothing to measure, so it
+  is 1.0 and priority there is reach x feasibility;
 - feasibility: how cheaply the operator can act, per type, below.
 """
 
@@ -307,9 +310,15 @@ def _competitors(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
                 title,
                 body,
                 {"competitor_id": str(c.id), "evidence": evidence},
-                # Confirming a rival changes share of voice on every prompt.
-                1.0,
+                # Reach is the share of the suggestion answers naming the
+                # rival, not of the brand's monitored answers: a suggested
+                # rival has no mentions to count. ponytail: an honest
+                # proxy off 3 answers; measure it against the brand's own
+                # answers if the shortlist ever needs finer ordering.
                 min(evidence / ANSWERS, 1.0),
+                # Nothing measures what confirming a rival is worth, and
+                # a made-up number would just re-weight reach.
+                1.0,
             )
         )
     return out
