@@ -197,6 +197,46 @@ def test_llms_txt_is_low_severity_and_says_unofficial():
     assert "unofficial" in llms.expected
 
 
+def test_deeply_nested_json_ld_does_not_crash_the_audit():
+    nested = "[" * 3000 + "]" * 3000
+    body = HOME.replace(
+        '{"@context":"https://schema.org","@graph":[{"@type":["Organization","Brand"],"name":"Nike"}]}',
+        nested,
+    )
+    audit = audit_domain("nike.com", site({**GOOD, "/": Response(200, body)}))
+    assert codes(audit, False) == ["org_schema_missing"]
+    assert audit.fetches == 12
+
+
+def test_bot_blocked_observed_prefers_the_named_group_over_a_long_star():
+    star_rules = "\n".join(f"Disallow: /p{i}" for i in range(40))
+    robots = f"User-agent: *\n{star_rules}\nUser-agent: GPTBot\nDisallow: /\n"
+    pages = {**GOOD, "/robots.txt": Response(200, robots)}
+    audit = audit_domain("nike.com", site(pages))
+    blocked = next(c for c in audit.checks if c.code == "bot_blocked:GPTBot")
+    assert "User-agent: GPTBot" in blocked.observed
+    assert "/p1" not in blocked.observed
+
+
+def test_bot_blocked_observed_does_not_leak_across_groups_without_blanks():
+    robots = (
+        "User-agent: GPTBot\nDisallow: /\n"
+        "User-agent: Bingbot\nDisallow: /private\n"
+    )
+    pages = {**GOOD, "/robots.txt": Response(200, robots)}
+    audit = audit_domain("nike.com", site(pages))
+    bing = next(c for c in audit.checks if c.code == "bot_blocked:Bingbot")
+    assert "User-agent: Bingbot" in bing.observed
+    assert "GPTBot" not in bing.observed
+
+
+def test_disallow_trailing_star_blocks_like_a_bare_slash():
+    robots = "User-agent: GPTBot\nDisallow: /*\n"
+    pages = {**GOOD, "/robots.txt": Response(200, robots)}
+    audit = audit_domain("nike.com", site(pages))
+    assert "bot_blocked:GPTBot" in codes(audit, False)
+
+
 @pytest.mark.parametrize(
     ("code", "sev"),
     [

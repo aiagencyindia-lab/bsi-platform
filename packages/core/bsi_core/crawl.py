@@ -195,10 +195,13 @@ def _has_org(scripts: list[str]) -> bool:
     for script in scripts:
         try:
             parsed: Any = json.loads(script)
-        except ValueError:
+            if "Organization" in _types(parsed):
+                return True
+        except (ValueError, RecursionError):
+            # A malformed or pathologically nested ld+json block fails
+            # this one check; it must not take the rest of the audit
+            # down with it.
             continue
-        if "Organization" in _types(parsed):
-            return True
     return False
 
 
@@ -206,24 +209,74 @@ def _clip(s: str) -> str:
     return s.strip()[:OBSERVED_CAP]
 
 
-def _group_lines(robots: str, bot: str) -> str:
-    """The robots.txt groups that name this bot or *, for `observed`."""
-    out: list[str] = []
+def _robots_groups(robots: str) -> list[tuple[list[str], list[str]]]:
+    """Split robots.txt into (agents, lines) groups, robotparser-style.
+
+    Consecutive `User-agent:` lines join one group. A `User-agent:` line
+    that follows a rule line starts a new group — blank line or not; a
+    blank line on its own has no grouping effect.
+    """
+    groups: list[tuple[list[str], list[str]]] = []
     agents: list[str] = []
-    keep = False
-    for line in robots.splitlines():
+    lines: list[str] = []
+    in_rules = False
+    for raw in robots.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
         key, _, value = line.partition(":")
         if key.strip().lower() == "user-agent":
+            if in_rules:
+                groups.append((agents, lines))
+                agents, lines = [], []
+                in_rules = False
             agents.append(value.strip().lower())
-            keep = any(a in (bot.lower(), "*") for a in agents)
-            if keep:
-                out.append(line.strip())
-            continue
-        if line.strip() == "":
-            agents = []
-            continue
-        if keep:
-            out.append(line.strip())
+            lines.append(line)
+        else:
+            if not agents:
+                continue  # a rule with no preceding group: ignore
+            in_rules = True
+            lines.append(line)
+    if agents:
+        groups.append((agents, lines))
+    return groups
+
+
+def _group_lines(robots: str, bot: str) -> str:
+    """The robots.txt group(s) naming this bot, for `observed`.
+
+    Follows robotparser's own precedence: a group naming the bot itself,
+    falling back to a `*` group only when no group names the bot.
+    """
+    bot_l = bot.lower()
+    groups = _robots_groups(robots)
+    named = [lines for agents, lines in groups if bot_l in agents]
+    if named:
+        return "\n".join(line for lines in named for line in lines)
+    starred = [lines for agents, lines in groups if "*" in agents]
+    return "\n".join(line for lines in starred for line in lines)
+
+
+def _strip_wildcards(robots: str) -> str:
+    """urllib.robotparser matches Allow/Disallow paths by plain prefix; it
+    has no `*` wildcard support, so `Disallow: /*` would otherwise only
+    match a literal `/*`. Strip a trailing `*` and `$` from each such
+    path so `/*` degrades to the prefix `/` instead of matching nothing.
+
+    ponytail: only a trailing wildcard is handled; a mid-path wildcard
+    (e.g. `/foo/*.pdf`) stays unsupported. Add real wildcard-to-regex
+    matching if that ever shows up in practice.
+    """
+    out = []
+    for line in robots.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip().lower() in ("allow", "disallow"):
+            path = value.strip()
+            while path and path[-1] in "*$":
+                path = path[:-1]
+            out.append(f"{key}: {path}")
+        else:
+            out.append(line)
     return "\n".join(out)
 
 
@@ -278,7 +331,7 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
     robots = get(robots_url)
     rp = robotparser.RobotFileParser()
     if robots.ok:
-        rp.parse(robots.body.splitlines())
+        rp.parse(_strip_wildcards(robots.body).splitlines())
     else:
         rp.parse([])  # no file: everything is allowed
     for bot in BOTS:
