@@ -120,15 +120,23 @@ reasoning as findings-slice6 §3).
 
 Both runs used the real fetch (`http_fetch`), `pause=0.5` between calls, 8
 bot user agents, and the standard 12-fetch budget (home, robots.txt, 8 bot
-homepage fetches, sitemap, llms.txt — see §5.7).
+homepage fetches, sitemap, llms.txt — see §5.7). The bot fetches only run
+when the homepage answered the browser user agent; otherwise the budget is
+4 (home, robots.txt, sitemap, llms.txt).
 
 ### nytimes.com
 
+Re-run in the final fix round with the audit's new browser user agent (a
+real desktop Chrome string). The first run used a bot-like one
+(`Mozilla/5.0 (compatible; BSI-Audit/1.0)`), got `403` on the homepage and
+was blind: bot-managed sites turn such a user agent away, so the audit had
+no baseline. That is why the user agent changed.
+
 | | |
 |---|---|
-| Fetches | 12 |
-| Elapsed | 10.34s |
-| Checks run | 20 (on-page checks skipped: home unreachable) |
+| Fetches | 4 |
+| Elapsed | 4.36s |
+| Checks run | 12 (on-page and bot-UA checks skipped: home unreachable) |
 | Failing | 9 |
 
 Failing checks:
@@ -142,31 +150,22 @@ Failing checks:
 | `bot_blocked:Claude-SearchBot` | high | same | `User-agent: Claude-SearchBot\nDisallow: /` |
 | `bot_blocked:PerplexityBot` | high | same | `User-agent: PerplexityBot\nDisallow: /` |
 | `bot_blocked:Google-Extended` | high | same | `User-agent: Google-Extended\nDisallow: /` |
-| `sitemap_invalid` | medium | `https://www.nytimes.com/sitemaps/new/news.xml.gz` | `root <unparseable: no element found: line 8997, column 156>` |
+| `sitemap_invalid` | medium | `https://www.nytimes.com/sitemaps/new/news.xml.gz` | `root <unparseable: no element found: line 9002, column 15>` |
 | `llms_missing` | low | `https://nytimes.com/llms.txt` | `HTTP 404` |
 
 This confirms the premise: nytimes.com's robots.txt disallows GPTBot (and
-five other AI bots) outright, exactly as claimed. It also surfaced two
-things nobody asked for: the homepage itself answered `403` to the
-audit's own browser user agent (`BSI-Audit/1.0`, not a real browser UA —
-Fastly/nytimes bot-detection turned it away before robots.txt was even
-relevant), and the robots-declared sitemap (`sitemaps/new/news.xml.gz`,
-gzip-compressed) came back as unparsed XML because the audit reads the raw
-(still-compressed) bytes as text rather than decompressing them —
-`sitemap_invalid` is correctly `false`, but for a reason the check's copy
-("root <urlset> or <sitemapindex>") doesn't name. Because `home_unreachable`
-failed, the 5 on-page checks (title, description, h1, canonical, org
-schema) were skipped by design ("on-page checks need a reachable
-homepage" — `crawl.py`). The `bot_ua_blocked:*` checks are not skipped:
-`audit_domain()`'s bot loop always fetches the homepage once per bot and
-always emits a check, computing `blocked = home.ok and (...)` — so with
-`home.ok` already `False`, all 8 ran and were forced to `ok`, regardless
-of what each bot actually got back. In other words: on a site that refuses
-our own browser user agent, the audit cannot tell whether it also refuses
-AI bots — `bot_ua_blocked` needs a working baseline to mean anything, and
-nytimes.com never gave it one. That is a real edge case in the check, not
-a defect in the finding: nytimes.com's status is accurately
-"home unreachable, high severity," which already dominates.
+five other AI bots) outright; Googlebot and Bingbot are allowed. The real
+Chrome user agent did **not** get through either: the homepage still
+answered `403`. The block is not keyed on the user agent string alone —
+a plain `httpx` request lacks the rest of a browser's headers and TLS
+fingerprint, which bot management also checks. The audit's answer for
+nytimes.com is therefore still "home unreachable, high severity", now
+without the misleading part: because the homepage gave no baseline, the 5
+on-page checks and the 8 `bot_ua_blocked:*` checks were skipped and never
+fetched, where the first run fetched all 8 bot user agents and reported
+each as "not blocked" regardless of what it got. The robots-declared
+sitemap (`sitemaps/new/news.xml.gz`) answered `200` but did not parse
+(§5.3).
 
 ### example.com
 
@@ -199,6 +198,9 @@ Inside one owner-session transaction (rolled back, never committed): a
 nytimes.com audit were inserted for Run 1, then `generate()` and
 `top_by_type()` were called.
 
+(This used the first run's nytimes.com audit; the re-run in §3 has the
+same 9 failing checks, so the counts below are unchanged.)
+
 `generate()` returned **89 candidates**: 9 `fix_crawlability` (one per
 failing check, §3's 9 failures), plus the same 56 `pursue_citation_source`,
 18 `create_content` and 6 `sample_more` from §2.
@@ -221,6 +223,12 @@ slot is decided by `generate()`'s tie-break, `(type, subject_key)`:
 `home_unreachable` — an artifact of ASCII ordering on the bot name inside
 the subject key, not a judgment that Claude-SearchBot's block matters more
 than GPTBot's.
+
+Recommendations now refresh at the end of every audit: the worker's
+`run_crawl_audit` calls `recommend.refresh()` in the same transaction that
+writes the `site_audit` rows, so a new failure (or a fix) reaches the
+recommendation list at once instead of at the next weekly pass. It does not
+stamp `brand.recs_refreshed_at`, so the weekly refresh is not deferred.
 
 Afterward, a fresh session confirmed the dev database for Run 1 is
 unchanged:
@@ -261,50 +269,53 @@ unchanged:
    or fetches a second page, so it cannot see whether *other* pages on the
    site are crawlable, have their own metadata, or are blocked differently
    than the homepage.
-5. **`bot_ua_blocked` cannot tell a CDN challenge from a hard block, and
-   needs a reachable homepage to mean anything.** The check treats any
-   `401`/`403`/`429`/`5xx` response to a bot's user agent as "blocked,"
-   which is also what a generic anti-bot challenge (rate limiting, a
-   CAPTCHA wall, a WAF rule keyed on request shape rather than UA) looks
-   like from the outside. Section 3's nytimes.com run shows a second,
-   related failure mode: the *browser* UA itself got a 403
-   (`home_unreachable`), but `audit_domain()`'s bot loop still ran all 8
-   `bot_ua_blocked:*` fetches and still emitted a check for each — its
-   `blocked = home.ok and (...)` forces every one to `ok` once `home.ok`
-   is `False`, whatever each bot actually got back. So on a site that
-   refuses our own browser user agent, the audit cannot tell whether it
-   also refuses AI bots; it silently reports "not blocked" instead.
-6. **A failing weekly audit retries at most hourly.** `audit_crawl` is
-   queued weekly by `due_crawl_audits()`; if a run fails (network error,
-   timeout), the next attempt is gated by the job system's normal retry
-   backoff, not before an hour has passed — so a domain that starts
-   failing outside the weekly window can go most of a week before the next
-   audit even attempts to reach it again, longer if the retry itself keeps
-   failing.
+5. **`bot_ua_blocked` cannot tell a CDN challenge from a hard block.** The
+   check treats any `401`/`403`/`429`/`5xx` response to a bot's user agent
+   as "blocked," which is also what a generic anti-bot challenge (rate
+   limiting, a CAPTCHA wall, a WAF rule keyed on request shape rather than
+   UA) looks like from the outside. The check needs a reachable homepage
+   to mean anything, so when the browser user agent is refused (nytimes.com,
+   §3) the 8 bot fetches are now skipped and no `bot_ua_blocked:*` check is
+   emitted, rather than being reported as "not blocked".
+6. **A failed audit retries hourly; a failing check waits a week.** A
+   failed `audit_crawl` job writes no `site_audit` row, so the brand stays
+   due and `queue_due_crawl_audits()` queues it again in the next hour's
+   slot (it never re-runs a failed job within the same hour). So a failed
+   audit retries hourly until one succeeds; a successful audit with failing
+   checks waits a week. One host raising inside a job no longer loses the
+   other hosts' rows: the worker skips that host and writes the rest, and
+   the skipped host stays due.
 7. **The fetch budget is 12 per domain, not 11.** The design spec counted
    11; the actual budget, confirmed by both live runs above (`fetches: 12`
    in each), is home (1) + robots.txt (1) + 8 bot-UA homepage fetches (8)
    + sitemap (1) + llms.txt (1) = 12. The spec's 11 was a miscount, not a
    deliberate reduction; this findings doc is the correction of record.
 8. **Security gap to close before any hosted deployment: SSRF.**
-   `audit_domain()`/`http_fetch()` fetches whatever host is passed to it,
-   following redirects, with no check that the resolved address is
-   public. The host comes from an operator-declared domain (the `domain`
-   table, or a value typed into the Site tab's audit trigger) — nothing
-   currently stops that host from being `127.0.0.1`, `169.254.169.254`
-   (a cloud metadata endpoint), a private RFC1918 address, or a public
-   hostname that 302-redirects to one of those, and `httpx`'s
-   `follow_redirects=True` will follow it there. In a single-tenant local
-   setup with trusted operators this is inert; the moment the platform is
-   hosted for multiple tenants, any tenant who can set their own domain
-   (or point a domain they control at a redirect) can make the crawl-audit
-   worker issue arbitrary internal HTTP requests on the server's own
-   network (SSRF) — reading cloud metadata, hitting internal admin
-   endpoints, or port-scanning the private network, entirely through a
-   feature designed to fetch public web pages. This must be fixed (resolve
-   the host first, reject private/loopback/link-local/metadata ranges,
-   re-check after every redirect hop) before the crawl audit is exposed to
-   more than one trusted tenant.
+   `audit_domain()`/`http_fetch()` fetches whatever host it is given, with
+   no check that the resolved address is public. Nothing is typed into the
+   Site tab (its POST has no body); the real vectors are:
+   - a declared domain via `POST /v1/brands/{id}/domains` —
+     `normalize_domain` accepts `127.0.0.1`, `169.254.169.254` (a cloud
+     metadata endpoint) and `localhost`;
+   - redirects: `httpx` runs with `follow_redirects=True`, so a public host
+     that 302-redirects inward is followed there;
+   - the robots.txt `Sitemap:` URL: it must be on the audited host or a
+     subdomain, but a tenant-controlled subdomain whose DNS points at an
+     internal address passes that check.
+
+   In a single-tenant local setup with trusted operators this is inert;
+   hosted for multiple tenants, any tenant could make the worker issue
+   internal HTTP requests (cloud metadata, internal admin endpoints, port
+   scans). The fix: resolve the host and pin the IP for the request; reject
+   private, loopback, link-local and metadata ranges; disable automatic
+   redirects and re-check every hop; stream the body with a byte cap and a
+   total deadline. `http_fetch` carries a `SECURITY:` comment pointing here.
+9. **robots.txt matching is first-match, not RFC 9309 longest-match.**
+   `urllib.robotparser` applies the first rule whose path prefixes the URL;
+   RFC 9309 says the longest match wins. So `User-agent: *` /
+   `Disallow: /` / `Allow: /$` — "only the homepage is allowed" — reads as
+   the homepage blocked, and yields 8 false high-severity `bot_blocked`
+   failures. Deferred to the crawl-hardening task, with SSRF.
 
 ## 6. Spend
 
