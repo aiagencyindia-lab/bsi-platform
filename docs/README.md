@@ -69,6 +69,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-21-slice6-recommendations-and-tasks.md](superpowers/plans/2026-09-21-slice6-recommendations-and-tasks.md) | Implementation plan, Tasks 1–6. |
 | [findings-slice6.md](findings-slice6.md) | Results: what `generate` produced on "Run 1" and "Slice4 check", the citation rule's rival-domain fix and its residue, threshold sensitivity, the loop walked end to end to an honest "insufficient data", the weights as set, and the known gaps. |
 
+## Slice 7: citation intelligence and the crawlability audit
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-23-slice7-citations-and-crawlability-design.md](superpowers/specs/2026-09-23-slice7-citations-and-crawlability-design.md) | Design spec: per-domain citation sources with a gap flag, a crawlability audit of the brand's own domain (robots.txt, bot user agents, sitemap, llms.txt, on-page checks), a weekly audit job, and a `fix_crawlability` recommendation type. |
+| [superpowers/plans/2026-09-23-slice7-citations-and-crawlability.md](superpowers/plans/2026-09-23-slice7-citations-and-crawlability.md) | Implementation plan, Tasks 0–10. |
+| [findings-slice7.md](findings-slice7.md) | Results: `sources()` and `generate()` on "Run 1" (247 cited domains, 136 gaps, and why the gap count is not 0), a live `audit_domain()` run against nytimes.com and example.com with every failing check, where `fix_crawlability` lands in `top_by_type` (first, tied at priority 0.8), the corrected 12-fetch budget, an SSRF gap in the crawler that must be closed before hosted deployment, and spend (unchanged). |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 
