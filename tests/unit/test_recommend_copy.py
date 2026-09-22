@@ -1,4 +1,5 @@
 import pytest
+from bsi_core.crawl import SEVERITY
 from bsi_core.recommend import (
     citation_copy,
     competitor_copy,
@@ -34,39 +35,23 @@ CASES = [
     competitor_copy("Puma", 2),
     sample_copy("Nike", "best shoes", 3, 4, "Adidas"),
     sample_copy("Nike", "best shoes", 3, 7, "Adidas"),
+]
+
+# Every crawl family, so the scans below cover each template.
+CRAWL_CODES = [f"{c}:GPTBot" if c.startswith("bot_") else c for c in SEVERITY]
+CASES += [
     crawl_copy(
         "Nike",
         "nike.com",
         {
-            "code": "bot_blocked:GPTBot",
-            "observed": "User-agent: GPTBot\nDisallow: /",
-            "expected": "robots.txt lets this crawler fetch the homepage.",
-            "url": "https://nike.com/robots.txt",
-            "severity": "high",
-        },
-    ),
-    crawl_copy(
-        "Nike",
-        "nike.com",
-        {
-            "code": "sitemap_missing",
+            "code": code,
             "observed": "HTTP 404",
             "expected": "x",
-            "url": "https://nike.com/sitemap.xml",
-            "severity": "medium",
+            "url": "https://nike.com/",
+            "severity": SEVERITY[code.split(":", 1)[0]],
         },
-    ),
-    crawl_copy(
-        "Nike",
-        "nike.com",
-        {
-            "code": "llms_missing",
-            "observed": "HTTP 404",
-            "expected": "x",
-            "url": "https://nike.com/llms.txt",
-            "severity": "low",
-        },
-    ),
+    )
+    for code in CRAWL_CODES
 ]
 
 
@@ -80,6 +65,11 @@ def test_copy_never_promises_an_outcome(copy):
 @pytest.mark.parametrize("copy", CASES)
 def test_copy_names_the_metric_to_watch(copy):
     assert "Metric to watch:" in copy[1]
+
+
+def test_every_crawl_family_is_covered():
+    assert len(CRAWL_CODES) == 11
+    assert "bot_ua_blocked:GPTBot" in CRAWL_CODES
 
 
 def test_rival_lists_read_naturally():

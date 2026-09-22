@@ -128,6 +128,19 @@ def test_cdn_blocking_only_counts_when_the_browser_got_through():
     assert audit.fetches == 4
 
 
+def test_the_bot_list_is_pinned():
+    assert BOTS == (
+        "GPTBot",
+        "OAI-SearchBot",
+        "ClaudeBot",
+        "Claude-SearchBot",
+        "PerplexityBot",
+        "Google-Extended",
+        "Googlebot",
+        "Bingbot",
+    )
+
+
 def test_the_browser_ua_is_a_real_browser():
     # A bot-like UA gets 403 from bot-managed sites and blinds the audit.
     assert BROWSER_UA.startswith("Mozilla/5.0 (")

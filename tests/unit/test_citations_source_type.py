@@ -9,6 +9,9 @@ from bsi_core.citations import SOURCE_TYPES, source_type
         ("adidas.co.in", "rival", "vendor"),
         ("youtube.com", "third_party", "video"),
         ("m.youtube.com", "third_party", "video"),
+        # Callers pass normalized domains (no www.), but the keyword
+        # match is a substring test, so a stray www. is harmless.
+        ("www.youtube.com", "third_party", "video"),
         ("reddit.com", "third_party", "community"),
         ("quora.com", "third_party", "community"),
         ("english.stackexchange.com", "third_party", "community"),

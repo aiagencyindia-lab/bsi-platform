@@ -5,7 +5,7 @@ from bsi_core import models as m
 from bsi_core.citations import sources
 from bsi_core.db import tenant_session
 from bsi_core.metrics import Filters
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from tests.integration.test_recommend import _mention, world  # noqa: F401
 
@@ -127,6 +127,32 @@ def test_filters_apply(cited):
     assert only_present["forbes.com"]["answers"] == 1
     assert only_present["forbes.com"]["prompts"] == 1
     assert "four.com" not in only_present  # cited on `dominated` only
+
+
+def test_locale_filter_drops_answers_in_another_locale(owner, cited):
+    with owner() as s, s.begin():
+        oid, first = s.execute(
+            select(m.Observation.id, m.Observation.locale_id)
+            .join(m.Citation, m.Citation.observation_id == m.Observation.id)
+            .where(m.Citation.domain == "forbes.com")
+        ).first()
+        other = m.Locale(
+            org_id=cited.org.id,
+            brand_id=cited.brand,
+            country="GB",
+            language="en",
+        )
+        s.add(other)
+        s.flush()
+        s.execute(
+            update(m.Observation)
+            .where(m.Observation.id == oid)
+            .values(locale_id=other.id)
+        )
+    assert by_domain(cited)["forbes.com"]["answers"] == 5
+    first_only = by_domain(cited, Filters(locale_id=first))
+    assert first_only["forbes.com"]["answers"] == 4
+    assert oid not in first_only["forbes.com"]["observation_ids"]
 
 
 def test_empty_brand_gives_empty_list(make_org, make_brand):
