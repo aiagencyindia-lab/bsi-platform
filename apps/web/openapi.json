@@ -1819,6 +1819,24 @@
         "title": "RecommendationOut",
         "type": "object"
       },
+      "RivalOut": {
+        "properties": {
+          "answers": {
+            "title": "Answers",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "answers"
+        ],
+        "title": "RivalOut",
+        "type": "object"
+      },
       "RunIn": {
         "additionalProperties": false,
         "properties": {
@@ -2019,6 +2037,91 @@
           "last_result"
         ],
         "title": "ScheduleRow",
+        "type": "object"
+      },
+      "SourceOut": {
+        "description": "One cited domain. `source_type` is a keyword heuristic.",
+        "properties": {
+          "answers": {
+            "title": "Answers",
+            "type": "integer"
+          },
+          "brand_named": {
+            "title": "Brand Named",
+            "type": "integer"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "first_seen": {
+            "format": "date-time",
+            "title": "First Seen",
+            "type": "string"
+          },
+          "gap": {
+            "title": "Gap",
+            "type": "boolean"
+          },
+          "last_seen": {
+            "format": "date-time",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "observation_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "owner": {
+            "enum": [
+              "brand",
+              "rival",
+              "third_party"
+            ],
+            "title": "Owner",
+            "type": "string"
+          },
+          "prompts": {
+            "title": "Prompts",
+            "type": "integer"
+          },
+          "rivals": {
+            "items": {
+              "$ref": "#/components/schemas/RivalOut"
+            },
+            "title": "Rivals",
+            "type": "array"
+          },
+          "source_type": {
+            "enum": [
+              "vendor",
+              "video",
+              "community",
+              "review",
+              "other"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "owner",
+          "source_type",
+          "answers",
+          "prompts",
+          "first_seen",
+          "last_seen",
+          "brand_named",
+          "rivals",
+          "gap",
+          "observation_ids"
+        ],
+        "title": "SourceOut",
         "type": "object"
       },
       "SovEntity": {
@@ -2674,6 +2777,156 @@
         "summary": "Patch Brand",
         "tags": [
           "brands"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/citations": {
+      "get": {
+        "operationId": "list_citations_v1_brands__brand_id__citations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engine"
+            }
+          },
+          {
+            "in": "query",
+            "name": "locale_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Ids"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceOut"
+                  },
+                  "title": "Response List Citations V1 Brands  Brand Id  Citations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Citations",
+        "tags": [
+          "citations"
         ]
       }
     },

@@ -58,6 +58,23 @@ export interface paths {
         patch: operations["patch_brand_v1_brands__brand_id__patch"];
         trace?: never;
     };
+    "/v1/brands/{brand_id}/citations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Citations */
+        get: operations["list_citations_v1_brands__brand_id__citations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/clusters": {
         parameters: {
             query?: never;
@@ -1196,6 +1213,13 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** RivalOut */
+        RivalOut: {
+            /** Answers */
+            answers: number;
+            /** Name */
+            name: string;
+        };
         /** RunIn */
         RunIn: {
             /**
@@ -1288,6 +1312,46 @@ export interface components {
             samples: number;
             /** Status */
             status: string;
+        };
+        /**
+         * SourceOut
+         * @description One cited domain. `source_type` is a keyword heuristic.
+         */
+        SourceOut: {
+            /** Answers */
+            answers: number;
+            /** Brand Named */
+            brand_named: number;
+            /** Domain */
+            domain: string;
+            /**
+             * First Seen
+             * Format: date-time
+             */
+            first_seen: string;
+            /** Gap */
+            gap: boolean;
+            /**
+             * Last Seen
+             * Format: date-time
+             */
+            last_seen: string;
+            /** Observation Ids */
+            observation_ids: string[];
+            /**
+             * Owner
+             * @enum {string}
+             */
+            owner: "brand" | "rival" | "third_party";
+            /** Prompts */
+            prompts: number;
+            /** Rivals */
+            rivals: components["schemas"]["RivalOut"][];
+            /**
+             * Source Type
+             * @enum {string}
+             */
+            source_type: "vendor" | "video" | "community" | "review" | "other";
         };
         /** SovEntity */
         SovEntity: {
@@ -1593,6 +1657,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_citations_v1_brands__brand_id__citations_get: {
+        parameters: {
+            query?: {
+                engine?: string | null;
+                locale_id?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                prompt_ids?: string[] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"][];
                 };
             };
             /** @description Validation Error */

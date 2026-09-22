@@ -15,3 +15,4 @@ export type LabelQueue = S["LabelQueue"];
 export type LabelResult = S["LabelResult"];
 export type Recommendation = S["RecommendationOut"];
 export type Task = S["TaskOut"];
+export type Source = S["SourceOut"];

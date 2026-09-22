@@ -135,6 +135,7 @@ CASES = [
     ("POST", "/v1/brands/{b}/recommendations/{r}/dismiss", {"reason": "x"}),
     ("GET", "/v1/brands/{b}/tasks", None),
     ("PATCH", "/v1/brands/{b}/tasks/{t}", {"notes": "x"}),
+    ("GET", "/v1/brands/{b}/citations", None),
 ]
 
 
