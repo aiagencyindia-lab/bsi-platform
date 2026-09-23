@@ -608,3 +608,14 @@ def test_an_item_check_without_a_wiki_url_keeps_the_domain_key(owner, world):
         [_check("wikidata_name_mismatch", False, "medium")],
     )
     assert set(_entity(world)) == {"nike.com:wikidata_name_mismatch"}
+
+
+def test_a_repeated_wikidata_row_lists_its_domain_once(owner, world):
+    _audit(
+        owner,
+        world,
+        "nike.com",
+        [_wd("wikidata_missing", False), _wd("wikidata_missing", False)],
+    )
+    ev = _entity(world)["wikidata:wikidata_missing"].evidence
+    assert ev["domains"] == ["nike.com"]

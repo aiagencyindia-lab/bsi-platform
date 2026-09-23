@@ -445,7 +445,7 @@ def _sampling(
     return out
 
 
-_WIKI_ITEM = re.compile(r"/wiki/(Q\d+)$")
+_WIKI_ITEM = re.compile(r"/wiki/(Q[0-9]+)\Z")
 
 
 def _subject(domain: str, check: dict[str, Any]) -> str:
@@ -509,7 +509,9 @@ def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
             if key in out:
                 # A merged Wikidata key repeats across domains; any other
                 # repeat is a duplicate row in one audit, dropped.
-                out[key].evidence.get("domains", []).append(domain)
+                seen = out[key].evidence.get("domains", [domain])
+                if domain not in seen:
+                    seen.append(domain)
                 continue
             evidence = {**check, "domain": domain, "audit_id": str(audit_id)}
             if key.startswith("wikidata:"):

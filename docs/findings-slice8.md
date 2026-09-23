@@ -280,6 +280,9 @@ them rank below any high crawl finding for the same brand.
   any other url keeps `<domain>:<code>`). Evidence lists every reporting
   domain under `domains`. `social_links_conflict` stays per domain, since
   each site has its own `sameAs`.
+  A rec dismissed under an old per-domain key stays dismissed, and the
+  new brand-level key appears once as a new open rec, because refresh
+  deletes only open rows.
 - Only four social properties are compared (YouTube excluded: handle vs
   channel id). Host aliases are `x.com` for twitter.com and a leading
   `www.`, `m.` or `mobile.`.
