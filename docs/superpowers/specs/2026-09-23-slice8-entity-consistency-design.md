@@ -164,6 +164,17 @@ today. Nothing else in the worker changes: same job kind, same
   `entity`, copy from `entity_copy`. Elif `fam in crawl.SEVERITY` → as
   today. Else skip with a warning (unchanged). `subject_key` stays
   `f"{domain}:{code}"`, reach 1.0, pressure `PRESSURE_BY_SEVERITY[sev]`.
+- Brand-level Wikidata checks are merged across domains (the audit runs
+  them per domain). `wikidata_missing`: at most one candidate per brand,
+  `subject_key` `wikidata:wikidata_missing`; it fires only if every domain
+  whose latest audit has a `wikidata_missing` row has it failing (a domain
+  without the row neither fires nor suppresses). `wikidata_name_mismatch`
+  and `wikidata_logo_missing`: one candidate per (item, code),
+  `subject_key` `wikidata:{qid}:{code}` with the QID from the check's
+  `https://www.wikidata.org/wiki/Q…` url; any other url falls back to
+  `{domain}:{code}`. The first domain in order supplies the evidence and
+  copy; `evidence["domains"]` lists every domain reporting it.
+  `social_links_conflict` and all other checks stay per domain.
 - `_ENTITY_TITLES` per family, e.g. `org_name_mismatch`: "Fix the
   Organization name on {domain}"; `wikidata_missing`: "Create or claim
   {brand}'s Wikidata item"; `social_links_conflict`: "Align social profiles

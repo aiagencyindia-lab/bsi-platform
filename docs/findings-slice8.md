@@ -268,13 +268,21 @@ them rank below any high crawl finding for the same brand.
 - The logo URL is not fetched.
 - Wikipedia text is not read.
 - Product, Article and BreadcrumbList schema are not checked.
-- The Wikidata checks run once per declared domain. The three brand-level
-  ones (`wikidata_missing`, `wikidata_name_mismatch`,
-  `wikidata_logo_missing`) say the same thing each time, so a two-domain
-  brand gets each rec twice. `social_links_conflict` is legitimately per
-  domain, since each site has its own `sameAs`. Follow-up: run Wikidata
-  once per brand, or drop the domain from those three checks'
-  `subject_key`.
+- Fixed: duplicate Wikidata recs on a multi-domain brand. The audit
+  still runs the Wikidata checks once per declared domain; the rule now
+  merges the three brand-level ones. `wikidata_missing` gives at most one
+  rec per brand (`subject_key` `wikidata:wikidata_missing`), and none if
+  any domain matched an item, so nike.com matching an item while nike.in
+  finds none no longer asks to create an item that exists. A domain with
+  no Wikidata rows neither fires nor suppresses it.
+  `wikidata_name_mismatch` and `wikidata_logo_missing` give one rec per
+  item (`wikidata:<QID>:<code>`, QID from the check's `/wiki/Q…` url;
+  any other url keeps `<domain>:<code>`). Evidence lists every reporting
+  domain under `domains`. `social_links_conflict` stays per domain, since
+  each site has its own `sameAs`.
+  A rec dismissed under an old per-domain key stays dismissed, and the
+  new brand-level key appears once as a new open rec, because refresh
+  deletes only open rows.
 - Only four social properties are compared (YouTube excluded: handle vs
   channel id). Host aliases are `x.com` for twitter.com and a leading
   `www.`, `m.` or `mobile.`.

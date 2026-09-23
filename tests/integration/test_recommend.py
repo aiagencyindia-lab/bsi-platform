@@ -479,10 +479,14 @@ def test_each_failing_entity_check_is_one_entity_recommendation(owner, world):
     )
     recs = found(world)
     ent = {k: c for k, c in recs.items() if k[0] == "fix_entity"}
-    codes = ("org_name_mismatch", "social_links_conflict", "wikidata_missing")
-    assert set(ent) == {("fix_entity", f"nike.com:{c}") for c in codes}
+    keys = [
+        ("fix_entity", "nike.com:org_name_mismatch"),
+        ("fix_entity", "nike.com:social_links_conflict"),
+        ("fix_entity", "wikidata:wikidata_missing"),
+    ]
+    assert set(ent) == set(keys)
     # Judged, not measured: reach 1.0 x severity weight x 0.7.
-    assert [ent[("fix_entity", f"nike.com:{c}")].priority for c in codes] == [
+    assert [ent[k].priority for k in keys] == [
         0.7,
         0.35,
         0.14,
@@ -494,3 +498,124 @@ def test_each_failing_entity_check_is_one_entity_recommendation(owner, world):
     # Crawl checks in the same row still route to fix_crawlability.
     assert ("fix_crawlability", "nike.com:llms_missing") in recs
     assert ("fix_entity", "nike.com:llms_missing") not in recs
+
+
+def _audit(owner, w, host, checks):
+    with owner() as s, s.begin():
+        s.add(m.Domain(org_id=w.org.id, brand_id=w.brand, host=host))
+        s.add(
+            m.SiteAudit(
+                org_id=w.org.id, brand_id=w.brand, domain=host, checks=checks
+            )
+        )
+
+
+def _wd(code, ok, severity="low", qid="Q42"):
+    return {
+        "code": code,
+        "ok": ok,
+        "severity": severity,
+        "observed": qid,
+        "expected": "e",
+        "url": f"https://www.wikidata.org/wiki/{qid}",
+    }
+
+
+def _entity(w):
+    return {k[1]: c for k, c in found(w).items() if k[0] == "fix_entity"}
+
+
+def test_wikidata_missing_is_one_rec_per_brand(owner, world):
+    _audit(owner, world, "nike.com", [_wd("wikidata_missing", False)])
+    _audit(owner, world, "nike.in", [_wd("wikidata_missing", False)])
+    ent = _entity(world)
+    assert set(ent) == {"wikidata:wikidata_missing"}
+    ev = ent["wikidata:wikidata_missing"].evidence
+    assert ev["domains"] == ["nike.com", "nike.in"]
+    assert ev["domain"] == "nike.com"
+    assert "audit_id" in ev
+
+
+def test_a_matched_item_on_any_domain_suppresses_wikidata_missing(owner, world):
+    _audit(owner, world, "nike.com", [_wd("wikidata_missing", True)])
+    _audit(owner, world, "nike.in", [_wd("wikidata_missing", False)])
+    assert _entity(world) == {}
+
+
+def test_a_domain_without_wikidata_rows_neither_fires_nor_suppresses(
+    owner, world
+):
+    _audit(owner, world, "nike.com", [_wd("wikidata_missing", False)])
+    _audit(owner, world, "nike.in", [_check("llms_missing", False, "low")])
+    ent = _entity(world)
+    assert set(ent) == {"wikidata:wikidata_missing"}
+    assert ent["wikidata:wikidata_missing"].evidence["domains"] == ["nike.com"]
+
+
+def test_item_checks_are_one_rec_per_item(owner, world):
+    for host in ("nike.com", "nike.in"):
+        _audit(
+            owner,
+            world,
+            host,
+            [
+                _wd("wikidata_name_mismatch", False, "medium"),
+                _wd("wikidata_logo_missing", False),
+            ],
+        )
+    ent = _entity(world)
+    assert set(ent) == {
+        "wikidata:Q42:wikidata_name_mismatch",
+        "wikidata:Q42:wikidata_logo_missing",
+    }
+    for rec in ent.values():
+        assert rec.evidence["domains"] == ["nike.com", "nike.in"]
+        assert rec.evidence["domain"] == "nike.com"
+
+
+def test_different_items_are_separate_recs(owner, world):
+    _audit(owner, world, "nike.com", [_wd("wikidata_name_mismatch", False)])
+    _audit(
+        owner,
+        world,
+        "nike.in",
+        [_wd("wikidata_name_mismatch", False, qid="Q7")],
+    )
+    ent = _entity(world)
+    assert set(ent) == {
+        "wikidata:Q42:wikidata_name_mismatch",
+        "wikidata:Q7:wikidata_name_mismatch",
+    }
+    assert ent["wikidata:Q7:wikidata_name_mismatch"].evidence["domains"] == [
+        "nike.in"
+    ]
+
+
+def test_social_links_conflict_stays_per_domain(owner, world):
+    for host in ("nike.com", "nike.in"):
+        _audit(owner, world, host, [_wd("social_links_conflict", False)])
+    assert set(_entity(world)) == {
+        "nike.com:social_links_conflict",
+        "nike.in:social_links_conflict",
+    }
+
+
+def test_an_item_check_without_a_wiki_url_keeps_the_domain_key(owner, world):
+    _audit(
+        owner,
+        world,
+        "nike.com",
+        [_check("wikidata_name_mismatch", False, "medium")],
+    )
+    assert set(_entity(world)) == {"nike.com:wikidata_name_mismatch"}
+
+
+def test_a_repeated_wikidata_row_lists_its_domain_once(owner, world):
+    _audit(
+        owner,
+        world,
+        "nike.com",
+        [_wd("wikidata_missing", False), _wd("wikidata_missing", False)],
+    )
+    ev = _entity(world)["wikidata:wikidata_missing"].evidence
+    assert ev["domains"] == ["nike.com"]
