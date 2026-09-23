@@ -244,35 +244,46 @@ def _clip(s: str) -> str:
     return s.strip()[:OBSERVED_CAP]
 
 
-def _robots_groups(robots: str) -> list[tuple[list[str], list[str]]]:
-    """Split robots.txt into (agents, lines) groups, robotparser-style.
+_RULE_KEYS = ("allow", "disallow", "crawl-delay", "request-rate")
 
-    Consecutive `User-agent:` lines join one group. A `User-agent:` line
-    that follows a rule line starts a new group — blank line or not; a
-    blank line on its own has no grouping effect.
+
+def _robots_groups(robots: str) -> list[tuple[list[str], list[str]]]:
+    """Split robots.txt into (agents, lines) groups exactly as robotparser
+    does, so the evidence shown is the entry it actually applied.
+
+    The same state machine as RobotFileParser.parse: 0 start, 1 after a
+    User-agent line, 2 after a rule. An empty line discards a group that
+    has no rule yet (state 1) and closes one that has (state 2); comments
+    and unknown keys are ignored; Sitemap: has no grouping effect; a rule
+    before any User-agent line belongs to nobody; only groups with a rule
+    are kept.
     """
     groups: list[tuple[list[str], list[str]]] = []
     agents: list[str] = []
     lines: list[str] = []
-    in_rules = False
+    state = 0
     for raw in robots.splitlines():
-        line = raw.strip()
-        if not line:
+        if not raw:  # robotparser tests the raw line, not the stripped one
+            if state == 2:
+                groups.append((agents, lines))
+            if state:
+                agents, lines, state = [], [], 0
+        line = raw.split("#", 1)[0].strip()
+        key, colon, value = line.partition(":")
+        key = key.strip().lower()
+        if not colon:
             continue
-        key, _, value = line.partition(":")
-        if key.strip().lower() == "user-agent":
-            if in_rules:
+        if key == "user-agent":
+            if state == 2:
                 groups.append((agents, lines))
                 agents, lines = [], []
-                in_rules = False
             agents.append(value.strip().lower())
             lines.append(line)
-        else:
-            if not agents:
-                continue  # a rule with no preceding group: ignore
-            in_rules = True
+            state = 1
+        elif key in _RULE_KEYS and state:
             lines.append(line)
-    if agents:
+            state = 2
+    if state == 2:
         groups.append((agents, lines))
     return groups
 
@@ -311,7 +322,8 @@ def _strip_wildcards(robots: str) -> str:
     for line in robots.splitlines():
         key, sep, value = line.partition(":")
         if sep and key.strip().lower() in ("allow", "disallow"):
-            path = value.strip()
+            # Drop the comment first, or `Disallow: /* # all` keeps its `*`.
+            path = value.split("#", 1)[0].strip()
             while path and path[-1] in "*$":
                 path = path[:-1]
             out.append(f"{key}: {path}")

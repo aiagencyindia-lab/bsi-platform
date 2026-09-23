@@ -1,5 +1,9 @@
 """audit_domain from canned responses. Nothing here touches the network."""
 
+import random
+import re
+from urllib import robotparser
+
 import pytest
 from bsi_core.crawl import (
     BODY_CAP,
@@ -403,3 +407,73 @@ def test_a_group_naming_star_is_the_default_not_a_named_match():
     check = _bot_check(robots, "GPTBot")
     assert check.ok
     assert check.observed == "User-agent: GPT\nAllow: /"
+
+
+def test_comment_and_sitemap_lines_do_not_split_a_group():
+    # robotparser ignores comments and gives Sitemap: no grouping effect,
+    # so all of these are one `*` group whose Disallow applies to GPTBot.
+    for between in ("# note", "Sitemap: https://nike.com/sm.xml", "Host: x"):
+        robots = f"User-agent: *\n{between}\nUser-agent: Google-Extended\n"
+        check = _bot_check(robots + "Disallow: /\n", "GPTBot")
+        assert not check.ok
+        assert "Disallow: /" in check.observed, between
+
+
+def test_a_user_agent_cut_off_by_a_blank_line_names_nobody():
+    # A blank line straight after User-agent: makes robotparser drop it,
+    # and the Disallow that follows then belongs to no group at all.
+    check = _bot_check("User-agent: GPTBot\n\nDisallow: /\n", "GPTBot")
+    assert check.ok
+    assert check.observed == "no matching group"
+
+
+def _applied_markers(robots, bot):
+    """The /gN rule markers of the entry robotparser applies to bot."""
+    rp = robotparser.RobotFileParser()
+    rp.parse(robots.splitlines())
+    entry = next((e for e in rp.entries if e.applies_to(bot)), rp.default_entry)
+    return set() if entry is None else {r.path for r in entry.rulelines}
+
+
+def test_observed_is_always_the_group_robotparser_applied():
+    # Seeded fuzz: every group gets a unique marker rule, and the evidence
+    # must carry exactly the markers of the entry robotparser chose.
+    rng = random.Random(7)
+    tokens = ["*", "Claude", "ClaudeBot", "Google", "GPTBot", "Bot", "gpt", ""]
+    noise = [
+        "",
+        "   ",
+        "# c",
+        "Sitemap: https://nike.com/s.xml",
+        "Host: nike.com",
+        "Crawl-delay: 5",
+        "Request-rate: x",
+        "no colon here",
+    ]
+    for _ in range(3000):
+        lines = ["Disallow: /g9"] if rng.random() < 0.2 else []
+        for g in range(rng.randint(1, 4)):
+            for _ in range(rng.randint(1, 3)):
+                lines.append(f"User-agent: {rng.choice(tokens)}")
+                if rng.random() < 0.3:
+                    lines.append(rng.choice(noise))
+            rule = f"{rng.choice(['Allow', 'Disallow'])}: /g{g}"
+            lines.append(rule + (" # why" if rng.random() < 0.2 else ""))
+            if rng.random() < 0.3:
+                lines.append(rng.choice(noise))
+        robots = rng.choice(["\n", "\r\n"]).join(lines) + "\n"
+        pages = {**GOOD, "/robots.txt": Response(200, robots)}
+        checks = {
+            c.code: c for c in audit_domain("nike.com", site(pages)).checks
+        }
+        for bot in BOTS:
+            observed = checks[f"bot_blocked:{bot}"].observed
+            shown = set(re.findall(r"/g\d", observed))
+            assert shown == _applied_markers(robots, bot), (robots, bot)
+
+
+def test_a_comment_after_a_wildcard_rule_still_blocks():
+    # The comment must go before the trailing `*` is stripped, or
+    # robotparser is handed the literal path `/*` and allows everything.
+    check = _bot_check("User-agent: *\nDisallow: /* # block all\n", "GPTBot")
+    assert not check.ok
