@@ -64,6 +64,8 @@ SEVERITY = {
     "website_schema_missing": "low",
     "title_brand_missing": "medium",
     "about_missing": "low",
+    "about_unreachable": "medium",
+    "about_brand_missing": "low",
     "wikidata_missing": "low",
     "wikidata_name_mismatch": "medium",
     "wikidata_logo_missing": "low",
@@ -83,6 +85,10 @@ EXPECTED = {
     f"or a declared alias. {SIGNAL}",
     "about_missing": "The homepage links an About or Company page on the "
     f"same host. {SIGNAL}",
+    "about_unreachable": "The About page the homepage links answers with "
+    f"a 2xx status. {SIGNAL}",
+    "about_brand_missing": "The About page's title or first h1 contains "
+    f"the brand's name or a declared alias. {SIGNAL}",
     "wikidata_missing": "Wikidata holds an item for the brand whose "
     f"official website is a declared domain. {SIGNAL}",
     "wikidata_name_mismatch": "The Wikidata item's English (or default) "
@@ -189,6 +195,59 @@ def _about(href: str, home_url: str, host: str) -> bool:
     )
 
 
+def _org(nodes: list[dict[str, Any]]) -> dict[str, Any] | None:
+    orgs = [n for n in nodes if _types(n) & ORG_TYPES]
+    # A named node over a nested stub like WebSite.publisher {"@id": ...}.
+    named = [
+        n for n in orgs if isinstance(n.get("name"), str) and n["name"].strip()
+    ]
+    return next(iter(named or orgs), None)
+
+
+def _org_rows(
+    org: dict[str, Any], url: str, legal: set[str], hosts: Sequence[str]
+) -> tuple[list[Row], list[str]]:
+    """The four org_* rows for the page at url, and the node's sameAs."""
+    name = org.get("name")
+    name = name.strip() if isinstance(name, str) else ""
+    urls = _strings(org.get("url"))
+
+    def owned(u: str) -> bool:
+        # Only a root-relative url ("/", "/en/") is on the page's host;
+        # "evil.net" or "//evil.net" must keep its own host.
+        if u.startswith("/") and not u.startswith("//"):
+            u = urljoin(url, u)
+        try:
+            return _owned(u, hosts)
+        except ValueError:
+            return False
+
+    logos = _strings(org.get("logo"))
+    same_as = _strings(org.get("sameAs"))
+    rows: list[Row] = [
+        (
+            "org_name_mismatch",
+            _legal_name(name) in legal,
+            name or "absent",
+            url,
+        ),
+        (
+            "org_url_mismatch",
+            any(owned(u) for u in urls),
+            urls[0] if urls else "absent",
+            url,
+        ),
+        ("org_logo_missing", bool(logos), logos[0] if logos else "absent", url),
+        (
+            "org_sameas_missing",
+            bool(same_as),
+            ", ".join(same_as) or "absent",
+            url,
+        ),
+    ]
+    return rows, same_as
+
+
 def _home_rows(
     body: str,
     url: str,
@@ -196,8 +255,9 @@ def _home_rows(
     names: set[str],
     legal: set[str],
     hosts: Sequence[str],
-) -> tuple[list[Row], list[str]]:
-    """The home-page rows, and the sameAs URLs for the social comparison.
+) -> tuple[list[Row], list[str], str | None, bool]:
+    """The home-page rows, the sameAs URLs for the social comparison, the
+    About URL (or None) and whether an Organization node was found.
     names are _norm'd brand names for the title, legal their _legal_name
     forms for the Organization name."""
     head = Head()
@@ -205,62 +265,10 @@ def _home_rows(
     nodes = _ld_nodes(head.ld)
     rows: list[Row] = []
     same_as: list[str] = []
-    orgs = [n for n in nodes if _types(n) & ORG_TYPES]
-    # A named node over a nested stub like WebSite.publisher {"@id": ...}.
-    named = [
-        n for n in orgs if isinstance(n.get("name"), str) and n["name"].strip()
-    ]
-    org = next(iter(named or orgs), None)
+    org = _org(nodes)
     # No Organization at all is crawl's org_schema_missing, not ours.
     if org is not None:
-        name = org.get("name")
-        name = name.strip() if isinstance(name, str) else ""
-        rows.append(
-            (
-                "org_name_mismatch",
-                _legal_name(name) in legal,
-                name or "absent",
-                url,
-            )
-        )
-        urls = _strings(org.get("url"))
-
-        def owned(u: str) -> bool:
-            # Only a root-relative url ("/", "/en/") is on the homepage's
-            # host; "evil.net" or "//evil.net" must keep its own host.
-            if u.startswith("/") and not u.startswith("//"):
-                u = urljoin(url, u)
-            try:
-                return _owned(u, hosts)
-            except ValueError:
-                return False
-
-        rows.append(
-            (
-                "org_url_mismatch",
-                any(owned(u) for u in urls),
-                urls[0] if urls else "absent",
-                url,
-            )
-        )
-        logos = _strings(org.get("logo"))
-        rows.append(
-            (
-                "org_logo_missing",
-                bool(logos),
-                logos[0] if logos else "absent",
-                url,
-            )
-        )
-        same_as = _strings(org.get("sameAs"))
-        rows.append(
-            (
-                "org_sameas_missing",
-                bool(same_as),
-                ", ".join(same_as) or "absent",
-                url,
-            )
-        )
+        rows, same_as = _org_rows(org, url, legal, hosts)
     rows.append(
         (
             "website_schema_missing",
@@ -279,17 +287,51 @@ def _home_rows(
         )
     )
     about = next((h for h in head.links if _about(h, url, host)), None)
+    about_url = urljoin(url, about) if about is not None else None
     rows.append(
         (
             "about_missing",
-            about is not None,
-            urljoin(url, about)
-            if about is not None
-            else f"no /about or /company link among {len(head.links)} links",
+            about_url is not None,
+            about_url
+            or f"no /about or /company link among {len(head.links)} links",
             url,
         )
     )
-    return rows, same_as
+    return rows, same_as, about_url, org is not None
+
+
+def _about_rows(
+    r: Response,
+    url: str,
+    needles: set[str],
+    legal: set[str],
+    hosts: Sequence[str],
+    want_org: bool,
+) -> tuple[list[Row], list[str]]:
+    """The About page's rows, plus its Organization's rows and sameAs when
+    want_org (the homepage had no Organization node)."""
+    if not r.ok:
+        return [
+            ("about_unreachable", False, r.error or f"HTTP {r.status}", url)
+        ], []
+    head = Head()
+    head.feed(r.body)
+    title = (head.title or "").strip()
+    h1 = (head.h1 or "").strip()
+    rows: list[Row] = [
+        ("about_unreachable", True, f"HTTP {r.status}", url),
+        (
+            "about_brand_missing",
+            any(n in _norm(t) for n in needles for t in (title, h1)),
+            f"title: {title or 'absent'}; h1: {h1 or 'absent'}",
+            url,
+        ),
+    ]
+    org = _org(_ld_nodes(head.ld)) if want_org else None
+    if org is None:
+        return rows, []
+    org_rows, same_as = _org_rows(org, url, legal, hosts)
+    return org_rows + rows, same_as
 
 
 def _social(url: str) -> str | None:
@@ -487,9 +529,20 @@ def audit_entity(
     rows: list[Row] = []
     same_as: list[str] = []
     if home.ok:
-        rows, same_as = _home_rows(
+        rows, same_as, about_url, has_org = _home_rows(
             home.body, home_url, host, names, legal, hosts
         )
+        if about_url is not None:
+            more, about_same = _about_rows(
+                get(about_url, BROWSER_UA),
+                about_url,
+                names | legal,
+                legal,
+                hosts,
+                not has_org,
+            )
+            rows += more
+            same_as = same_as or about_same
     site_social = {s for u in same_as if (s := _social(u))}
     try:
         rows += _wikidata_rows(get, host, brand_name, legal, hosts, site_social)

@@ -198,6 +198,8 @@ _ENTITY_TITLES = {
     "website_schema_missing": "{domain} declares no WebSite",
     "title_brand_missing": "The {domain} homepage title omits {brand}",
     "about_missing": "The {domain} homepage links no About page",
+    "about_unreachable": "The About page on {domain} does not answer",
+    "about_brand_missing": "The About page on {domain} does not name {brand}",
     "wikidata_missing": "Create or claim {brand}'s Wikidata item",
     "wikidata_name_mismatch": "Wikidata names {brand} differently",
     "wikidata_logo_missing": "Add a logo to {brand}'s Wikidata item",
