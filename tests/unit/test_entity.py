@@ -129,6 +129,23 @@ def test_each_home_check_fails_alone(code, resp):
     assert {k for k, ok in got.items() if not ok} == {code}
 
 
+@pytest.mark.parametrize(
+    ("name", "observed"),
+    [
+        (["Acme"], "not a string (list)"),
+        ({"@value": "Acme"}, "not a string (dict)"),
+        ("", "absent"),
+    ],
+)
+def test_a_name_that_is_not_a_string_says_so(name, observed):
+    c = next(
+        c
+        for c in run(fetcher(home_resp=org_home(name=name))).checks
+        if c.code == "org_name_mismatch"
+    )
+    assert (c.ok, c.observed) == (False, observed)
+
+
 def test_observed_values_name_what_was_found():
     a = run(fetcher(home_resp=org_home(name="Acme Rockets Ltd", drop=("url",))))
     obs = {c.code: c.observed for c in a.checks}
@@ -159,6 +176,26 @@ def test_title_check_does_not_strip_legal_suffixes():
     f = fetcher(home_resp=Response(200, home(title="Acme | Rockets")))
     got = verdicts(run(f, name="Acme Ltd", aliases=()))
     assert not got["title_brand_missing"]
+
+
+@pytest.mark.parametrize(
+    ("title", "brand", "aliases", "ok"),
+    [
+        ("Acme | Rockets", "Acme", (), True),
+        ("café-noir shop", "Café Noir", (), True),
+        # Whole words only: a brand is not a prefix of another word.
+        ("Google Search", "Go", (), False),
+        ("Go — the app", "Go", (), True),
+        ("Acmeworks", "Acme", (), False),
+        ("Roadrunner Traps", "Acme", ("Roadrunner",), True),
+    ],
+)
+def test_the_title_must_name_the_brand_as_whole_words(
+    title, brand, aliases, ok
+):
+    f = fetcher(home_resp=Response(200, home(title=title)))
+    got = verdicts(run(f, name=brand, aliases=aliases))
+    assert got["title_brand_missing"] is ok
 
 
 def test_names_normalise_case_punctuation_and_unicode():
@@ -248,6 +285,13 @@ def test_an_unreachable_homepage_emits_no_home_rows():
         ("https://www.acme.com/Company/team", True),
         ("/en-US/about/", True),
         ("/en_gb/company", True),
+        ("/about/", True),
+        ("/about_us", True),
+        ("/about/team", True),
+        ("/en-US/company", True),
+        ("/company-info", True),
+        ("/aboutique", False),
+        ("/companyname", False),
         ("/shop/about", False),
         ("https://other.com/about", False),
         ("mailto:hello@acme.com", False),
@@ -400,6 +444,16 @@ def test_no_domain_verified_candidate_is_wikidata_missing_only():
     miss = next(c for c in a.checks if c.code == "wikidata_missing")
     assert miss.observed == "candidates: Q1 Acme, Q2 Acme Inc"
     assert miss.url == "https://www.wikidata.org/w/index.php?search=Acme"
+
+
+def test_a_search_hit_without_a_label_says_so():
+    hits = [{"id": "Q1", "label": None}, {"id": "Q2"}]
+    f = wiki(
+        search=Response(200, json.dumps({"search": hits})),
+        entities=sparql({"Q1": IMPOSTOR}),
+    )
+    miss = next(c for c in run(f).checks if c.code == "wikidata_missing")
+    assert miss.observed == "candidates: Q1 no label, Q2 no label"
 
 
 def test_empty_search_is_missing_without_a_second_call():
@@ -638,6 +692,9 @@ def about_page(title="About Acme", h1=None, org=None):
         ("About Acme Inc.", None, "Acme", True),
         # A registered name matches through its _legal_name form.
         ("About Acme", None, "Acme Ltd", True),
+        ("About Acmeworks", None, "Acme", False),
+        ("About Google", None, "Go", False),
+        ("Our story", "Meet\n  Acme", "Acme", True),
     ],
 )
 def test_the_about_page_must_name_the_brand(title, h1, brand, ok):
