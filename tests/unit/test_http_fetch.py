@@ -3,6 +3,7 @@
 import gzip
 import ipaddress
 import itertools
+import time
 import tracemalloc
 import zlib
 
@@ -336,9 +337,45 @@ def test_a_transport_error_is_a_response_not_an_exception():
 
 
 def test_each_request_timeout_is_capped_by_the_time_left(monkeypatch):
-    # 25 s of the 30 s deadline are gone when the request is sent.
-    clock = iter([0.0, 25.0] + [26.0] * 10)
+    # 25 s of the 30 s deadline are gone when the request is sent (the
+    # second reading is the one taken before the DNS lookup).
+    clock = iter([0.0, 24.0, 25.0] + [26.0] * 10)
     monkeypatch.setattr("bsi_core.crawl.time.monotonic", lambda: next(clock))
     r, seen = fetch("https://nike.com/", {"nike.com": [PUBLIC]})
     assert r.status == 200
     assert set(seen[0].extensions["timeout"].values()) == {5.0}
+
+
+def test_a_slow_lookup_is_refused_at_the_dns_timeout(monkeypatch):
+    # getaddrinfo takes no timeout, so the lookup runs on a worker thread
+    # and the fetch gives up on it; nothing is ever requested.
+    monkeypatch.setattr("bsi_core.crawl.DNS_TIMEOUT_SECONDS", 0.2)
+
+    def hangs(host, port):
+        time.sleep(2)
+        return [PUBLIC]
+
+    t = server(ok)
+    start = time.monotonic()
+    r = http_fetch("https://nike.com/", "UA", resolve=hangs, transport=t)
+    assert time.monotonic() - start < 1
+    assert (r.status, r.error) == (
+        0,
+        "refused: nike.com did not resolve in time",
+    )
+    assert t.seen == []
+
+
+def test_the_lookup_wait_is_capped_by_the_time_left(monkeypatch):
+    # A generous DNS timeout still cannot carry a fetch past its deadline.
+    monkeypatch.setattr("bsi_core.crawl.DNS_TIMEOUT_SECONDS", 10)
+    monkeypatch.setattr("bsi_core.crawl.DEADLINE_SECONDS", 0.2)
+
+    def hangs(host, port):
+        time.sleep(2)
+        return [PUBLIC]
+
+    start = time.monotonic()
+    r = http_fetch("https://nike.com/", "UA", resolve=hangs)
+    assert time.monotonic() - start < 1
+    assert r.error == "refused: nike.com did not resolve in time"

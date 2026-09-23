@@ -14,6 +14,7 @@ import time
 import xml.etree.ElementTree as ET
 import zlib
 from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Any, NamedTuple
@@ -43,6 +44,7 @@ BODY_CAP_BYTES = 512 * 1024  # decoded bytes kept per fetch
 OBSERVED_CAP = 300
 PAUSE_SECONDS = 0.5
 PHASE_TIMEOUT_SECONDS = 15  # connect, each read
+DNS_TIMEOUT_SECONDS = 10  # one lookup; also capped by the time left
 DEADLINE_SECONDS = 30  # the whole fetch, every redirect hop included
 MAX_REDIRECTS = 5
 _REDIRECTS = {301, 302, 303, 307, 308}
@@ -135,21 +137,34 @@ def _resolve(host: str, port: int) -> list[str]:
     return [str(info[4][0]) for info in infos]
 
 
+# getaddrinfo takes no timeout, so lookups run here and the fetch stops
+# waiting instead. ponytail: an abandoned lookup keeps its thread until
+# the OS resolver gives up; four workers cap how many can pile up, and
+# lookups queued behind them time out too.
+_LOOKUPS = ThreadPoolExecutor(max_workers=4, thread_name_prefix="dns")
+
+
 def _public_ip(
-    host: str, port: int, resolve: Callable[[str, int], list[str]]
+    host: str,
+    port: int,
+    resolve: Callable[[str, int], list[str]],
+    wait: float,
 ) -> str:
     """The address to connect to. Every address the name resolves to must
     be globally routable, or one lookup could pass the check and the next
-    land inside."""
+    land inside. A lookup slower than `wait` seconds is refused."""
     try:
         ips = [str(ipaddress.ip_address(host))]
     except ValueError:
         try:
-            # Parsed once, so the check, the message and the pinned
-            # address all use one form whatever the resolver returned.
-            ips = [str(ipaddress.ip_address(ip)) for ip in resolve(host, port)]
+            found = _LOOKUPS.submit(resolve, host, port).result(timeout=wait)
+        except TimeoutError as e:  # before OSError: it is a subclass
+            raise _Refused(f"{host} did not resolve in time") from e
         except OSError as e:
             raise _Refused(f"{host} does not resolve") from e
+        # Parsed once, so the check, the message and the pinned address
+        # all use one form whatever the resolver returned.
+        ips = [str(ipaddress.ip_address(ip)) for ip in found]
     if not ips:
         raise _Refused(f"{host} does not resolve")
     for ip in ips:
@@ -221,9 +236,9 @@ def http_fetch(
     and a URL it will not fetch has error "refused: <reason>".
 
     The body is decoded here, not by httpx, so a compressed body never
-    inflates past BODY_CAP_BYTES. The 30 s deadline covers connecting,
-    sending and reading on every hop, but not DNS: getaddrinfo takes no
-    timeout, so a slow resolver can hold a fetch past it.
+    inflates past BODY_CAP_BYTES. The 30 s deadline covers resolving,
+    connecting, sending and reading on every hop; a lookup waits at most
+    DNS_TIMEOUT_SECONDS or the time left, whichever is less.
     """
     deadline = time.monotonic() + DEADLINE_SECONDS
     try:
@@ -243,7 +258,11 @@ def http_fetch(
                 if not parts.hostname:
                     raise _Refused("no host")
                 host = parts.hostname.encode("idna").decode("ascii")
-                ip = _public_ip(host, _DEFAULT_PORT[scheme], resolve)
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return Response(0, "", _TIMED_OUT)
+                wait = min(DNS_TIMEOUT_SECONDS, left)
+                ip = _public_ip(host, _DEFAULT_PORT[scheme], resolve, wait)
                 netloc = f"[{ip}]" if ":" in ip else ip
                 target = urlunsplit(
                     (scheme, netloc, parts.path or "/", parts.query, "")
