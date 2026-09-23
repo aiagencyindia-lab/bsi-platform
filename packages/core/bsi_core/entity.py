@@ -82,12 +82,13 @@ EXPECTED = {
 }
 FAMILIES = frozenset(SEVERITY)
 # Wikidata property -> the profile URL it stands for (host + path).
+# YouTube is left out: sites link youtube.com/@handle while Wikidata's
+# P2397 holds youtube.com/channel/<id>, so the two never compare equal.
 SOCIAL_PROPS = {
     "P2002": "twitter.com/{}",
     "P2013": "facebook.com/{}",
     "P2003": "instagram.com/{}",
     "P4264": "linkedin.com/company/{}",
-    "P2397": "youtube.com/channel/{}",
 }
 _SOCIAL_HOSTS = {p.split("/", 1)[0] for p in SOCIAL_PROPS.values()}
 

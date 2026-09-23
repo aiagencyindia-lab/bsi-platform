@@ -91,9 +91,11 @@ passes `wikidata_missing` with observed "Q123: Label".
 
 **Social profiles.** Wikidata `SOCIAL_PROPS`: P2002 → `twitter.com/{v}`,
 P2013 → `facebook.com/{v}`, P2003 → `instagram.com/{v}`, P4264 →
-`linkedin.com/company/{v}`, P2397 → `youtube.com/channel/{v}`. Site side:
-`sameAs` URLs whose host, without `www.` and with `x.com` read as
-`twitter.com`, is one of those five. Both sides normalised to `host + path`,
+`linkedin.com/company/{v}`. YouTube is left out: a site's `sameAs`
+usually holds `youtube.com/@handle`, which never equals Wikidata P2397's
+`youtube.com/channel/<id>`, so comparing them raised false conflicts. Site
+side: `sameAs` URLs whose host, without `www.` and with `x.com` read as
+`twitter.com`, is one of those four. Both sides normalised to `host + path`,
 lowercase, no `www.`, no trailing slash, then compared as sets. Conflict
 when the sets differ **and both are non-empty**; if one side has no socials
 at all, `org_sameas_missing` or Wikidata's own incompleteness covers it and
@@ -233,7 +235,8 @@ empty. Results go into `docs/findings-slice8.md`.
   Wikipedia article text; Product, Article, BreadcrumbList schema.
 - Caching the Wikidata search across a brand's domains (repeated per
   domain; cheap).
-- Social properties beyond the five listed; `x.com` is the only host alias.
+- Social properties beyond the four listed (YouTube excluded: handle vs
+  channel id); `x.com` is the only host alias.
 
 ## Risks
 

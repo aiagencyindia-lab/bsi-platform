@@ -397,6 +397,17 @@ def test_no_conflict_when_one_side_has_no_socials(same_as, drop):
     assert c.observed.startswith("nothing to compare")
 
 
+def test_youtube_is_left_out_of_the_social_comparison():
+    # sameAs holds youtube.com/@handle, P2397 a channel id: never equal.
+    same_as = [*ORG["sameAs"], "https://www.youtube.com/@acme"]
+    f = wiki(
+        home_resp=org_home(sameAs=same_as),
+        entities=ents(item(P2397=["UCabc"])),
+    )
+    c = next(c for c in run(f).checks if c.code == "social_links_conflict")
+    assert (c.ok, c.observed) == (True, "2 profiles agree")
+
+
 def test_pause_is_taken_before_every_fetch(monkeypatch):
     sleeps = []
     monkeypatch.setattr(entity.time, "sleep", sleeps.append)
