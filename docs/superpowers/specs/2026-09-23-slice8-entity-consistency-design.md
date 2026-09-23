@@ -64,19 +64,35 @@ skipped (slice 7 emits `org_schema_missing`, high).
 | `org_sameas_missing` | medium | `sameAs` absent or empty (accept string or list) | "absent" |
 | `website_schema_missing` | low | no node with `@type` `WebSite` in any block | "N ld+json block(s)" |
 | `title_brand_missing` | medium | normalised `<title>` does not contain the normalised brand name or any alias | the title (clipped) |
-| `about_missing` | low | no `<a href>` that resolves (`urllib.parse.urljoin` against the home URL) to the same host with a path starting `/about` or `/company`, case-insensitive | "no /about or /company link among N links" |
+| `about_missing` | low | no `<a href>` that resolves (`urllib.parse.urljoin` against the home URL) to the same host with a path starting `/about` or `/company`, optionally under one locale segment (`/en/`, `/en-US/`, `/en_GB/`), case-insensitive | "no /about or /company link among N links" |
 
 **From Wikidata** (2 fetches, both through `http_fetch`, user agent
 `bsi-platform/0.1 entity-audit (+https://github.com/aiagencyindia-lab/bsi-platform)`):
 
 1. `https://www.wikidata.org/w/api.php?action=wbsearchentities&search={brand_name}&language=en&type=item&limit=10&format=json`
-2. `https://www.wikidata.org/w/api.php?action=wbgetentities&ids={Q1|Q2|…}&props=labels|claims&languages=en&format=json`,
-   only if step 1 yielded ids.
+2. `https://query.wikidata.org/sparql?format=json&query={urlencoded}`,
+   only if step 1 yielded ids. One SPARQL query returns one row per
+   candidate (`VALUES ?item { wd:Q1 wd:Q2 … }`, `GROUP BY ?item`): the
+   English label, a count of P154 values, and the P856 and social-property
+   values each joined by tabs. It replaced `wbgetentities`, which returns
+   every claim of every candidate: for large brands (Mozilla, Wikimedia
+   Foundation) ten items passed `http_fetch`'s 512 KiB body cap, the JSON
+   was cut off and every Wikidata check was skipped (findings-slice8 §3).
+   An aggregate with no values is left out of the row and reads as empty.
 
-Match: the first candidate in search order with any P856 value whose host
-(`normalize_domain`) is owned by a declared domain (`is_owned`). For either call, a non-2xx status, a
+**Id validation.** Search ids go into the query text, so only ids that
+fully match `Q[0-9]+` are kept; the rest are dropped. If none remain, the
+search counts as empty.
+
+Match: among candidates with any P856 value whose host
+(`normalize_domain`) is owned by a declared domain (`is_owned`), the first
+in search order whose owned P856 URL has an empty or `/` path; if none is
+at the root, the first domain-verified one. A product item can list a page
+on the brand's domain (`mozilla.org/MPL/`), and the root preference keeps
+it from beating the organisation. For either call, a non-2xx status, a
 `json.loads` failure or an unexpected shape skips **all** Wikidata checks
-(fetches still counted). A search that returns zero ids fails
+(fetches still counted) and logs a warning on `bsi.entity` naming the host
+and the reason. A search that returns zero valid ids fails
 `wikidata_missing` with observed "no search results".
 
 | Code | Severity | Fails when | observed |
@@ -107,7 +123,7 @@ optimisation signal, not a promised outcome." (The copy test forbids the
 word "guarantee" anywhere in recommendation text.) `entity.FAMILIES =
 frozenset(SEVERITY)`.
 
-**Fetch order and count.** Home (1), search (1), getentities (0 or 1).
+**Fetch order and count.** Home (1), search (1), SPARQL (0 or 1).
 With `pause` set, the entity audit sleeps before every one of its fetches,
 since it always follows `audit_domain`'s fetches to the same host. Per
 domain: 12 + 3 = 15.
@@ -186,7 +202,7 @@ canned `Response`s, no network:
 - No Organization → no `org_*` rows, other rows present.
 - Home non-2xx → no home rows, Wikidata rows present, `fetches == 3`.
 - Wikidata search 500, bad JSON, or empty → skipped vs `wikidata_missing`
-  per spec; getentities failure → skipped; fetches counted each time.
+  per spec; SPARQL failure → skipped; fetches counted each time.
 - `x.com` in `sameAs` equals Wikidata twitter; social conflict in each
   direction; one side empty → no conflict.
 - `about_missing` with relative, absolute same-host and other-host links.

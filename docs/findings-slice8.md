@@ -1,25 +1,36 @@
 # Slice 8 findings: entity consistency audit
 
-Date: 2026-09-23. Branch `slice8-entity-consistency`. Sources: a direct
-call of `bsi_core.entity.audit_entity()` against real public domains
+Date: 2026-09-23. Branch `slice8-entity-consistency`. Sources: direct
+calls of `bsi_core.entity.audit_entity()` against five real public domains
 through `bsi_core.crawl.http_fetch` (the SSRF-guarded fetcher), plus a few
-plain-HTTP probes of the same Wikidata API and home pages to explain what
-the audit returned. Plain HTTP only: no model call, no spend, and nothing
-written to the dev database. The dev tables were checked afterwards:
+plain-HTTP probes of the same Wikidata endpoints and home pages to explain
+what the audit returned. Plain HTTP only: no model call, no spend, and
+nothing written to the dev database. Afterwards the dev tables
 `recommendation`, `task` and `site_audit` held `0|0|0` rows.
+
+The audit ran three times. The first run exposed a defect that skipped
+every Wikidata check for large brands, fixed on this branch in `b67cf8f`
+(section 3). The second run caught a gap in that fix before it was
+committed. The results below come from the third run. A fourth run on the
+committed code (`b67cf8f`) printed the same output except for one line:
+Mozilla's About link came back as `/en-GB/about/` rather than
+`/en-US/about/`, because mozilla.org picks the locale per request.
 
 ## 1. What was measured, and how
 
-The script from the plan, run with
-`uv run python live_entity.py` from the repo root:
+Run with `uv run python live_entity.py` from the repo root:
 
 ```python
+import logging
 from bsi_core.crawl import http_fetch
 from bsi_core.entity import audit_entity
 
+logging.basicConfig(level=logging.WARNING, format="LOG %(name)s %(message)s")
 CASES = [
     ("mozilla.org", "Mozilla", ["Mozilla Foundation", "Mozilla Corporation"]),
     ("python.org", "Python Software Foundation", ["Python"]),
+    ("apache.org", "Apache Software Foundation", []),
+    ("wikimedia.org", "Wikimedia Foundation", []),
     # A brand that should not be on Wikidata.
     ("example.com", "Acme Rocket Widgets Pvt", []),
 ]
@@ -30,21 +41,17 @@ for host, name, aliases in CASES:
         print(f"  {'ok ' if c.ok else 'FAIL'} {c.severity:6} {c.code:24} {c.observed}")
 ```
 
-Mozilla returned no Wikidata rows (section 3 says why), so a second run
-used the same loop on the plan's fallbacks: `wikimedia.org` / "Wikimedia
-Foundation" and `apache.org` / "Apache Software Foundation", both with no
-aliases.
-
-The run used the code as of `19c7b0a`, which leaves YouTube out of the
-social comparison.
+The plan's first three cases were mozilla.org, python.org and example.com.
+wikimedia.org and apache.org are the plan's fallbacks, added when the first
+run returned no Wikidata rows for Mozilla. The third run logged no
+warnings.
 
 ## 2. Results
 
 A check that is not listed was skipped, not passed. The four `org_*` rows
 need a schema.org Organization node on the home page, and none of these
 five home pages has one: that gap is crawl's `org_schema_missing`, not an
-entity finding. The four Wikidata rows are skipped when the Wikidata
-answer can't be read.
+entity finding.
 
 ### mozilla.org (Mozilla), fetches=3
 
@@ -52,9 +59,11 @@ answer can't be read.
 |---|---|---|---|
 | `website_schema_missing` | FAIL | low | 0 ld+json block(s) |
 | `title_brand_missing` | ok | medium | Internet for people, not profit — Mozilla Global |
-| `about_missing` | FAIL | low | no /about or /company link among 136 links |
-
-No Wikidata rows (section 3).
+| `about_missing` | ok | low | https://mozilla.org/en-US/about/ (fourth run: https://mozilla.org/en-GB/about/) |
+| `wikidata_missing` | ok | low | Q169925: Mozilla Corporation |
+| `wikidata_name_mismatch` | ok | medium | Q169925: Mozilla Corporation |
+| `wikidata_logo_missing` | ok | low | Q169925 |
+| `social_links_conflict` | ok | medium | nothing to compare: 2 on Wikidata, 0 on site |
 
 ### python.org (Python Software Foundation), fetches=3
 
@@ -68,27 +77,6 @@ No Wikidata rows (section 3).
 | `wikidata_logo_missing` | ok | low | Q83818 |
 | `social_links_conflict` | ok | medium | nothing to compare: 2 on Wikidata, 0 on site |
 
-### example.com (Acme Rocket Widgets Pvt), fetches=2
-
-| Check | Result | Severity | Observed |
-|---|---|---|---|
-| `website_schema_missing` | FAIL | low | 0 ld+json block(s) |
-| `title_brand_missing` | FAIL | medium | Example Domain |
-| `about_missing` | FAIL | low | no /about or /company link among 1 links |
-| `wikidata_missing` | FAIL | low | no search results |
-
-Two fetches: an empty search skips the entities call, as designed.
-
-### wikimedia.org (Wikimedia Foundation), fetches=3
-
-| Check | Result | Severity | Observed |
-|---|---|---|---|
-| `website_schema_missing` | FAIL | low | 0 ld+json block(s) |
-| `title_brand_missing` | FAIL | medium | Wikimedia |
-| `about_missing` | FAIL | low | no /about or /company link among 22 links |
-
-No Wikidata rows (section 3).
-
 ### apache.org (Apache Software Foundation), fetches=3
 
 | Check | Result | Severity | Observed |
@@ -101,68 +89,116 @@ No Wikidata rows (section 3).
 | `wikidata_logo_missing` | ok | low | Q489709 |
 | `social_links_conflict` | ok | medium | nothing to compare: 1 on Wikidata, 0 on site |
 
+### wikimedia.org (Wikimedia Foundation), fetches=3
+
+| Check | Result | Severity | Observed |
+|---|---|---|---|
+| `website_schema_missing` | FAIL | low | 0 ld+json block(s) |
+| `title_brand_missing` | FAIL | medium | Wikimedia |
+| `about_missing` | FAIL | low | no /about or /company link among 22 links |
+| `wikidata_missing` | ok | low | Q57077840: Wikimedia Foundation Governance Wiki |
+| `wikidata_name_mismatch` | FAIL | medium | Q57077840: Wikimedia Foundation Governance Wiki |
+| `wikidata_logo_missing` | ok | low | Q57077840 |
+| `social_links_conflict` | ok | medium | nothing to compare: 0 on Wikidata, 0 on site |
+
+### example.com (Acme Rocket Widgets Pvt), fetches=2
+
+| Check | Result | Severity | Observed |
+|---|---|---|---|
+| `website_schema_missing` | FAIL | low | 0 ld+json block(s) |
+| `title_brand_missing` | FAIL | medium | Example Domain |
+| `about_missing` | FAIL | low | no /about or /company link among 1 links |
+| `wikidata_missing` | FAIL | low | no search results |
+
+Two fetches: an empty search skips the SPARQL call, as designed.
+
 **Reading the home-page rows.**
 - `title_brand_missing` on wikimedia.org is a true miss against the name
-  as given. The title is "Wikimedia" and the brand is "Wikimedia
-  Foundation"; the check asks whether the title contains a declared name,
-  not the other way round. An operator who declares "Wikimedia" as an
-  alias clears it.
-- `about_missing` on mozilla.org is a false positive. A probe of the same
-  home page found About links at `/en-US/about/`: the path starts with a
-  locale, so the `/about` prefix test misses it.
+  as given. The title is "Wikimedia", the brand is "Wikimedia
+  Foundation", and the check asks whether the title contains a declared
+  name. An operator who declares "Wikimedia" as an alias clears it.
+- `about_missing` on mozilla.org failed in the first run: its About link
+  is `/en-US/about/`, and the prefix test wanted `/about`. Locale segments
+  are now accepted (section 3), and the second run found the link.
 - wikimedia.org's only About-like link is
-  `https://wikimediafoundation.org/about/contact/`, on another host, so the
+  `https://wikimediafoundation.org/about/contact/`, on another host, so its
   failure is correct as designed.
-- apache.org has no link containing "about" at all.
+- apache.org's home page has no link containing "about" at all.
 
 ## 3. What the matching did
 
-**Matched, by P856.**
-- python.org: Q83818 "Python Software Foundation".
-- apache.org: Q489709 "Apache Software Foundation".
-
-In both cases the item's official website (P856) is on the declared host
-and the English label equals the brand name, so every Wikidata check
-passed. Neither home page has an Organization `sameAs`, so the social
-comparison had nothing on the site side: "nothing to compare", not a
-conflict.
-
-**Rejected.** example.com: the search for "Acme Rocket Widgets Pvt"
-returned nothing, so `wikidata_missing` fails with "no search results".
-
-**Skipped: the Wikidata answer was cut off by the fetch cap.** For Mozilla
-and Wikimedia the search succeeded and the entities call returned 200, but
-`http_fetch` keeps only `BODY_CAP_BYTES` = 524288 bytes (512 KiB). A probe
-of the same two calls printed:
+**Found and fixed: a truncated Wikidata answer.** The first run fetched
+candidates with `wbgetentities`, which returns every claim of every item.
+For "Mozilla" and "Wikimedia Foundation" the ten-item answer hit
+`http_fetch`'s `BODY_CAP_BYTES` exactly:
 
 ```
 Wikimedia Foundation ids= ['Q180', 'Q14827288', ...] entities body bytes= 524288 cap= 524288
 Mozilla ids= ['Q698', 'Q169925', ...] entities body bytes= 524288 cap= 524288
 ```
 
-The Mozilla body ends mid-string ("Unterminated string starting at: line 1
-column 524287"). `json.loads` raises, and `audit_entity` skips every
-Wikidata row, just as it would for a non-2xx answer. Q698 (Mozilla Firefox)
-alone overflows the cap: a `wbgetentities` call for Q698 by itself failed
-the same way. The ten-item search for a well-known brand pulls in its
-largest items (products, licences), whose `claims` run to hundreds of
-kilobytes. So the brands most likely to have a rich Wikidata item are the
-ones that get no Wikidata checks, and nothing tells the operator. This is
-a defect, not a design choice, and it is not fixed on this branch (see
-section 5).
+The JSON was cut off mid-string, `json.loads` raised, and `audit_entity`
+skipped all four Wikidata checks with no trace. Q698 (Mozilla Firefox)
+alone overflowed the cap. The brands most likely to have a rich Wikidata
+item were the ones that got no Wikidata checks.
 
-Had the answer been complete, Mozilla might still have matched the wrong item.
-Wikidata's search order puts Q698 first, and a smaller probe of the three
-Mozilla organisation items returned these P856 values:
-- Q169925 Mozilla Corporation: `https://www.mozilla.org`
-- Q9661 (no English label): `https://www.mozilla.org/en-US/`
-- Q55672 Mozilla Foundation: `https://foundation.mozilla.org/`,
-  `https://www.mozillafoundation.org`
+What changed in `b67cf8f`:
+- **One SPARQL query** to `query.wikidata.org` replaces `wbgetentities`.
+  It asks only for the English label, a P154 count, and the P856 and
+  social values, one row per candidate. The same two probes now return
+  4621 bytes (Wikimedia Foundation) and 6265 bytes (Mozilla).
+- **Id validation.** Only ids matching `Q[0-9]+` enter the query.
+- **Root-path preference.** Among domain-verified candidates, the first
+  whose P856 is the domain root wins over search order.
+- **Locale About paths** (`/en-US/about/`) count.
+- **A warning is logged** on `bsi.entity` whenever a Wikidata answer is
+  skipped.
 
-Q698 was not measured. If Firefox's P856 is on mozilla.org, the first
-domain-verified candidate would be the product, not the company. The
-domain check proves the item is the site's, not that it is the brand's
-organisation.
+Live SPARQL answers leave out an aggregate that has no values. The first
+live run of the fix hit this as `KeyError('P2013')` and similar, logged
+it, and skipped the rows. The parser now reads a missing aggregate as
+empty, and the test fixtures leave empty aggregates out the same way.
+
+**Matched, by P856.**
+
+| Domain | Match | Why |
+|---|---|---|
+| mozilla.org | Q169925 "Mozilla Corporation" | P856 `https://www.mozilla.org`, the domain root |
+| python.org | Q83818 "Python Software Foundation" | P856 on python.org |
+| apache.org | Q489709 "Apache Software Foundation" | P856 on apache.org |
+| wikimedia.org | Q57077840 "Wikimedia Foundation Governance Wiki" | P856 `https://foundation.wikimedia.org/`, a subdomain |
+
+For Mozilla, the SPARQL probe listed each candidate's P856 in search
+order:
+- Q698 Mozilla Firefox: `https://www.firefox.com`, rejected (another
+  domain).
+- Q169925 Mozilla Corporation: `https://www.mozilla.org`, root, matched.
+- Q308915 Mozilla Public License: `https://www.mozilla.org/MPL/`, on the
+  domain but not the root.
+- Q9661 (no English label): `https://www.mozilla.org/en-US/`.
+- Q3273508 MDN Web Docs: `https://developer.mozilla.org/`.
+
+Firefox is not the risk it looked like, since its site is firefox.com.
+The root preference guards against Q308915 or Q9661 appearing first.
+
+**Wikimedia matched the wrong item.** Q180, the Wikimedia Foundation
+itself, lists P856 `https://wikimediafoundation.org/`, so the declared
+domain wikimedia.org does not verify it. Q57077840 lists
+`https://foundation.wikimedia.org/`, a subdomain of wikimedia.org, and
+`is_owned` counts subdomains. It matched, and `wikidata_name_mismatch`
+failed against its label, which is the check doing its job.
+
+The case itself was chosen badly: the Foundation's own site is
+wikimediafoundation.org. It does show that a subdomain's item can verify
+against the parent domain.
+
+**English labels.** Q180 and Q9661 have no English label, only a `mul`
+("default for all languages") label: "Wikimedia Foundation" and "Mozilla".
+Had either been matched, `wikidata_name_mismatch` would have failed with
+"no English label", although the label reads as the brand.
+
+**Rejected.** example.com: the search for "Acme Rocket Widgets Pvt"
+returned nothing, so `wikidata_missing` fails with "no search results".
 
 ## 4. Where `fix_entity` lands
 
@@ -182,8 +218,7 @@ them rank below any high crawl finding for the same brand.
 
 ## 5. Deferred, by decision
 
-- The About page is not fetched, only linked. The prefix test also misses
-  locale-prefixed paths such as mozilla.org's `/en-US/about/` (section 2).
+- The About page is not fetched.
 - The description is not compared.
 - The logo URL is not fetched.
 - Wikipedia text is not read.
@@ -197,10 +232,10 @@ them rank below any high crawl finding for the same brand.
 - `/aboutique`-style paths count as an About link (prefix match).
 - The cadence is weekly; the PRD asks for monthly.
 
-**Found in this run, not fixed.** The 512 KiB fetch cap truncates the
-`wbgetentities` answer for large brands, which skips all Wikidata checks
-without saying so (section 3). A candidate that shares the brand's domain
-can also be a product rather than the organisation.
+**Open, found in this run.**
+- An item whose P856 sits on a subdomain of a declared domain is
+  domain-verified (Wikimedia, section 3).
+- Items that carry only a `mul` label read as "no English label".
 
 ## 6. Spend
 
