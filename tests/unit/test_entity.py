@@ -193,6 +193,10 @@ def test_title_check_does_not_strip_legal_suffixes():
         ("索尼中国官网", "索尼", (), True),
         ("ソニー株式会社", "ソニー", (), True),
         ("松下官网", "索尼", (), False),
+        # A Latin name inside a text written without spaces.
+        ("Sony中国官网", "Sony", (), True),
+        # An empty alias names nothing, even in a text without spaces.
+        ("松下官网", "Sony", ("",), False),
         # Apostrophes are dropped on both sides.
         ("McDonalds", "McDonald's", (), True),
         ("McDonald\u2019s menu", "McDonald's", (), True),
@@ -585,14 +589,22 @@ def test_a_subdomain_only_item_with_another_name_is_no_match():
     wiki_item = item(
         label="Acme Governance Wiki", P856=["https://gov.acme.com/"]
     )
-    a = run(wiki(entities=sparql({"Q1": IMPOSTOR, "Q2": wiki_item})))
+    hits = [
+        {"id": "Q1", "label": "Acme"},
+        {"id": "Q2", "label": "Acme Governance Wiki"},
+    ]
+    a = run(
+        wiki(
+            search=Response(200, json.dumps({"search": hits})),
+            entities=sparql({"Q1": IMPOSTOR, "Q2": wiki_item}),
+        )
+    )
     got = {k: v for k, v in verdicts(a).items() if k in WIKI_CODES}
     assert got == {"wikidata_missing": False}
     miss = next(c for c in a.checks if c.code == "wikidata_missing")
-    # One label per item: the search label, as in the candidates list.
     assert miss.observed == (
-        "candidates: Q1 Acme, Q2 Acme Inc; Q2 Acme Inc is only on "
-        "a subdomain and its label does not name the brand"
+        "candidates: Q1 Acme, Q2 Acme Governance Wiki; Q2 Acme Governance "
+        "Wiki is only on a subdomain and its label does not name the brand"
     )
     assert miss.url == "https://www.wikidata.org/w/index.php?search=Acme"
 

@@ -161,11 +161,13 @@ def _legal_name(s: str) -> str:
 def _names_in(text: str, names: set[str]) -> bool:
     """Whether some name's words appear as a whole-word run in text:
     "Go" is in "Go - the app" but not in "Google Search". A name in a
-    script without spaces ("索尼") is a substring test instead."""
+    script without spaces ("索尼"), or any name in a text in one
+    ("Sony中国官网"), is a substring test instead."""
     words = _words(text)
+    no_spaces = _NO_SPACES.search(text) is not None
     for name in names:
-        if _NO_SPACES.search(name):
-            if _norm(name) in _norm(text):
+        if no_spaces or _NO_SPACES.search(name):
+            if (s := _norm(name)) and s in _norm(text):
                 return True
         elif n := _words(name):
             if any(
