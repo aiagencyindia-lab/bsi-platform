@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Filters } from "@/components/Filters";
 import { Tile } from "@/components/Tile";
 import { api } from "@/lib/api";
-import { apiQuery, KIND, pct, type Params } from "@/lib/format";
+import { apiQuery, KIND, pct, validDays, type Params } from "@/lib/format";
 import type { Deltas, Metrics, Recommendation, Sov } from "@/lib/types";
 
 export default async function Overview({
@@ -15,18 +15,17 @@ export default async function Overview({
   const { id } = await params;
   const sp = await searchParams;
   const q = apiQuery(sp);
-  // /deltas takes days and date_to; it refuses date_from.
-  const dq = apiQuery(sp, ["days"], ["date_from"]);
+  // /deltas takes days and date_to; it refuses date_from. An invalid
+  // days is left out, so the API's default (7) applies.
+  const valid = validDays(sp);
+  const days = valid ?? 7;
+  const dq = apiQuery(sp, ["days"], valid ? ["date_from"] : ["date_from", "days"]);
   const [m, d, sov, recs] = await Promise.all([
     api<Metrics>(`/brands/${id}/metrics${q}`),
     api<Deltas>(`/brands/${id}/deltas${dq}`),
     api<Sov>(`/brands/${id}/sov${q}`),
     api<Recommendation[]>(`/brands/${id}/recommendations/top`),
   ]);
-  // sp.days can be a repeated query param (string[]); Number([...]) on a
-  // multi-element array is NaN, which happens to also fall back to 7 — but
-  // say that deliberately instead of relying on a NaN coincidence.
-  const days = typeof sp.days === "string" ? Number(sp.days) || 7 : 7;
   const max = Math.max(...sov.entities.map((e) => e.share ?? 0), 0.0001);
   return (
     <>

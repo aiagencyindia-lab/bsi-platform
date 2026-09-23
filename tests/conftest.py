@@ -85,7 +85,7 @@ def make_observation(owner):
             locale = s.scalars(
                 select(m.Locale).where(m.Locale.brand_id == brand_id)
             ).first()
-            engine = s.scalars(select(m.Engine)).first()
+            engine = s.scalars(select(m.Engine).order_by(m.Engine.code)).first()
             if prompt_id is None:
                 prompt = m.Prompt(
                     org_id=org.id,

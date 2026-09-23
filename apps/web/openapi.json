@@ -270,6 +270,32 @@
         "title": "ChangePromptOut",
         "type": "object"
       },
+      "ChangeWindowOut": {
+        "properties": {
+          "before_from": {
+            "format": "date-time",
+            "title": "Before From",
+            "type": "string"
+          },
+          "split": {
+            "format": "date-time",
+            "title": "Split",
+            "type": "string"
+          },
+          "to": {
+            "format": "date-time",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "before_from",
+          "split",
+          "to"
+        ],
+        "title": "ChangeWindowOut",
+        "type": "object"
+      },
       "ChangesOut": {
         "properties": {
           "changes": {
@@ -297,12 +323,16 @@
               }
             ],
             "title": "Reason"
+          },
+          "window": {
+            "$ref": "#/components/schemas/ChangeWindowOut"
           }
         },
         "required": [
           "comparable",
           "reason",
           "prompts",
+          "window",
           "changes"
         ],
         "title": "ChangesOut",

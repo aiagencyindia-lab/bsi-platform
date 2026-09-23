@@ -2,12 +2,16 @@ import Link from "next/link";
 import { Filters } from "@/components/Filters";
 import { CiBar } from "@/components/Tile";
 import { api } from "@/lib/api";
-import { apiQuery, ciText, pct, pts, type Params } from "@/lib/format";
+import { apiQuery, ciText, lastDay, pct, pts, validDays, type Params } from "@/lib/format";
 import type { Changes, EntityDeltas, EntityMetrics } from "@/lib/types";
 
 // The change feed always reads a fixed window; the days filter sets only
 // the leaderboard deltas.
 const FEED_DAYS = 14;
+
+// Formatting only: the API sets the window. Starts are inclusive; ends
+// are exclusive, so a range prints lastDay(end).
+const date = (v: string) => new Date(v).toISOString().slice(0, 10);
 
 const num = (v: number | null | undefined, digits = 1) =>
   v == null ? "—" : v.toFixed(digits);
@@ -22,8 +26,11 @@ export default async function Competitors({
   const { id } = await params;
   const sp = await searchParams;
   const q = apiQuery(sp);
-  // Window routes take days and date_to; they refuse date_from.
-  const wq = apiQuery(sp, ["days"], ["date_from"]);
+  // Window routes take days and date_to; they refuse date_from. An
+  // invalid days is left out, so the API's default (7) applies.
+  const valid = validDays(sp);
+  const days = valid ?? 7;
+  const wq = apiQuery(sp, ["days"], valid ? ["date_from"] : ["date_from", "days"]);
   const fq = apiQuery(sp, [], ["date_from"]);
   const feedQuery = `${fq}${fq ? "&" : "?"}days=${FEED_DAYS}`;
   const [rows, d, feed] = await Promise.all([
@@ -31,7 +38,6 @@ export default async function Competitors({
     api<EntityDeltas>(`/brands/${id}/competitors/deltas${wq}`),
     api<Changes>(`/brands/${id}/competitors/changes${feedQuery}`),
   ]);
-  const days = typeof sp.days === "string" ? Number(sp.days) || 7 : 7;
   const deltaText = (eid: string, key: "mention_rate" | "sov") => {
     const x = d.deltas?.[eid]?.[key];
     if (!x) return null;
@@ -99,9 +105,10 @@ export default async function Competitors({
       </table>
       <h2>Visibility changes</h2>
       <p className="muted">
-        A rival that gained or lost at least 10 points on at least 10 prompts in
-        the last {FEED_DAYS} days, with a significant pooled change. {feed.prompts}{" "}
-        prompts have answers in both windows.
+        A rival that gained or lost at least 10 points on at least 10 prompts
+        between {date(feed.window.before_from)}–{lastDay(feed.window.split)} and{" "}
+        {date(feed.window.split)}–{lastDay(feed.window.to)}, with a significant
+        pooled change. {feed.prompts} prompts have answers in both windows.
       </p>
       {feed.changes.length === 0 && (
         <p className="muted">

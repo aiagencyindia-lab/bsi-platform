@@ -1,7 +1,6 @@
 """Competitor intelligence: per-entity metrics, deltas, change feed."""
 
 import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from bsi_core.competitors import (
@@ -13,19 +12,10 @@ from bsi_core.metrics import Filters
 from fastapi import APIRouter, Depends, Query
 
 from ..deps import TENANT, Ctx, brand_or_404
-from ..problems import Problem
 from ..schemas import ChangesOut, EntityDeltasOut, EntityMetricsOut
-from .metrics import _flag, filters
+from .metrics import _flag, filters, window_end
 
 router = APIRouter(prefix="/brands/{brand_id}", tags=["competitors"])
-
-
-def _no_date_from(f: Filters) -> datetime:
-    if f.date_from is not None:
-        raise Problem(
-            422, "date_from is not allowed", "days and date_to set the windows"
-        )
-    return f.date_to or datetime.now(UTC)
 
 
 @router.get("/competitors/metrics", response_model=list[EntityMetricsOut])
@@ -44,7 +34,7 @@ def get_entity_deltas(
     c: Ctx = TENANT,
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
-    out = entity_deltas(c.s, brand_id, f, days, _no_date_from(f))
+    out = entity_deltas(c.s, brand_id, f, days, window_end(f))
     for w in ("before", "after"):
         out[w]["entities"] = [_flag(r) for r in out[w]["entities"]]
     return out
@@ -58,4 +48,4 @@ def get_changes(
     c: Ctx = TENANT,
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
-    return visibility_changes(c.s, brand_id, f, days, _no_date_from(f))
+    return visibility_changes(c.s, brand_id, f, days, window_end(f))

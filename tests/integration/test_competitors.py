@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from bsi_core import models as m
 from bsi_core.competitors import (
+    _DONE,
+    CITING_DOMAINS,
     EVIDENCE_CAP,
     MIN_PROMPTS,
     MIN_SHIFT,
@@ -19,12 +21,15 @@ from bsi_core.db import tenant_session
 from bsi_core.metrics import (
     DELTA_METRICS,
     Filters,
+    _entities,
+    _where,
     brand_metrics,
+    brand_sov,
     delta,
     rate,
     wilson,
 )
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, event, select, text, update
 
 
 def _mention(org, obs, etype, eid, pos=1, rec="mentioned", sent="neutral"):
@@ -226,7 +231,7 @@ def _answers(owner, org, bid, prompt_id, when, n):
         locale = s.scalars(
             select(m.Locale).where(m.Locale.brand_id == bid)
         ).first()
-        engine = s.scalars(select(m.Engine)).first()
+        engine = s.scalars(select(m.Engine).order_by(m.Engine.code)).first()
         job = s.scalars(
             select(m.Job).where(m.Job.brand_id == bid, m.Job.kind == "run")
         ).first()
@@ -363,7 +368,7 @@ def test_only_the_qualifying_competitor_gets_an_entry(owner, feed):
                 .where(m.Observation.id == o)
                 .values(requested_at=AFTER_AT + timedelta(hours=3 - i))
             )
-        code = s.scalars(select(m.Engine)).first().code
+        code = s.scalars(select(m.Engine).order_by(m.Engine.code)).first().code
     got = changes(org, bid)
     assert (got["comparable"], got["reason"], got["prompts"]) == (
         True,
@@ -392,6 +397,20 @@ def test_only_the_qualifying_competitor_gets_an_entry(owner, feed):
     assert set(a["observation_ids"]) <= {
         o for p in ids["prompts"][:11] for o in ids["after"][p]
     }
+
+
+def test_feed_reports_its_window(feed):
+    org, bid, _ = feed
+    window = {
+        "before_from": NOW - timedelta(days=28),
+        "split": NOW - timedelta(days=14),
+        "to": NOW,
+    }
+    assert changes(org, bid)["window"] == window
+    # Also when it returns early.
+    few = changes(org, bid, days=3)
+    assert few["reason"] is not None
+    assert few["window"]["split"] == NOW - timedelta(days=3)
 
 
 def test_the_count_rule_and_the_pooled_test_both_gate(feed):
@@ -530,3 +549,295 @@ def test_deltas_entity_missing_from_before_uses_zero_count():
     assert _deltas([], after)[rival] == {
         k: delta(rate(0, 0), rate(6, 10)) for k in DELTA_METRICS
     }
+
+
+def _hosts(s, brand_id):
+    """Declared domains per entity: the brand's `domain` rows, each active
+    competitor's `domains` column."""
+    out = {
+        brand_id: list(
+            s.scalars(
+                select(m.Domain.host).where(m.Domain.brand_id == brand_id)
+            )
+        )
+    }
+    for c in s.scalars(
+        select(m.Competitor).where(
+            m.Competitor.brand_id == brand_id, m.Competitor.status == "active"
+        )
+    ):
+        out[c.id] = list(c.domains)
+    return out
+
+
+def _old_entity_metrics(s, brand_id, f):
+    """entity_metrics as it was at be83002 (2 queries per entity, host
+    match by LIKE): the reference the grouped rewrite must equal."""
+    where, params = _where(brand_id, f)
+    hosts = _hosts(s, brand_id)
+    brand_hosts = hosts[brand_id]
+    rival_hosts = [
+        h for eid, hs in hosts.items() if eid != brand_id for h in hs
+    ]
+    sov = {r["entity_id"]: r for r in brand_sov(s, brand_id, f)}
+    sov_total = sum(r["mentions"] for r in sov.values())
+    rows = []
+    for eid, name, etype in _entities(s, brand_id):
+        p = {
+            **params,
+            "eid": eid,
+            "etype": etype,
+            "domains": hosts.get(eid, []),
+        }
+        r = s.execute(
+            text(f"""
+            SELECT
+              count(*) AS n,
+              count(*) FILTER (WHERE mn.id IS NOT NULL) AS k_mention,
+              count(*) FILTER (WHERE mn.rec_status = 'recommended') AS k_rec,
+              count(*) FILTER (WHERE EXISTS (
+                SELECT 1 FROM citation c
+                WHERE c.observation_id = o.id AND EXISTS (
+                  SELECT 1 FROM unnest(CAST(:domains AS text[])) d
+                  WHERE c.domain = d OR c.domain LIKE '%.' || d))) AS k_cit,
+              count(DISTINCT o.prompt_id) AS prompts,
+              count(DISTINCT o.prompt_id) FILTER (
+                WHERE mn.id IS NOT NULL) AS prompts_cov,
+              avg(mn.position) AS avg_pos,
+              count(*) FILTER (WHERE mn.sentiment = 'positive') AS k_pos,
+              count(*) FILTER (WHERE mn.sentiment = 'negative') AS k_neg
+            FROM observation o
+            LEFT JOIN mention mn ON mn.observation_id = o.id
+              AND mn.entity_type = :etype AND mn.entity_id = :eid
+            WHERE {where} AND {_DONE}"""),
+            p,
+        ).one()
+        cited = s.execute(
+            text(
+                "SELECT c.domain, count(DISTINCT o.id) AS answers "
+                "FROM citation c "
+                "JOIN observation o ON o.id = c.observation_id "
+                "JOIN mention mn ON mn.observation_id = o.id "
+                "  AND mn.entity_type = :etype AND mn.entity_id = :eid "
+                f"WHERE {where} AND {_DONE} "
+                "GROUP BY c.domain ORDER BY answers DESC, c.domain "
+                f"LIMIT {CITING_DOMAINS}"
+            ),
+            p,
+        ).all()
+        pos = rate(r.k_pos, r.k_mention)
+        neg = rate(r.k_neg, r.k_mention)
+        rows.append(
+            {
+                "entity_id": eid,
+                "name": name,
+                "type": etype,
+                "mention_rate": rate(r.k_mention, r.n),
+                "recommendation_rate": rate(r.k_rec, r.n),
+                "citation_rate": rate(r.k_cit, r.n),
+                "prompt_coverage": rate(r.prompts_cov, r.prompts),
+                "sov": rate(
+                    sov.get(eid, {"mentions": 0})["mentions"], sov_total
+                ),
+                "avg_position": {
+                    "value": float(r.avg_pos)
+                    if r.avg_pos is not None
+                    else None,
+                    "n_mentioned": r.k_mention,
+                },
+                "sentiment": {
+                    "positive": pos,
+                    "negative": neg,
+                    "index": (
+                        pos["value"] - neg["value"]
+                        if pos["value"] is not None and neg["value"] is not None
+                        else None
+                    ),
+                },
+                "citing_domains": [
+                    {
+                        "domain": c.domain,
+                        "answers": c.answers,
+                        "owner": owner_of(c.domain, brand_hosts, rival_hosts),
+                    }
+                    for c in cited
+                ],
+            }
+        )
+    rows.sort(
+        key=lambda r: (
+            -(r["mention_rate"]["value"] or -1.0),
+            r["type"] != "brand",
+            r["name"],
+        )
+    )
+    return rows
+
+
+RIVALS = {
+    "Adidas": ["adidas.com", "adidas.co.in"],
+    "Puma": ["puma.com"],
+    "Reebok": [],
+    "Asics": ["asics.com"],
+    "Mizuno": ["mizuno.com"],
+    "Fila": ["fila.com"],
+}
+DOMAINS = [
+    "nike.com",
+    "shop.nike.com",
+    "adidas.com",
+    "xadidas.com",  # not adidas.com's: no dot before the host
+    "eu.puma.com",
+    "forbes.com",
+    "reddit.com",
+    "asics.com",
+    "bata.com",
+    "store.adidas.co.in",
+]
+
+
+def _big_scene(owner, make_org, make_brand, make_observation, rivals):
+    """3 prompts x 6 done answers, 1 failed; the brand plus `rivals` active
+    competitors from RIVALS and a suggested Bata. Mentions, rec status,
+    sentiment, positions and citations vary by a fixed pattern."""
+    org = make_org()
+    bid = make_brand(org, "Nike")
+    with owner() as s, s.begin():
+        s.add(m.Domain(org_id=org.id, brand_id=bid, host="nike.com"))
+        cs = [
+            m.Competitor(org_id=org.id, brand_id=bid, name=n, domains=d)
+            for n, d in list(RIVALS.items())[:rivals]
+        ] + [
+            m.Competitor(
+                org_id=org.id,
+                brand_id=bid,
+                name="Bata",
+                domains=["bata.com"],
+                status="suggested",
+            )
+        ]
+        s.add_all(cs)
+        s.flush()
+        entities = [("brand", bid)] + [("competitor", c.id) for c in cs]
+    obs, prompts = [], []
+    for p in range(3):
+        o = make_observation(org, bid, status="done", text=f"q{p}")
+        with owner() as s:
+            prompts.append(s.get(m.Observation, o).prompt_id)
+        obs.append(o)
+        obs += [
+            make_observation(
+                org, bid, status="done", prompt_id=prompts[-1], sample_index=i
+            )
+            for i in range(1, 6)
+        ]
+    make_observation(
+        org, bid, status="failed", prompt_id=prompts[0], sample_index=6
+    )
+    rows = []
+    for i, o in enumerate(obs):
+        for j, (etype, eid) in enumerate(entities):
+            if (i * (j + 2) + j) % (j + 3) < 2:
+                rows.append(
+                    _mention(
+                        org,
+                        o,
+                        etype,
+                        eid,
+                        1 + (i + j) % 4,
+                        ("recommended", "mentioned", "listed")[(i + j) % 3],
+                        ("positive", "neutral", "negative")[(i * j) % 3],
+                    )
+                )
+        for d in {
+            DOMAINS[i % 10],
+            DOMAINS[(i * 3 + 1) % 10],
+            *([DOMAINS[(i * 7 + 2) % 10]] if i % 2 else []),
+        }:
+            rows.append(_cite(org, o, d))
+    with owner() as s, s.begin():
+        s.add_all(rows)
+    return org, bid, prompts
+
+
+def test_grouped_metrics_equal_the_per_entity_path(
+    owner, make_org, make_brand, make_observation
+):
+    org, bid, prompts = _big_scene(
+        owner, make_org, make_brand, make_observation, rivals=4
+    )
+    for f in (Filters(), Filters(prompt_ids=prompts[:2])):
+        with tenant_session(org.id) as s:
+            old = _old_entity_metrics(s, bid, f)
+            new = entity_metrics(s, bid, f)
+        assert [r["name"] for r in new] == [r["name"] for r in old]
+        assert len(new) == 5  # brand + 4 active; suggested Bata is not
+        for a, b in zip(new, old, strict=True):
+            assert a == b, a["name"]
+        # The fixture exercises what it claims to.
+        assert any(r["citation_rate"]["value"] for r in new)
+        assert any(r["citing_domains"] for r in new)
+    # Each entity cites a different top list on the unfiltered window, so
+    # rows keyed to the wrong entity cannot compare equal by accident.
+    with tenant_session(org.id) as s:
+        cited = [r["citing_domains"] for r in entity_metrics(s, bid, Filters())]
+    assert all(c for c in cited)
+    assert all(a != b for i, a in enumerate(cited) for b in cited[i + 1 :])
+
+
+def _statements(org, bid):
+    seen = []
+
+    def count(_conn, _cursor, statement, *_):
+        seen.append(statement)
+
+    with tenant_session(org.id) as s:
+        bind = s.get_bind()
+        event.listen(bind, "before_cursor_execute", count)
+        try:
+            entity_metrics(s, bid, Filters())
+        finally:
+            event.remove(bind, "before_cursor_execute", count)
+    return seen
+
+
+def _count_queries(org, bid):
+    return len(_statements(org, bid))
+
+
+def test_query_count_does_not_grow_with_rivals(
+    owner, make_org, make_brand, make_observation
+):
+    one = _big_scene(owner, make_org, make_brand, make_observation, rivals=1)
+    many = _big_scene(owner, make_org, make_brand, make_observation, rivals=6)
+    few, lots = _count_queries(*one[:2]), _count_queries(*many[:2])
+    assert few == lots <= 8, (few, lots)
+
+
+def test_active_competitors_are_read_once(
+    owner, make_org, make_brand, make_observation
+):
+    """Names and domains come from one read, so a competitor activated
+    mid-request cannot be in the entity list without its hosts."""
+    org, bid, _ = _big_scene(
+        owner, make_org, make_brand, make_observation, rivals=2
+    )
+    reads = [q for q in _statements(org, bid) if "FROM competitor" in q]
+    assert len(reads) == 1, reads
+
+
+def test_host_with_underscore_is_not_a_wildcard(owner, scene):
+    org, bid, ids = scene
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Competitor)
+            .where(m.Competitor.id == ids["puma"])
+            .values(domains=["my_shop.com"])
+        )
+        o3 = s.scalars(
+            select(m.Mention.observation_id).where(
+                m.Mention.entity_id == ids["puma"]
+            )
+        ).first()
+        s.add(_cite(org, o3, "www.myXshop.com"))
+    assert rows(org, bid)["Puma"]["citation_rate"] == _r(0, 5)

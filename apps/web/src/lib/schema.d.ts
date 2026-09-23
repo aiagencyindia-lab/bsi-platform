@@ -747,6 +747,24 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** ChangeWindowOut */
+        ChangeWindowOut: {
+            /**
+             * Before From
+             * Format: date-time
+             */
+            before_from: string;
+            /**
+             * Split
+             * Format: date-time
+             */
+            split: string;
+            /**
+             * To
+             * Format: date-time
+             */
+            to: string;
+        };
         /** ChangesOut */
         ChangesOut: {
             /** Changes */
@@ -757,6 +775,7 @@ export interface components {
             prompts: number;
             /** Reason */
             reason: string | null;
+            window: components["schemas"]["ChangeWindowOut"];
         };
         /** CheckOut */
         CheckOut: {

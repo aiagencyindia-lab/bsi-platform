@@ -4,9 +4,11 @@ import {
   auditNote,
   ciText,
   highlight,
+  lastDay,
   pct,
   pts,
   usd,
+  validDays,
 } from "./format";
 
 test("pct", () => {
@@ -84,4 +86,26 @@ test("auditNote says what the run button actually did", () => {
   );
   expect(auditNote("failed")).toBe("Queued again after a failed run.");
   expect(auditNote(undefined)).toBeNull();
+});
+
+test("validDays accepts 1..90 digits only", () => {
+  expect(validDays({ days: "1" })).toBe(1);
+  expect(validDays({ days: "14" })).toBe(14);
+  expect(validDays({ days: "90" })).toBe(90);
+  expect(validDays({})).toBeNull();
+  expect(validDays({ days: ["7", "14"] })).toBeNull();
+  expect(validDays({ days: "0" })).toBeNull();
+  expect(validDays({ days: "91" })).toBeNull();
+  expect(validDays({ days: "abc" })).toBeNull();
+  expect(validDays({ days: "7.5" })).toBeNull();
+  expect(validDays({ days: "" })).toBeNull();
+});
+
+test("lastDay is the day before an exclusive end", () => {
+  // Midnight boundary (date_to set): the range ends the day before.
+  expect(lastDay("2026-09-23T00:00:00Z")).toBe("2026-09-22");
+  // Mid-day boundary (no date_to, to = now): still today.
+  expect(lastDay("2026-09-23T15:04:05.123Z")).toBe("2026-09-23");
+  // Month rollover.
+  expect(lastDay("2026-10-01T00:00:00+00:00")).toBe("2026-09-30");
 });
