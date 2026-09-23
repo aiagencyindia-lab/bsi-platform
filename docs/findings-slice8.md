@@ -261,9 +261,39 @@ A high entity finding sits just under a high crawl finding and above a
 medium one. Every entity finding from this run is medium or low, so all of
 them rank below any high crawl finding for the same brand.
 
+## About page (added later)
+
+The entity audit now fetches the About page that `about_missing` finds
+(one browser-UA fetch, after the homepage and before Wikidata) and adds
+two checks: `about_unreachable` (medium, the fetch is not 2xx) and
+`about_brand_missing` (low, neither its `<title>` nor its first `<h1>`
+names the brand or an alias). When the homepage has no Organization node,
+an Organization on the About page supplies the four `org_*` rows. Up to
+16 fetches per domain.
+
+Live re-run, plain HTTP through `http_fetch`, pause 0.5 s, no model call,
+nothing written to the database (the About and `org_*` rows only):
+
+```
+== mozilla.org fetches=4
+  about_missing ok=True observed='https://mozilla.org/en-US/about/' url=https://mozilla.org/
+  about_unreachable ok=True observed='HTTP 200' url=https://mozilla.org/en-US/about/
+  about_brand_missing ok=True observed='title: Learn about Mozilla; h1: Guard the Open Internet' url=https://mozilla.org/en-US/about/
+== python.org fetches=4
+  about_missing ok=True observed='https://python.org/about/' url=https://python.org/
+  about_unreachable ok=True observed='HTTP 200' url=https://python.org/about/
+  about_brand_missing ok=True observed='title: About Python™ | Python.org; h1: Python is powerful... and fast; \r\n    plays well with others; \r\n    runs everywhere; \r\n    is friendly & easy to learn; \r\n    is Open.' url=https://python.org/about/
+```
+
+Both About pages answer and name the brand: Mozilla in the title, Python
+in the title (`About Python™`, matched through the alias). Neither home
+nor About page carries an Organization node, so no `org_*` rows appear
+and the fallback did not fire. Four fetches each: home, About, search,
+SPARQL. python.org's first `<h1>` spans several lines, and `observed`
+keeps its line breaks as written.
+
 ## 5. Deferred, by decision
 
-- The About page is not fetched.
 - The description is not compared.
 - The logo URL is not fetched.
 - Wikipedia text is not read.

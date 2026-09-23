@@ -14,6 +14,7 @@ Decisions made in brainstorming:
 - **Scope:** the brand's site, its schema.org Organization markup, and
   Wikidata. No entity graph, no LinkedIn/Crunchbase/G2/Capterra (bot-blocked
   and against their terms), no About-page fetch. Each can be a later slice.
+  (The About-page fetch was added later: see "About page" in A.)
 - **Truth source:** brand name, aliases and declared domains from the brand
   record. Everything else (logo, socials) is cross-source agreement. No new
   brand fields, no editor.
@@ -72,6 +73,24 @@ skipped (slice 7 emits `org_schema_missing`, high).
 | `website_schema_missing` | low | no node with `@type` `WebSite` in any block | "N ld+json block(s)" |
 | `title_brand_missing` | medium | normalised `<title>` does not contain the normalised brand name or any alias | the title (clipped) |
 | `about_missing` | low | no `<a href>` that resolves (`urllib.parse.urljoin` against the home URL) to the same host with a path starting `/about` or `/company`, optionally under one locale segment (`/en/`, `/en-US/`, `/en_GB/`), case-insensitive | "no /about or /company link among N links" |
+
+**About page** (added later; browser UA, 0 or 1 fetch). Fetched once, at
+the URL `about_missing` reports, only when the homepage answered 2xx and
+that link was found. No About link, or a homepage that is down, means no
+fetch and neither row.
+
+| Code | Severity | Fails when | observed |
+|---|---|---|---|
+| `about_unreachable` | medium | the About fetch is not 2xx | the fetch error, else "HTTP {status}" |
+| `about_brand_missing` | low | neither the About page's `<title>` nor its first `<h1>` contains (after `_norm`) the brand name or an alias, nor their `_legal_name` forms; emitted only when the About page is reachable | "title: {title or absent}; h1: {h1 or absent}" |
+
+Both rows carry the About URL. **Organization fallback:** when the
+homepage has no Organization node but the reachable About page does
+(same `ORG_TYPES`, named node preferred), the four `org_*` rows come from
+the About page's node, with the About URL as the row url and a
+root-relative `url` resolved against the About URL. Its `sameAs` then
+feeds `social_links_conflict`. A homepage Organization always wins; the
+About page's node is then ignored.
 
 **From Wikidata** (2 fetches, both through `http_fetch`, user agent
 `bsi-platform/0.1 entity-audit (+https://github.com/aiagencyindia-lab/bsi-platform)`):
@@ -137,10 +156,11 @@ optimisation signal, not a promised outcome." (The copy test forbids the
 word "guarantee" anywhere in recommendation text.) `entity.FAMILIES =
 frozenset(SEVERITY)`.
 
-**Fetch order and count.** Home (1), search (1), SPARQL (0 or 1).
+**Fetch order and count.** Home (1), About (0 or 1), search (1),
+SPARQL (0 or 1).
 With `pause` set, the entity audit sleeps before every one of its fetches,
 since it always follows `audit_domain`'s fetches to the same host. Per
-domain: 12 + 3 = 15.
+domain: up to 12 + 4 = 16.
 
 ### B. Worker — `apps/workers/bsi_workers/worker.py`
 
@@ -271,7 +291,7 @@ empty. Results go into `docs/findings-slice8.md`.
 
 - Editable entity graph (`entity_node` / `entity_edge`), seeding, editor UI.
 - LinkedIn, Crunchbase, G2, Capterra, directories: bot-blocked or paid.
-- Fetching the About page or the logo URL; comparing descriptions;
+- Fetching the logo URL (the About page is now fetched); comparing descriptions;
   Wikipedia article text; Product, Article, BreadcrumbList schema.
 - Caching the Wikidata search across a brand's domains (repeated per
   domain; cheap).
@@ -288,5 +308,5 @@ empty. Results go into `docs/findings-slice8.md`.
 - **Crowding.** A site with no Organization node produces one high crawl rec
   and no entity rows; a site with a bad node produces up to four entity recs.
   Acceptable; the type-diverse top three keeps the list readable.
-- **Longer audits.** 15 fetches instead of 12 per domain; the 0.5 s pause
-  adds about 1.5 s per domain. Negligible for a weekly job.
+- **Longer audits.** Up to 16 fetches instead of 12 per domain; the 0.5 s
+  pause adds about 2 s per domain. Negligible for a weekly job.
