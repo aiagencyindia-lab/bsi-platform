@@ -82,7 +82,7 @@ fetch and neither row.
 | Code | Severity | Fails when | observed |
 |---|---|---|---|
 | `about_unreachable` | medium | the About fetch is not 2xx | the fetch error, else "HTTP {status}" |
-| `about_brand_missing` | low | neither the About page's `<title>` nor its first `<h1>` contains (after `_norm`) the brand name or an alias, nor their `_legal_name` forms; emitted only when the About page is reachable | "title: {title or absent}; h1: {h1 or absent}" |
+| `about_brand_missing` | low | neither the About page's `<title>` nor its first `<h1>` contains (after `_norm`) the brand name or an alias, nor their `_legal_name` forms; emitted only when the About page is reachable | "title: {title or absent}; h1: {h1 or absent}" (each whitespace run collapsed to one space) |
 
 Both rows carry the About URL. **Organization fallback:** when the
 homepage has no Organization node but the reachable About page does

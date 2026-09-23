@@ -296,6 +296,9 @@ in the About title and h1 to one space.
 ## 5. Deferred, by decision
 
 - The description is not compared.
+- A same-host About link that redirects off-site is judged on the
+  redirected page, as with the homepage; the private-address guard still
+  applies.
 - The logo URL is not fetched.
 - Wikipedia text is not read.
 - Product, Article and BreadcrumbList schema are not checked.

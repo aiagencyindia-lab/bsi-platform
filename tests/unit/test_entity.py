@@ -1,7 +1,7 @@
 """audit_entity from canned responses. Nothing here touches the network."""
 
 import json
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 import pytest
 from bsi_core import crawl, entity
@@ -59,16 +59,19 @@ def org_home(drop=(), **kv):
     return Response(200, home(org=org))
 
 
-def fetcher(home_resp=None, search=None, entities=None, about_resp=None):
-    """A fetch that answers the homepage, the About page (any other URL on
-    the brand's host), the Wikidata search and the SPARQL query."""
+def fetcher(
+    home_resp=None, search=None, entities=None, about_resp=None, about_url=None
+):
+    """A fetch that answers the homepage, the About page at exactly
+    about_url (ABOUT_URL by default), the Wikidata search and the SPARQL
+    query."""
     calls = []
 
     def fetch(url, ua):
         calls.append((url, ua))
         if url == "https://acme.com/":
             return home_resp or Response(200, home())
-        if urlsplit(url).hostname in ("acme.com", "www.acme.com"):
+        if url == (about_url or ABOUT_URL):
             return about_resp or Response(200, "<title>About Acme</title>")
         if urlsplit(url).hostname == "query.wikidata.org":
             return entities or sparql({})
@@ -253,7 +256,10 @@ def test_an_unreachable_homepage_emits_no_home_rows():
 )
 def test_about_link_must_stay_on_the_brand_host(href, ok):
     resp = Response(200, home(links=(f'<a href="{href}">x</a>',)))
-    assert verdicts(run(fetcher(home_resp=resp)))["about_missing"] is ok
+    # A found link is fetched at exactly its resolved URL.
+    about = urljoin("https://acme.com/", href) if ok else None
+    f = fetcher(home_resp=resp, about_url=about)
+    assert verdicts(run(f))["about_missing"] is ok
 
 
 def test_constants_are_consistent():
