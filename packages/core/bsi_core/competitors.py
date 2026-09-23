@@ -249,6 +249,22 @@ def _per_prompt(
     return prompts, counts
 
 
+def _shift(k1: int, nb: int, k2: int, na: int) -> float:
+    # Rounded: 3/10 - 2/10 is 0.0999... in floats, and a one-answer
+    # shift at n=10 must count as MIN_SHIFT.
+    return round(k2 / na - k1 / nb, 9)
+
+
+def _moved(k1: int, nb: int, k2: int, na: int) -> str | None:
+    """ "up", "down" or None: did one prompt move by >= MIN_SHIFT?"""
+    shift = _shift(k1, nb, k2, na)
+    if shift >= MIN_SHIFT:
+        return "up"
+    if -shift >= MIN_SHIFT:
+        return "down"
+    return None
+
+
 def visibility_changes(
     s: Session,
     brand_id: uuid.UUID,
@@ -299,13 +315,11 @@ def visibility_changes(
         for pid in shared:
             (_, nb), (_, na) = pb[pid], pa[pid]
             k1, k2 = kb.get((pid, cid), 0), ka.get((pid, cid), 0)
-            # Rounded: 3/10 - 2/10 is 0.0999... in floats, and a
-            # one-answer shift at n=10 must count as MIN_SHIFT.
-            shift = round(k2 / na - k1 / nb, 9)
-            if shift >= MIN_SHIFT:
-                moved["up"].append((pid, shift, k1, nb, k2, na))
-            elif -shift >= MIN_SHIFT:
-                moved["down"].append((pid, shift, k1, nb, k2, na))
+            direction = _moved(k1, nb, k2, na)
+            if direction is not None:
+                moved[direction].append(
+                    (pid, _shift(k1, nb, k2, na), k1, nb, k2, na)
+                )
         for direction, rows in moved.items():
             if len(rows) < MIN_PROMPTS:
                 continue

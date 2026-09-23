@@ -8,6 +8,7 @@ from bsi_core.competitors import (
     EVIDENCE_CAP,
     MIN_PROMPTS,
     MIN_SHIFT,
+    _moved,
     entity_deltas,
     entity_metrics,
     owner_of,
@@ -22,7 +23,7 @@ from bsi_core.metrics import (
     rate,
     wilson,
 )
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 
 def _mention(org, obs, etype, eid, pos=1, rec="mentioned", sent="neutral"):
@@ -342,8 +343,26 @@ def test_feed_constants():
     assert (MIN_PROMPTS, MIN_SHIFT, EVIDENCE_CAP) == (10, 0.10, 20)
 
 
-def test_only_the_qualifying_competitor_gets_an_entry(feed):
+def test_one_answer_at_n_10_is_min_shift():
+    # 5/10 - 4/10 is 0.0999... in floats; it must still count.
+    assert _moved(4, 10, 5, 10) == "up"
+    assert _moved(2, 10, 3, 10) == "up"
+    assert _moved(5, 10, 4, 10) == "down"
+    assert _moved(4, 10, 4, 10) is None
+
+
+def test_only_the_qualifying_competitor_gets_an_entry(owner, feed):
     org, bid, ids = feed
+    # Three of A's after answers on q00 are later, newest first.
+    late = ids["after"][ids["prompts"][0]][:3]
+    with owner() as s, s.begin():
+        for i, o in enumerate(late):
+            s.execute(
+                update(m.Observation)
+                .where(m.Observation.id == o)
+                .values(requested_at=AFTER_AT + timedelta(hours=3 - i))
+            )
+        code = s.scalars(select(m.Engine)).first().code
     got = changes(org, bid)
     assert (got["comparable"], got["reason"], got["prompts"]) == (
         True,
@@ -365,9 +384,10 @@ def test_only_the_qualifying_competitor_gets_an_entry(feed):
         for p in a["prompts"]
     )
     assert [p["text"] for p in a["prompts"]] == [f"q{i:02d}" for i in range(11)]
-    assert a["engines"] and all(isinstance(e, str) for e in a["engines"])
+    assert a["engines"] == [code]
     assert a["new_citing_domains"] == ["new.com"]  # old.com was cited before
     assert len(a["observation_ids"]) == EVIDENCE_CAP
+    assert a["observation_ids"][:3] == late  # most recent first
     assert set(a["observation_ids"]) <= {
         o for p in ids["prompts"][:11] for o in ids["after"][p]
     }
@@ -385,9 +405,9 @@ def test_the_count_rule_and_the_pooled_test_both_gate(feed):
 
 def test_direction_down_and_filters(owner, feed):
     org, bid, ids = feed
-    # to = NOW - 5d: after = [NOW-19d, NOW-5d) misses BEFORE_AT (NOW-20d)
-    # and AFTER_AT (NOW-5d, not < to); before = [NOW-33d, NOW-19d) is
-    # empty too -> no prompt has answers in both windows.
+    # to = NOW - 5d: after = [NOW-19d, NOW-5d) is empty (BEFORE_AT is
+    # NOW-20d, AFTER_AT is NOW-5d, not < to); before = [NOW-33d, NOW-19d)
+    # holds BEFORE_AT -> no prompt has answers in both windows.
     got = changes(org, bid, days=14, to=NOW - timedelta(days=5))
     assert got["prompts"] == 0
     assert got["reason"] == "fewer than 10 prompts with answers in both windows"
