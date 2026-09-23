@@ -7,6 +7,7 @@ import {
   pct,
   pts,
   usd,
+  validDays,
 } from "./format";
 
 test("pct", () => {
@@ -84,4 +85,17 @@ test("auditNote says what the run button actually did", () => {
   );
   expect(auditNote("failed")).toBe("Queued again after a failed run.");
   expect(auditNote(undefined)).toBeNull();
+});
+
+test("validDays accepts 1..90 digits only", () => {
+  expect(validDays({ days: "1" })).toBe(1);
+  expect(validDays({ days: "14" })).toBe(14);
+  expect(validDays({ days: "90" })).toBe(90);
+  expect(validDays({})).toBeNull();
+  expect(validDays({ days: ["7", "14"] })).toBeNull();
+  expect(validDays({ days: "0" })).toBeNull();
+  expect(validDays({ days: "91" })).toBeNull();
+  expect(validDays({ days: "abc" })).toBeNull();
+  expect(validDays({ days: "7.5" })).toBeNull();
+  expect(validDays({ days: "" })).toBeNull();
 });

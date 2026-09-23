@@ -54,6 +54,15 @@ export function apiQuery(
   return s ? `?${s}` : "";
 }
 
+/** `days` as the API accepts it (whole 1..90), or null for anything else:
+ * the page then leaves it out of the query and shows the default, 7. */
+export function validDays(sp: Params): number | null {
+  const v = sp.days;
+  if (typeof v !== "string" || !/^\d+$/.test(v)) return null;
+  const n = Number(v);
+  return n >= 1 && n <= 90 ? n : null;
+}
+
 export function highlight(text: string, sentences: string[]) {
   const spans = sentences
     .map((s) => [text.indexOf(s), s.length] as const)
