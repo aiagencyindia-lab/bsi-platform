@@ -12,6 +12,7 @@ import re
 import socket
 import time
 import xml.etree.ElementTree as ET
+import zlib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -150,12 +151,32 @@ def _public_ip(
     if not ips:
         raise _Refused(f"{host} does not resolve")
     for ip in ips:
-        addr = ipaddress.ip_address(ip)
-        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
-            addr = addr.ipv4_mapped
-        if not addr.is_global:
+        if not _is_public(ipaddress.ip_address(ip)):
             raise _Refused(f"{ip} is not a public address")
     return ips[0]
+
+
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+_V4_COMPATIBLE = ipaddress.ip_network("::/96")
+
+
+def _is_public(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Globally routable and not multicast; an IPv6 address that embeds
+    an IPv4 one is judged by that IPv4 address. Spelled out rather than
+    left to `is_global`, whose IPv6 tables differ before Python 3.13
+    (requires-python is >=3.12).
+
+    ponytail: a network-specific NAT64 prefix (RFC 6052 §2.2) cannot be
+    told from an ordinary address, so only 64:ff9b::/96 is unwrapped.
+    """
+    if isinstance(addr, ipaddress.IPv6Address):
+        if addr.teredo or addr in _V4_COMPATIBLE:
+            return False
+        if addr in _NAT64:
+            addr = ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
+        else:
+            addr = addr.ipv4_mapped or addr.sixtofour or addr
+    return addr.is_global and not addr.is_multicast
 
 
 def _decode(body: bytes, charset: str | None) -> str:
@@ -163,6 +184,20 @@ def _decode(body: bytes, charset: str | None) -> str:
         return body.decode(charset or "utf-8", "replace")
     except LookupError:  # a charset Python does not know
         return body.decode("utf-8", "replace")
+
+
+def _decompressor(encoding: str) -> Any:
+    """A zlib decoder for the body's Content-Encoding, None for none.
+    Anything else is refused: stacked encodings (one layer can hide a
+    bomb inside another) and codings we cannot bound."""
+    encoding = encoding.strip().lower()
+    if "," in encoding:
+        raise _Refused("stacked content-encoding")
+    if encoding in ("", "identity"):
+        return None
+    if encoding in ("gzip", "x-gzip", "deflate"):
+        return zlib.decompressobj(47)  # 32 + 15: gzip or zlib header
+    raise _Refused(f"content-encoding {encoding}")
 
 
 _TIMED_OUT = f"timeout: over the {DEADLINE_SECONDS} s deadline"
@@ -182,9 +217,10 @@ def http_fetch(
     """The real fetch. Never raises: an error is a Response with status 0,
     and a URL it will not fetch has error "refused: <reason>".
 
-    ponytail: httpx decodes gzip a network chunk at a time, so one chunk
-    can inflate to ~1000x its size (~64 MiB) before the cap applies.
-    Decode by hand with zlib max_length if that memory ever matters.
+    The body is decoded here, not by httpx, so a compressed body never
+    inflates past BODY_CAP_BYTES. The 30 s deadline covers connecting,
+    sending and reading on every hop, but not DNS: getaddrinfo takes no
+    timeout, so a slow resolver can hold a fetch past it.
     """
     deadline = time.monotonic() + DEADLINE_SECONDS
     try:
@@ -217,24 +253,30 @@ def http_fetch(
                 with client.stream(
                     "GET",
                     target,
-                    headers={"Host": host, "User-Agent": user_agent},
+                    headers={
+                        "Host": host,
+                        "User-Agent": user_agent,
+                        "Accept-Encoding": "gzip, deflate",
+                    },
                     extensions=ext,
-                    timeout=max(0.0, min(PHASE_TIMEOUT_SECONDS, left)),
+                    timeout=httpx.Timeout(min(PHASE_TIMEOUT_SECONDS, left)),
                 ) as r:
                     location = r.headers.get("location")
                     if r.status_code in _REDIRECTS and location:
                         url = urljoin(url, location)
                         continue
+                    z = _decompressor(r.headers.get("content-encoding", ""))
                     body = bytearray()
-                    for chunk in r.iter_bytes():
-                        body += chunk
+                    for raw in r.iter_raw():
+                        room = BODY_CAP_BYTES - len(body)
+                        # max_length bounds each inflate to what fits.
+                        body += z.decompress(raw, room) if z else raw[:room]
                         if time.monotonic() > deadline:
                             return Response(0, "", _TIMED_OUT)
                         if len(body) >= BODY_CAP_BYTES:
                             break
-                    data = bytes(body[:BODY_CAP_BYTES])
                     return Response(
-                        r.status_code, _decode(data, r.charset_encoding)
+                        r.status_code, _decode(bytes(body), r.charset_encoding)
                     )
             raise _Refused("too many redirects")
     except _Refused as e:

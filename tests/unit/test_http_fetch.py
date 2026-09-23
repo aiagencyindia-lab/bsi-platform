@@ -2,6 +2,8 @@
 
 import gzip
 import itertools
+import tracemalloc
+import zlib
 
 import httpx
 import pytest
@@ -27,7 +29,16 @@ def server(handler):
 
     def handle(request):
         seen.append(request)
-        return handler(request)
+        r = handler(request)
+        if r.is_stream_consumed:
+            # httpx pre-reads a bytes body; a socket never does, and
+            # http_fetch reads the raw stream.
+            r = httpx.Response(
+                r.status_code,
+                headers=r.headers,
+                stream=httpx.ByteStream(r.content),
+            )
+        return r
 
     transport = httpx.MockTransport(handle)
     transport.seen = seen
@@ -57,6 +68,12 @@ def fetch(url, table=None, handler=ok):
         "::1",
         "fc00::1",
         "::ffff:127.0.0.1",
+        "224.0.0.1",  # multicast: is_global says True
+        "ff02::1",
+        "64:ff9b::a9fe:a9fe",  # NAT64 of 169.254.169.254
+        "::7f00:1",  # IPv4-compatible 127.0.0.1
+        "2002:7f00:1::",  # 6to4 of 127.0.0.1
+        "2001:0:4136:e378:8000:63bf:80ff:fffe",  # Teredo
     ],
 )
 def test_internal_addresses_are_refused(ip):
@@ -70,6 +87,12 @@ def test_internal_addresses_are_refused(ip):
         assert (r.status, r.body) == (0, "")
         assert r.error == f"refused: {ip} is not a public address", url
         assert seen == []
+
+
+def test_a_nat64_address_of_a_public_ipv4_is_allowed():
+    r, seen = fetch("https://nike.com/", {"nike.com": ["64:ff9b::808:808"]})
+    assert r.status == 200
+    assert str(seen[0].url) == "https://[64:ff9b::808:808]/"
 
 
 def test_one_private_address_among_public_ones_is_refused():
@@ -197,28 +220,70 @@ def test_the_body_is_cut_at_the_byte_cap():
     assert (r.status, len(r.body)) == (200, BODY_CAP_BYTES)
 
 
-def test_a_gzip_bomb_is_decoded_only_up_to_the_cap():
-    bomb = gzip.compress(b"\0" * (64 * 1024 * 1024))
-    assert len(bomb) < 100 * 1024  # small on the wire
+def gz_zeros(size):
+    """gzip of `size` zero bytes, built without holding them all."""
+    z = zlib.compressobj(9, zlib.DEFLATED, 31)
+    block = b"\0" * (1 << 20)
+    out = [z.compress(block) for _ in range(size >> 20)]
+    return b"".join([*out, z.flush()])
 
-    def chunks():
-        # Arrives in network-sized pieces, as a real socket would deliver it.
-        for i in range(0, len(bomb), 4096):
-            yield bomb[i : i + 4096]
 
-    t = server(
-        lambda q: httpx.Response(
-            200, headers={"Content-Encoding": "gzip"}, content=chunks()
+def encoded(body, encoding):
+    return lambda q: httpx.Response(
+        200,
+        headers={"Content-Encoding": encoding},
+        stream=httpx.ByteStream(body),
+    )
+
+
+def test_a_gzip_bomb_is_decoded_only_up_to_the_cap_in_bounded_memory():
+    bomb = gz_zeros(256 << 20)
+    assert len(bomb) < 300 * 1024  # small on the wire, 256 MiB inflated
+    tracemalloc.start()
+    try:
+        r, seen = fetch(
+            "https://nike.com/", {"nike.com": [PUBLIC]}, encoded(bomb, "gzip")
         )
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert (r.status, len(r.body)) == (200, BODY_CAP_BYTES)
+    assert peak < 5 * 1024 * 1024, peak
+    assert seen[0].headers["accept-encoding"] == "gzip, deflate"
+
+
+def test_stacked_encodings_are_refused():
+    two = gzip.compress(gz_zeros(8 << 20))
+    for enc in ("gzip, gzip", "gzip,deflate"):
+        r, _ = fetch(
+            "https://nike.com/", {"nike.com": [PUBLIC]}, encoded(two, enc)
+        )
+        assert (r.status, r.body) == (0, ""), enc
+        assert r.error == "refused: stacked content-encoding"
+
+
+def test_an_unknown_encoding_is_refused():
+    r, _ = fetch(
+        "https://nike.com/", {"nike.com": [PUBLIC]}, encoded(b"x", "br")
     )
-    r = http_fetch(
-        "https://nike.com/",
-        "UA",
-        resolve=dns({"nike.com": [PUBLIC]}),
-        transport=t,
+    assert r.error == "refused: content-encoding br"
+
+
+@pytest.mark.parametrize(
+    ("encoding", "compress"),
+    [
+        ("gzip", gzip.compress),
+        ("x-gzip", gzip.compress),
+        ("deflate", zlib.compress),
+        ("identity", lambda b: b),
+    ],
+)
+def test_each_supported_encoding_decodes(encoding, compress):
+    body = compress(b"<html>hello</html>")
+    r, _ = fetch(
+        "https://nike.com/", {"nike.com": [PUBLIC]}, encoded(body, encoding)
     )
-    assert r.status == 200
-    assert 0 < len(r.body) <= BODY_CAP_BYTES
+    assert (r.status, r.body) == (200, "<html>hello</html>")
 
 
 def test_the_charset_decides_the_decoding():
@@ -264,3 +329,12 @@ def test_a_transport_error_is_a_response_not_an_exception():
 
     r, _ = fetch("https://nike.com/", {"nike.com": [PUBLIC]}, boom)
     assert r.status == 0 and "ConnectError" in r.error
+
+
+def test_each_request_timeout_is_capped_by_the_time_left(monkeypatch):
+    # 25 s of the 30 s deadline are gone when the request is sent.
+    clock = iter([0.0, 25.0] + [26.0] * 10)
+    monkeypatch.setattr("bsi_core.crawl.time.monotonic", lambda: next(clock))
+    r, seen = fetch("https://nike.com/", {"nike.com": [PUBLIC]})
+    assert r.status == 200
+    assert set(seen[0].extensions["timeout"].values()) == {5.0}
