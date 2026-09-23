@@ -806,7 +806,11 @@ def test_a_label_job_labels_only_unlabelled_prompts_and_adds_none(
         return json.dumps({"prompts": [
             {"text": "beta", "intent": "comparison", "topic": " Sizing "}]}), 700, "fake"
 
-    calls, _, embedder = _spender()
+    def embedder(texts):
+        # prompt.embedding is vector(768): the shared _spender's [1.0]
+        # vectors would not fit the column.
+        return [[0.0] * 767 + [1.0] for _ in texts], 55
+
     assert worker.process_job(FakeAdapter(), generator, embedder) is True
     job = _load_job(owner, job_id)
     assert (job.status, job.error) == ("done", None)
