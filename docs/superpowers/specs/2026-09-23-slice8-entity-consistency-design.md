@@ -66,7 +66,7 @@ skipped (slice 7 emits `org_schema_missing`, high).
 | Code | Severity | Fails when | observed |
 |---|---|---|---|
 | `org_name_mismatch` | high | Organization `name` does not match the brand | the name |
-| `org_url_mismatch` | medium | Organization `url`, resolved with `urljoin` against the home URL (so "/" or "/en/" is the home host), has a host (via `matching.normalize_domain`) is not owned by a declared domain (`matching.is_owned`, so a subdomain counts); missing `url` also fails | the url or "absent" |
+| `org_url_mismatch` | medium | Organization `url` whose host (via `matching.normalize_domain`; a value starting with a single "/" is first resolved against the home URL) is not owned by a declared domain (`matching.is_owned`, so a subdomain counts); missing `url` also fails | the url or "absent" |
 | `org_logo_missing` | medium | no `logo` (accept a string, an object with `url`, or a list of either) | "absent" |
 | `org_sameas_missing` | medium | `sameAs` absent or empty (accept string or list) | "absent" |
 | `website_schema_missing` | low | no node with `@type` `WebSite` in any block | "N ld+json block(s)" |

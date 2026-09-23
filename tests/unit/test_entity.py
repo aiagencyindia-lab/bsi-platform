@@ -173,6 +173,12 @@ def test_names_normalise_case_punctuation_and_unicode():
         ("/", True),
         ("/en/", True),
         ("http://[::1", False),
+        # Scheme-less values are not relative paths: never the home host.
+        ("evil.net", False),
+        ("www.evil.net", False),
+        ("acme.com.evil.net", False),
+        ("acme.com", True),
+        ("//evil.net/", False),
     ],
 )
 def test_org_url_must_be_a_declared_domain(url, ok):

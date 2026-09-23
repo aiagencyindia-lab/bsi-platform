@@ -226,9 +226,12 @@ def _home_rows(
         urls = _strings(org.get("url"))
 
         def owned(u: str) -> bool:
-            # A relative url ("/", "/en/") is on the homepage's host.
+            # Only a root-relative url ("/", "/en/") is on the homepage's
+            # host; "evil.net" or "//evil.net" must keep its own host.
+            if u.startswith("/") and not u.startswith("//"):
+                u = urljoin(url, u)
             try:
-                return _owned(urljoin(url, u), hosts)
+                return _owned(u, hosts)
             except ValueError:
                 return False
 
