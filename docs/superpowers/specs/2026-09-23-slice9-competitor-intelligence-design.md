@@ -123,9 +123,10 @@ test each. No writes.
 `layout.tsx`. Server Component only:
 
 - `Filters` with the days field (`apiQuery(sp, ["days"], ["date_from"])`
-  for deltas and changes, plain filters for metrics; three fetches in
-  parallel).
-- Leaderboard table: entity (brand row highlighted with a `brand` tag),
+  for deltas, plain filters for metrics; three fetches in parallel).
+  The change feed always uses a fixed 14-day window (`days=14`, without
+  `date_from`), while the days filter sets the leaderboard deltas.
+- Leaderboard table: entity (brand row highlighted with a `you` tag, as on the Overview),
   mention rate with interval and its delta (`pts(...)` vs previous N days,
   hidden with the reason when not comparable), recommendation rate with
   the experimental tag, share of voice, coverage, citation rate, average

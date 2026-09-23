@@ -5,6 +5,10 @@ import { api } from "@/lib/api";
 import { apiQuery, ciText, pct, pts, type Params } from "@/lib/format";
 import type { Changes, EntityDeltas, EntityMetrics } from "@/lib/types";
 
+// The change feed always reads a fixed window; the days filter sets only
+// the leaderboard deltas.
+const FEED_DAYS = 14;
+
 const num = (v: number | null | undefined, digits = 1) =>
   v == null ? "—" : v.toFixed(digits);
 
@@ -20,10 +24,12 @@ export default async function Competitors({
   const q = apiQuery(sp);
   // Window routes take days and date_to; they refuse date_from.
   const wq = apiQuery(sp, ["days"], ["date_from"]);
+  const fq = apiQuery(sp, [], ["date_from"]);
+  const feedQuery = `${fq}${fq ? "&" : "?"}days=${FEED_DAYS}`;
   const [rows, d, feed] = await Promise.all([
     api<EntityMetrics[]>(`/brands/${id}/competitors/metrics${q}`),
     api<EntityDeltas>(`/brands/${id}/competitors/deltas${wq}`),
-    api<Changes>(`/brands/${id}/competitors/changes${wq}`),
+    api<Changes>(`/brands/${id}/competitors/changes${feedQuery}`),
   ]);
   const days = typeof sp.days === "string" ? Number(sp.days) || 7 : 7;
   const deltaText = (eid: string, key: "mention_rate" | "sov") => {
@@ -94,13 +100,13 @@ export default async function Competitors({
       <h2>Visibility changes</h2>
       <p className="muted">
         A rival that gained or lost at least 10 points on at least 10 prompts in
-        the last {days} days, with a significant pooled change. {feed.prompts}{" "}
+        the last {FEED_DAYS} days, with a significant pooled change. {feed.prompts}{" "}
         prompts have answers in both windows.
       </p>
       {feed.changes.length === 0 && (
         <p className="muted">
           {feed.reason ??
-            "No competitor moved 10 points on 10 prompts with a significant pooled change."}
+            "No competitor moved at least 10 points on at least 10 prompts with a significant pooled change."}
         </p>
       )}
       {feed.changes.map((c) => (
@@ -111,7 +117,7 @@ export default async function Competitors({
           <p>
             {pct(c.before.value)} → {pct(c.after.value)} ({pts(c.delta.value)},{" "}
             {pct(c.delta.ci_low)} to {pct(c.delta.ci_high)}) over {c.prompts.length} prompts ·
-            engines {c.engines.join(", ")}
+            engines {c.engines.join(", ") || "—"}
           </p>
           {c.new_citing_domains.length > 0 && (
             <p className="muted">New citing domains: {c.new_citing_domains.join(", ")}</p>
@@ -125,6 +131,7 @@ export default async function Competitors({
           </ul>
           <p className="muted">
             Evidence:{" "}
+            {c.observation_ids.length === 0 && "—"}
             {c.observation_ids.map((o) => (
               <Link key={o} href={`/o/${o}`} style={{ marginRight: 6 }}>
                 {o.slice(0, 8)}
