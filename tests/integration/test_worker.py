@@ -517,8 +517,8 @@ def test_a_label_job_labels_only_unlabelled_prompts_and_adds_none(
     job = _load_job(owner, job_id)
     assert (job.status, job.error) == ("done", None)
     assert job.cost_micros == 700 + 55
-    assert len(seen) == 1 and "beta" in seen[0]  # alpha is labelled already
-    # (alpha still appears in the request's existing-prompts context.)
+    assert len(seen) == 1 and "beta" in seen[0]
+    assert "alpha" not in seen[0]  # alpha is labelled already
     with owner() as s:
         rows = {
             p.text: p
@@ -533,8 +533,28 @@ def test_a_label_job_labels_only_unlabelled_prompts_and_adds_none(
     )
 
 
-def test_label_job_estimate_is_budget_gated(owner, make_org, make_brand):
+def test_an_over_budget_label_job_fails_without_calling_the_model(
+    owner, make_org, make_brand
+):
+    from decimal import Decimal
+
     assert worker.JOB_ESTIMATES["label_prompts"] == LABEL_JOB_MICROS == 10_000
+    org = make_org()
+    bid = make_brand(org)
+    # A $0.01 cap is exactly one estimate; 1 micro already spent tips it.
+    _job(owner, org, bid, "suggest_prompts", "done", cost_micros=1)
+    job_id = _job(owner, org, bid, "label_prompts", "queued")
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Organization)
+            .where(m.Organization.id == org.id)
+            .values(daily_budget_usd=Decimal("0.01"))
+        )
+    calls, generator, embedder = _spender()
+    assert worker.process_job(FakeAdapter(), generator, embedder) is True
+    job = _load_job(owner, job_id)
+    assert (job.status, job.error, job.cost_micros) == ("failed", "budget", 0)
+    assert calls == []
 
 
 def test_a_failing_job_records_the_error_and_keeps_its_cost(
