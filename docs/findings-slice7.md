@@ -123,6 +123,10 @@ reasoning as findings-slice6 §3).
 
 ## 3. Crawl audit: two real domains
 
+These runs predate the crawl-hardening fixes (§5.8, §5.9) and were not
+re-run after them. Each nytimes.com `bot_blocked` failure below came from a
+group naming that bot exactly, which RFC 9309 reads the same way.
+
 Both runs used the real fetch (`http_fetch`), `pause=0.5` between calls, 8
 bot user agents, and the standard 12-fetch budget (home, robots.txt, 8 bot
 homepage fetches, sitemap, llms.txt — see §5.7). The bot fetches only run
@@ -265,7 +269,7 @@ unchanged:
    and any off-host or non-http(s) entries, go unread. A sitemap index that
    fans out to many per-section sitemaps is not walked.
 3. **Fixed before merge: large sitemaps were reported invalid.**
-   `http_fetch` keeps the first 512 KiB (`BODY_CAP`) of a body, and the
+   `http_fetch` keeps the first 512 KiB (`BODY_CAP_BYTES`) of a body, and the
    sitemap check parsed the whole of what it kept, so any sitemap larger
    than the cap arrived cut off mid-element and failed to parse. nytimes.com
    showed it: its sitemap is served as `text/xml` with
@@ -306,32 +310,59 @@ unchanged:
    homepage fetches (8) + sitemap (1) + llms.txt (1) = 12. The spec's 11
    was a miscount, not a deliberate reduction; this findings doc is the
    correction of record.
-8. **Security gap to close before any hosted deployment: SSRF.**
-   `audit_domain()`/`http_fetch()` fetches whatever host it is given, with
-   no check that the resolved address is public. Nothing is typed into the
-   Site tab (its POST has no body); the real vectors are:
-   - a declared domain via `POST /v1/brands/{id}/domains` —
-     `normalize_domain` accepts `127.0.0.1`, `169.254.169.254` (a cloud
-     metadata endpoint) and `localhost`;
-   - redirects: `httpx` runs with `follow_redirects=True`, so a public host
-     that 302-redirects inward is followed there;
-   - the robots.txt `Sitemap:` URL: it must be on the audited host or a
-     subdomain, but a tenant-controlled subdomain whose DNS points at an
-     internal address passes that check.
+8. **Fixed (crawl-hardening): SSRF.** `audit_domain()`/`http_fetch()` used
+   to fetch whatever host it was given, with no check that the resolved
+   address was public, and followed redirects automatically. The vectors
+   were a declared domain via `POST /v1/brands/{id}/domains`
+   (`normalize_domain` accepted `127.0.0.1`, `169.254.169.254` and
+   `localhost`), a public host that 302-redirects inward, and a
+   robots.txt `Sitemap:` URL on a tenant-controlled subdomain whose DNS
+   points inside. What now happens, on every hop:
+   - only `http`/`https` on the default port (80/443) is fetched;
+   - the host is resolved once, and the fetch is refused unless every
+     returned address is globally routable (`ipaddress` `is_global`, with
+     an IPv4-mapped IPv6 address judged by its IPv4 address): loopback,
+     private, link-local (including `169.254.169.254`), CGNAT, unspecified,
+     multicast, reserved and ULA ranges are all refused, and an IP literal
+     in the URL goes through the same check;
+   - the connection is pinned to the checked address: the request URL
+     carries the IP, `Host` carries the name, and for https the name is
+     passed as `sni_hostname`, which httpcore uses as the TLS
+     `server_hostname`, so SNI and certificate verification still use the
+     real name (verification stays on); environment proxies are ignored;
+   - redirects are followed by hand, at most 5, each Location resolved
+     against the current URL and re-checked from the top;
+   - the body is streamed and cut at `BODY_CAP_BYTES` (512 KiB) of decoded
+     bytes, and the whole fetch, all hops included, stops at 30 s.
 
-   In a single-tenant local setup with trusted operators this is inert;
-   hosted for multiple tenants, any tenant could make the worker issue
-   internal HTTP requests (cloud metadata, internal admin endpoints, port
-   scans). The fix: resolve the host and pin the IP for the request; reject
-   private, loopback, link-local and metadata ranges; disable automatic
-   redirects and re-check every hop; stream the body with a byte cap and a
-   total deadline. `http_fetch` carries a `SECURITY:` comment pointing here.
-9. **robots.txt matching is first-match, not RFC 9309 longest-match.**
-   `urllib.robotparser` applies the first rule whose path prefixes the URL;
-   RFC 9309 says the longest match wins. So `User-agent: *` /
-   `Disallow: /` / `Allow: /$` — "only the homepage is allowed" — reads as
-   the homepage blocked, and yields 8 false high-severity `bot_blocked`
-   failures. Deferred to the crawl-hardening task, with SSRF.
+   A refused URL is a `Response(0, "", "refused: <reason>")`, e.g.
+   `refused: 169.254.169.254 is not a public address`. As defence in depth
+   the API now rejects, with 422, a brand domain or competitor domain whose
+   normalized host is an IP literal or has no dot
+   (`matching.is_public_hostname`). `tests/unit/test_http_fetch.py` covers
+   every refused range, DNS that answers with an internal or mixed set of
+   addresses, pinning, redirects, the byte cap, a gzip bomb and the
+   deadline, with DNS and HTTP faked.
+9. **Fixed (crawl-hardening): robots.txt is read per RFC 9309.**
+   `urllib.robotparser` applied the first rule whose path prefixed the URL,
+   where RFC 9309 says the longest match wins, so `User-agent: *` /
+   `Disallow: /` / `Allow: /$` ("only the homepage is allowed") read as the
+   homepage blocked and yielded 8 false high-severity `bot_blocked`
+   failures. `crawl.py` no longer uses robotparser. Groups end only when a
+   user-agent line follows a rule (blank lines, comments, `Sitemap:`,
+   `Host:` and unknown keys do not split them); a bot uses every group
+   whose product token equals its name, case-insensitively, else every
+   `*` group; `*` and a trailing `$` work in patterns; the longest matching
+   pattern wins and Allow wins a tie. `observed` is the lines the verdict
+   came from and always re-evaluates to the same verdict (a seeded
+   3000-file fuzz pins that). Two verdicts change on purpose:
+   - a loose name no longer covers a bot: `User-agent: Claude` does not
+     apply to ClaudeBot (its product token is `ClaudeBot`), which now falls
+     to the `*` group; `User-agent: claudebot/1.0` does apply;
+   - an unreachable robots.txt (5xx, or a fetch that failed or was
+     refused) now means disallow-all (RFC 9309 §2.3.1.4) and fails every
+     `bot_blocked` check with the reason in `observed`; robotparser's
+     reading was allow-all. A 4xx is still "no robots.txt", allow-all.
 
 ## 6. Spend
 
