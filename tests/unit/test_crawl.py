@@ -2,7 +2,6 @@
 
 import random
 import re
-from urllib import robotparser
 
 import pytest
 from bsi_core.crawl import (
@@ -13,6 +12,7 @@ from bsi_core.crawl import (
     audit_domain,
     expected,
     family,
+    robots_allows,
     severity,
 )
 
@@ -212,11 +212,15 @@ def test_a_fetch_error_is_a_failed_check_not_an_exception():
         return Response(0, "", "ConnectError('boom')")
 
     audit = audit_domain("nike.com", fetch)
-    assert codes(audit, False) == [
-        "home_unreachable",
-        "llms_missing",
-        "sitemap_missing",
-    ]
+    # An unreachable robots.txt is disallow-all under RFC 9309 §2.3.1.4.
+    assert codes(audit, False) == sorted(
+        [
+            "home_unreachable",
+            "llms_missing",
+            "sitemap_missing",
+            *[f"bot_blocked:{b}" for b in BOTS],
+        ]
+    )
     home = audit.checks[0]
     assert "ConnectError" in home.observed
 
@@ -268,13 +272,6 @@ def test_bot_blocked_observed_does_not_leak_across_groups_without_blanks():
     bing = next(c for c in audit.checks if c.code == "bot_blocked:Bingbot")
     assert "User-agent: Bingbot" in bing.observed
     assert "GPTBot" not in bing.observed
-
-
-def test_disallow_trailing_star_blocks_like_a_bare_slash():
-    robots = "User-agent: GPTBot\nDisallow: /*\n"
-    pages = {**GOOD, "/robots.txt": Response(200, robots)}
-    audit = audit_domain("nike.com", site(pages))
-    assert "bot_blocked:GPTBot" in codes(audit, False)
 
 
 @pytest.mark.parametrize(
@@ -335,20 +332,6 @@ def test_a_subdomain_sitemap_is_trusted():
     assert "https://cdn.nike.com/sm.xml" in urls
 
 
-def test_bot_blocked_observed_matches_robotparser_substring_rule():
-    # robotparser applies `User-agent: Claude` to any bot whose name
-    # contains "claude", so the evidence must be that group, not `*`.
-    robots = "User-agent: *\nAllow: /\n\nUser-agent: Claude\nDisallow: /\n"
-    pages = {**GOOD, "/robots.txt": Response(200, robots)}
-    audit = audit_domain("nike.com", site(pages))
-    for bot in ("ClaudeBot", "Claude-SearchBot"):
-        check = next(c for c in audit.checks if c.code == f"bot_blocked:{bot}")
-        assert not check.ok
-        assert "User-agent: Claude" in check.observed
-        assert "Disallow: /" in check.observed
-        assert "User-agent: *" not in check.observed
-
-
 def test_an_empty_sitemap_body_has_no_root():
     pages = {**GOOD, "/sm.xml": Response(200, "")}
     audit = audit_domain("nike.com", site(pages))
@@ -382,98 +365,206 @@ def _bot_check(robots, bot):
     return next(c for c in audit.checks if c.code == f"bot_blocked:{bot}")
 
 
-def test_bot_blocked_observed_is_only_the_first_applicable_group():
-    # robotparser applies the first matching named group and ignores the
-    # rest, so the evidence must be that group alone.
-    allow = "User-agent: Claude\nAllow: /\n"
-    block = "User-agent: ClaudeBot\nDisallow: /\n"
-    first_allows = _bot_check(allow + block, "ClaudeBot")
-    assert first_allows.ok
-    assert "Allow: /" in first_allows.observed
-    assert "Disallow" not in first_allows.observed
-    first_blocks = _bot_check(block + allow, "ClaudeBot")
-    assert not first_blocks.ok
-    assert "Disallow: /" in first_blocks.observed
-    assert "Allow" not in first_blocks.observed.replace("Disallow", "")
-
-
-def test_a_group_naming_star_is_the_default_not_a_named_match():
-    # robotparser files any group containing `*` as the default entry,
-    # so GPTBot in that group does not count as naming it.
-    robots = (
-        "User-agent: *\nUser-agent: GPTBot\nDisallow: /\n\n"
-        "User-agent: GPT\nAllow: /\n"
-    )
-    check = _bot_check(robots, "GPTBot")
-    assert check.ok
-    assert check.observed == "User-agent: GPT\nAllow: /"
-
-
-def test_comment_and_sitemap_lines_do_not_split_a_group():
-    # robotparser ignores comments and gives Sitemap: no grouping effect,
-    # so all of these are one `*` group whose Disallow applies to GPTBot.
-    for between in ("# note", "Sitemap: https://nike.com/sm.xml", "Host: x"):
+def test_comment_sitemap_host_and_blank_lines_do_not_split_a_group():
+    # RFC 9309: only a user-agent line after a rule starts a new group, so
+    # all of these are one `*` group whose Disallow applies to GPTBot.
+    for between in (
+        "# note",
+        "Sitemap: https://nike.com/sm.xml",
+        "Host: x",
+        "",
+    ):
         robots = f"User-agent: *\n{between}\nUser-agent: Google-Extended\n"
         check = _bot_check(robots + "Disallow: /\n", "GPTBot")
         assert not check.ok
         assert "Disallow: /" in check.observed, between
 
 
-def test_a_user_agent_cut_off_by_a_blank_line_names_nobody():
-    # A blank line straight after User-agent: makes robotparser drop it,
-    # and the Disallow that follows then belongs to no group at all.
-    check = _bot_check("User-agent: GPTBot\n\nDisallow: /\n", "GPTBot")
+# RFC 9309 robots.txt semantics.
+
+
+def _verdict(robots, bot="GPTBot"):
+    return _bot_check(robots, bot).ok
+
+
+def test_allow_only_the_homepage_allows_the_homepage():
+    robots = "User-agent: *\nDisallow: /\nAllow: /$\n"
+    audit = audit_domain(
+        "nike.com", site({**GOOD, "/robots.txt": Response(200, robots)})
+    )
+    assert not [c for c in codes(audit, False) if c.startswith("bot_blocked")]
+
+
+def test_an_allow_and_a_disallow_of_equal_length_allow():
+    assert _verdict("User-agent: *\nDisallow: /\nAllow: /\n")
+    assert _verdict("User-agent: *\nAllow: /\nDisallow: /\n")
+
+
+@pytest.mark.parametrize(
+    ("rule", "allowed"),
+    [
+        ("Disallow: /", False),
+        ("Disallow: /*", False),
+        ("Disallow: *", False),
+        ("Disallow: /*.pdf", True),
+        ("Disallow: /$", False),
+        ("Disallow: /x$", True),
+        ("Disallow:", True),  # an empty value matches nothing
+        ("Disallow: /* # block all", False),
+        ("disallow : /", False),  # keys are case-insensitive
+        ("Allow: /", True),
+    ],
+)
+def test_rule_patterns(rule, allowed):
+    assert _verdict(f"User-agent: *\n{rule}\n") is allowed
+
+
+def test_the_longest_matching_rule_wins():
+    assert not _verdict("User-agent: *\nAllow: /\nDisallow: /*\n")
+    assert _verdict("User-agent: *\nDisallow: /*\nAllow: /$\n")
+
+
+def test_a_name_that_only_contains_the_bot_does_not_apply():
+    # `Claude` is not ClaudeBot's product token: the `*` group applies.
+    robots = "User-agent: *\nAllow: /\n\nUser-agent: Claude\nDisallow: /\n"
+    for bot in ("ClaudeBot", "Claude-SearchBot"):
+        check = _bot_check(robots, bot)
+        assert check.ok
+        assert check.observed == "User-agent: *\nAllow: /"
+
+
+def test_the_product_token_stops_at_a_version():
+    robots = (
+        "User-agent: *\nAllow: /\n\nUser-agent: claudebot/1.0\nDisallow: /\n"
+    )
+    check = _bot_check(robots, "ClaudeBot")
+    assert not check.ok
+    assert check.observed == "User-agent: claudebot/1.0\nDisallow: /"
+
+
+def test_every_group_naming_the_bot_is_merged():
+    robots = (
+        "User-agent: GPTBot\nAllow: /\n\n"
+        "User-agent: Bingbot\nDisallow: /\n\n"
+        "User-agent: gptbot\nDisallow: /*\n"
+    )
+    check = _bot_check(robots, "GPTBot")
+    assert not check.ok  # /* is longer than /
+    assert check.observed == (
+        "User-agent: GPTBot\nAllow: /\nUser-agent: gptbot\nDisallow: /*"
+    )
+
+
+def test_a_named_group_beats_a_stricter_star():
+    robots = "User-agent: *\nDisallow: /\n\nUser-agent: GPTBot\nAllow: /x\n"
+    check = _bot_check(robots, "GPTBot")
     assert check.ok
-    assert check.observed == "no matching group"
+    assert check.observed == "User-agent: GPTBot\nAllow: /x"
+    assert not _bot_check(robots, "Bingbot").ok
 
 
-def _applied_markers(robots, bot):
-    """The /gN rule markers of the entry robotparser applies to bot."""
-    rp = robotparser.RobotFileParser()
-    rp.parse(robots.splitlines())
-    entry = next((e for e in rp.entries if e.applies_to(bot)), rp.default_entry)
-    return set() if entry is None else {r.path for r in entry.rulelines}
+def test_a_group_naming_star_and_the_bot_is_a_named_match():
+    robots = (
+        "User-agent: *\nUser-agent: GPTBot\nDisallow: /\n\n"
+        "User-agent: GPT\nAllow: /\n"
+    )
+    check = _bot_check(robots, "GPTBot")
+    assert not check.ok
+    assert check.observed == "User-agent: *\nUser-agent: GPTBot\nDisallow: /"
 
 
-def test_observed_is_always_the_group_robotparser_applied():
-    # Seeded fuzz: every group gets a unique marker rule, and the evidence
-    # must carry exactly the markers of the entry robotparser chose.
-    rng = random.Random(7)
-    tokens = ["*", "Claude", "ClaudeBot", "Google", "GPTBot", "Bot", "gpt", ""]
-    noise = [
+def test_rules_before_the_first_user_agent_belong_to_nobody():
+    check = _bot_check("Disallow: /\nUser-agent: Bingbot\nAllow: /\n", "GPTBot")
+    assert (check.ok, check.observed) == (True, "no matching group")
+
+
+def test_a_blank_line_after_a_user_agent_does_not_end_the_group():
+    check = _bot_check("User-agent: GPTBot\n\nDisallow: /\n", "GPTBot")
+    assert (check.ok, check.observed) == (
+        False,
+        "User-agent: GPTBot\nDisallow: /",
+    )
+
+
+def test_an_unreachable_robots_txt_disallows_everything():
+    pages = {**GOOD, "/robots.txt": Response(503, "")}
+    audit = audit_domain("nike.com", site(pages))
+    for bot in BOTS:
+        check = next(c for c in audit.checks if c.code == f"bot_blocked:{bot}")
+        assert not check.ok
+        assert "HTTP 503" in check.observed
+        assert "disallow" in check.observed
+
+
+def test_a_missing_robots_txt_allows_everything():
+    pages = {**GOOD, "/robots.txt": Response(404, "")}
+    audit = audit_domain("nike.com", site(pages))
+    for bot in BOTS:
+        check = next(c for c in audit.checks if c.code == f"bot_blocked:{bot}")
+        assert (check.ok, check.observed) == (True, "no robots.txt (HTTP 404)")
+
+
+def test_evidence_too_long_to_show_keeps_what_decides():
+    rules = "\n".join(f"Disallow: /private/{i}" for i in range(40))
+    robots = f"User-agent: Bingbot\nUser-agent: GPTBot\n{rules}\nDisallow: /\n"
+    check = _bot_check(robots, "GPTBot")
+    assert not check.ok
+    assert check.observed == "User-agent: GPTBot\nDisallow: /"
+    assert robots_allows(check.observed) is check.ok
+
+
+def _token(agent):
+    """The test's own reading of a product token, for the fuzz oracle."""
+    agent = agent.strip()
+    return "*" if agent == "*" else re.match(r"[A-Za-z_-]*", agent)[0].lower()
+
+
+def test_observed_always_agrees_with_the_verdict():
+    # Seeded fuzz. Each group carries a marker rule /gN that never matches
+    # "/", so the markers in `observed` say which groups were used. For
+    # every bot: the evidence alone gives the same verdict, and it shows
+    # exactly the groups that name the bot (or, failing that, `*`).
+    rng = random.Random(9309)
+    agents = [
+        "*",
+        "Claude",
+        "ClaudeBot",
+        "claudebot/1.0",
+        "GPTBot",
+        "gptbot",
+        "Googlebot-News",
+        "Google-Extended",
+        "Bot",
         "",
-        "   ",
-        "# c",
-        "Sitemap: https://nike.com/s.xml",
-        "Host: nike.com",
-        "Crawl-delay: 5",
-        "Request-rate: x",
-        "no colon here",
     ]
+    rules = ["/", "/*", "*", "/$", "/*$", "", "/*.pdf", "/x"]
+    noise = ["", "   ", "# c", "Sitemap: https://nike.com/s.xml", "Host: x"]
     for _ in range(3000):
-        lines = ["Disallow: /g9"] if rng.random() < 0.2 else []
-        for g in range(rng.randint(1, 4)):
-            for _ in range(rng.randint(1, 3)):
-                lines.append(f"User-agent: {rng.choice(tokens)}")
+        lines = ["Disallow: /"] if rng.random() < 0.2 else []
+        groups = []
+        for g in range(rng.randint(1, 3)):
+            names = [rng.choice(agents) for _ in range(rng.randint(1, 2))]
+            groups.append(names)
+            for name in names:
+                lines.append(f"User-agent: {name}")
                 if rng.random() < 0.3:
                     lines.append(rng.choice(noise))
-            rule = f"{rng.choice(['Allow', 'Disallow'])}: /g{g}"
-            lines.append(rule + (" # why" if rng.random() < 0.2 else ""))
-            if rng.random() < 0.3:
-                lines.append(rng.choice(noise))
+            lines.append(f"Disallow: /g{g}")
+            if rng.random() < 0.8:
+                kind = rng.choice(["Allow", "Disallow"])
+                comment = " # why" if rng.random() < 0.2 else ""
+                lines.append(f"{kind}: {rng.choice(rules)}{comment}")
         robots = rng.choice(["\n", "\r\n"]).join(lines) + "\n"
         pages = {**GOOD, "/robots.txt": Response(200, robots)}
         checks = {
             c.code: c for c in audit_domain("nike.com", site(pages)).checks
         }
         for bot in BOTS:
-            observed = checks[f"bot_blocked:{bot}"].observed
-            shown = set(re.findall(r"/g\d", observed))
-            assert shown == _applied_markers(robots, bot), (robots, bot)
-
-
-def test_a_comment_after_a_wildcard_rule_still_blocks():
-    # The comment must go before the trailing `*` is stripped, or
-    # robotparser is handed the literal path `/*` and allows everything.
-    check = _bot_check("User-agent: *\nDisallow: /* # block all\n", "GPTBot")
-    assert not check.ok
+            check = checks[f"bot_blocked:{bot}"]
+            assert robots_allows(check.observed) is check.ok, (robots, bot)
+            tokens = [{_token(n) for n in names} for names in groups]
+            used = {g for g, t in enumerate(tokens) if bot.lower() in t} or {
+                g for g, t in enumerate(tokens) if "*" in t
+            }
+            shown = {int(m) for m in re.findall(r"/g(\d)", check.observed)}
+            assert shown == used, (robots, bot)

@@ -8,14 +8,14 @@ one injected callable, as model calls are.
 
 import ipaddress
 import json
+import re
 import socket
 import time
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Any, NamedTuple
-from urllib import robotparser
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
@@ -347,92 +347,96 @@ def _clip(s: str) -> str:
     return s.strip()[:OBSERVED_CAP]
 
 
-_RULE_KEYS = ("allow", "disallow", "crawl-delay", "request-rate")
-
-
-def _robots_groups(robots: str) -> list[tuple[list[str], list[str]]]:
-    """Split robots.txt into (agents, lines) groups exactly as robotparser
-    does, so the evidence shown is the entry it actually applied.
-
-    The same state machine as RobotFileParser.parse: 0 start, 1 after a
-    User-agent line, 2 after a rule. An empty line discards a group that
-    has no rule yet (state 1) and closes one that has (state 2); comments
-    and unknown keys are ignored; Sitemap: has no grouping effect; a rule
-    before any User-agent line belongs to nobody; only groups with a rule
-    are kept.
-    """
-    groups: list[tuple[list[str], list[str]]] = []
-    agents: list[str] = []
-    lines: list[str] = []
-    state = 0
+def _robots_lines(robots: str) -> Iterator[tuple[str, str, str]]:
+    """(key, value, line) for every `key: value` line, comment removed."""
     for raw in robots.splitlines():
-        if not raw:  # robotparser tests the raw line, not the stripped one
-            if state == 2:
-                groups.append((agents, lines))
-            if state:
-                agents, lines, state = [], [], 0
         line = raw.split("#", 1)[0].strip()
         key, colon, value = line.partition(":")
-        key = key.strip().lower()
-        if not colon:
-            continue
+        if colon:
+            yield key.strip().lower(), value.strip(), line
+
+
+def _token(agent: str) -> str:
+    """RFC 9309 product token: `*`, or the leading [A-Za-z_-] run."""
+    return "*" if agent == "*" else re.sub(r"[^A-Za-z_-].*", "", agent).lower()
+
+
+def _robots_groups(robots: str) -> list[tuple[set[str], list[str]]]:
+    """(product tokens, lines) per RFC 9309 group. A user-agent line after
+    a rule starts a new group; blank lines, comments and other keys
+    (sitemap, host, crawl-delay) do not affect grouping; rules before the
+    first user-agent line belong to nobody."""
+    groups: list[tuple[set[str], list[str]]] = []
+    after_rule = True
+    for key, value, line in _robots_lines(robots):
         if key == "user-agent":
-            if state == 2:
-                groups.append((agents, lines))
-                agents, lines = [], []
-            agents.append(value.strip().lower())
-            lines.append(line)
-            state = 1
-        elif key in _RULE_KEYS and state:
-            lines.append(line)
-            state = 2
-    if state == 2:
-        groups.append((agents, lines))
+            if after_rule:
+                groups.append((set(), []))
+                after_rule = False
+            groups[-1][0].add(_token(value))
+            groups[-1][1].append(line)
+        elif key in ("allow", "disallow") and groups:
+            groups[-1][1].append(line)
+            after_rule = True
     return groups
 
 
-def _group_lines(robots: str, bot: str) -> str:
-    """The first applicable robots.txt group for this bot, for `observed`.
+def _matches(pattern: str, path: str) -> bool:
+    """RFC 9309 §2.2.3: `*` is any sequence, a trailing `$` ends the path."""
+    anchored = pattern.endswith("$")
+    body = pattern[:-1] if anchored else pattern
+    regex = ".*".join(map(re.escape, body.split("*")))
+    return re.match(regex + (r"\Z" if anchored else ""), path) is not None
 
-    Mirrors robotparser's choice: a group containing `*` is the default
-    entry (only the first one counts), never a named match; the first
-    other group with an agent token that is a substring of the bot's
-    name token applies (Entry.applies_to), so `User-agent: Claude`
-    covers ClaudeBot; the default applies only when none does.
-    """
-    bot_l = bot.split("/")[0].lower()
-    groups = _robots_groups(robots)
-    named = [
-        lines
-        for agents, lines in groups
-        if "*" not in agents and any(a in bot_l for a in agents)
+
+def _decisive_rule(robots: str, path: str) -> str | None:
+    """The rule line that decides `path`: the longest matching pattern,
+    Allow on a tie. None when no rule matches (allowed)."""
+    best: str | None = None
+    rank = (-1, False)
+    for key, value, line in _robots_lines(robots):
+        if key in ("allow", "disallow") and value and _matches(value, path):
+            mine = (len(value.encode()), key == "allow")
+            if mine > rank:
+                best, rank = line, mine
+    return best
+
+
+def robots_allows(robots: str, path: str = "/") -> bool:
+    """Whether the Allow/Disallow lines in `robots` let a crawler fetch
+    `path`. Group selection happens before; this sees one bot's rules."""
+    rule = _decisive_rule(robots, path)
+    return rule is None or rule.lower().startswith("allow")
+
+
+def _bot_verdict(
+    groups: list[tuple[set[str], list[str]]], bot: str
+) -> tuple[bool, str]:
+    """(allowed, evidence) for the homepage. Every group naming the bot is
+    merged; failing that, every `*` group; failing that, no rules."""
+    token = bot.lower()
+    used = [ls for ts, ls in groups if token in ts] or [
+        ls for ts, ls in groups if "*" in ts
     ]
-    starred = [lines for agents, lines in groups if "*" in agents]
-    return "\n".join((named or starred or [[]])[0])
-
-
-def _strip_wildcards(robots: str) -> str:
-    """urllib.robotparser matches Allow/Disallow paths by plain prefix; it
-    has no `*` wildcard support, so `Disallow: /*` would otherwise only
-    match a literal `/*`. Strip a trailing `*` and `$` from each such
-    path so `/*` degrades to the prefix `/` instead of matching nothing.
-
-    ponytail: only a trailing wildcard is handled; a mid-path wildcard
-    (e.g. `/foo/*.pdf`) stays unsupported. Add real wildcard-to-regex
-    matching if that ever shows up in practice.
-    """
-    out = []
-    for line in robots.splitlines():
-        key, sep, value = line.partition(":")
-        if sep and key.strip().lower() in ("allow", "disallow"):
-            # Drop the comment first, or `Disallow: /* # all` keeps its `*`.
-            path = value.split("#", 1)[0].strip()
-            while path and path[-1] in "*$":
-                path = path[:-1]
-            out.append(f"{key}: {path}")
-        else:
-            out.append(line)
-    return "\n".join(out)
+    lines = [line for ls in used for line in ls]
+    text = "\n".join(lines)
+    allowed = robots_allows(text)
+    if not lines:
+        return allowed, "no matching group"
+    if len(text) <= OBSERVED_CAP:
+        return allowed, text
+    # Too long to show whole: the user-agent lines that matched and the
+    # deciding rule are all the verdict rests on; failing that, the rule.
+    rule = _decisive_rule(text, "/")
+    agents = [
+        line
+        for key, value, line in _robots_lines(text)
+        if key == "user-agent" and _token(value) in (token, "*")
+    ]
+    short = "\n".join(agents + ([rule] if rule else []))
+    if len(short) <= OBSERVED_CAP:
+        return allowed, short
+    return allowed, rule or "no rule matches /"
 
 
 def _owned_sitemap(host: str, url: str) -> bool:
@@ -498,22 +502,21 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
 
     robots_url = f"https://{host}/robots.txt"
     robots = get(robots_url)
-    rp = robotparser.RobotFileParser()
-    if robots.ok:
-        rp.parse(_strip_wildcards(robots.body).splitlines())
-    else:
-        rp.parse([])  # no file: everything is allowed
+    groups = _robots_groups(robots.body) if robots.ok else []
     for bot in BOTS:
-        allowed = rp.can_fetch(bot, home_url)
-        observed = (
-            _group_lines(robots.body, bot) if robots.ok else "no robots.txt"
-        )
-        add(
-            f"bot_blocked:{bot}",
-            allowed,
-            observed or "no matching group",
-            robots_url,
-        )
+        if robots.ok:
+            allowed, observed = _bot_verdict(groups, bot)
+        elif robots.status == 0 or robots.status >= 500:
+            # RFC 9309 §2.3.1.4: unreachable means assume full disallow.
+            allowed = False
+            why = robots.error or f"HTTP {robots.status}"
+            observed = (
+                f"robots.txt unreachable ({why}): RFC 9309 reads that "
+                "as disallow all"
+            )
+        else:  # §2.3.1.3: unavailable (4xx) means no restrictions
+            allowed, observed = True, f"no robots.txt (HTTP {robots.status})"
+        add(f"bot_blocked:{bot}", allowed, observed, robots_url)
 
     # With no browser baseline a bot's answer means nothing: skip them.
     for bot in BOTS if home.ok else ():
@@ -527,7 +530,12 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
         )
 
     default_sitemap = f"https://{host}/sitemap.xml"
-    owned = [u for u in (rp.site_maps() or []) if _owned_sitemap(host, u)]
+    declared = (
+        [v for k, v, _ in _robots_lines(robots.body) if k == "sitemap"]
+        if robots.ok
+        else []
+    )
+    owned = [u for u in declared if _owned_sitemap(host, u)]
     # ponytail: the first owned sitemap; the rest (and any off-host or
     # non-http(s) entries) are unread.
     sm_url = owned[0] if owned else default_sitemap
