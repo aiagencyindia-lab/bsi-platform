@@ -88,7 +88,7 @@ One entry per qualifying (competitor, direction):
 | `before`, `after` | pooled `Rate`s over the moved prompts |
 | `delta` | `metrics.delta(before, after)` |
 | `prompts` | `[{prompt_id, text, before: Rate, after: Rate}]`, largest shift first |
-| `engines` | distinct engine ids of the after-window answers on those prompts |
+| `engines` | distinct engine codes of the after-window answers on those prompts that name the competitor |
 | `new_citing_domains` | domains cited in after-window answers on those prompts that name the competitor, and cited in no before-window answer of the brand at all; sorted by answers |
 | `observation_ids` | up to `EVIDENCE_CAP` after-window answers on those prompts naming the competitor, most recent first |
 
