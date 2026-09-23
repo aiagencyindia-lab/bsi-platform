@@ -8,6 +8,7 @@ from bsi_core.competitors import (
     EVIDENCE_CAP,
     MIN_PROMPTS,
     MIN_SHIFT,
+    _deltas,
     _moved,
     entity_deltas,
     entity_metrics,
@@ -505,3 +506,27 @@ def test_entity_deltas_mirror_brand_deltas(feed):
     assert got["deltas"][bid]["mention_rate"]["label"] == (
         "no significant change"
     )
+
+
+def test_deltas_entity_missing_from_before_uses_zero_count():
+    """A competitor activated between the two entity_metrics reads is in
+    after but not before: it gets deltas against rate(0, n), n being the
+    before window's done-answer count."""
+    brand, rival = "brand-id", "rival-id"
+
+    def row(eid, k, n):
+        return {"entity_id": eid, **{key: rate(k, n) for key in DELTA_METRICS}}
+
+    before = [row(brand, 2, 10)]
+    after = [row(brand, 3, 10), row(rival, 6, 10)]
+    out = _deltas(before, after)
+    assert out[rival] == {
+        k: delta(rate(0, 10), rate(6, 10)) for k in DELTA_METRICS
+    }
+    assert out[brand] == {
+        k: delta(rate(2, 10), rate(3, 10)) for k in DELTA_METRICS
+    }
+    # No before rows at all: n is 0.
+    assert _deltas([], after)[rival] == {
+        k: delta(rate(0, 0), rate(6, 10)) for k in DELTA_METRICS
+    }

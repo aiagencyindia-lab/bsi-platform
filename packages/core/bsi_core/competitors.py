@@ -133,7 +133,11 @@ def entity_metrics(
                 "recommendation_rate": rate(r.k_rec, r.n),
                 "citation_rate": rate(r.k_cit, r.n),
                 "prompt_coverage": rate(r.prompts_cov, r.prompts),
-                "sov": rate(sov[eid]["mentions"], sov_total),
+                # .get: a competitor activated since brand_sov read the
+                # entities has no row; it counts as 0 mentions.
+                "sov": rate(
+                    sov.get(eid, {"mentions": 0})["mentions"], sov_total
+                ),
                 "avg_position": {
                     "value": float(r.avg_pos)
                     if r.avg_pos is not None
@@ -199,20 +203,31 @@ def entity_deltas(
     before = entity_metrics(s, brand_id, fb)
     after = entity_metrics(s, brand_id, fa)
     comparable, reason = _comparable(s, brand_id, fb, fa)
-    by_id = {r["entity_id"]: r for r in before}
     return {
         "before": {"from": start, "to": mid, "entities": before},
         "after": {"from": mid, "to": to, "entities": after},
         "comparable": comparable,
         "reason": reason,
-        "deltas": {
-            r["entity_id"]: {
-                k: delta(by_id[r["entity_id"]][k], r[k]) for k in DELTA_METRICS
-            }
-            for r in after
+        "deltas": _deltas(before, after) if comparable else None,
+    }
+
+
+def _deltas(
+    before: list[dict[str, Any]], after: list[dict[str, Any]]
+) -> dict[uuid.UUID, dict[str, Any]]:
+    """Per after-window entity, `delta` of each DELTA_METRICS rate. An
+    entity missing from `before` (a competitor activated between the two
+    entity_metrics reads) is compared with a zero-count rate over the
+    before window's done answers."""
+    by_id = {r["entity_id"]: r for r in before}
+    n = before[0]["mention_rate"]["n"] if before else 0
+    zero = {k: rate(0, n) for k in DELTA_METRICS}
+    return {
+        r["entity_id"]: {
+            k: delta(by_id.get(r["entity_id"], zero)[k], r[k])
+            for k in DELTA_METRICS
         }
-        if comparable
-        else None,
+        for r in after
     }
 
 

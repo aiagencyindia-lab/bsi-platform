@@ -116,7 +116,7 @@ export default async function Competitors({
           </h3>
           <p>
             {pct(c.before.value)} → {pct(c.after.value)} ({pts(c.delta.value)},{" "}
-            {pct(c.delta.ci_low)} to {pct(c.delta.ci_high)}) over {c.prompts.length} prompts ·
+            {pts(c.delta.ci_low)} to {pts(c.delta.ci_high)}) over {c.prompts.length} prompts ·
             engines {c.engines.join(", ") || "—"}
           </p>
           {c.new_citing_domains.length > 0 && (
