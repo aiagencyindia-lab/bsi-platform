@@ -322,14 +322,18 @@ in the About title and h1 to one space.
   `www.`, `m.` or `mobile.`.
 - A brand whose item lacks P856 reads as `wikidata_missing`, which errs
   on the safe side.
-- `/aboutique`-style paths count as an About link (prefix match), and an
-  About section under another name (`/who-we-are/` on
-  wikimediafoundation.org) does not.
+- An About section under another name (`/who-we-are/` on
+  wikimediafoundation.org) does not count as an About link.
 - The cadence is weekly; the PRD asks for monthly.
 
-**Open, found in this run.** When the only domain-verified candidate sits
-on a subdomain, it still matches (wikimedia.org, section 3).
-`wikidata_name_mismatch` is what flags it.
+**Fixed later.** `/aboutique`-style paths no longer count as an About
+link: the keyword must end its path segment or go on after `-` or `_`.
+A subdomain-only Wikidata candidate now matches only when its label names
+the brand; otherwise `wikidata_missing` fails and names the rejected item.
+On wikimedia.org that would read `wikidata_missing` with observed ending
+"Q57077840 Wikimedia Foundation Governance Wiki is only on a subdomain
+and its label does not name the brand". This follows from the rule; the
+live checks were not re-run.
 
 ## 6. Spend
 
