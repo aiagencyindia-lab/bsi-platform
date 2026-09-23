@@ -310,8 +310,10 @@ def http_fetch(
         return Response(0, "", repr(e))
 
 
-class _Head(HTMLParser):
-    """Collects what the on-page checks look at, and nothing else."""
+class Head(HTMLParser):
+    """Collects what the on-page checks look at, and nothing else.
+
+    Public: entity.py reads the same homepage fields plus the links."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -320,13 +322,16 @@ class _Head(HTMLParser):
         self.canonical: str | None = None
         self.h1: str | None = None
         self.ld: list[str] = []
+        self.links: list[str] = []
         self._in: str | None = None
 
     def handle_starttag(
         self, tag: str, attrs: list[tuple[str, str | None]]
     ) -> None:
         a = {k: v or "" for k, v in attrs}
-        if tag == "title":
+        if tag == "a" and a.get("href"):
+            self.links.append(a["href"])
+        elif tag == "title":
             self._in = "title"
             self.title = self.title or ""
         elif tag == "meta" and a.get("name", "").lower() == "description":
@@ -571,7 +576,7 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
         home_url,
     )
     if home.ok:
-        head = _Head()
+        head = Head()
         head.feed(home.body)
         for code, value in (
             ("title_missing", head.title),

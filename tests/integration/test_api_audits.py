@@ -108,3 +108,33 @@ def test_get_dedupes_two_audits_with_the_same_created_at(
     assert r.status_code == 200, r.text
     rows = r.json()
     assert [x["domain"] for x in rows] == ["nike.com"]
+
+
+def test_an_unknown_stored_severity_reads_as_low(
+    client, owner, make_org, make_brand
+):
+    """The rule skips it; the page must still render, not 500."""
+    org = make_org()
+    bid = make_brand(org)
+    _domain(owner, org, bid, "nike.com")
+    with owner() as s, s.begin():
+        s.add(
+            m.SiteAudit(
+                org_id=org.id,
+                brand_id=bid,
+                domain="nike.com",
+                checks=[
+                    {
+                        "code": "llms_missing",
+                        "ok": False,
+                        "severity": "weird",
+                        "observed": "HTTP 404",
+                        "expected": "x",
+                        "url": "https://nike.com/llms.txt",
+                    }
+                ],
+            )
+        )
+    r = client.get(f"/v1/brands/{bid}/audits/crawl", headers=org.headers)
+    assert r.status_code == 200, r.text
+    assert r.json()[0]["checks"][0]["severity"] == "low"

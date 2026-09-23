@@ -78,6 +78,7 @@ export const KIND: Record<string, string> = {
   add_competitor: "Competitor",
   sample_more: "Measurement",
   fix_crawlability: "Site fix",
+  fix_entity: "Entity fix",
 };
 
 const QUEUED = "Queued; the worker runs it within a minute.";

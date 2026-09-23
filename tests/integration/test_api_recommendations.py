@@ -67,7 +67,13 @@ def test_accept_creates_exactly_one_task(client, scene):
     assert [r["id"] for r in accepted] == [rec["id"]]
 
 
-def test_a_crawl_task_measures_no_impact(client, owner, make_org, make_brand):
+@pytest.mark.parametrize(
+    ("code", "rtype"),
+    [("llms_missing", "fix_crawlability"), ("wikidata_missing", "fix_entity")],
+)
+def test_a_site_task_measures_no_impact(
+    client, owner, make_org, make_brand, code, rtype
+):
     org = make_org()
     bid = make_brand(org)
     with owner() as s, s.begin():
@@ -79,7 +85,7 @@ def test_a_crawl_task_measures_no_impact(client, owner, make_org, make_brand):
                 domain="nike.com",
                 checks=[
                     {
-                        "code": "llms_missing",
+                        "code": code,
                         "ok": False,
                         "severity": "low",
                         "observed": "HTTP 404",
@@ -92,7 +98,7 @@ def test_a_crawl_task_measures_no_impact(client, owner, make_org, make_brand):
     recs = client.post(
         f"/v1/brands/{bid}/recommendations/generate", headers=org.headers
     ).json()
-    rec = next(r for r in recs if r["type"] == "fix_crawlability")
+    rec = next(r for r in recs if r["type"] == rtype)
     task = client.post(
         f"/v1/brands/{bid}/recommendations/{rec['id']}/accept",
         headers=org.headers,
