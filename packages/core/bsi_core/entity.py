@@ -468,7 +468,9 @@ def _wikidata_rows(
     # (P856) is a declared domain is the brand. A product's item can list
     # a page on the domain, and a project's a subdomain, so the best site
     # wins: exact host at the root, exact host, subdomain root, subdomain.
-    # Ties keep search order.
+    # Ties keep search order. A subdomain can host someone else's project
+    # (a governance wiki), so a subdomain-only item must also be named
+    # for the brand; an exact-host item always wins over it.
     exact = {normalize_domain(h) for h in hosts}
 
     def rank(v: str) -> int:
@@ -480,10 +482,22 @@ def _wikidata_rows(
         if qid in items
         and (sites := [v for v in items[qid]["P856"] if _owned(v, hosts)])
     ]
-    match = min(ranked, key=lambda r: r[0])[1] if ranked else None
+    named = [
+        (k, qid)
+        for k, qid in ranked
+        if k < 2 or _legal_name(items[qid]["label"]) in legal
+    ]
+    match = min(named, key=lambda r: r[0])[1] if named else None
     if match is None:
         seen = ", ".join(f"{qid} {labels[qid]}" for qid in ids)
-        return [("wikidata_missing", False, f"candidates: {seen}", human_url)]
+        obs = f"candidates: {seen}"
+        if ranked:
+            sub = min(ranked, key=lambda r: r[0])[1]
+            obs += (
+                f"; {sub} {items[sub]['label'] or 'no label'} is only on a "
+                "subdomain and its label does not name the brand"
+            )
+        return [("wikidata_missing", False, obs, human_url)]
     item = items[match]
     label = item["label"]
     page = f"https://www.wikidata.org/wiki/{match}"

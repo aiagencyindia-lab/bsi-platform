@@ -542,6 +542,48 @@ def test_the_exact_host_root_item_wins_the_match(q1_site, q2_site):
     assert (miss.ok, miss.observed) == (True, "Q2: Acme Inc")
 
 
+def test_a_subdomain_only_item_that_names_the_brand_matches():
+    entities = sparql(
+        {"Q1": IMPOSTOR, "Q2": item(P856=["https://gov.acme.com/"])}
+    )
+    miss = next(
+        c
+        for c in run(wiki(entities=entities)).checks
+        if c.code == "wikidata_missing"
+    )
+    assert (miss.ok, miss.observed) == (True, "Q2: Acme Inc")
+
+
+def test_a_subdomain_only_item_with_another_name_is_no_match():
+    wiki_item = item(
+        label="Acme Governance Wiki", P856=["https://gov.acme.com/"]
+    )
+    a = run(wiki(entities=sparql({"Q1": IMPOSTOR, "Q2": wiki_item})))
+    got = {k: v for k, v in verdicts(a).items() if k in WIKI_CODES}
+    assert got == {"wikidata_missing": False}
+    miss = next(c for c in a.checks if c.code == "wikidata_missing")
+    assert miss.observed == (
+        "candidates: Q1 Acme, Q2 Acme Inc; Q2 Acme Governance Wiki is only on "
+        "a subdomain and its label does not name the brand"
+    )
+    assert miss.url == "https://www.wikidata.org/w/index.php?search=Acme"
+
+
+def test_an_exact_host_item_beats_a_subdomain_item_that_names_the_brand():
+    entities = sparql(
+        {
+            "Q1": item(label="Acme", P856=["https://gov.acme.com/"]),
+            "Q2": item(label="Acme Rockets", P856=["https://acme.com/about"]),
+        }
+    )
+    miss = next(
+        c
+        for c in run(wiki(entities=entities)).checks
+        if c.code == "wikidata_missing"
+    )
+    assert (miss.ok, miss.observed) == (True, "Q2: Acme Rockets")
+
+
 def test_equal_sites_keep_search_order():
     hits = [{"id": "Q2", "label": "Acme Inc"}, {"id": "Q1", "label": "Acme"}]
     f = wiki(
