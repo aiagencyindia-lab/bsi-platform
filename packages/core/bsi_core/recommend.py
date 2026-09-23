@@ -23,6 +23,7 @@ product so the weighting is visible (PRD F12):
 """
 
 import logging
+import re
 import uuid
 from collections import Counter
 from collections.abc import Sequence
@@ -444,9 +445,27 @@ def _sampling(
     return out
 
 
+_WIKI_ITEM = re.compile(r"/wiki/(Q\d+)$")
+
+
+def _subject(domain: str, check: dict[str, Any]) -> str:
+    """Brand-level Wikidata checks are keyed by brand or item, so every
+    declared domain reporting the same gap shares one recommendation."""
+    code = check["code"]
+    if code == "wikidata_missing":
+        return "wikidata:wikidata_missing"
+    if code in ("wikidata_name_mismatch", "wikidata_logo_missing"):
+        # ponytail: stored rows are free-form; no item page, no merge.
+        if qid := _WIKI_ITEM.search(str(check.get("url", ""))):
+            return f"wikidata:{qid[1]}:{code}"
+    return f"{domain}:{code}"
+
+
 def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
     """One candidate per failing check (crawl or entity) in each domain's
-    latest audit.
+    latest audit, except the brand-level Wikidata checks, which are merged
+    across domains: one wikidata_missing per brand (none if any domain
+    matched an item), one name or logo check per Wikidata item.
 
     Only domains still declared for the brand count: a removed domain's
     old audit must not keep producing recommendations.
@@ -462,10 +481,12 @@ def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
         ),
         {"brand": brand_id},
     ).all()
-    out = []
+    out: dict[str, Candidate] = {}
+    item_found = False
     for audit_id, domain, checks in rows:
         for check in checks:
             if check["ok"]:
+                item_found |= check["code"] == "wikidata_missing"
                 continue
             code = check["code"]
             fam = family(code)
@@ -484,20 +505,29 @@ def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
                     code,
                 )
                 continue
+            key = _subject(domain, check)
+            if key in out:
+                # A merged Wikidata key repeats across domains; any other
+                # repeat is a duplicate row in one audit, dropped.
+                out[key].evidence.get("domains", []).append(domain)
+                continue
+            evidence = {**check, "domain": domain, "audit_id": str(audit_id)}
+            if key.startswith("wikidata:"):
+                evidence["domains"] = [domain]
             title, body = copy(brand, domain, check)
-            out.append(
-                Candidate(
-                    kind,
-                    f"{domain}:{check['code']}",
-                    title,
-                    body,
-                    {**check, "domain": domain, "audit_id": str(audit_id)},
-                    # Not measured against answers; see PRESSURE_BY_SEVERITY.
-                    1.0,
-                    PRESSURE_BY_SEVERITY[check["severity"]],
-                )
+            out[key] = Candidate(
+                kind,
+                key,
+                title,
+                body,
+                evidence,
+                # Not measured against answers; see PRESSURE_BY_SEVERITY.
+                1.0,
+                PRESSURE_BY_SEVERITY[check["severity"]],
             )
-    return out
+    if item_found:
+        out.pop("wikidata:wikidata_missing", None)
+    return list(out.values())
 
 
 def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
