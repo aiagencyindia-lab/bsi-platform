@@ -58,10 +58,12 @@ always keeping one word, then join the words. A name "matches the brand" when
 (`_names_in`): a brand name or alias passes when its `_words` appear as a
 contiguous run in the text's `_words`, so "Acme | Rockets" names "Acme" and
 "Go — the app" names "Go", while "Acmeworks" and "Google Search" do not.
-A name containing a Han, Hiragana, Katakana or Thai character (scripts
-written without spaces) is matched as a substring instead:
-`_norm(name) in _norm(text)`, where `_norm` casefolds and keeps letters and
-digits, so "索尼" names "索尼中国官网". The title does not strip legal
+When either the name or the text contains a Han, Hiragana, Katakana or
+Thai character (scripts written without spaces), the name is matched as a
+substring instead: `_norm(name) in _norm(text)`, where `_norm` casefolds
+and keeps letters and digits, so "索尼" names "索尼中国官网" and "Sony"
+names "Sony中国官网". Empty names and aliases are skipped, so they never
+match. The title does not strip legal
 suffixes; the About check also tries each name's `_legal_name` word form.
 
 **Organization node.** The first JSON-LD node (recursing `@graph`) whose

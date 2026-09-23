@@ -331,8 +331,9 @@ link: the keyword (`about`, `aboutus`, `about-us` or `company`) must end
 its path segment or go on after `-`, `_` or `.`, so `/about.html` and
 `/company.aspx` still count. The title and About name checks now match
 whole words, with apostrophes dropped ("McDonald's" names "McDonalds"); a
-name in Han, Hiragana, Katakana or Thai falls back to the substring test
-("索尼" names "索尼中国官网").
+name or page text containing Han, Hiragana, Katakana or Thai falls back to
+the substring test ("索尼" names "索尼中国官网", "Sony" names
+"Sony中国官网"), and empty aliases are skipped.
 A subdomain-only Wikidata candidate now matches only when its label names
 the brand; otherwise `wikidata_missing` fails and names the rejected item.
 On wikimedia.org that would read `wikidata_missing` with observed ending
