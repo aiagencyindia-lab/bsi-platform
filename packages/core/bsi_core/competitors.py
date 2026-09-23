@@ -17,7 +17,6 @@ from .metrics import (
     Filters,
     _entities,
     _where,
-    brand_sov,
     delta,
     rate,
     window_versions,
@@ -65,84 +64,115 @@ def entity_metrics(
     s: Session, brand_id: uuid.UUID, f: Filters
 ) -> list[dict[str, Any]]:
     """One row for the brand and one per active competitor, best mention
-    rate first (brand wins ties, then name)."""
+    rate first (brand wins ties, then name). A fixed number of queries,
+    whatever the number of competitors: each grouped by entity."""
     where, params = _where(brand_id, f)
     hosts = _hosts(s, brand_id)
     brand_hosts = hosts[brand_id]
     rival_hosts = [
         h for eid, hs in hosts.items() if eid != brand_id for h in hs
     ]
-    sov = {r["entity_id"]: r for r in brand_sov(s, brand_id, f)}
-    sov_total = sum(r["mentions"] for r in sov.values())
-    rows: list[dict[str, Any]] = []
-    for eid, name, etype in _entities(s, brand_id):
-        p = {
-            **params,
-            "eid": eid,
-            "etype": etype,
-            "domains": hosts.get(eid, []),
-        }
-        # k_cit matches the entity's declared hosts as they are now. The
-        # Overview tile counts citation.is_brand_owned, set at extraction,
-        # so the brand's citation_rate here can differ from it after a
-        # brand domain changes, until the answers are re-extracted.
-        r = s.execute(
+    # One entity read for every number below, sov included, so a
+    # competitor activated mid-request cannot skew the sov total.
+    entities = _entities(s, brand_id)
+    pairs = [(eid, h) for eid, _, _ in entities for h in hosts.get(eid, [])]
+    p = {
+        **params,
+        "eids": [eid for eid, _, _ in entities],
+        "etypes": [etype for _, _, etype in entities],
+        "peids": [eid for eid, _ in pairs],
+        "phosts": [h for _, h in pairs],
+    }
+    base = f"WHERE {where} AND {_DONE}"
+    # A mention names its entity by (type, id), as the brand row joins it.
+    naming = (
+        "JOIN mention mn ON mn.observation_id = o.id "
+        "JOIN unnest(CAST(:eids AS uuid[]), CAST(:etypes AS text[])) "
+        "AS e(id, type) ON mn.entity_id = e.id AND mn.entity_type = e.type "
+    )
+    tot = s.execute(
+        text(
+            "SELECT count(*) AS n, count(DISTINCT o.prompt_id) AS prompts "
+            f"FROM observation o {base}"
+        ),
+        p,
+    ).one()
+    # A mention is unique per (observation, entity): a count of mention
+    # rows is a count of answers naming the entity.
+    stats = {
+        r.entity_id: r
+        for r in s.execute(
             text(f"""
-            SELECT
-              count(*) AS n,
-              count(*) FILTER (WHERE mn.id IS NOT NULL) AS k_mention,
+            SELECT mn.entity_id,
+              count(*) AS k_mention,
               count(*) FILTER (WHERE mn.rec_status = 'recommended') AS k_rec,
-              count(*) FILTER (WHERE EXISTS (
-                SELECT 1 FROM citation c
-                WHERE c.observation_id = o.id AND EXISTS (
-                  SELECT 1 FROM unnest(CAST(:domains AS text[])) d
-                  WHERE c.domain = d OR c.domain LIKE '%.' || d))) AS k_cit,
-              count(DISTINCT o.prompt_id) AS prompts,
-              count(DISTINCT o.prompt_id) FILTER (
-                WHERE mn.id IS NOT NULL) AS prompts_cov,
+              count(DISTINCT o.prompt_id) AS prompts_cov,
               avg(mn.position) AS avg_pos,
               count(*) FILTER (WHERE mn.sentiment = 'positive') AS k_pos,
               count(*) FILTER (WHERE mn.sentiment = 'negative') AS k_neg
-            FROM observation o
-            LEFT JOIN mention mn ON mn.observation_id = o.id
-              AND mn.entity_type = :etype AND mn.entity_id = :eid
-            WHERE {where} AND {_DONE}"""),
+            FROM observation o {naming}{base}
+            GROUP BY mn.entity_id"""),
             p,
-        ).one()
-        cited = s.execute(
+        )
+    }
+    # k_cit matches the entity's declared hosts as they are now. The
+    # Overview tile counts citation.is_brand_owned, set at extraction,
+    # so the brand's citation_rate here can differ from it after a
+    # brand domain changes, until the answers are re-extracted.
+    # Host match as matching.is_owned: equal, or a dot then the host.
+    # No LIKE, so "_" or "%" in a host is not a wildcard.
+    k_cit: dict[uuid.UUID, int] = dict(
+        s.execute(
             text(
-                "SELECT c.domain, count(DISTINCT o.id) AS answers "
-                "FROM citation c "
-                "JOIN observation o ON o.id = c.observation_id "
-                "JOIN mention mn ON mn.observation_id = o.id "
-                "  AND mn.entity_type = :etype AND mn.entity_id = :eid "
-                f"WHERE {where} AND {_DONE} "
-                "GROUP BY c.domain ORDER BY answers DESC, c.domain "
-                f"LIMIT {CITING_DOMAINS}"
+                "SELECT h.eid, count(DISTINCT o.id) FROM observation o "
+                "JOIN citation c ON c.observation_id = o.id "
+                "JOIN unnest(CAST(:peids AS uuid[]), CAST(:phosts AS text[])) "
+                "AS h(eid, host) ON c.domain = h.host "
+                "OR right(c.domain, length(h.host) + 1) = '.' || h.host "
+                f"{base} GROUP BY h.eid"
             ),
             p,
-        ).all()
-        pos = rate(r.k_pos, r.k_mention)
-        neg = rate(r.k_neg, r.k_mention)
+        )
+        .tuples()
+        .all()
+    )
+    cited: dict[uuid.UUID, list[Any]] = {}
+    for c in s.execute(
+        text(f"""
+        SELECT entity_id, domain, answers FROM (
+          SELECT mn.entity_id, c.domain, count(DISTINCT o.id) AS answers,
+            row_number() OVER (
+              PARTITION BY mn.entity_id
+              ORDER BY count(DISTINCT o.id) DESC, c.domain) AS rn
+          FROM citation c JOIN observation o ON o.id = c.observation_id
+          {naming}{base}
+          GROUP BY mn.entity_id, c.domain) t
+        WHERE rn <= {CITING_DOMAINS} ORDER BY entity_id, rn"""),
+        p,
+    ):
+        cited.setdefault(c.entity_id, []).append(c)
+    sov_total = sum(r.k_mention for r in stats.values())
+    rows: list[dict[str, Any]] = []
+    for eid, name, etype in entities:
+        r = stats.get(eid)
+        k = r.k_mention if r else 0
+        pos = rate(r.k_pos if r else 0, k)
+        neg = rate(r.k_neg if r else 0, k)
         rows.append(
             {
                 "entity_id": eid,
                 "name": name,
                 "type": etype,
-                "mention_rate": rate(r.k_mention, r.n),
-                "recommendation_rate": rate(r.k_rec, r.n),
-                "citation_rate": rate(r.k_cit, r.n),
-                "prompt_coverage": rate(r.prompts_cov, r.prompts),
-                # .get: a competitor activated since brand_sov read the
-                # entities has no row; it counts as 0 mentions.
-                "sov": rate(
-                    sov.get(eid, {"mentions": 0})["mentions"], sov_total
-                ),
+                "mention_rate": rate(k, tot.n),
+                "recommendation_rate": rate(r.k_rec if r else 0, tot.n),
+                "citation_rate": rate(k_cit.get(eid, 0), tot.n),
+                "prompt_coverage": rate(r.prompts_cov if r else 0, tot.prompts),
+                "sov": rate(k, sov_total),
                 "avg_position": {
                     "value": float(r.avg_pos)
-                    if r.avg_pos is not None
+                    if r and r.avg_pos is not None
                     else None,
-                    "n_mentioned": r.k_mention,
+                    "n_mentioned": k,
                 },
                 "sentiment": {
                     "positive": pos,
@@ -160,7 +190,7 @@ def entity_metrics(
                         "answers": c.answers,
                         "owner": owner_of(c.domain, brand_hosts, rival_hosts),
                     }
-                    for c in cited
+                    for c in cited.get(eid, [])
                 ],
             }
         )
