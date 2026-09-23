@@ -81,6 +81,9 @@ def test_normalize_domain(raw, expected):
         ("127.0.0.1", False),  # IP literals, public or not
         ("8.8.8.8", False),
         ("127.1", False),  # short IPv4 form: a TLD is never all digits
+        ("0x7f.0x1", False),  # hex forms getaddrinfo also reads as IPv4
+        ("10.0x1", False),
+        ("nike.123", False),
         ("::1", False),
         ("[::1]", False),
         ("::ffff:10.0.0.1", False),

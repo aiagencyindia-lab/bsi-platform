@@ -124,6 +124,7 @@ def is_public_hostname(host: str) -> bool:
     try:
         ipaddress.ip_address(host.strip("[]"))
     except ValueError:
-        # A TLD is never all digits, so short IPv4 forms like 127.1 fail.
-        return "." in host and not host.rsplit(".", 1)[-1].isdigit()
+        # A TLD starts with a letter, so the short and hex IPv4 forms
+        # getaddrinfo accepts (127.1, 0x7f.0x1, 10.0x1) fail.
+        return "." in host and host.rsplit(".", 1)[-1][:1].isalpha()
     return False
