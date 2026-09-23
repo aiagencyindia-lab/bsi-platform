@@ -43,8 +43,9 @@ now uses it). `Head` gains `links: list[str]` (every `<a href>` value),
 nothing else. JSON-LD nodes are walked in `entity.py` itself, since the
 checks need the nodes, not just their types.
 
-**Name normalisation.** `_words(s)`: the casefolded runs of letters and
-digits (`[^\W_]+`), so "Café-Noir!" is `café noir`.
+**Name normalisation.** `_words(s)`: drop apostrophes (' and ’), then
+take the casefolded runs of letters and digits (`[^\W_]+`), so "Café-Noir!"
+is `café noir` and "McDonald's" is `mcdonalds`.
 The two name checks (`org_name_mismatch`, `wikidata_name_mismatch`) first
 drop trailing legal-suffix words (`_legal_name`): split on
 non-alphanumerics, then repeatedly drop a last word in {inc, incorporated,
@@ -57,8 +58,11 @@ always keeping one word, then join the words. A name "matches the brand" when
 (`_names_in`): a brand name or alias passes when its `_words` appear as a
 contiguous run in the text's `_words`, so "Acme | Rockets" names "Acme" and
 "Go — the app" names "Go", while "Acmeworks" and "Google Search" do not.
-The title does not strip legal suffixes; the About check also tries each
-name's `_legal_name` word form.
+A name containing a Han, Hiragana, Katakana or Thai character (scripts
+written without spaces) is matched as a substring instead:
+`_norm(name) in _norm(text)`, where `_norm` casefolds and keeps letters and
+digits, so "索尼" names "索尼中国官网". The title does not strip legal
+suffixes; the About check also tries each name's `_legal_name` word form.
 
 **Organization node.** The first JSON-LD node (recursing `@graph`) whose
 `@type` set intersects `ORG_TYPES = {Organization, Corporation,
@@ -78,7 +82,7 @@ skipped (slice 7 emits `org_schema_missing`, high).
 | `org_sameas_missing` | medium | `sameAs` absent or empty (accept string or list) | "absent" |
 | `website_schema_missing` | low | no node with `@type` `WebSite` in any block | "N ld+json block(s)" |
 | `title_brand_missing` | medium | `<title>` does not contain the brand name or any alias as whole words (`_names_in`) | the title (clipped) |
-| `about_missing` | low | no `<a href>` that resolves (`urllib.parse.urljoin` against the home URL) to the same host with a path starting `/about` or `/company`, optionally under one locale segment (`/en/`, `/en-US/`, `/en_GB/`), case-insensitive; the keyword must end the segment (followed by `/` or the end of the path) or go on after `-` or `_` (`/about-us`, `/company_info`), so `/aboutique` and `/companyname` do not count | "no /about or /company link among N links" |
+| `about_missing` | low | no `<a href>` that resolves (`urllib.parse.urljoin` against the home URL) to the same host with a path starting `/about` or `/company`, optionally under one locale segment (`/en/`, `/en-US/`, `/en_GB/`), case-insensitive; the keyword is `about`, `aboutus`, `about-us` or `company`, and must end the segment (followed by `/` or the end of the path) or go on after `-`, `_` or `.` (`/about-us`, `/company_info`, `/about.html`, `/aboutus.html`, `/company.aspx`), so `/aboutique` and `/companyname` do not count | "no /about or /company link among N links" |
 
 **About page** (added later; browser UA, 0 or 1 fetch). Fetched once, at
 the URL `about_missing` reports, only when the homepage answered 2xx and
@@ -130,9 +134,11 @@ organisation. A subdomain-only item (no candidate has P856 on an exact
 declared host) matches only when its label names the brand
 (`_legal_name(label)` in the brand's `_legal_name` forms, the
 `wikidata_name_mismatch` test): a subdomain can host another project, such
-as a governance wiki. Otherwise `wikidata_missing` fails with observed
+as a governance wiki. The best-ranked subdomain candidate whose label
+names the brand wins. Otherwise `wikidata_missing` fails with observed
 "candidates: …; Q123 Label is only on a subdomain and its label does not
-name the brand" (the best-ranked subdomain candidate), and no other
+name the brand" (the best-ranked subdomain candidate, with its search
+label as in the candidates list), and no other
 Wikidata row is emitted. A search hit with no label reads "no label" in
 the candidates list. For either call, a non-2xx status, a
 `json.loads` failure or an unexpected shape skips **all** Wikidata checks
