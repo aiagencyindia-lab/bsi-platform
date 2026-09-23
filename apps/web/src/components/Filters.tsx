@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Params } from "@/lib/format";
+import { type Params, validDays } from "@/lib/format";
 
 const one = (v: Params[string]) => (typeof v === "string" ? v : "");
 
@@ -40,7 +40,7 @@ export function Filters({
             name="days"
             min={1}
             max={90}
-            defaultValue={one(sp.days) || "7"}
+            defaultValue={validDays(sp) ?? 7}
           />
         </label>
       )}

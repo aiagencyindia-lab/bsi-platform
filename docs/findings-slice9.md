@@ -198,17 +198,22 @@ packages/core/bsi_core/competitors.py     127      0   100%
   windows share prompts, so the pooled test is somewhat optimistic; the
   count rule in front of it limits how often that matters.
 - **Query cost: fixed.** `entity_metrics` now runs grouped queries per
-  window: 8 whatever the number of competitors (measured 8 with 1 rival
-  and 8 with 6; it was 11 and 21). A Competitors page load is about
-  35 + 3E queries (E = feed entries) instead of about 181 + 3E for 25
-  competitors. A test holds the grouped rows equal to the old per-entity
-  path on a larger fixture.
+  window: 7 whatever the number of competitors (measured 7 with 1 rival
+  and 7 with 6; it was 11 and 21). A Competitors page load is about
+  32 + 3E queries (E = feed entries; estimated from the code paths)
+  instead of about 181 + 3E for 25 competitors. A test holds the
+  grouped rows equal to the old per-entity path on a larger fixture.
 - **Feed label: fixed.** The feed said "in the last 14 days" even with
   `date_to` set. `ChangesOut.window` now carries `{before_from, split,
-  to}` and the page prints those dates.
-- **SOV race: fixed.** The sov total came from a second entity read
-  (`brand_sov`); a competitor activated between the reads skewed it. Sov
-  now comes from the same entity list as every other number.
+  to}` and the page prints those dates, each range ending on its last
+  included day (the ends are exclusive).
+- **SOV race: fixed within one `entity_metrics` call.** Its sov total
+  came from a second entity read (`brand_sov`), and its hosts from a
+  third; a competitor activated between the reads skewed the total or
+  showed with citation_rate 0 and its domains as third_party. One read
+  of the active competitors now gives the rows, the hosts and the sov
+  total. Separate calls (the two delta windows, `/sov`, the Overview's
+  `brand_metrics`) still read the competitors each on their own.
 - **`_` wildcard: fixed.** Host ownership used `LIKE '%.' || host`, where
   `_` in a host matched any character (`my_shop.com` owned
   `www.myXshop.com`). It now compares the suffix with `right()`.

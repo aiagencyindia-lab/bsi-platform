@@ -41,23 +41,33 @@ def owner_of(
     return "third_party"
 
 
-def _hosts(s: Session, brand_id: uuid.UUID) -> dict[uuid.UUID, list[str]]:
-    """Declared domains per entity: the brand's `domain` rows, each active
-    competitor's `domains` column."""
-    out = {
+def _entities_and_hosts(
+    s: Session, brand_id: uuid.UUID
+) -> tuple[list[tuple[uuid.UUID, str, str]], dict[uuid.UUID, list[str]]]:
+    """metrics._entities (the brand, then its active competitors) and each
+    one's declared domains (the brand's `domain` rows, a competitor's
+    `domains` column), from one read of the competitors: a competitor
+    activated mid-request is in both or in neither."""
+    brand = s.get_one(m.Brand, brand_id)
+    competitors = s.scalars(
+        select(m.Competitor)
+        .where(
+            m.Competitor.brand_id == brand_id,
+            m.Competitor.status == "active",
+        )
+        .order_by(m.Competitor.created_at, m.Competitor.name)
+    ).all()
+    hosts = {
         brand_id: list(
             s.scalars(
                 select(m.Domain.host).where(m.Domain.brand_id == brand_id)
             )
         )
-    }
-    for c in s.scalars(
-        select(m.Competitor).where(
-            m.Competitor.brand_id == brand_id, m.Competitor.status == "active"
-        )
-    ):
-        out[c.id] = list(c.domains)
-    return out
+    } | {c.id: list(c.domains) for c in competitors}
+    entities = [(brand.id, brand.name, "brand")] + [
+        (c.id, c.name, "competitor") for c in competitors
+    ]
+    return entities, hosts
 
 
 def entity_metrics(
@@ -67,14 +77,13 @@ def entity_metrics(
     rate first (brand wins ties, then name). A fixed number of queries,
     whatever the number of competitors: each grouped by entity."""
     where, params = _where(brand_id, f)
-    hosts = _hosts(s, brand_id)
+    entities, hosts = _entities_and_hosts(s, brand_id)
     brand_hosts = hosts[brand_id]
     rival_hosts = [
         h for eid, hs in hosts.items() if eid != brand_id for h in hs
     ]
-    # One entity read for every number below, sov included, so a
-    # competitor activated mid-request cannot skew the sov total.
-    entities = _entities(s, brand_id)
+    # One read of the competitors serves every number below: the hosts,
+    # the rows and the sov total all see the same active set.
     pairs = [(eid, h) for eid, _, _ in entities for h in hosts.get(eid, [])]
     p = {
         **params,

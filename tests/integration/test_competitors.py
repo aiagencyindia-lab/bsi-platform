@@ -11,7 +11,6 @@ from bsi_core.competitors import (
     MIN_PROMPTS,
     MIN_SHIFT,
     _deltas,
-    _hosts,
     _moved,
     entity_deltas,
     entity_metrics,
@@ -552,6 +551,25 @@ def test_deltas_entity_missing_from_before_uses_zero_count():
     }
 
 
+def _hosts(s, brand_id):
+    """Declared domains per entity: the brand's `domain` rows, each active
+    competitor's `domains` column."""
+    out = {
+        brand_id: list(
+            s.scalars(
+                select(m.Domain.host).where(m.Domain.brand_id == brand_id)
+            )
+        )
+    }
+    for c in s.scalars(
+        select(m.Competitor).where(
+            m.Competitor.brand_id == brand_id, m.Competitor.status == "active"
+        )
+    ):
+        out[c.id] = list(c.domains)
+    return out
+
+
 def _old_entity_metrics(s, brand_id, f):
     """entity_metrics as it was at be83002 (2 queries per entity, host
     match by LIKE): the reference the grouped rewrite must equal."""
@@ -719,7 +737,7 @@ def _big_scene(owner, make_org, make_brand, make_observation, rivals):
     rows = []
     for i, o in enumerate(obs):
         for j, (etype, eid) in enumerate(entities):
-            if (i * (j + 2) + j) % 5 < 2:
+            if (i * (j + 2) + j) % (j + 3) < 2:
                 rows.append(
                     _mention(
                         org,
@@ -759,14 +777,19 @@ def test_grouped_metrics_equal_the_per_entity_path(
         # The fixture exercises what it claims to.
         assert any(r["citation_rate"]["value"] for r in new)
         assert any(r["citing_domains"] for r in new)
+    # Each entity cites a different top list on the unfiltered window, so
+    # rows keyed to the wrong entity cannot compare equal by accident.
+    with tenant_session(org.id) as s:
+        cited = [r["citing_domains"] for r in entity_metrics(s, bid, Filters())]
+    assert all(c for c in cited)
+    assert all(a != b for i, a in enumerate(cited) for b in cited[i + 1 :])
 
 
-def _count_queries(org, bid):
-    n = 0
+def _statements(org, bid):
+    seen = []
 
-    def count(*_):
-        nonlocal n
-        n += 1
+    def count(_conn, _cursor, statement, *_):
+        seen.append(statement)
 
     with tenant_session(org.id) as s:
         bind = s.get_bind()
@@ -775,7 +798,11 @@ def _count_queries(org, bid):
             entity_metrics(s, bid, Filters())
         finally:
             event.remove(bind, "before_cursor_execute", count)
-    return n
+    return seen
+
+
+def _count_queries(org, bid):
+    return len(_statements(org, bid))
 
 
 def test_query_count_does_not_grow_with_rivals(
@@ -784,7 +811,19 @@ def test_query_count_does_not_grow_with_rivals(
     one = _big_scene(owner, make_org, make_brand, make_observation, rivals=1)
     many = _big_scene(owner, make_org, make_brand, make_observation, rivals=6)
     few, lots = _count_queries(*one[:2]), _count_queries(*many[:2])
-    assert few == lots <= 10, (few, lots)
+    assert few == lots <= 8, (few, lots)
+
+
+def test_active_competitors_are_read_once(
+    owner, make_org, make_brand, make_observation
+):
+    """Names and domains come from one read, so a competitor activated
+    mid-request cannot be in the entity list without its hosts."""
+    org, bid, _ = _big_scene(
+        owner, make_org, make_brand, make_observation, rivals=2
+    )
+    reads = [q for q in _statements(org, bid) if "FROM competitor" in q]
+    assert len(reads) == 1, reads
 
 
 def test_host_with_underscore_is_not_a_wildcard(owner, scene):

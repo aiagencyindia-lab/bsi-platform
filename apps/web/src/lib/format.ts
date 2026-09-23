@@ -54,6 +54,12 @@ export function apiQuery(
   return s ? `?${s}` : "";
 }
 
+/** The last day inside a window whose end `v` is exclusive: the UTC date
+ * one millisecond before it. A midnight end gives the day before; `now`
+ * gives today. */
+export const lastDay = (v: string) =>
+  new Date(Date.parse(v) - 1).toISOString().slice(0, 10);
+
 /** `days` as the API accepts it (whole 1..90), or null for anything else:
  * the page then leaves it out of the query and shows the default, 7. */
 export function validDays(sp: Params): number | null {

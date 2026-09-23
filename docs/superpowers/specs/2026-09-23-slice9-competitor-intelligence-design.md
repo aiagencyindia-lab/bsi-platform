@@ -43,15 +43,16 @@ same filters. A row:
 | `recommendation_rate` | done answers with a mention whose `rec_status = 'recommended'` / done answers; the API flags it `experimental`, as the brand's is |
 | `avg_position` | mean `mention.position` over the entity's mentions, `{value, n_mentioned}`; `value` null when `n_mentioned` = 0 |
 | `citation_rate` | done answers with a citation whose domain is owned by one of the entity's domains / done answers. Brand domains come from `domain.host`; competitor domains from `competitor.domains`. Ownership is exact host or subdomain (`matching.is_owned` semantics, done in SQL without LIKE, so `_` or `%` in a host is not a wildcard: `c.domain = h.host OR right(c.domain, length(h.host) + 1) = '.' || h.host` over an unnest of (entity, host) pairs). No domains means k = 0 |
-| `sov` | the entity's mention count / the sum of mention counts over the same entity list (one `_entities` read serves every number, so a competitor activated mid-request cannot skew the total); `metrics.rate`. For the brand it equals `brand_metrics(...)["sov"]` |
+| `sov` | the entity's mention count / the sum of mention counts over the same entity list (one read of the active competitors gives the rows, the hosts and the total, so a competitor activated mid-call cannot skew it); `metrics.rate`. For the brand it equals `brand_metrics(...)["sov"]` |
 | `prompt_coverage` | prompts with ≥ 1 done answer naming the entity / prompts with ≥ 1 done answer |
 | `sentiment` | `{positive: Rate, negative: Rate, index: float|None}` where the rates are the entity's mentions with `sentiment = 'positive'` / `'negative'` over its mentions, and `index = positive.value − negative.value` (null when no mentions). Computed server-side so the page computes nothing |
 | `citing_domains` | up to five `{domain, answers, owner}` for domains cited in done answers that name the entity, most answers first then domain; `owner` is `brand`, `rival` or `third_party` as in `citations.sources` |
 
 Queries: a fixed number per call, whatever the number of competitors:
-`_hosts`, one `_entities` read, the totals, one query grouped by
+`_entities_and_hosts` (the brand, its domain rows and one read of the
+active competitors), the totals, one query grouped by
 `mn.entity_id` for the mention stats, one for citations and one for the
-citing domains (`row_number() OVER (PARTITION BY entity ...)`). 8 in all,
+citing domains (`row_number() OVER (PARTITION BY entity ...)`). 7 in all,
 measured by `test_query_count_does_not_grow_with_rivals`.
 
 Every `Rate` is `{value, n, ci_low, ci_high}` from `metrics.rate` (95%
@@ -135,8 +136,12 @@ test each. No writes.
   The change feed always uses a fixed 14-day window (`days=14`, without
   `date_from`), while the days filter sets the leaderboard deltas. The
   feed's label gives its actual dates from `ChangesOut.window`
-  ("between 2026-08-26–2026-09-09 and 2026-09-09–2026-09-23"), not "the
-  last 14 days", which is wrong once `date_to` is set.
+  ("between 2026-08-26–2026-09-08 and 2026-09-09–2026-09-22" for
+  `date_to` = 2026-09-23), not "the last 14 days", which is wrong once
+  `date_to` is set. Window ends are exclusive, so each range prints its
+  last included day (`format.lastDay`: the UTC date 1 ms before the end;
+  with no `date_to` the end is now, so the label ends today). The days
+  box shows `validDays(sp) ?? 7`.
 - `days` is validated by `format.validDays`: digits only, 1–90. Anything
   else (missing, repeated, `0`, `91`, `abc`, `7.5`) is left out of the
   API query and the page shows 7, the API default; the Overview does the
@@ -218,8 +223,8 @@ reason. Recorded in `docs/findings-slice9.md`.
   is proved by the synthetic fixture only until a second sampling window
   exists.
 - **Query cost.** Fixed per request, not per entity: `entity_metrics`
-  runs 8 queries whatever the number of competitors (measured: 8 with 1
-  rival and 8 with 6, `test_query_count_does_not_grow_with_rivals`);
+  runs 7 queries whatever the number of competitors (measured: 7 with 1
+  rival and 7 with 6, `test_query_count_does_not_grow_with_rivals`);
   `entity_deltas` runs it twice plus 2; `visibility_changes` about 8 plus
-  3 per entry. A Competitors page load is about 35 + 3E queries (E = feed
+  3 per entry. A Competitors page load is about 32 + 3E queries (E = feed
   entries), each scanning the brand's done answers in the window.
