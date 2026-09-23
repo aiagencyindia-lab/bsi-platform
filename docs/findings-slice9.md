@@ -122,8 +122,11 @@ changes days=14: comparable=True reason=fewer than 10 prompts with answers in bo
 `prompts` counts prompts with done answers in both windows. Run 1 is one
 burst of sampling inside the last four days, so no prompt has a before
 answer, `prompts` is 0, and the count rule (at least 10 shared prompts)
-stops the feed before any competitor is tested. The feed will stay empty
-until a second sampling burst lands at least 14 days after the first.
+stops the feed before any competitor is tested. The two windows are
+`[now - 28d, now - 14d)` and `[now - 14d, now)`, so the feed stays empty
+until a second burst lands and the page is viewed while the first burst
+is 14-28 days old (the before window) and the second is within the last
+14 days.
 
 **The feed window is fixed.** Since `fed7141`, the web Competitors tab
 always asks for the change feed with `days=14` and no `date_from`; the
@@ -155,7 +158,9 @@ and three competitors. The pooled numbers below were computed with
   interval is widest at 0.5.
 - A's entry carries its evidence: 11 prompt rows, the engine, `new.com`
   as the one newly cited domain (`old.com` was cited before), and 20
-  observation ids, newest first. The reversed case has no after-window
+  observation ids, newest first. A newly cited domain is one cited in an
+  after-window answer that names the competitor on a moved prompt, and
+  not cited in any before-window answer under the same filters. The reversed case has no after-window
   answer naming A, so its evidence lists are empty.
 - Other tests cover the empty case (`prompts=0` with the Run 1 reason),
   a prompt filter that leaves 5 shared prompts, and mixed pipeline
@@ -163,6 +168,9 @@ and three competitors. The pooled numbers below were computed with
 
 ## 5. Deferred, by decision
 
+- **Undeclared rival domains.** Ownership follows declared domains
+  only: `adidas.com` counts as `third_party` until it is declared.
+  Suggesting or auto-adding a rival's other domains is not built.
 - **Rival crawl.** The weekly crawl of rival domains (sitemap diff, new
   structured data) is not built. The feed reads answers only.
 - **Stored entries and alerts.** The feed is computed on read; nothing
