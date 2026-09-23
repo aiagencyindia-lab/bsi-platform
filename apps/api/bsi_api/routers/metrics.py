@@ -51,6 +51,16 @@ def _flag(window: dict[str, Any]) -> dict[str, Any]:
     return window
 
 
+def window_end(f: Filters) -> datetime:
+    """The end of the compared windows. Window routes refuse date_from:
+    days and date_to set both windows."""
+    if f.date_from is not None:
+        raise Problem(
+            422, "date_from is not allowed", "days and date_to set the windows"
+        )
+    return f.date_to or datetime.now(UTC)
+
+
 @router.get("/deltas", response_model=DeltasOut)
 def get_deltas(
     brand_id: uuid.UUID,
@@ -59,11 +69,7 @@ def get_deltas(
     c: Ctx = TENANT,
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
-    if f.date_from is not None:
-        raise Problem(
-            422, "date_from is not allowed", "days and date_to set the windows"
-        )
-    out = brand_deltas(c.s, brand_id, f, days, f.date_to or datetime.now(UTC))
+    out = brand_deltas(c.s, brand_id, f, days, window_end(f))
     for w in ("before", "after"):
         _flag(out[w])
     return out

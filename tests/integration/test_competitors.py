@@ -232,7 +232,7 @@ def _answers(owner, org, bid, prompt_id, when, n):
         locale = s.scalars(
             select(m.Locale).where(m.Locale.brand_id == bid)
         ).first()
-        engine = s.scalars(select(m.Engine)).first()
+        engine = s.scalars(select(m.Engine).order_by(m.Engine.code)).first()
         job = s.scalars(
             select(m.Job).where(m.Job.brand_id == bid, m.Job.kind == "run")
         ).first()
@@ -369,7 +369,7 @@ def test_only_the_qualifying_competitor_gets_an_entry(owner, feed):
                 .where(m.Observation.id == o)
                 .values(requested_at=AFTER_AT + timedelta(hours=3 - i))
             )
-        code = s.scalars(select(m.Engine)).first().code
+        code = s.scalars(select(m.Engine).order_by(m.Engine.code)).first().code
     got = changes(org, bid)
     assert (got["comparable"], got["reason"], got["prompts"]) == (
         True,

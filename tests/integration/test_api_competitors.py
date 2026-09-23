@@ -80,3 +80,16 @@ def test_unknown_brand_is_404(client, make_org):
             headers=org.headers,
         )
         assert r.status_code == 404, route
+
+
+def test_patch_and_delete_on_metrics_are_a_uuid_parse_error(client, scene):  # noqa: F811
+    """/competitors/metrics shares its path with /competitors/{id}: the
+    write routes must read "metrics" as a bad id, not act on anything."""
+    org, bid, _ = scene
+    url = f"/v1/brands/{bid}/competitors/metrics"
+    for r in (
+        client.patch(url, json={"status": "active"}, headers=org.headers),
+        client.delete(url, headers=org.headers),
+    ):
+        assert r.status_code == 422, r.text
+        assert "uuid" in r.text.lower(), r.text
