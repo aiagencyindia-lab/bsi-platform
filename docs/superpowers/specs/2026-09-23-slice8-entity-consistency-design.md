@@ -37,9 +37,10 @@ Nothing spends money: three extra HTTP fetches per declared domain per week.
 severity, observed, expected, url)` dataclass as `crawl.py`. Pure; unit
 tested from canned `Response`s; never raises.
 
-**Parser reuse.** Promote `crawl._Head` → `crawl.Head` and `crawl._types` →
-`crawl.ld_types` (a second module now uses them). `Head` gains
-`links: list[str]` (every `<a href>` value), nothing else.
+**Parser reuse.** Promote `crawl._Head` → `crawl.Head` (a second module
+now uses it). `Head` gains `links: list[str]` (every `<a href>` value),
+nothing else. JSON-LD nodes are walked in `entity.py` itself, since the
+checks need the nodes, not just their types.
 
 **Name normalisation.** `_norm(s)`: casefold, keep alphanumerics only. A
 name "matches the brand" when `_norm(name)` is in
@@ -58,7 +59,7 @@ skipped (slice 7 emits `org_schema_missing`, high).
 | Code | Severity | Fails when | observed |
 |---|---|---|---|
 | `org_name_mismatch` | high | Organization `name` does not match the brand | the name |
-| `org_url_mismatch` | medium | Organization `url` host (via `matching.normalize_domain`) not in `hosts`; missing `url` also fails | the url or "absent" |
+| `org_url_mismatch` | medium | Organization `url` host (via `matching.normalize_domain`) is not owned by a declared domain (`matching.is_owned`, so a subdomain counts); missing `url` also fails | the url or "absent" |
 | `org_logo_missing` | medium | no `logo` (accept a string, an object with `url`, or a list of either) | "absent" |
 | `org_sameas_missing` | medium | `sameAs` absent or empty (accept string or list) | "absent" |
 | `website_schema_missing` | low | no node with `@type` `WebSite` in any block | "N ld+json block(s)" |
@@ -73,7 +74,7 @@ skipped (slice 7 emits `org_schema_missing`, high).
    only if step 1 yielded ids.
 
 Match: the first candidate in search order with any P856 value whose host
-(`normalize_domain`) is in `hosts`. For either call, a non-2xx status, a
+(`normalize_domain`) is owned by a declared domain (`is_owned`). For either call, a non-2xx status, a
 `json.loads` failure or an unexpected shape skips **all** Wikidata checks
 (fetches still counted). A search that returns zero ids fails
 `wikidata_missing` with observed "no search results".
@@ -100,20 +101,24 @@ no conflict is raised. Passing observed: "N profiles agree".
 
 **Constants.** `entity.SEVERITY` and `entity.EXPECTED` keyed by family,
 mirroring `crawl`. Every `EXPECTED` string ends with "This is an
-optimisation signal, not a guaranteed outcome." `entity.FAMILIES =
+optimisation signal, not a promised outcome." (The copy test forbids the
+word "guarantee" anywhere in recommendation text.) `entity.FAMILIES =
 frozenset(SEVERITY)`.
 
-**Fetch order and count.** Home (1), search (1), getentities (0 or 1), with
-`pause` between fetches as in `audit_domain`. Per domain: 12 + 3 = 15.
+**Fetch order and count.** Home (1), search (1), getentities (0 or 1).
+With `pause` set, the entity audit sleeps before every one of its fetches,
+since it always follows `audit_domain`'s fetches to the same host. Per
+domain: 12 + 3 = 15.
 
 ### B. Worker — `apps/workers/bsi_workers/worker.py`
 
 `run_crawl_audit` reads `brand.name`, `brand.aliases` and all hosts in its
 first tenant session. Per host, with no transaction open:
 `a = audit_domain(host, fetch, pause=…)` then
-`e = audit_entity(host, name, aliases, hosts, fetch, pause=…)`, each in its
-own `try` so one failing does not lose the other (on exception: log, use
-`Audit([], 0)`). Store one `SiteAudit(checks=[asdict(c) for c in a.checks +
+`e = audit_entity(host, name, aliases, hosts, fetch, pause=…)`. A crash in
+`audit_domain` skips the host, as today (no row, so the domain stays due).
+A crash in `audit_entity` is logged and read as `Audit([], 0)`, so the
+crawl checks are still stored. Store one `SiteAudit(checks=[asdict(c) for c in a.checks +
 e.checks], fetches=a.fetches + e.fetches)`. `refresh()` at the end as
 today. Nothing else in the worker changes: same job kind, same
 `JOB_ESTIMATES`, same `queue_due_crawl_audits`.
