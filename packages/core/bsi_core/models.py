@@ -42,6 +42,7 @@ REC_TYPES = (
     "add_competitor",
     "sample_more",
     "fix_crawlability",
+    "fix_entity",
 )
 REC_STATES = ("open", "accepted", "dismissed")
 TASK_STATUSES = ("open", "in_progress", "done", "impact_measured")

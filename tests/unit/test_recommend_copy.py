@@ -1,10 +1,12 @@
 import pytest
+from bsi_core import entity
 from bsi_core.crawl import SEVERITY
 from bsi_core.recommend import (
     citation_copy,
     competitor_copy,
     content_copy,
     crawl_copy,
+    entity_copy,
     names,
     sample_copy,
 )
@@ -53,6 +55,39 @@ CASES += [
     )
     for code in CRAWL_CODES
 ]
+
+CASES += [
+    entity_copy(
+        "Nike",
+        "nike.com",
+        {
+            "code": code,
+            "observed": "Q42: Nikey",
+            "expected": "x",
+            "url": "https://nike.com/",
+            "severity": sev,
+        },
+    )
+    for code, sev in entity.SEVERITY.items()
+]
+
+
+def test_entity_copy_names_the_brand_domain_and_evidence():
+    title, body = entity_copy(
+        "Nike",
+        "nike.com",
+        {
+            "code": "org_name_mismatch",
+            "observed": "Nikey Inc",
+            "expected": "x",
+            "url": "https://nike.com/",
+            "severity": "high",
+        },
+    )
+    assert "nike.com" in title
+    assert "Nikey Inc" in body and "https://nike.com/" in body
+    assert entity.EXPECTED["org_name_mismatch"] in body
+    assert "mention rate" in body
 
 
 @pytest.mark.parametrize("copy", CASES)

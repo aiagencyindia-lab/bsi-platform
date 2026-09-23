@@ -17,7 +17,8 @@ product so the weighting is visible (PRD F12):
   depending on the type. add_competitor has nothing to measure, so it
   is 1.0 and priority there is reach x feasibility; fix_crawlability
   joins add_competitor as a judged, not measured, type: reach is 1.0
-  and pressure is the check's severity weight.
+  and pressure is the check's severity weight. fix_entity is judged the
+  same way.
 - feasibility: how cheaply the operator can act, per type, below.
 """
 
@@ -33,6 +34,7 @@ from sqlalchemy import delete, func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from . import entity
 from . import models as m
 from .crawl import expected, family
 from .matching import is_owned
@@ -49,6 +51,9 @@ FEASIBILITY = {
     # A robots or head-tag change is minutes of work once someone with
     # site access is found; that person is the cost.
     "fix_crawlability": 0.8,
+    # Markup is minutes of work; a Wikidata edit needs sources and can
+    # be reverted by its editors.
+    "fix_entity": 0.7,
     "create_content": 0.4,
     "pursue_citation_source": 0.3,
 }
@@ -179,6 +184,40 @@ def crawl_copy(
         "sites to describe it from. "
         "Metric to watch: this check on the next weekly audit, then the "
         "citation rate."
+    )
+    return title, body
+
+
+_ENTITY_TITLES = {
+    "org_name_mismatch": "Fix the Organization name on {domain}",
+    "org_url_mismatch": "Point the Organization url on {domain} at "
+    "{brand}'s domain",
+    "org_logo_missing": "Add a logo to the Organization on {domain}",
+    "org_sameas_missing": "List {brand}'s profiles in sameAs on {domain}",
+    "website_schema_missing": "{domain} declares no WebSite",
+    "title_brand_missing": "The {domain} homepage title omits {brand}",
+    "about_missing": "The {domain} homepage links no About page",
+    "wikidata_missing": "Create or claim {brand}'s Wikidata item",
+    "wikidata_name_mismatch": "Wikidata names {brand} differently",
+    "wikidata_logo_missing": "Add a logo to {brand}'s Wikidata item",
+    "social_links_conflict": "Align social profiles between {domain} and "
+    "Wikidata",
+}
+
+
+def entity_copy(
+    brand: str, domain: str, check: dict[str, Any]
+) -> tuple[str, str]:
+    fam = family(str(check["code"]))
+    title = _ENTITY_TITLES[fam].format(domain=domain, brand=brand)
+    body = (
+        f"The weekly audit of {check['url']} observed: {check['observed']}. "
+        f"Expected: {entity.EXPECTED[fam]} "
+        "Engines resolve a brand to one entity by agreement between its "
+        "site markup and public knowledge sources; a disagreement makes "
+        f"{brand} harder to identify and cite. "
+        "Metric to watch: this check on the next weekly audit, then the "
+        "mention rate."
     )
     return title, body
 
@@ -406,7 +445,8 @@ def _sampling(
 
 
 def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
-    """One candidate per failing check in each domain's latest audit.
+    """One candidate per failing check (crawl or entity) in each domain's
+    latest audit.
 
     Only domains still declared for the brand count: a removed domain's
     old audit must not keep producing recommendations.
@@ -428,22 +468,26 @@ def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
             if check["ok"]:
                 continue
             code = check["code"]
-            if (
-                family(code) not in _CRAWL_TITLES
-                or check["severity"] not in PRESSURE_BY_SEVERITY
-            ):
+            fam = family(code)
+            if fam in entity.FAMILIES:
+                kind, copy = "fix_entity", entity_copy
+            elif fam in _CRAWL_TITLES:
+                kind, copy = "fix_crawlability", crawl_copy
+            else:
+                kind = ""
+            if not kind or check["severity"] not in PRESSURE_BY_SEVERITY:
                 log.warning(
-                    "skipping unrecognized crawl check: brand=%s domain=%s "
+                    "skipping unrecognized site check: brand=%s domain=%s "
                     "code=%s",
                     brand,
                     domain,
                     code,
                 )
                 continue
-            title, body = crawl_copy(brand, domain, check)
+            title, body = copy(brand, domain, check)
             out.append(
                 Candidate(
-                    "fix_crawlability",
+                    kind,
                     f"{domain}:{check['code']}",
                     title,
                     body,

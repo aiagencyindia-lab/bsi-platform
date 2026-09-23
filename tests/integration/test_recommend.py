@@ -463,3 +463,34 @@ def test_an_unrecognized_check_is_skipped_not_fatal(owner, world):
     assert ("fix_crawlability", "nike.com:llms_missing") in recs
     # generate() still returns the brand's other types.
     assert ("add_competitor", str(world.puma)) in recs
+
+
+def test_each_failing_entity_check_is_one_entity_recommendation(owner, world):
+    _site_audit(
+        owner,
+        world,
+        [
+            _check("org_name_mismatch", False, "high"),
+            _check("social_links_conflict", False, "medium"),
+            _check("wikidata_missing", False, "low"),
+            _check("about_missing", True, "low"),
+            _check("llms_missing", False, "low"),
+        ],
+    )
+    recs = found(world)
+    ent = {k: c for k, c in recs.items() if k[0] == "fix_entity"}
+    codes = ("org_name_mismatch", "social_links_conflict", "wikidata_missing")
+    assert set(ent) == {("fix_entity", f"nike.com:{c}") for c in codes}
+    # Judged, not measured: reach 1.0 x severity weight x 0.7.
+    assert [ent[("fix_entity", f"nike.com:{c}")].priority for c in codes] == [
+        0.7,
+        0.35,
+        0.14,
+    ]
+    name = ent[("fix_entity", "nike.com:org_name_mismatch")]
+    assert (name.reach, name.pressure, name.feasibility) == (1.0, 1.0, 0.7)
+    assert name.evidence["code"] == "org_name_mismatch"
+    assert name.evidence["domain"] == "nike.com"
+    # Crawl checks in the same row still route to fix_crawlability.
+    assert ("fix_crawlability", "nike.com:llms_missing") in recs
+    assert ("fix_entity", "nike.com:llms_missing") not in recs
