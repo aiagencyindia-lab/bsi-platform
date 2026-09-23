@@ -8,6 +8,8 @@ sources. Like crawl.py, the network is one injected callable.
 """
 
 import json
+import logging
+import re
 import time
 from collections.abc import Callable, Iterator, Sequence
 from typing import Any
@@ -24,8 +26,18 @@ from bsi_core.crawl import (
 )
 from bsi_core.matching import is_owned, normalize_domain
 
+log = logging.getLogger("bsi.entity")
+
 SIGNAL = "This is an optimisation signal, not a promised outcome."
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
+# One SPARQL row per candidate: wbgetentities returns every claim, and ten
+# large items overflow http_fetch's body cap (findings-slice8 section 3).
+WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
+_QID = re.compile(r"Q[0-9]+")
+# /about, /company, or either under a locale segment like /en-US/.
+_ABOUT_PATH = re.compile(
+    r"/(?:[a-z]{2}(?:[-_][a-z]{2})?/)?(?:about|company)", re.IGNORECASE
+)
 WIKIDATA_UA = (
     "bsi-platform/0.1 entity-audit "
     "(+https://github.com/aiagencyindia-lab/bsi-platform)"
@@ -155,7 +167,7 @@ def _about(href: str, home_url: str, host: str) -> bool:
     return (
         p.scheme in ("http", "https")
         and own
-        and p.path.lower().startswith(("/about", "/company"))
+        and _ABOUT_PATH.match(p.path) is not None
     )
 
 
@@ -252,18 +264,53 @@ def _social(url: str) -> str | None:
     return f"{host}{path}" if host in _SOCIAL_HOSTS and path else None
 
 
-def _values(item: dict[str, Any], prop: str) -> list[str]:
-    """The string values of one Wikidata claim."""
-    out = []
-    for claim in item.get("claims", {}).get(prop, []):
-        value = claim["mainsnak"].get("datavalue", {}).get("value")
-        if isinstance(value, str):
-            out.append(value)
+_LIST_PROPS = ("P856", *SOCIAL_PROPS)
+
+
+def _sparql_query(ids: Sequence[str]) -> str:
+    """One row per item: English label, a logo count, and each listed
+    property's values joined by tabs. ids must already be Q-ids."""
+    lists = " ".join(
+        f'(GROUP_CONCAT(DISTINCT STR(?{p}_); separator="\\t") AS ?{p})'
+        for p in _LIST_PROPS
+    )
+    optionals = " ".join(
+        f"OPTIONAL {{ ?item wdt:{p} ?{p}_ }}" for p in ("P154", *_LIST_PROPS)
+    )
+    values = " ".join(f"wd:{q}" for q in ids)
+    return (
+        "SELECT ?item (SAMPLE(?l) AS ?label) "
+        f"(COUNT(DISTINCT ?P154_) AS ?P154) {lists} "
+        f"WHERE {{ VALUES ?item {{ {values} }} "
+        'OPTIONAL { ?item rdfs:label ?l FILTER(LANG(?l) = "en") } '
+        f"{optionals} }} GROUP BY ?item"
+    )
+
+
+def _items(body: str) -> dict[str, dict[str, Any]]:
+    """QID -> label, logo count and property value lists, from the answer."""
+    out = {}
+    for b in json.loads(body)["results"]["bindings"]:
+        qid = b["item"]["value"].rsplit("/", 1)[1]
+        out[qid] = {
+            "label": str(b.get("label", {}).get("value", "")),
+            "P154": int(b["P154"]["value"]),
+            **{
+                # An aggregate with no values is left out of the row.
+                p: [v for v in b.get(p, {}).get("value", "").split("\t") if v]
+                for p in _LIST_PROPS
+            },
+        }
     return out
+
+
+def _is_root(url: str) -> bool:
+    return urlsplit(url if "://" in url else f"https://{url}").path in ("", "/")
 
 
 def _wikidata_rows(
     get: Callable[[str, str], Response],
+    host: str,
     brand_name: str,
     names: set[str],
     hosts: Sequence[str],
@@ -279,40 +326,54 @@ def _wikidata_rows(
     human_url = f"https://www.wikidata.org/w/index.php?search={q}"
     r = get(search_url, WIKIDATA_UA)
     if not r.ok:
+        log.warning(
+            "wikidata search failed: host=%s status=%s error=%s",
+            host,
+            r.status,
+            r.error,
+        )
         return []
     hits = json.loads(r.body)["search"]
     labels = {h["id"]: str(h.get("label", "")) for h in hits}
-    ids = list(labels)
+    # The ids go into a SPARQL query: anything but a Q-id stays out.
+    ids = [i for i in labels if isinstance(i, str) and _QID.fullmatch(i)]
     if not ids:
         return [("wikidata_missing", False, "no search results", human_url)]
-    r = get(
-        f"{WIKIDATA_API}?action=wbgetentities&ids={quote('|'.join(ids))}"
-        "&props=labels%7Cclaims&languages=en&format=json",
-        WIKIDATA_UA,
-    )
+    query = quote(_sparql_query(ids), safe="")
+    r = get(f"{WIKIDATA_SPARQL}?format=json&query={query}", WIKIDATA_UA)
     if not r.ok:
+        log.warning(
+            "wikidata query failed: host=%s status=%s error=%s",
+            host,
+            r.status,
+            r.error,
+        )
         return []
-    entities = json.loads(r.body)["entities"]
+    items = _items(r.body)
     # A name search finds namesakes; only an item whose official website
-    # (P856) is a declared domain is the brand.
+    # (P856) is a declared domain is the brand. A product's item can list
+    # a page on the same domain, so an item whose site is the domain root
+    # wins over the search order.
+    verified = [
+        (qid, [v for v in items[qid]["P856"] if _owned(v, hosts)])
+        for qid in ids
+        if qid in items
+    ]
+    verified = [(qid, sites) for qid, sites in verified if sites]
     match = next(
-        (
-            qid
-            for qid in ids
-            if any(_owned(v, hosts) for v in _values(entities[qid], "P856"))
-        ),
-        None,
+        (qid for qid, sites in verified if any(map(_is_root, sites))),
+        verified[0][0] if verified else None,
     )
     if match is None:
         seen = ", ".join(f"{qid} {labels[qid]}" for qid in ids)
         return [("wikidata_missing", False, f"candidates: {seen}", human_url)]
-    item = entities[match]
-    label = str(item.get("labels", {}).get("en", {}).get("value", ""))
+    item = items[match]
+    label = item["label"]
     page = f"https://www.wikidata.org/wiki/{match}"
     wd_social = {
         s
         for prop, fmt in SOCIAL_PROPS.items()
-        for v in _values(item, prop)
+        for v in item[prop]
         if (s := _social(fmt.format(v)))
     }
     only_wd = sorted(wd_social - site_social)
@@ -341,7 +402,7 @@ def _wikidata_rows(
             f"{match}: {label or 'no English label'}",
             page,
         ),
-        ("wikidata_logo_missing", bool(_values(item, "P154")), match, page),
+        ("wikidata_logo_missing", item["P154"] > 0, match, page),
         ("social_links_conflict", not conflict, social_obs, page),
     ]
 
@@ -377,9 +438,10 @@ def audit_entity(
         rows, same_as = _home_rows(home.body, home_url, host, names, hosts)
     site_social = {s for u in same_as if (s := _social(u))}
     try:
-        rows += _wikidata_rows(get, brand_name, names, hosts, site_social)
-    except (ValueError, TypeError, AttributeError, KeyError):
-        pass  # an answer of the wrong shape: skip, as for a non-2xx
+        rows += _wikidata_rows(get, host, brand_name, names, hosts, site_social)
+    except (ValueError, TypeError, AttributeError, KeyError) as e:
+        # An answer of the wrong shape: skip, as for a non-2xx.
+        log.warning("unreadable wikidata answer: host=%s error=%r", host, e)
     checks = [
         Check(
             code,

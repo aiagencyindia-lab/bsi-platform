@@ -58,18 +58,19 @@ def org_home(drop=(), **kv):
 
 
 def fetcher(home_resp=None, search=None, entities=None):
-    """A fetch that answers the homepage and the two Wikidata calls."""
+    """A fetch that answers the homepage, the Wikidata search and the
+    SPARQL query."""
     calls = []
 
     def fetch(url, ua):
         calls.append((url, ua))
         if url == "https://acme.com/":
             return home_resp or Response(200, home())
+        if urlsplit(url).hostname == "query.wikidata.org":
+            return entities or sparql({})
         action = parse_qs(urlsplit(url).query).get("action", [""])[0]
         if action == "wbsearchentities":
             return search or Response(200, json.dumps({"search": []}))
-        if action == "wbgetentities":
-            return entities or Response(200, json.dumps({"entities": {}}))
         raise AssertionError(f"unexpected fetch {url}")
 
     fetch.calls = calls
@@ -203,6 +204,9 @@ def test_an_unreachable_homepage_emits_no_home_rows():
         ("/about", True),
         ("about-us", True),
         ("https://www.acme.com/Company/team", True),
+        ("/en-US/about/", True),
+        ("/en_gb/company", True),
+        ("/shop/about", False),
         ("https://other.com/about", False),
         ("mailto:hello@acme.com", False),
         ("http://[::1", False),
@@ -223,16 +227,6 @@ def test_constants_are_consistent():
     assert len(FAMILIES) == 11
 
 
-def claims(props):
-    return {
-        p: [
-            {"mainsnak": {"snaktype": "value", "datavalue": {"value": v}}}
-            for v in vals
-        ]
-        for p, vals in props.items()
-    }
-
-
 MATCH_PROPS = {
     "P856": ["http://www.acme.com"],
     "P154": ["Acme logo.svg"],
@@ -243,7 +237,30 @@ MATCH_PROPS = {
 
 def item(label="Acme Inc", drop=(), **props):
     p = {k: v for k, v in {**MATCH_PROPS, **props}.items() if k not in drop}
-    return {"labels": {"en": {"value": label}}, "claims": claims(p)}
+    return {"label": label, **p}
+
+
+def binding(qid, it):
+    """One SPARQL result row, shaped as query.wikidata.org answers."""
+    b = {
+        "item": {
+            "type": "uri",
+            "value": f"http://www.wikidata.org/entity/{qid}",
+        },
+        "P154": {"type": "literal", "value": str(len(it.get("P154", [])))},
+    }
+    if it["label"]:
+        b["label"] = {"xml:lang": "en", "type": "literal", "value": it["label"]}
+    # query.wikidata.org leaves out an aggregate with no values at all.
+    for p in ("P856", *entity.SOCIAL_PROPS):
+        if it.get(p):
+            b[p] = {"type": "literal", "value": "\t".join(it[p])}
+    return b
+
+
+def sparql(items):
+    rows = [binding(q, it) for q, it in items.items()]
+    return Response(200, json.dumps({"results": {"bindings": rows}}))
 
 
 IMPOSTOR = item(label="Acme", P856=["https://acme.org/"])
@@ -261,8 +278,7 @@ SEARCH = Response(
 
 
 def ents(match=None, **more):
-    body = {"Q1": IMPOSTOR, "Q2": match or item(), **more}
-    return Response(200, json.dumps({"entities": body}))
+    return sparql({"Q1": IMPOSTOR, "Q2": match or item(), **more})
 
 
 def wiki(**kw):
@@ -289,9 +305,15 @@ def test_a_consistent_brand_passes_every_check():
     search = parse_qs(urlsplit(f.calls[1][0]).query)
     assert search["action"] == ["wbsearchentities"]
     assert search["search"] == ["Acme"]
-    got = parse_qs(urlsplit(f.calls[2][0]).query)
-    assert got["ids"] == ["Q1|Q2"]
-    assert got["props"] == ["labels|claims"]
+    got = urlsplit(f.calls[2][0])
+    assert (got.scheme, got.hostname, got.path) == (
+        "https",
+        "query.wikidata.org",
+        "/sparql",
+    )
+    q = parse_qs(got.query)
+    assert q["format"] == ["json"]
+    assert "VALUES ?item { wd:Q1 wd:Q2 }" in q["query"][0]
     obs = {c.code: (c.observed, c.url) for c in a.checks}
     # The impostor comes first in search order; its P856 is acme.org.
     assert obs["wikidata_missing"] == (
@@ -344,14 +366,67 @@ def test_empty_search_is_missing_without_a_second_call():
         ({"search": Response(200, json.dumps({"search": [{"x": 1}]}))}, 2),
         ({"entities": Response(503, "")}, 3),
         ({"entities": Response(200, "not json")}, 3),
-        ({"entities": ents(item(), Q1=[])}, 3),
+        ({"entities": Response(200, json.dumps({"results": {}}))}, 3),
+        (
+            {
+                "entities": Response(
+                    200, json.dumps({"results": {"bindings": [{"item": 1}]}})
+                )
+            },
+            3,
+        ),
     ],
 )
-def test_an_unreadable_wikidata_answer_skips_its_checks(kw, fetches):
+def test_an_unreadable_wikidata_answer_skips_its_checks(kw, fetches, caplog):
     a = run(wiki(**kw))
     assert not WIKI_CODES & set(verdicts(a))
     assert a.fetches == fetches
     assert HOME_CODES <= set(verdicts(a))  # the home rows still stand
+    # Skipped, but not silently.
+    assert "acme.com" in caplog.text
+
+
+def test_search_ids_that_are_not_item_ids_stay_out_of_the_query():
+    hits = [
+        {"id": "Q1 } ; DROP", "label": "x"},
+        {"id": "P31", "label": "y"},
+        {"id": "Q2", "label": "Acme Inc"},
+    ]
+    f = wiki(search=Response(200, json.dumps({"search": hits})))
+    a = run(f)
+    query = parse_qs(urlsplit(f.calls[2][0]).query)["query"][0]
+    assert "VALUES ?item { wd:Q2 }" in query
+    assert "DROP" not in query and "P31" not in query
+    miss = next(c for c in a.checks if c.code == "wikidata_missing")
+    assert (miss.ok, miss.observed) == (True, "Q2: Acme Inc")
+
+
+def test_only_invalid_ids_read_as_no_search_results():
+    hits = [{"id": "P31", "label": "y"}, {"id": "Q1\n", "label": "z"}]
+    f = wiki(search=Response(200, json.dumps({"search": hits})))
+    a = run(f)
+    got = {c.code: (c.ok, c.observed) for c in a.checks if c.code in WIKI_CODES}
+    assert got == {"wikidata_missing": (False, "no search results")}
+    assert a.fetches == 2
+
+
+@pytest.mark.parametrize(
+    ("q1_site", "q2_site"),
+    [
+        # A product page on the brand's domain comes first in search
+        # order; the item whose site is the domain root is the brand.
+        ("https://acme.com/rockets", "https://acme.com/"),
+        # No root candidate: the first domain-verified one still wins
+        # over a namesake elsewhere.
+        ("https://acme.org/", "https://acme.com/about"),
+    ],
+)
+def test_the_root_site_item_wins_the_match(q1_site, q2_site):
+    product = item(label="Acme Rockets", P856=[q1_site])
+    entities = sparql({"Q1": product, "Q2": item(P856=[q2_site])})
+    a = run(wiki(entities=entities))
+    miss = next(c for c in a.checks if c.code == "wikidata_missing")
+    assert (miss.ok, miss.observed) == (True, "Q2: Acme Inc")
 
 
 def test_wikidata_runs_when_the_homepage_is_down():
@@ -406,6 +481,7 @@ def test_youtube_is_left_out_of_the_social_comparison():
     )
     c = next(c for c in run(f).checks if c.code == "social_links_conflict")
     assert (c.ok, c.observed) == (True, "2 profiles agree")
+    assert "P2397" not in parse_qs(urlsplit(f.calls[2][0]).query)["query"][0]
 
 
 def test_pause_is_taken_before_every_fetch(monkeypatch):
