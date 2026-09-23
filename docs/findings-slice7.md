@@ -335,8 +335,7 @@ unchanged:
      `is_global`, whose IPv6 tables have changed between Python releases
      (CI ran 3.12.3 until the project moved to 3.13, and printed and
      classified some addresses differently). A network-specific NAT64
-     prefix cannot
-     be recognised and is judged as plain IPv6;
+     prefix cannot be recognised and is judged as plain IPv6;
    - the connection is pinned to the checked address: the request URL
      carries the IP, `Host` carries the name, and for https the name is
      passed as `sni_hostname`, which httpcore uses as the TLS
@@ -352,9 +351,12 @@ unchanged:
      unknown encodings are refused; a 1 GiB gzip bomb now peaks at about
      3 MiB of Python heap;
    - the whole fetch, all hops included, stops at 30 s: each request's
-     timeout is the time left (at most 15 s per phase). DNS resolution is
-     not time-bounded: `getaddrinfo` takes no timeout, so a slow resolver
-     can hold a fetch past the deadline.
+     timeout is the time left (at most 15 s per phase). DNS is bounded
+     too: `getaddrinfo` takes no timeout, so each lookup runs on a
+     four-thread pool and the fetch waits at most 10 s or the time left,
+     whichever is less; a lookup still queued when it times out is
+     cancelled. Four lookups truly hung inside the OS resolver still hold
+     their threads, and stall later lookups, until the resolver gives up.
 
    A refused URL is a `Response(0, "", "refused: <reason>")`, e.g.
    `refused: 169.254.169.254 is not a public address`. As defence in depth

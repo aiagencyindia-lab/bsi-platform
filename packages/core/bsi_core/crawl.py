@@ -138,9 +138,10 @@ def _resolve(host: str, port: int) -> list[str]:
 
 
 # getaddrinfo takes no timeout, so lookups run here and the fetch stops
-# waiting instead. ponytail: an abandoned lookup keeps its thread until
-# the OS resolver gives up; four workers cap how many can pile up, and
-# lookups queued behind them time out too.
+# waiting instead; an abandoned lookup still queued is cancelled.
+# ponytail: one already running keeps its thread until the OS resolver
+# gives up, so four truly hung lookups stall the next ones (and a clean
+# shutdown) until then. The worker is one process and never forks.
 _LOOKUPS = ThreadPoolExecutor(max_workers=4, thread_name_prefix="dns")
 
 
@@ -156,9 +157,11 @@ def _public_ip(
     try:
         ips = [str(ipaddress.ip_address(host))]
     except ValueError:
+        lookup = _LOOKUPS.submit(resolve, host, port)
         try:
-            found = _LOOKUPS.submit(resolve, host, port).result(timeout=wait)
+            found = lookup.result(timeout=wait)
         except TimeoutError as e:  # before OSError: it is a subclass
+            lookup.cancel()  # runs never if still queued; running ones can't
             raise _Refused(f"{host} did not resolve in time") from e
         except OSError as e:
             raise _Refused(f"{host} does not resolve") from e

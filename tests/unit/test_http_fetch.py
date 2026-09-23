@@ -3,9 +3,11 @@
 import gzip
 import ipaddress
 import itertools
+import threading
 import time
 import tracemalloc
 import zlib
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import pytest
@@ -346,18 +348,29 @@ def test_each_request_timeout_is_capped_by_the_time_left(monkeypatch):
     assert set(seen[0].extensions["timeout"].values()) == {5.0}
 
 
-def test_a_slow_lookup_is_refused_at_the_dns_timeout(monkeypatch):
+@pytest.fixture
+def hang():
+    """A resolver that blocks until the test ends, then answers."""
+    release = threading.Event()
+    calls = []
+
+    def resolve(host, port):
+        calls.append(host)
+        release.wait(5)
+        return [PUBLIC]
+
+    resolve.release = release
+    yield resolve
+    release.set()  # let the pool's threads finish before pytest exits
+
+
+def test_a_slow_lookup_is_refused_at_the_dns_timeout(monkeypatch, hang):
     # getaddrinfo takes no timeout, so the lookup runs on a worker thread
     # and the fetch gives up on it; nothing is ever requested.
     monkeypatch.setattr("bsi_core.crawl.DNS_TIMEOUT_SECONDS", 0.2)
-
-    def hangs(host, port):
-        time.sleep(2)
-        return [PUBLIC]
-
     t = server(ok)
     start = time.monotonic()
-    r = http_fetch("https://nike.com/", "UA", resolve=hangs, transport=t)
+    r = http_fetch("https://nike.com/", "UA", resolve=hang, transport=t)
     assert time.monotonic() - start < 1
     assert (r.status, r.error) == (
         0,
@@ -366,16 +379,34 @@ def test_a_slow_lookup_is_refused_at_the_dns_timeout(monkeypatch):
     assert t.seen == []
 
 
-def test_the_lookup_wait_is_capped_by_the_time_left(monkeypatch):
+def test_the_lookup_wait_is_capped_by_the_time_left(monkeypatch, hang):
     # A generous DNS timeout still cannot carry a fetch past its deadline.
     monkeypatch.setattr("bsi_core.crawl.DNS_TIMEOUT_SECONDS", 10)
     monkeypatch.setattr("bsi_core.crawl.DEADLINE_SECONDS", 0.2)
-
-    def hangs(host, port):
-        time.sleep(2)
-        return [PUBLIC]
-
+    t = server(ok)
     start = time.monotonic()
-    r = http_fetch("https://nike.com/", "UA", resolve=hangs)
+    r = http_fetch("https://nike.com/", "UA", resolve=hang, transport=t)
     assert time.monotonic() - start < 1
     assert r.error == "refused: nike.com did not resolve in time"
+    assert t.seen == []
+
+
+def test_an_abandoned_lookup_still_queued_never_runs(monkeypatch, hang):
+    # Fill every worker with a hung lookup, then time one out in the
+    # queue: it is cancelled, so it never runs once workers free up.
+    monkeypatch.setattr("bsi_core.crawl.DNS_TIMEOUT_SECONDS", 0.05)
+    pool = ThreadPoolExecutor(max_workers=4)
+    monkeypatch.setattr("bsi_core.crawl._LOOKUPS", pool)
+    for i in range(4):
+        http_fetch(f"https://h{i}.com/", "UA", resolve=hang)
+    ran = []
+
+    def late(host, port):
+        ran.append(host)
+        return [PUBLIC]
+
+    r = http_fetch("https://late.com/", "UA", resolve=late)
+    assert r.error == "refused: late.com did not resolve in time"
+    hang.release.set()
+    pool.shutdown(wait=True)  # every lookup that will ever run has run
+    assert ran == []
