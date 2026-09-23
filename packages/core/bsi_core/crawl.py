@@ -180,8 +180,8 @@ _V4_COMPATIBLE = ipaddress.ip_network("::/96")
 def _is_public(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     """Globally routable and not multicast; an IPv6 address that embeds
     an IPv4 one is judged by that IPv4 address. Spelled out rather than
-    left to `is_global`, whose IPv6 tables differ before Python 3.13
-    (requires-python is >=3.12).
+    left to `is_global`, whose IPv6 tables have changed between Python
+    releases.
 
     ponytail: a network-specific NAT64 prefix (RFC 6052 §2.2) cannot be
     told from an ordinary address, so only 64:ff9b::/96 is unwrapped.
