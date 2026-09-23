@@ -302,7 +302,7 @@ def test_the_charset_decides_the_decoding():
         {"nike.com": [PUBLIC]},
         lambda q: httpx.Response(200, content=b"caf\xe9"),
     )
-    assert r.body == "caf�"  # utf-8 by default, bad bytes replaced
+    assert r.body == "caf\ufffd"  # utf-8 by default, bad bytes replaced
 
 
 def test_the_whole_fetch_has_a_deadline(monkeypatch):

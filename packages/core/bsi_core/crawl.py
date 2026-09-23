@@ -200,6 +200,7 @@ def _decompressor(encoding: str) -> Any:
     raise _Refused(f"content-encoding {encoding}")
 
 
+_REDIRECTS_REFUSED = "too many redirects"
 _TIMED_OUT = f"timeout: over the {DEADLINE_SECONDS} s deadline"
 
 
@@ -278,7 +279,7 @@ def http_fetch(
                     return Response(
                         r.status_code, _decode(bytes(body), r.charset_encoding)
                     )
-            raise _Refused("too many redirects")
+            raise _Refused(_REDIRECTS_REFUSED)
     except _Refused as e:
         return Response(0, "", f"refused: {e}")
     except Exception as e:
@@ -386,16 +387,28 @@ def _root_tag(body: str) -> str:
 
 
 def _clip(s: str) -> str:
-    return s.strip()[:OBSERVED_CAP]
+    # Only ASCII whitespace: str.strip() also drops characters such as
+    # NBSP or \x0b that are part of a robots.txt value (RFC 9309 WS is
+    # space and tab), which would make the evidence contradict the verdict.
+    return s.strip(" \t\r\n")[:OBSERVED_CAP]
+
+
+_KEYS = {"user-agent": "User-agent", "allow": "Allow", "disallow": "Disallow"}
 
 
 def _robots_lines(robots: str) -> Iterator[tuple[str, str, str]]:
-    """(key, value, line) for every `key: value` line, comment removed."""
-    for raw in robots.splitlines():
-        line = raw.split("#", 1)[0].strip()
-        key, colon, value = line.partition(":")
+    """(key, value, line) for every `key: value` line, comment removed.
+
+    RFC 9309's grammar: only CR, LF and CRLF end a line and only space and
+    tab are whitespace, so NEL, U+2028 and NBSP are ordinary characters. A
+    leading BOM is dropped. `line` is normalized (`Disallow: /`), so the
+    evidence shows exactly what was matched, with no padding to be cut.
+    """
+    for raw in re.split(r"\r\n|\r|\n", robots.removeprefix("\ufeff")):
+        key, colon, value = raw.split("#", 1)[0].partition(":")
         if colon:
-            yield key.strip().lower(), value.strip(), line
+            key, value = key.strip(" \t").lower(), value.strip(" \t")
+            yield key, value, f"{_KEYS.get(key, key)}: {value}"
 
 
 def _token(agent: str) -> str:
@@ -446,7 +459,11 @@ def _decisive_rule(robots: str, path: str) -> str | None:
 
 def robots_allows(robots: str, path: str = "/") -> bool:
     """Whether the Allow/Disallow lines in `robots` let a crawler fetch
-    `path`. Group selection happens before; this sees one bot's rules."""
+    `path`. Group selection happens before; this sees one bot's rules.
+
+    ponytail: percent-encoding is not normalized (RFC 9309 §2.2.2); the
+    audit only asks about "/", where it cannot matter.
+    """
     rule = _decisive_rule(robots, path)
     return rule is None or rule.lower().startswith("allow")
 
@@ -479,6 +496,12 @@ def _bot_verdict(
     if len(short) <= OBSERVED_CAP:
         return allowed, short
     return allowed, rule or "no rule matches /"
+
+
+_TOO_MANY_REDIRECTS = (
+    f"robots.txt: more than {MAX_REDIRECTS} redirects, read as unavailable "
+    "(RFC 9309 §2.3.1.2)"
+)
 
 
 def _owned_sitemap(host: str, url: str) -> bool:
@@ -548,6 +571,9 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
     for bot in BOTS:
         if robots.ok:
             allowed, observed = _bot_verdict(groups, bot)
+        elif robots.error == f"refused: {_REDIRECTS_REFUSED}":
+            # §2.3.1.2: unresolved redirects are "unavailable", allow all.
+            allowed, observed = True, _TOO_MANY_REDIRECTS
         elif robots.status == 0 or robots.status >= 500:
             # RFC 9309 §2.3.1.4: unreachable means assume full disallow.
             allowed = False

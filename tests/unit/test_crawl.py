@@ -568,3 +568,152 @@ def test_observed_always_agrees_with_the_verdict():
             }
             shown = {int(m) for m in re.findall(r"/g(\d)", check.observed)}
             assert shown == used, (robots, bot)
+
+
+def test_too_many_robots_redirects_is_unavailable_so_allow_all():
+    # RFC 9309 §2.3.1.2: unresolved redirects mean "unavailable" (§2.3.1.3).
+    refused = Response(0, "", "refused: too many redirects")
+    audit = audit_domain("nike.com", site({**GOOD, "/robots.txt": refused}))
+    for bot in BOTS:
+        check = next(c for c in audit.checks if c.code == f"bot_blocked:{bot}")
+        assert (check.ok, check.observed) == (
+            True,
+            "robots.txt: more than 5 redirects, read as unavailable "
+            "(RFC 9309 §2.3.1.2)",
+        )
+
+
+def test_any_other_refusal_of_robots_txt_is_unreachable_so_disallow_all():
+    refused = Response(0, "", "refused: 10.0.0.1 is not a public address")
+    audit = audit_domain("nike.com", site({**GOOD, "/robots.txt": refused}))
+    for bot in BOTS:
+        check = next(c for c in audit.checks if c.code == f"bot_blocked:{bot}")
+        assert not check.ok
+        assert "10.0.0.1 is not a public address" in check.observed
+
+
+def test_a_leading_bom_does_not_hide_the_first_line():
+    robots = "\ufeffUser-agent: *\nDisallow: /"
+    for bot in BOTS:
+        assert not _bot_check(robots, bot).ok, bot
+
+
+@pytest.mark.parametrize(
+    "robots",
+    [
+        "User-agent: GPTBot\x85Disallow: /",  # NEL is not an end of line
+        "User-agent: GPTBot\u2028Disallow: /",  # nor is U+2028
+        "User-agent: *\nDisallow\xa0: /",  # NBSP is not whitespace: key unknown
+    ],
+)
+def test_only_cr_and_lf_end_a_line_and_only_space_and_tab_are_whitespace(
+    robots,
+):
+    assert _bot_check(robots, "GPTBot").ok
+
+
+def test_a_padded_rule_is_shown_normalized():
+    check = _bot_check("User-agent: *\nDisallow:" + " " * 300 + "/", "GPTBot")
+    assert not check.ok
+    assert "Disallow: /" in check.observed
+    assert robots_allows(check.observed) is check.ok
+
+
+# An independent RFC 9309 reading, written from the RFC text (from the
+# security review's fuzz.py), to check verdicts and not only evidence.
+
+
+def _rfc_verdict(text, bot):
+    groups, current, in_rules = [], None, False
+    for raw in re.split(r"\r\n|\r|\n", text.removeprefix("\ufeff")):
+        line = raw.split("#", 1)[0]
+        if ":" not in line:
+            continue
+        key, value = (x.strip(" \t") for x in line.split(":", 1))
+        key = key.lower()
+        if key == "user-agent":
+            if current is None or in_rules:
+                current, in_rules = (set(), []), False
+                groups.append(current)
+            token = "*" if value == "*" else re.match(r"[A-Za-z_-]*", value)[0]
+            current[0].add(token.lower())
+        elif key in ("allow", "disallow") and current is not None:
+            current[1].append((key, value))
+            in_rules = True
+    used = [g for g in groups if bot.lower() in g[0]] or [
+        g for g in groups if "*" in g[0]
+    ]
+    best = None
+    for key, value in (r for g in used for r in g[1]):
+        if value and _glob(value, "/"):
+            rank = (len(value.encode()), key == "allow")
+            best = rank if best is None or rank > best else best
+    return best is None or best[1]
+
+
+def _glob(pattern, path):
+    anchored = pattern.endswith("$")
+    pos = {0}
+    for ch in pattern[:-1] if anchored else pattern:
+        if ch == "*":
+            pos = set(range(min(pos), len(path) + 1)) if pos else pos
+        else:
+            pos = {i + 1 for i in pos if i < len(path) and path[i] == ch}
+    return len(path) in pos if anchored else bool(pos)
+
+
+def test_verdicts_match_an_independent_rfc_reading():
+    rng = random.Random(2)
+    agents = ["*", "* ", "GPTBot", "gptbot", "GPTBOT/1.0", "GPTBot*", "Claude"]
+    agents += ["ClaudeBot", "claudebot/1.1", "Claude-SearchBot", "bingbot"]
+    agents += ["oai-searchbot (x)", "Google-Extended", "Googlebot", "", "-"]
+    ua_keys = ["User-agent", "user-agent", "USER-AGENT", "User-Agent ", " ua"]
+    rule_keys = [
+        "Allow",
+        "Disallow",
+        "allow",
+        "DISALLOW",
+        "Disallow ",
+        " allow",
+    ]
+    other = ["Sitemap: https://x.com/s.xml", "Host: x", "# c", "", "junk"]
+    weird = ["\x0c", "\x85", "\xa0", "\u2028", "\ufeff", "\x0b", "\x1e"]
+    for _ in range(3000):
+        lines = []
+        for _ in range(rng.randint(1, 40 if rng.random() < 0.3 else 12)):
+            r = rng.random()
+            if r < 0.3:
+                line = f"{rng.choice(ua_keys)}: {rng.choice(agents)}"
+            elif r < 0.75:
+                pattern = "".join(
+                    rng.choice("/*$a.") for _ in range(rng.randint(0, 5))
+                )
+                line = (
+                    f"{rng.choice(rule_keys)}:{rng.choice(['', ' '])}{pattern}"
+                )
+            else:
+                line = rng.choice(other)
+            if rng.random() < 0.05:
+                i = rng.randint(0, len(line))
+                line = line[:i] + rng.choice(weird) + line[i:]
+            lines.append(line)
+        text = rng.choice(["\n", "\r\n", "\r"]).join(lines)
+        if rng.random() < 0.05:
+            text = "\ufeff" + text
+        pages = {**GOOD, "/robots.txt": Response(200, text)}
+        checks = {
+            c.code: c for c in audit_domain("nike.com", site(pages)).checks
+        }
+        for bot in BOTS:
+            check = checks[f"bot_blocked:{bot}"]
+            assert check.ok is _rfc_verdict(text, bot), (text, bot)
+            assert robots_allows(check.observed) is check.ok, (text, bot)
+
+
+@pytest.mark.parametrize("tail", ["\x0b", "\x85", "\xa0", "\u2028", "\x1e"])
+def test_clipping_evidence_keeps_characters_the_rfc_does_not_strip(tail):
+    # `Disallow: *<tail>` does not match "/"; str.strip() would drop the
+    # tail from the evidence and make it read as a match.
+    check = _bot_check(f"User-agent: *\nDisallow: *{tail}", "GPTBot")
+    assert check.ok
+    assert robots_allows(check.observed) is check.ok
