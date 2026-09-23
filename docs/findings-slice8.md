@@ -1,20 +1,23 @@
 # Slice 8 findings: entity consistency audit
 
 Date: 2026-09-23. Branch `slice8-entity-consistency`. Sources: direct
-calls of `bsi_core.entity.audit_entity()` against five real public domains
+calls of `bsi_core.entity.audit_entity()` against six real public domains
 through `bsi_core.crawl.http_fetch` (the SSRF-guarded fetcher), plus a few
 plain-HTTP probes of the same Wikidata endpoints and home pages to explain
 what the audit returned. Plain HTTP only: no model call, no spend, and
 nothing written to the dev database. Afterwards the dev tables
 `recommendation`, `task` and `site_audit` held `0|0|0` rows.
 
-The audit ran three times. The first run exposed a defect that skipped
-every Wikidata check for large brands, fixed on this branch in `b67cf8f`
-(section 3). The second run caught a gap in that fix before it was
-committed. The results below come from the third run. A fourth run on the
-committed code (`b67cf8f`) printed the same output except for one line:
-Mozilla's About link came back as `/en-GB/about/` rather than
-`/en-US/about/`, because mozilla.org picks the locale per request.
+The audit ran several times while the Wikidata matching was fixed on this
+branch (section 3):
+- `b67cf8f` read Wikidata through one SPARQL query, after the first run
+  showed large brands losing every Wikidata check.
+- `1218dba` ranked the exact host over a subdomain and read `mul` labels,
+  after the SPARQL run matched a Wikimedia governance wiki and showed
+  `mul`-only items.
+
+The results below are from the final run on `1218dba`. Two runs on that
+commit printed identical output.
 
 ## 1. What was measured, and how
 
@@ -27,6 +30,7 @@ from bsi_core.entity import audit_entity
 
 logging.basicConfig(level=logging.WARNING, format="LOG %(name)s %(message)s")
 CASES = [
+    ("wikimediafoundation.org", "Wikimedia Foundation", []),
     ("mozilla.org", "Mozilla", ["Mozilla Foundation", "Mozilla Corporation"]),
     ("python.org", "Python Software Foundation", ["Python"]),
     ("apache.org", "Apache Software Foundation", []),
@@ -43,15 +47,42 @@ for host, name, aliases in CASES:
 
 The plan's first three cases were mozilla.org, python.org and example.com.
 wikimedia.org and apache.org are the plan's fallbacks, added when the first
-run returned no Wikidata rows for Mozilla. The third run logged no
-warnings.
+run returned no Wikidata rows for Mozilla. wikimediafoundation.org was
+added once it was clear that it, not wikimedia.org, is the Foundation's own
+site. The final run logged no warnings.
 
 ## 2. Results
 
 A check that is not listed was skipped, not passed. The four `org_*` rows
 need a schema.org Organization node on the home page, and none of these
 five home pages has one: that gap is crawl's `org_schema_missing`, not an
-entity finding.
+entity finding. The one exception is wikimediafoundation.org, the only
+home page with an Organization node, so the only one with `org_*` rows.
+
+### wikimediafoundation.org (Wikimedia Foundation), fetches=3
+
+| Check | Result | Severity | Observed |
+|---|---|---|---|
+| `org_name_mismatch` | ok | high | Wikimedia Foundation |
+| `org_url_mismatch` | ok | medium | https://wikimediafoundation.org/ |
+| `org_logo_missing` | ok | medium | https://wikimediafoundation.org/wp-content/uploads/2022/04/foundation.png |
+| `org_sameas_missing` | ok | medium | https://www.facebook.com/wikipedia/, https://x.com/wikimedia, https://www.instagram.com/wikimediafoundation/, https://www.linkedin.com/company/wikimedia-foundation |
+| `website_schema_missing` | ok | low | 1 ld+json block(s) |
+| `title_brand_missing` | ok | medium | Home – Wikimedia Foundation |
+| `about_missing` | FAIL | low | no /about or /company link among 158 links |
+| `wikidata_missing` | ok | low | Q180: Wikimedia Foundation |
+| `wikidata_name_mismatch` | ok | medium | Q180: Wikimedia Foundation |
+| `wikidata_logo_missing` | ok | low | Q180 |
+| `social_links_conflict` | FAIL | medium | on Wikidata only: facebook.com/wikimediafoundation; on site only: facebook.com/wikipedia |
+
+This is the one domain where every check had something to read.
+- The social conflict is real. The site's sameAs links the Wikipedia
+  Facebook page, while Wikidata lists the Foundation's own page. Twitter,
+  Instagram and LinkedIn agree.
+- `about_missing` fails because the Foundation's About section is
+  `/who-we-are/`. A probe of the home page found `/who-we-are/`,
+  `/who-we-are/people/` and similar, and the check knows only `/about` and
+  `/company`.
 
 ### mozilla.org (Mozilla), fetches=3
 
@@ -59,7 +90,7 @@ entity finding.
 |---|---|---|---|
 | `website_schema_missing` | FAIL | low | 0 ld+json block(s) |
 | `title_brand_missing` | ok | medium | Internet for people, not profit — Mozilla Global |
-| `about_missing` | ok | low | https://mozilla.org/en-US/about/ (fourth run: https://mozilla.org/en-GB/about/) |
+| `about_missing` | ok | low | https://mozilla.org/en-GB/about/ |
 | `wikidata_missing` | ok | low | Q169925: Mozilla Corporation |
 | `wikidata_name_mismatch` | ok | medium | Q169925: Mozilla Corporation |
 | `wikidata_logo_missing` | ok | low | Q169925 |
@@ -119,7 +150,8 @@ Two fetches: an empty search skips the SPARQL call, as designed.
   name. An operator who declares "Wikimedia" as an alias clears it.
 - `about_missing` on mozilla.org failed in the first run: its About link
   is `/en-US/about/`, and the prefix test wanted `/about`. Locale segments
-  are now accepted (section 3), and the second run found the link.
+  are now accepted (section 3). The site chooses the locale per request:
+  one run found `/en-US/about/`, the final runs `/en-GB/about/`.
 - wikimedia.org's only About-like link is
   `https://wikimediafoundation.org/about/contact/`, on another host, so its
   failure is correct as designed.
@@ -166,7 +198,8 @@ empty, and the test fixtures leave empty aggregates out the same way.
 | mozilla.org | Q169925 "Mozilla Corporation" | P856 `https://www.mozilla.org`, the domain root |
 | python.org | Q83818 "Python Software Foundation" | P856 on python.org |
 | apache.org | Q489709 "Apache Software Foundation" | P856 on apache.org |
-| wikimedia.org | Q57077840 "Wikimedia Foundation Governance Wiki" | P856 `https://foundation.wikimedia.org/`, a subdomain |
+| wikimediafoundation.org | Q180 "Wikimedia Foundation" | P856 `https://wikimediafoundation.org/`, exact host at the root; the label is `mul` only |
+| wikimedia.org | Q57077840 "Wikimedia Foundation Governance Wiki" | P856 `https://foundation.wikimedia.org/`, a subdomain, and the only candidate on wikimedia.org |
 
 For Mozilla, the SPARQL probe listed each candidate's P856 in search
 order:
@@ -175,27 +208,28 @@ order:
 - Q169925 Mozilla Corporation: `https://www.mozilla.org`, root, matched.
 - Q308915 Mozilla Public License: `https://www.mozilla.org/MPL/`, on the
   domain but not the root.
-- Q9661 (no English label): `https://www.mozilla.org/en-US/`.
+- Q9661 "Mozilla" (`mul` label only): `https://www.mozilla.org/en-US/`.
 - Q3273508 MDN Web Docs: `https://developer.mozilla.org/`.
 
 Firefox is not the risk it looked like, since its site is firefox.com.
 The root preference guards against Q308915 or Q9661 appearing first.
 
-**Wikimedia matched the wrong item.** Q180, the Wikimedia Foundation
-itself, lists P856 `https://wikimediafoundation.org/`, so the declared
-domain wikimedia.org does not verify it. Q57077840 lists
-`https://foundation.wikimedia.org/`, a subdomain of wikimedia.org, and
-`is_owned` counts subdomains. It matched, and `wikidata_name_mismatch`
-failed against its label, which is the check doing its job.
-
-The case itself was chosen badly: the Foundation's own site is
-wikimediafoundation.org. It does show that a subdomain's item can verify
-against the parent domain.
-
-**English labels.** Q180 and Q9661 have no English label, only a `mul`
-("default for all languages") label: "Wikimedia Foundation" and "Mozilla".
-Had either been matched, `wikidata_name_mismatch` would have failed with
-"no English label", although the label reads as the brand.
+**Found and fixed: a subdomain item and `mul` labels (`1218dba`).**
+- **Subdomain.** Q180, the Wikimedia Foundation itself, lists P856
+  `https://wikimediafoundation.org/`. Q57077840 lists
+  `https://foundation.wikimedia.org/`, and `is_owned` counts subdomains.
+  Candidates are now ranked: exact host at the root, then exact host,
+  then subdomain root, then subdomain. Ties keep search order.
+- **wikimedia.org still matches Q57077840.** No candidate has P856 on
+  wikimedia.org itself, so the subdomain item is the best there is.
+  `wikidata_name_mismatch` fails against its label, so the operator sees
+  the mismatch. The declared domain was the case's mistake; with
+  wikimediafoundation.org declared, Q180 matches.
+- **`mul` labels.** Q180 and Q9661 have no English label, only a `mul`
+  ("default for all languages") label: "Wikimedia Foundation" and
+  "Mozilla". The query now fetches both and uses English, else `mul`. Q180
+  on wikimediafoundation.org passes `wikidata_name_mismatch` through its
+  `mul` label.
 
 **Rejected.** example.com: the search for "Acme Rocket Widgets Pvt"
 returned nothing, so `wikidata_missing` fails with "no search results".
@@ -229,13 +263,14 @@ them rank below any high crawl finding for the same brand.
   channel id), and `x.com` is the only host alias.
 - A brand whose item lacks P856 reads as `wikidata_missing`, which errs
   on the safe side.
-- `/aboutique`-style paths count as an About link (prefix match).
+- `/aboutique`-style paths count as an About link (prefix match), and an
+  About section under another name (`/who-we-are/` on
+  wikimediafoundation.org) does not.
 - The cadence is weekly; the PRD asks for monthly.
 
-**Open, found in this run.**
-- An item whose P856 sits on a subdomain of a declared domain is
-  domain-verified (Wikimedia, section 3).
-- Items that carry only a `mul` label read as "no English label".
+**Open, found in this run.** When the only domain-verified candidate sits
+on a subdomain, it still matches (wikimedia.org, section 3).
+`wikidata_name_mismatch` is what flags it.
 
 ## 6. Spend
 

@@ -73,23 +73,29 @@ skipped (slice 7 emits `org_schema_missing`, high).
 2. `https://query.wikidata.org/sparql?format=json&query={urlencoded}`,
    only if step 1 yielded ids. One SPARQL query returns one row per
    candidate (`VALUES ?item { wd:Q1 wd:Q2 … }`, `GROUP BY ?item`): the
-   English label, a count of P154 values, and the P856 and social-property
+   English label and the `mul` ("default for all languages") label, a
+   count of P154 values, and the P856 and social-property
    values each joined by tabs. It replaced `wbgetentities`, which returns
    every claim of every candidate: for large brands (Mozilla, Wikimedia
    Foundation) ten items passed `http_fetch`'s 512 KiB body cap, the JSON
    was cut off and every Wikidata check was skipped (findings-slice8 §3).
    An aggregate with no values is left out of the row and reads as empty.
+   The label used is English, else `mul`: many items (Q180 Wikimedia
+   Foundation, Q9661 Mozilla) now carry only a `mul` label.
 
 **Id validation.** Search ids go into the query text, so only ids that
 fully match `Q[0-9]+` are kept; the rest are dropped. If none remain, the
 search counts as empty.
 
 Match: among candidates with any P856 value whose host
-(`normalize_domain`) is owned by a declared domain (`is_owned`), the first
-in search order whose owned P856 URL has an empty or `/` path; if none is
-at the root, the first domain-verified one. A product item can list a page
-on the brand's domain (`mozilla.org/MPL/`), and the root preference keeps
-it from beating the organisation. For either call, a non-2xx status, a
+(`normalize_domain`) is owned by a declared domain (`is_owned`), rank each
+by its best owned P856 URL: exact host (equal to a normalised declared
+host) with an empty or `/` path, then exact host, then subdomain root, then
+subdomain. Ties keep search order. A product item can list a page on the
+brand's domain (`mozilla.org/MPL/`), and a project a subdomain
+(`foundation.wikimedia.org`); the ranking keeps both from beating the
+organisation. A subdomain item still matches when it is the only
+domain-verified candidate. For either call, a non-2xx status, a
 `json.loads` failure or an unexpected shape skips **all** Wikidata checks
 (fetches still counted) and logs a warning on `bsi.entity` naming the host
 and the reason. A search that returns zero valid ids fails
