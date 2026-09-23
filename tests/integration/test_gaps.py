@@ -1,5 +1,6 @@
 """Content-gap clusters (PRD F11): clusters, the gap rule, the brief."""
 
+from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -13,7 +14,7 @@ from bsi_core.gaps import (
     clusters,
     unlabelled,
 )
-from bsi_core.metrics import Filters, rate
+from bsi_core.metrics import Filters, prompt_metrics, rate
 from sqlalchemy import select, update
 
 
@@ -310,3 +311,107 @@ def test_unlabelled_counts_active_prompts_missing_a_label(scene, owner):
 
 def test_every_intent_has_a_page_type():
     assert set(PAGE_TYPES) == set(m.INTENTS)
+
+
+def test_evidence_is_newest_across_the_cluster(scene, owner):
+    # Backdate every answer of the prompt whose UUID sorts first, so a
+    # per-prompt ordering would put its (older) answers first.
+    first = min(scene.vs, scene.best)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Observation)
+            .where(m.Observation.prompt_id == first)
+            .values(requested_at=m.Observation.requested_at - timedelta(days=1))
+        )
+        absent = scene.vs_obs[1:] + scene.best_obs[1:]
+        newest = (
+            s.execute(
+                select(m.Observation.id)
+                .where(m.Observation.id.in_(absent))
+                .order_by(
+                    m.Observation.requested_at.desc(), m.Observation.id.desc()
+                )
+            )
+            .scalars()
+            .all()
+        )
+    b = rows(scene)["cluster:comparison:running shoes"]["brief"]
+    assert b["evidence"]["observation_ids"] == [str(o) for o in newest]
+
+
+def test_brief_sources_put_third_party_first(scene, owner):
+    # shop.adidas.co.in (rival) now out-cites forbes.com (third party).
+    with owner() as s, s.begin():
+        for oid in (scene.vs_obs[1], scene.best_obs[1], scene.best_obs[3]):
+            s.add(
+                m.Citation(
+                    org_id=scene.org.id,
+                    observation_id=oid,
+                    url="https://shop.adidas.co.in/z",
+                    domain="shop.adidas.co.in",
+                    position=9,
+                    is_brand_owned=False,
+                )
+            )
+    gap = rows(scene)["cluster:comparison:running shoes"]
+    assert [x["domain"] for x in gap["sources"]] == [
+        "shop.adidas.co.in",
+        "forbes.com",
+        "nike.com",
+    ]
+    assert gap["brief"]["sources"] == [
+        {"domain": "forbes.com", "answers": 4, "owner": "third_party"},
+        {"domain": "shop.adidas.co.in", "answers": 5, "owner": "rival"},
+    ]
+
+
+def test_reason_tie_breaks_by_name(scene, owner):
+    # 3 vs 3: the prompt counted first gets the name that sorts last.
+    first, second = sorted([scene.vs, scene.best])
+    obs = {scene.vs: scene.vs_obs[1:], scene.best: scene.best_obs[1:]}
+    with owner() as s, s.begin():
+        for pid, reason in (
+            (first, "not_retrieved"),
+            (second, "category_mismatch"),
+        ):
+            s.execute(
+                update(m.Extraction)
+                .where(m.Extraction.observation_id.in_(obs[pid]))
+                .values(absence_reason=reason)
+            )
+    gap = rows(scene)["cluster:comparison:running shoes"]
+    assert gap["reasons"] == {"not_retrieved": 3, "category_mismatch": 3}
+    assert gap["reason"] == "category_mismatch"
+
+
+def test_cluster_counts_match_prompt_metrics(scene):
+    with tenant_session(scene.org.id) as s:
+        per_prompt = prompt_metrics(s, scene.brand, Filters())
+    got = rows(scene)
+    for key, c in got.items():
+        ps = [
+            p
+            for p in per_prompt
+            if f"cluster:{p['intent']}:{p['topic']}" == key
+        ]
+        assert c["n"] == sum(p["n"] for p in ps)
+        present = sum(round(p["brand"]["value"] * p["n"]) for p in ps)
+        assert c["n"] - c["absent"] == present
+
+
+def test_absent_answers_naming_no_active_rival_are_not_a_gap(scene, owner):
+    # Absent answers name only Bata (suggested): majority-absent, no gap.
+    absent = scene.vs_obs[1:] + scene.best_obs[1:]
+    with owner() as s, s.begin():
+        s.execute(
+            m.Mention.__table__.delete().where(
+                m.Mention.observation_id.in_(absent),
+                m.Mention.entity_type == "competitor",
+            )
+        )
+        for oid in absent:
+            s.add(_mention(scene.org, oid, "competitor", scene.bata, 2))
+    gap = rows(scene)["cluster:comparison:running shoes"]
+    assert (gap["absent"], gap["rival_absent"]) == (6, 0)
+    assert gap["top_rival"]["name"] == "Adidas"  # the present answer
+    assert gap["gap"] is False and gap["brief"] is None

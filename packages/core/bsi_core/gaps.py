@@ -105,7 +105,10 @@ def unlabelled(s: Session, brand_id: uuid.UUID) -> int:
 
 
 def brief(c: dict[str, Any], brand: str) -> dict[str, Any]:
-    """The model-free content brief for a gap cluster."""
+    """The model-free content brief for a gap cluster.
+
+    `brand` is unused; it is kept for the interface.
+    """
     page_type = PAGE_TYPES[c["intent"]]
     queries = [p["text"] for p in c["prompts"]]
     structure: list[str] = []
@@ -119,7 +122,11 @@ def brief(c: dict[str, Any], brand: str) -> dict[str, Any]:
         "page_type": page_type,
         "structure": structure,
         "competitors": [r["name"] for r in c["rivals"]],
-        "sources": [x for x in c["sources"] if x["owner"] != "brand"],
+        # Third-party domains first (stable: keeps answers-desc within each).
+        "sources": sorted(
+            (x for x in c["sources"] if x["owner"] != "brand"),
+            key=lambda x: x["owner"] != "third_party",
+        ),
         "internal_links": c["brand_urls"],
         "evidence": {
             "prompt_ids": [str(p["prompt_id"]) for p in c["prompts"]],
@@ -140,6 +147,7 @@ def clusters(
     answers = s.execute(
         text(
             "SELECT p.intent, p.topic, o.prompt_id, p.text, o.id, "
+            "o.requested_at, "
             "EXISTS (SELECT 1 FROM mention mn WHERE mn.observation_id = o.id "
             "  AND mn.entity_type = 'brand') AS present, "
             "EXISTS (SELECT 1 FROM mention mn JOIN competitor cp "
@@ -212,7 +220,7 @@ def clusters(
         p["n"] += 1
         if not r.present:
             p["absent"] += 1
-            c["absent_obs"].append(r.id)  # newest first (ORDER BY)
+            c["absent_obs"].append((r.requested_at, r.id))
             c["rival_absent"] += r.rival
             if r.absence_reason:
                 c["reasons"][r.absence_reason] += 1
@@ -248,7 +256,10 @@ def clusters(
         )
         b = rate(c["present"], n)
         reasons = dict(c["reasons"])
-        reason = c["reasons"].most_common(1)[0][0] if reasons else None
+        # Top reason: highest count, ties broken by reason name.
+        reason = (
+            min(reasons, key=lambda k: (-reasons[k], k)) if reasons else None
+        )
         gap = (
             absent * 2 >= n
             and c["rival_absent"] >= 1
@@ -275,8 +286,11 @@ def clusters(
             "sources": src[(intent, topic)][:SOURCES_CAP],
             "brand_urls": lnk[(intent, topic)][:LINKS_CAP],
             "gap": gap,
-            # Newest absent answers, capped: the brief's evidence.
-            "absent_obs": c["absent_obs"][:EVIDENCE_CAP],
+            # The cluster's newest absent answers (id breaks ties), capped:
+            # the brief's evidence.
+            "absent_obs": [i for _, i in sorted(c["absent_obs"], reverse=True)][
+                :EVIDENCE_CAP
+            ],
         }
         row["brief"] = brief(row, brand) if gap else None
         out.append(row)
