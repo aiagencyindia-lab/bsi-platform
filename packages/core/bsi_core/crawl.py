@@ -145,7 +145,9 @@ def _public_ip(
         ips = [str(ipaddress.ip_address(host))]
     except ValueError:
         try:
-            ips = resolve(host, port)
+            # Parsed once, so the check, the message and the pinned
+            # address all use one form whatever the resolver returned.
+            ips = [str(ipaddress.ip_address(ip)) for ip in resolve(host, port)]
         except OSError as e:
             raise _Refused(f"{host} does not resolve") from e
     if not ips:
