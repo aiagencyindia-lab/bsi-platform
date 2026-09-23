@@ -88,7 +88,8 @@ Six intents and eight topics, giving 15 `(intent, topic)` clusters.
 
 ## 3. The clusters
 
-In the order `clusters()` returns them (spread ascending, then larger n).
+In the order `clusters()` returns them (spread ascending, clusters with
+no rival last, then larger n, then key).
 Brand rate and top-rival rate are value (n, 95% Wilson interval) over the
 cluster's answers. Absent is answers without the brand; "rival in absent"
 is those of them naming an active rival. Spread is brand minus top rival.
@@ -172,14 +173,19 @@ with the note "Page type and structure are templates by intent, not a
 judgement of the site."
 
 **Reading it.**
-- `adidas.com` sits among the third-party sources for the comparison and
-  waterproof clusters: ownership follows declared domains, and Adidas
-  declares only `adidas.co.in` (findings-slice9 §2). An operator would
-  read "earn coverage on adidas.com" as odd advice.
-- The how-to template reads badly with a noun topic: its H1 is
-  `How to {topic}`, so the two problem-based briefs open with "How to
-  kids shoes" and "How to school shoes". The template assumes a verb
-  phrase that the labeller does not produce. Not fixed in this task.
+- Rival brand domains sit among the third-party sources: `adidas.com`
+  in the comparison, waterproof and `recommendation: kids shoes` briefs,
+  and `skechers.com` in the comparison brief (10th of its 10 sources, 4
+  answers). Ownership follows declared domains, and Adidas and Skechers
+  declare only `adidas.co.in` and `skechers.in` (findings-slice9 §2), so
+  the `.com` domains count as `third_party`. An operator would read
+  "earn coverage on adidas.com" as odd advice.
+- The how-to template read badly with a noun topic: its H1 was
+  `How to {topic}`, so the two problem-based briefs opened with "How to
+  kids shoes" and "How to school shoes". The template assumed a verb
+  phrase that the labeller does not produce. Fixed in the final review
+  wave: the heading is now `{topic}: problems and fixes` ("H1: kids
+  shoes: problems and fixes").
 - The problem-based sources are US podiatry and physio sites; the
   answers draw on foot-health content, not retailers. That is the
   evidence, and the brief reports it as found.
@@ -234,6 +240,15 @@ prompts, not only a regrouping. Net: 18 per-prompt recommendations
 became 13 cluster recommendations, 5 fewer; four two-prompt clusters
 each merged two, and one was dropped.
 
+Pooling can move a prompt either way. It can drop a prompt's gap: a
+prompt 3/5 absent pooled with one 0/5 absent gives 3/10, under half, so
+neither is a gap. It can add one: a brand-named prompt pulled into a gap
+cluster becomes a target query of that cluster's brief even when the
+brand is present in its own answers (`informational: kids shoe brands`,
+section 3). The dropped toddler-shoes recommendation cost little: with
+no rival in any absent answer its pressure was 0, so under the old rule
+its priority was 0.0.
+
 ## 6. Label quality
 
 - **Topics are too fine for 20 prompts.** 15 clusters from 20 prompts,
@@ -268,6 +283,12 @@ each merged two, and one was dropped.
 - **Stored clusters.** Clusters and briefs are computed on read; nothing
   is stored beyond the recommendation that `refresh()` would write.
 - **Alerts.** Nothing alerts when a cluster becomes or stops being a gap.
+- **Decided cluster recommendations.** Once a cluster recommendation is
+  accepted or dismissed, prompts that later join the cluster do not
+  reopen it (`refresh()` updates only open rows), and the accepted
+  task's `prompt_ids` stay as they were at accept time. A prompt whose
+  per-prompt recommendation was dismissed reappears as a target query of
+  its cluster once labelled.
 
 ## 8. Spend
 
