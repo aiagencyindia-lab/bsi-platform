@@ -4,13 +4,14 @@ import json
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from bsi_core import crawl
+from bsi_core import crawl, entity
 from bsi_core.crawl import BROWSER_UA, Response
 from bsi_core.entity import (
     EXPECTED,
     FAMILIES,
     SEVERITY,
     SIGNAL,
+    WIKIDATA_UA,
     audit_entity,
 )
 
@@ -220,3 +221,194 @@ def test_constants_are_consistent():
     # The rule routes by family: entity and crawl must never share one.
     assert not FAMILIES & set(crawl.SEVERITY)
     assert len(FAMILIES) == 11
+
+
+def claims(props):
+    return {
+        p: [
+            {"mainsnak": {"snaktype": "value", "datavalue": {"value": v}}}
+            for v in vals
+        ]
+        for p, vals in props.items()
+    }
+
+
+MATCH_PROPS = {
+    "P856": ["http://www.acme.com"],
+    "P154": ["Acme logo.svg"],
+    "P2002": ["AcmeHQ"],
+    "P4264": ["acme"],
+}
+
+
+def item(label="Acme Inc", drop=(), **props):
+    p = {k: v for k, v in {**MATCH_PROPS, **props}.items() if k not in drop}
+    return {"labels": {"en": {"value": label}}, "claims": claims(p)}
+
+
+IMPOSTOR = item(label="Acme", P856=["https://acme.org/"])
+SEARCH = Response(
+    200,
+    json.dumps(
+        {
+            "search": [
+                {"id": "Q1", "label": "Acme"},
+                {"id": "Q2", "label": "Acme Inc"},
+            ]
+        }
+    ),
+)
+
+
+def ents(match=None, **more):
+    body = {"Q1": IMPOSTOR, "Q2": match or item(), **more}
+    return Response(200, json.dumps({"entities": body}))
+
+
+def wiki(**kw):
+    """A fetcher with a domain-verified Wikidata match by default."""
+    kw.setdefault("search", SEARCH)
+    kw.setdefault("entities", ents())
+    return fetcher(**kw)
+
+
+WIKI_CODES = {
+    "wikidata_missing",
+    "wikidata_name_mismatch",
+    "wikidata_logo_missing",
+    "social_links_conflict",
+}
+
+
+def test_a_consistent_brand_passes_every_check():
+    f = wiki()
+    a = run(f)
+    assert verdicts(a) == dict.fromkeys(SEVERITY, True)
+    assert a.fetches == 3
+    assert [ua for _, ua in f.calls] == [BROWSER_UA, WIKIDATA_UA, WIKIDATA_UA]
+    search = parse_qs(urlsplit(f.calls[1][0]).query)
+    assert search["action"] == ["wbsearchentities"]
+    assert search["search"] == ["Acme"]
+    got = parse_qs(urlsplit(f.calls[2][0]).query)
+    assert got["ids"] == ["Q1|Q2"]
+    assert got["props"] == ["labels|claims"]
+    obs = {c.code: (c.observed, c.url) for c in a.checks}
+    # The impostor comes first in search order; its P856 is acme.org.
+    assert obs["wikidata_missing"] == (
+        "Q2: Acme Inc",
+        "https://www.wikidata.org/wiki/Q2",
+    )
+    assert obs["social_links_conflict"][0] == "2 profiles agree"
+
+
+@pytest.mark.parametrize(
+    ("code", "kw"),
+    [
+        (
+            "wikidata_name_mismatch",
+            {"entities": ents(item(label="Acme Rockets"))},
+        ),
+        ("wikidata_logo_missing", {"entities": ents(item(drop=("P154",)))}),
+        ("social_links_conflict", {"entities": ents(item(P2002=["acme_x"]))}),
+    ],
+)
+def test_each_wikidata_check_fails_alone(code, kw):
+    got = verdicts(run(wiki(**kw)))
+    assert {k for k, ok in got.items() if not ok} == {code}
+
+
+def test_no_domain_verified_candidate_is_wikidata_missing_only():
+    a = run(wiki(entities=ents(item(P856=["https://acme.org"]))))
+    got = {k: v for k, v in verdicts(a).items() if k in WIKI_CODES}
+    assert got == {"wikidata_missing": False}
+    miss = next(c for c in a.checks if c.code == "wikidata_missing")
+    assert miss.observed == "candidates: Q1 Acme, Q2 Acme Inc"
+    assert miss.url == "https://www.wikidata.org/w/index.php?search=Acme"
+
+
+def test_empty_search_is_missing_without_a_second_call():
+    f = wiki(search=Response(200, json.dumps({"search": []})))
+    a = run(f)
+    got = {c.code: (c.ok, c.observed) for c in a.checks if c.code in WIKI_CODES}
+    assert got == {"wikidata_missing": (False, "no search results")}
+    assert a.fetches == 2
+
+
+@pytest.mark.parametrize(
+    ("kw", "fetches"),
+    [
+        ({"search": Response(500, "")}, 2),
+        ({"search": Response(0, "", "ConnectError('x')")}, 2),
+        ({"search": Response(200, "<html>")}, 2),
+        ({"search": Response(200, json.dumps({"error": {"code": "x"}}))}, 2),
+        ({"search": Response(200, json.dumps({"search": [{"x": 1}]}))}, 2),
+        ({"entities": Response(503, "")}, 3),
+        ({"entities": Response(200, "not json")}, 3),
+        ({"entities": ents(item(), Q1=[])}, 3),
+    ],
+)
+def test_an_unreadable_wikidata_answer_skips_its_checks(kw, fetches):
+    a = run(wiki(**kw))
+    assert not WIKI_CODES & set(verdicts(a))
+    assert a.fetches == fetches
+    assert HOME_CODES <= set(verdicts(a))  # the home rows still stand
+
+
+def test_wikidata_runs_when_the_homepage_is_down():
+    a = run(wiki(home_resp=Response(500, "")))
+    assert set(verdicts(a)) == WIKI_CODES
+    assert a.fetches == 3
+
+
+@pytest.mark.parametrize(
+    ("same_as", "props", "observed"),
+    [
+        (
+            [*ORG["sameAs"], "https://instagram.com/acme"],
+            {},
+            "on Wikidata only: none; on site only: instagram.com/acme",
+        ),
+        (
+            ORG["sameAs"],
+            {"P2013": ["Acme"]},
+            "on Wikidata only: facebook.com/acme; on site only: none",
+        ),
+    ],
+)
+def test_social_conflict_in_each_direction(same_as, props, observed):
+    a = run(
+        wiki(home_resp=org_home(sameAs=same_as), entities=ents(item(**props)))
+    )
+    c = next(c for c in a.checks if c.code == "social_links_conflict")
+    assert (c.ok, c.observed) == (False, observed)
+
+
+@pytest.mark.parametrize(
+    ("same_as", "drop"),
+    [
+        (["https://en.wikipedia.org/wiki/Acme"], ()),
+        (ORG["sameAs"], ("P2002", "P4264")),
+    ],
+)
+def test_no_conflict_when_one_side_has_no_socials(same_as, drop):
+    f = wiki(home_resp=org_home(sameAs=same_as), entities=ents(item(drop=drop)))
+    c = next(c for c in run(f).checks if c.code == "social_links_conflict")
+    assert c.ok
+    assert c.observed.startswith("nothing to compare")
+
+
+def test_pause_is_taken_before_every_fetch(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(entity.time, "sleep", sleeps.append)
+    run(wiki(), pause=0.5)
+    assert sleeps == [0.5, 0.5, 0.5]
+
+
+def test_a_nested_organization_stub_does_not_shadow_the_brand_node():
+    stub = {
+        "@type": "WebSite",
+        "publisher": {"@type": "Organization", "@id": "https://acme.com/#org"},
+    }
+    resp = Response(200, home(org=stub, extra=(ORG,)))
+    got = home_verdicts(run(fetcher(home_resp=resp)))
+    assert got == dict.fromkeys(HOME_CODES, True)

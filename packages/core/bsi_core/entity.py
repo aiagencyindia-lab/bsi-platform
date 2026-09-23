@@ -9,9 +9,9 @@ sources. Like crawl.py, the network is one injected callable.
 
 import json
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 from bsi_core.crawl import (
     BROWSER_UA,
@@ -81,6 +81,15 @@ EXPECTED = {
     f"on the Wikidata item are the same. {SIGNAL}",
 }
 FAMILIES = frozenset(SEVERITY)
+# Wikidata property -> the profile URL it stands for (host + path).
+SOCIAL_PROPS = {
+    "P2002": "twitter.com/{}",
+    "P2013": "facebook.com/{}",
+    "P2003": "instagram.com/{}",
+    "P4264": "linkedin.com/company/{}",
+    "P2397": "youtube.com/channel/{}",
+}
+_SOCIAL_HOSTS = {p.split("/", 1)[0] for p in SOCIAL_PROPS.values()}
 
 Row = tuple[str, bool, str, str]  # code, ok, observed, url
 
@@ -158,7 +167,12 @@ def _home_rows(
     nodes = _ld_nodes(head.ld)
     rows: list[Row] = []
     same_as: list[str] = []
-    org = next((n for n in nodes if _types(n) & ORG_TYPES), None)
+    orgs = [n for n in nodes if _types(n) & ORG_TYPES]
+    # A named node over a nested stub like WebSite.publisher {"@id": ...}.
+    named = [
+        n for n in orgs if isinstance(n.get("name"), str) and n["name"].strip()
+    ]
+    org = next(iter(named or orgs), None)
     # No Organization at all is crawl's org_schema_missing, not ours.
     if org is not None:
         name = org.get("name")
@@ -224,6 +238,113 @@ def _home_rows(
     return rows, same_as
 
 
+def _social(url: str) -> str | None:
+    """A profile URL as lowercase host + path, or None if it is not on a
+    tracked network. x.com is twitter.com."""
+    try:
+        p = urlsplit(url if "://" in url else f"https://{url}")
+        host = (p.hostname or "").removeprefix("www.")
+    except ValueError:
+        return None
+    host = "twitter.com" if host == "x.com" else host
+    path = p.path.rstrip("/").lower()
+    return f"{host}{path}" if host in _SOCIAL_HOSTS and path else None
+
+
+def _values(item: dict[str, Any], prop: str) -> list[str]:
+    """The string values of one Wikidata claim."""
+    out = []
+    for claim in item.get("claims", {}).get(prop, []):
+        value = claim["mainsnak"].get("datavalue", {}).get("value")
+        if isinstance(value, str):
+            out.append(value)
+    return out
+
+
+def _wikidata_rows(
+    get: Callable[[str, str], Response],
+    brand_name: str,
+    names: set[str],
+    hosts: Sequence[str],
+    site_social: set[str],
+) -> list[Row]:
+    """Raises ValueError, TypeError, AttributeError or KeyError on an
+    answer of the wrong shape; the caller skips every Wikidata row then."""
+    q = quote(brand_name, safe="")
+    search_url = (
+        f"{WIKIDATA_API}?action=wbsearchentities&search={q}"
+        "&language=en&type=item&limit=10&format=json"
+    )
+    human_url = f"https://www.wikidata.org/w/index.php?search={q}"
+    r = get(search_url, WIKIDATA_UA)
+    if not r.ok:
+        return []
+    hits = json.loads(r.body)["search"]
+    labels = {h["id"]: str(h.get("label", "")) for h in hits}
+    ids = list(labels)
+    if not ids:
+        return [("wikidata_missing", False, "no search results", human_url)]
+    r = get(
+        f"{WIKIDATA_API}?action=wbgetentities&ids={quote('|'.join(ids))}"
+        "&props=labels%7Cclaims&languages=en&format=json",
+        WIKIDATA_UA,
+    )
+    if not r.ok:
+        return []
+    entities = json.loads(r.body)["entities"]
+    # A name search finds namesakes; only an item whose official website
+    # (P856) is a declared domain is the brand.
+    match = next(
+        (
+            qid
+            for qid in ids
+            if any(_owned(v, hosts) for v in _values(entities[qid], "P856"))
+        ),
+        None,
+    )
+    if match is None:
+        seen = ", ".join(f"{qid} {labels[qid]}" for qid in ids)
+        return [("wikidata_missing", False, f"candidates: {seen}", human_url)]
+    item = entities[match]
+    label = str(item.get("labels", {}).get("en", {}).get("value", ""))
+    page = f"https://www.wikidata.org/wiki/{match}"
+    wd_social = {
+        s
+        for prop, fmt in SOCIAL_PROPS.items()
+        for v in _values(item, prop)
+        if (s := _social(fmt.format(v)))
+    }
+    only_wd = sorted(wd_social - site_social)
+    only_site = sorted(site_social - wd_social)
+    if wd_social and site_social:
+        conflict = bool(only_wd or only_site)
+        social_obs = (
+            f"on Wikidata only: {', '.join(only_wd) or 'none'}; "
+            f"on site only: {', '.join(only_site) or 'none'}"
+            if conflict
+            else f"{len(wd_social)} profiles agree"
+        )
+    else:
+        # One side lists no profiles: sameAs_missing or Wikidata's own
+        # gap covers it, so it is not a conflict.
+        conflict = False
+        social_obs = (
+            f"nothing to compare: {len(wd_social)} on Wikidata, "
+            f"{len(site_social)} on site"
+        )
+    return [
+        ("wikidata_missing", True, f"{match}: {label}", page),
+        (
+            "wikidata_name_mismatch",
+            _norm(label) in names,
+            f"{match}: {label or 'no English label'}",
+            page,
+        ),
+        ("wikidata_logo_missing", bool(_values(item, "P154")), match, page),
+        ("social_links_conflict", not conflict, social_obs, page),
+    ]
+
+
 def audit_entity(
     host: str,
     brand_name: str,
@@ -250,8 +371,14 @@ def audit_entity(
     home_url = f"https://{host}/"
     home = get(home_url, BROWSER_UA)
     rows: list[Row] = []
+    same_as: list[str] = []
     if home.ok:
-        rows, _same_as = _home_rows(home.body, home_url, host, names, hosts)
+        rows, same_as = _home_rows(home.body, home_url, host, names, hosts)
+    site_social = {s for u in same_as if (s := _social(u))}
+    try:
+        rows += _wikidata_rows(get, brand_name, names, hosts, site_social)
+    except (ValueError, TypeError, AttributeError, KeyError):
+        pass  # an answer of the wrong shape: skip, as for a non-2xx
     checks = [
         Check(
             code,
