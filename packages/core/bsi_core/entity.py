@@ -268,8 +268,9 @@ _LIST_PROPS = ("P856", *SOCIAL_PROPS)
 
 
 def _sparql_query(ids: Sequence[str]) -> str:
-    """One row per item: English label, a logo count, and each listed
-    property's values joined by tabs. ids must already be Q-ids."""
+    """One row per item: English and mul ("default for all languages")
+    labels, a logo count, and each listed property's values joined by
+    tabs. ids must already be Q-ids."""
     lists = " ".join(
         f'(GROUP_CONCAT(DISTINCT STR(?{p}_); separator="\\t") AS ?{p})'
         for p in _LIST_PROPS
@@ -279,10 +280,11 @@ def _sparql_query(ids: Sequence[str]) -> str:
     )
     values = " ".join(f"wd:{q}" for q in ids)
     return (
-        "SELECT ?item (SAMPLE(?l) AS ?label) "
+        "SELECT ?item (SAMPLE(?en_) AS ?label) (SAMPLE(?mul_) AS ?mul) "
         f"(COUNT(DISTINCT ?P154_) AS ?P154) {lists} "
         f"WHERE {{ VALUES ?item {{ {values} }} "
-        'OPTIONAL { ?item rdfs:label ?l FILTER(LANG(?l) = "en") } '
+        'OPTIONAL { ?item rdfs:label ?en_ FILTER(LANG(?en_) = "en") } '
+        'OPTIONAL { ?item rdfs:label ?mul_ FILTER(LANG(?mul_) = "mul") } '
         f"{optionals} }} GROUP BY ?item"
     )
 
@@ -293,7 +295,11 @@ def _items(body: str) -> dict[str, dict[str, Any]]:
     for b in json.loads(body)["results"]["bindings"]:
         qid = b["item"]["value"].rsplit("/", 1)[1]
         out[qid] = {
-            "label": str(b.get("label", {}).get("value", "")),
+            # English, else the mul label many items now carry instead.
+            "label": str(
+                b.get("label", {}).get("value", "")
+                or b.get("mul", {}).get("value", "")
+            ),
             "P154": int(b["P154"]["value"]),
             **{
                 # An aggregate with no values is left out of the row.
@@ -352,18 +358,21 @@ def _wikidata_rows(
     items = _items(r.body)
     # A name search finds namesakes; only an item whose official website
     # (P856) is a declared domain is the brand. A product's item can list
-    # a page on the same domain, so an item whose site is the domain root
-    # wins over the search order.
-    verified = [
-        (qid, [v for v in items[qid]["P856"] if _owned(v, hosts)])
+    # a page on the domain, and a project's a subdomain, so the best site
+    # wins: exact host at the root, exact host, subdomain root, subdomain.
+    # Ties keep search order.
+    exact = {normalize_domain(h) for h in hosts}
+
+    def rank(v: str) -> int:
+        return (normalize_domain(v) not in exact) * 2 + (not _is_root(v))
+
+    ranked = [
+        (min(rank(v) for v in sites), qid)
         for qid in ids
         if qid in items
+        and (sites := [v for v in items[qid]["P856"] if _owned(v, hosts)])
     ]
-    verified = [(qid, sites) for qid, sites in verified if sites]
-    match = next(
-        (qid for qid, sites in verified if any(map(_is_root, sites))),
-        verified[0][0] if verified else None,
-    )
+    match = min(ranked, key=lambda r: r[0])[1] if ranked else None
     if match is None:
         seen = ", ".join(f"{qid} {labels[qid]}" for qid in ids)
         return [("wikidata_missing", False, f"candidates: {seen}", human_url)]

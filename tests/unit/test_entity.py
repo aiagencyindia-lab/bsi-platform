@@ -235,9 +235,9 @@ MATCH_PROPS = {
 }
 
 
-def item(label="Acme Inc", drop=(), **props):
+def item(label="Acme Inc", drop=(), mul="", **props):
     p = {k: v for k, v in {**MATCH_PROPS, **props}.items() if k not in drop}
-    return {"label": label, **p}
+    return {"label": label, "mul": mul, **p}
 
 
 def binding(qid, it):
@@ -251,6 +251,8 @@ def binding(qid, it):
     }
     if it["label"]:
         b["label"] = {"xml:lang": "en", "type": "literal", "value": it["label"]}
+    if it["mul"]:
+        b["mul"] = {"xml:lang": "mul", "type": "literal", "value": it["mul"]}
     # query.wikidata.org leaves out an aggregate with no values at all.
     for p in ("P856", *entity.SOCIAL_PROPS):
         if it.get(p):
@@ -419,14 +421,47 @@ def test_only_invalid_ids_read_as_no_search_results():
         # No root candidate: the first domain-verified one still wins
         # over a namesake elsewhere.
         ("https://acme.org/", "https://acme.com/about"),
+        # The exact host beats a subdomain, even the subdomain's root.
+        ("https://gov.acme.com/", "https://acme.com/about"),
+        ("https://acme.com/about", "https://acme.com/"),
+        ("https://gov.acme.com/about", "https://gov.acme.com/"),
     ],
 )
-def test_the_root_site_item_wins_the_match(q1_site, q2_site):
+def test_the_exact_host_root_item_wins_the_match(q1_site, q2_site):
     product = item(label="Acme Rockets", P856=[q1_site])
     entities = sparql({"Q1": product, "Q2": item(P856=[q2_site])})
     a = run(wiki(entities=entities))
     miss = next(c for c in a.checks if c.code == "wikidata_missing")
     assert (miss.ok, miss.observed) == (True, "Q2: Acme Inc")
+
+
+def test_equal_sites_keep_search_order():
+    hits = [{"id": "Q2", "label": "Acme Inc"}, {"id": "Q1", "label": "Acme"}]
+    f = wiki(
+        search=Response(200, json.dumps({"search": hits})),
+        entities=sparql({"Q1": item(label="Acme"), "Q2": item()}),
+    )
+    miss = next(c for c in run(f).checks if c.code == "wikidata_missing")
+    assert miss.observed == "Q2: Acme Inc"
+
+
+@pytest.mark.parametrize(
+    ("label", "mul", "ok", "observed"),
+    [
+        # An item with only a "default for all languages" label.
+        ("", "Acme Inc", True, "Q2: Acme Inc"),
+        # English wins when both exist.
+        ("Acme Rockets", "Acme Inc", False, "Q2: Acme Rockets"),
+        ("", "", False, "Q2: no English label"),
+    ],
+)
+def test_the_mul_label_stands_in_for_english(label, mul, ok, observed):
+    f = wiki(entities=ents(item(label=label, mul=mul)))
+    a = run(f)
+    c = next(c for c in a.checks if c.code == "wikidata_name_mismatch")
+    assert (c.ok, c.observed) == (ok, observed)
+    query = parse_qs(urlsplit(f.calls[2][0]).query)["query"][0]
+    assert 'LANG(?mul_) = "mul"' in query
 
 
 def test_wikidata_runs_when_the_homepage_is_down():
