@@ -197,13 +197,27 @@ packages/core/bsi_core/competitors.py     127      0   100%
 - **Correlated windows.** `delta()` assumes independent samples. The two
   windows share prompts, so the pooled test is somewhat optimistic; the
   count rule in front of it limits how often that matters.
-- **Query cost.** Queries run per entity: `entity_metrics` is 2 per
-  entity plus about 5 fixed, `entity_deltas` runs it twice plus 2, and
-  `visibility_changes` about 8 plus 3 per entry. A Competitors page load
-  for a brand with 25 competitors is about 181 + 3E queries (E = feed
-  entries), each scanning the brand's done answers in the window. Fine at
-  current sizes. Upgrade path: one grouped query per window (`GROUP BY
-  mn.entity_id`, and an unnest of (entity, host) pairs for citations).
+- **Query cost: fixed.** `entity_metrics` now runs grouped queries per
+  window: 8 whatever the number of competitors (measured 8 with 1 rival
+  and 8 with 6; it was 11 and 21). A Competitors page load is about
+  35 + 3E queries (E = feed entries) instead of about 181 + 3E for 25
+  competitors. A test holds the grouped rows equal to the old per-entity
+  path on a larger fixture.
+- **Feed label: fixed.** The feed said "in the last 14 days" even with
+  `date_to` set. `ChangesOut.window` now carries `{before_from, split,
+  to}` and the page prints those dates.
+- **SOV race: fixed.** The sov total came from a second entity read
+  (`brand_sov`); a competitor activated between the reads skewed it. Sov
+  now comes from the same entity list as every other number.
+- **`_` wildcard: fixed.** Host ownership used `LIKE '%.' || host`, where
+  `_` in a host matched any character (`my_shop.com` owned
+  `www.myXshop.com`). It now compares the suffix with `right()`.
+- **Invalid days: fixed.** `?days=abc`, `0`, `91` or `7.5` reached the
+  API and failed the page with a 422. The Overview and Competitors pages
+  now leave an invalid `days` out and show 7.
+- **`_per_prompt` without comparable windows.** `visibility_changes`
+  still reads per-prompt counts when the windows are not comparable,
+  because the response reports `prompts` (shared prompts) either way.
 
 ## 6. Spend
 

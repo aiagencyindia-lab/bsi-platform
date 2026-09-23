@@ -42,11 +42,17 @@ same filters. A row:
 | `mention_rate` | done answers with a `mention` row for the entity / done answers |
 | `recommendation_rate` | done answers with a mention whose `rec_status = 'recommended'` / done answers; the API flags it `experimental`, as the brand's is |
 | `avg_position` | mean `mention.position` over the entity's mentions, `{value, n_mentioned}`; `value` null when `n_mentioned` = 0 |
-| `citation_rate` | done answers with a citation whose domain is owned by one of the entity's domains / done answers. Brand domains come from `domain.host`; competitor domains from `competitor.domains`. Ownership is exact host or subdomain (`matching.is_owned` semantics, done in SQL with `c.domain = d OR c.domain LIKE '%.' || d`). No domains means k = 0 |
-| `sov` | the entity's row of `metrics.brand_sov` (`share` with its interval and `mentions`) |
+| `citation_rate` | done answers with a citation whose domain is owned by one of the entity's domains / done answers. Brand domains come from `domain.host`; competitor domains from `competitor.domains`. Ownership is exact host or subdomain (`matching.is_owned` semantics, done in SQL without LIKE, so `_` or `%` in a host is not a wildcard: `c.domain = h.host OR right(c.domain, length(h.host) + 1) = '.' || h.host` over an unnest of (entity, host) pairs). No domains means k = 0 |
+| `sov` | the entity's mention count / the sum of mention counts over the same entity list (one `_entities` read serves every number, so a competitor activated mid-request cannot skew the total); `metrics.rate`. For the brand it equals `brand_metrics(...)["sov"]` |
 | `prompt_coverage` | prompts with ≥ 1 done answer naming the entity / prompts with ≥ 1 done answer |
 | `sentiment` | `{positive: Rate, negative: Rate, index: float|None}` where the rates are the entity's mentions with `sentiment = 'positive'` / `'negative'` over its mentions, and `index = positive.value − negative.value` (null when no mentions). Computed server-side so the page computes nothing |
 | `citing_domains` | up to five `{domain, answers, owner}` for domains cited in done answers that name the entity, most answers first then domain; `owner` is `brand`, `rival` or `third_party` as in `citations.sources` |
+
+Queries: a fixed number per call, whatever the number of competitors:
+`_hosts`, one `_entities` read, the totals, one query grouped by
+`mn.entity_id` for the mention stats, one for citations and one for the
+citing domains (`row_number() OVER (PARTITION BY entity ...)`). 8 in all,
+measured by `test_query_count_does_not_grow_with_rivals`.
 
 Every `Rate` is `{value, n, ci_low, ci_high}` from `metrics.rate` (95%
 Wilson). Prompt status is not filtered, as in `metrics.py`.
@@ -109,11 +115,13 @@ CRUD routes). `brand_or_404` and the `filters()` dependency from
 |---|---|
 | `GET /competitors/metrics` | `list[EntityMetricsOut]` |
 | `GET /competitors/deltas?days=7` (1–90) | `EntityDeltasOut`; 422 when `date_from` is set, `to = date_to or now`, as `/deltas` |
-| `GET /competitors/changes?days=14` (1–90) | `ChangesOut`; same `date_from` rule |
+| `GET /competitors/changes?days=14` (1–90) | `ChangesOut`; same `date_from` rule (both routes share `routers/metrics.window_end`) |
 
 Schemas in `schemas.py`: `EntityMetricsOut` (rates as `Rate`/`RecRate`,
 `avg_position: AvgPosition`, `sentiment: SentimentOut`, `citing_domains:
-list[CitingDomainOut]`), `EntityDeltasOut`, `ChangeOut`, `ChangesOut`. All
+list[CitingDomainOut]`), `EntityDeltasOut`, `ChangeOut`, `ChangesOut`
+(with `window: ChangeWindowOut`, `{before_from, split, to}`: the feed's
+windows, `[before_from, split)` and `[split, to)`). All
 three routes join `CASES` in `test_isolation.py` with an owner-path 200
 test each. No writes.
 
@@ -125,7 +133,14 @@ test each. No writes.
 - `Filters` with the days field (`apiQuery(sp, ["days"], ["date_from"])`
   for deltas, plain filters for metrics; three fetches in parallel).
   The change feed always uses a fixed 14-day window (`days=14`, without
-  `date_from`), while the days filter sets the leaderboard deltas.
+  `date_from`), while the days filter sets the leaderboard deltas. The
+  feed's label gives its actual dates from `ChangesOut.window`
+  ("between 2026-08-26–2026-09-09 and 2026-09-09–2026-09-23"), not "the
+  last 14 days", which is wrong once `date_to` is set.
+- `days` is validated by `format.validDays`: digits only, 1–90. Anything
+  else (missing, repeated, `0`, `91`, `abc`, `7.5`) is left out of the
+  API query and the page shows 7, the API default; the Overview does the
+  same.
 - Leaderboard table: entity (brand row highlighted with a `you` tag, as on the Overview),
   mention rate with interval and its delta (`pts(...)` vs previous N days,
   hidden with the reason when not comparable), recommendation rate with
@@ -202,11 +217,9 @@ reason. Recorded in `docs/findings-slice9.md`.
 - **Empty feed on current data.** Run 1 cannot produce an entry; the rule
   is proved by the synthetic fixture only until a second sampling window
   exists.
-- **Query cost.** Queries run per entity, not per request.
-  `entity_metrics` runs 2 queries per entity plus about 5 fixed;
+- **Query cost.** Fixed per request, not per entity: `entity_metrics`
+  runs 8 queries whatever the number of competitors (measured: 8 with 1
+  rival and 8 with 6, `test_query_count_does_not_grow_with_rivals`);
   `entity_deltas` runs it twice plus 2; `visibility_changes` about 8 plus
-  3 per entry. A Competitors page load for a brand with 25 competitors is
-  about 181 + 3E queries (E = feed entries), each scanning the brand's
-  done answers in the window. Fine at current sizes. Upgrade path: one
-  grouped query per window (`GROUP BY mn.entity_id`, and an unnest of
-  (entity, host) pairs for citations).
+  3 per entry. A Competitors page load is about 35 + 3E queries (E = feed
+  entries), each scanning the brand's done answers in the window.
