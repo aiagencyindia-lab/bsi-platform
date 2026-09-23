@@ -2,9 +2,9 @@ import uuid
 from typing import Annotated, Any, Literal
 
 from bsi_core import models as m
-from bsi_core.matching import normalize_domain
+from bsi_core.matching import is_public_hostname, normalize_domain
 from fastapi import APIRouter, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 
 from ..deps import TENANT, Ctx, brand_or_404, child_or_404
@@ -15,6 +15,17 @@ router = APIRouter(prefix="/brands", tags=["brands"])
 
 # Capped because every one of these flows into paid model input.
 Short = Annotated[str, Field(max_length=200)]
+
+
+def _public_host(value: str) -> str:
+    """Normalized, and a name the crawl audit may fetch (422 otherwise)."""
+    host = normalize_domain(value)
+    if not is_public_hostname(host):
+        raise ValueError(f"{host!r} is not a public host name")
+    return host
+
+
+Host = Annotated[Short, AfterValidator(_public_host)]
 
 
 class Out(BaseModel):
@@ -46,13 +57,13 @@ class BrandOut(Out):
 class CompetitorIn(BaseModel):
     name: Short = Field(min_length=1)
     aliases: list[Short] = Field(default_factory=list, max_length=20)
-    domains: list[Short] = Field(default_factory=list)
+    domains: list[Host] = Field(default_factory=list)
 
 
 class CompetitorPatch(BaseModel):
     name: Short = Field(None, min_length=1)
     aliases: list[Short] = Field(None)
-    domains: list[Short] = Field(None)
+    domains: list[Host] = Field(None)
     # Confirming a suggestion is the only status move the API offers.
     status: Literal["active"] = Field(None)
 
@@ -76,7 +87,7 @@ class ClusterOut(BaseModel):
 
 
 class DomainIn(BaseModel):
-    host: str = Field(min_length=3)
+    host: Annotated[str, AfterValidator(_public_host)] = Field(min_length=3)
     is_primary: bool = False
 
 
@@ -151,9 +162,7 @@ def create_competitor(
     brand_id: uuid.UUID, body: CompetitorIn, c: Ctx = TENANT
 ) -> m.Competitor:
     brand_or_404(c, brand_id)
-    data = body.model_dump()
-    data["domains"] = [normalize_domain(d) for d in data["domains"]]
-    row = m.Competitor(org_id=c.org_id, brand_id=brand_id, **data)
+    row = m.Competitor(org_id=c.org_id, brand_id=brand_id, **body.model_dump())
     c.s.add(row)
     c.s.flush()
     return row
@@ -170,8 +179,6 @@ def patch_competitor(
 ) -> m.Competitor:
     row: m.Competitor = child_or_404(c, m.Competitor, brand_id, competitor_id)
     _patch(row, body)
-    if body.domains is not None:
-        row.domains = [normalize_domain(d) for d in body.domains]
     return row
 
 
@@ -195,16 +202,15 @@ def create_domain(
     brand_id: uuid.UUID, body: DomainIn, c: Ctx = TENANT
 ) -> m.Domain:
     brand_or_404(c, brand_id)
-    host = normalize_domain(body.host)
     q = select(m.Domain).where(
-        m.Domain.brand_id == brand_id, m.Domain.host == host
+        m.Domain.brand_id == brand_id, m.Domain.host == body.host
     )
     if c.s.scalars(q).first():
-        raise Problem(409, "Domain already exists", host)
+        raise Problem(409, "Domain already exists", body.host)
     row = m.Domain(
         org_id=c.org_id,
         brand_id=brand_id,
-        host=host,
+        host=body.host,
         is_primary=body.is_primary,
     )
     c.s.add(row)

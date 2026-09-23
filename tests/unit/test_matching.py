@@ -3,6 +3,7 @@ from bsi_core.matching import (
     Entity,
     find_mentions,
     is_owned,
+    is_public_hostname,
     normalize_domain,
     tokenize,
 )
@@ -68,6 +69,26 @@ def test_exact_beats_fuzzy_on_same_span():
 )
 def test_normalize_domain(raw, expected):
     assert normalize_domain(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("host", "public"),
+    [
+        ("nike.com", True),
+        ("shop.nike.co.in", True),
+        ("localhost", False),  # no dot
+        ("intranet", False),
+        ("127.0.0.1", False),  # IP literals, public or not
+        ("8.8.8.8", False),
+        ("127.1", False),  # short IPv4 form: a TLD is never all digits
+        ("::1", False),
+        ("[::1]", False),
+        ("::ffff:10.0.0.1", False),
+        ("", False),
+    ],
+)
+def test_is_public_hostname(host, public):
+    assert is_public_hostname(host) is public
 
 
 def test_is_owned():

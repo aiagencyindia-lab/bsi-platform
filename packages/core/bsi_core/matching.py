@@ -1,5 +1,6 @@
 """Deterministic brand and competitor matching. Pure functions, no I/O."""
 
+import ipaddress
 import re
 import unicodedata
 from collections.abc import Iterable, Sequence
@@ -114,3 +115,15 @@ def normalize_domain(value: str) -> str:
 
 def is_owned(domain: str, hosts: Iterable[str]) -> bool:
     return any(domain == h or domain.endswith("." + h) for h in hosts)
+
+
+def is_public_hostname(host: str) -> bool:
+    """False for a host that cannot be a public site name: an IP literal
+    (v4 or v6) or a name with no dot, such as `localhost`. Defence in depth
+    only; http_fetch checks the resolved addresses itself."""
+    try:
+        ipaddress.ip_address(host.strip("[]"))
+    except ValueError:
+        # A TLD is never all digits, so short IPv4 forms like 127.1 fail.
+        return "." in host and not host.rsplit(".", 1)[-1].isdigit()
+    return False

@@ -6,7 +6,9 @@ check is derived from canned responses in tests; the network is behind
 one injected callable, as model calls are.
 """
 
+import ipaddress
 import json
+import socket
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -14,7 +16,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Any, NamedTuple
 from urllib import robotparser
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 
@@ -36,10 +38,14 @@ BOTS = (
     "Googlebot",
     "Bingbot",
 )
-BODY_CAP = 512 * 1024
+BODY_CAP_BYTES = 512 * 1024  # decoded bytes kept per fetch
 OBSERVED_CAP = 300
 PAUSE_SECONDS = 0.5
-TIMEOUT_SECONDS = 15
+PHASE_TIMEOUT_SECONDS = 15  # connect, each read
+DEADLINE_SECONDS = 30  # the whole fetch, every redirect hop included
+MAX_REDIRECTS = 5
+_REDIRECTS = {301, 302, 303, 307, 308}
+_DEFAULT_PORT = {"http": 80, "https": 443}
 # Statuses a CDN uses to turn a bot away. A timeout (status 0) is not
 # counted: it is as likely our side.
 BLOCKED = {401, 403, 429}
@@ -119,23 +125,120 @@ def expected(code: str) -> str:
     return EXPECTED[family(code)]
 
 
-# SECURITY: no private-address check and redirects are followed —
-# see docs/findings-slice7.md §5 (SSRF). Must be closed before any hosted
-# deployment.
-def http_fetch(url: str, user_agent: str) -> Response:
-    """The real fetch. Never raises: an error is a Response with status 0.
+class _Refused(Exception):
+    """A URL the fetch will not touch; the message says why."""
 
-    ponytail: reads the whole body before capping; stream it if a site
-    ever serves a homepage large enough to matter.
-    """
+
+def _resolve(host: str, port: int) -> list[str]:
+    infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    return [str(info[4][0]) for info in infos]
+
+
+def _public_ip(
+    host: str, port: int, resolve: Callable[[str, int], list[str]]
+) -> str:
+    """The address to connect to. Every address the name resolves to must
+    be globally routable, or one lookup could pass the check and the next
+    land inside."""
     try:
-        with httpx.Client(
-            timeout=TIMEOUT_SECONDS,
-            follow_redirects=True,
-            headers={"User-Agent": user_agent},
-        ) as client:
-            r = client.get(url)
-        return Response(r.status_code, r.text[:BODY_CAP])
+        ips = [str(ipaddress.ip_address(host))]
+    except ValueError:
+        try:
+            ips = resolve(host, port)
+        except OSError as e:
+            raise _Refused(f"{host} does not resolve") from e
+    if not ips:
+        raise _Refused(f"{host} does not resolve")
+    for ip in ips:
+        addr = ipaddress.ip_address(ip)
+        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+            addr = addr.ipv4_mapped
+        if not addr.is_global:
+            raise _Refused(f"{ip} is not a public address")
+    return ips[0]
+
+
+def _decode(body: bytes, charset: str | None) -> str:
+    try:
+        return body.decode(charset or "utf-8", "replace")
+    except LookupError:  # a charset Python does not know
+        return body.decode("utf-8", "replace")
+
+
+_TIMED_OUT = f"timeout: over the {DEADLINE_SECONDS} s deadline"
+
+
+# SECURITY: this is the SSRF guard (docs/findings-slice7.md §5.8). Every
+# hop is checked and pinned: http(s) on the default port only, every
+# resolved address public, the connection made to the checked address
+# (never a second lookup), redirects followed by hand and re-checked.
+def http_fetch(
+    url: str,
+    user_agent: str,
+    *,
+    resolve: Callable[[str, int], list[str]] = _resolve,
+    transport: httpx.BaseTransport | None = None,
+) -> Response:
+    """The real fetch. Never raises: an error is a Response with status 0,
+    and a URL it will not fetch has error "refused: <reason>".
+
+    ponytail: httpx decodes gzip a network chunk at a time, so one chunk
+    can inflate to ~1000x its size (~64 MiB) before the cap applies.
+    Decode by hand with zlib max_length if that memory ever matters.
+    """
+    deadline = time.monotonic() + DEADLINE_SECONDS
+    try:
+        # trust_env=False: an environment proxy would do its own lookup.
+        with httpx.Client(transport=transport, trust_env=False) as client:
+            for _ in range(MAX_REDIRECTS + 1):
+                parts = urlsplit(url)
+                scheme = parts.scheme
+                if scheme not in _DEFAULT_PORT:
+                    raise _Refused(f"scheme {scheme or 'missing'}")
+                try:
+                    port = parts.port
+                except ValueError as e:
+                    raise _Refused("bad port") from e
+                if port not in (None, _DEFAULT_PORT[scheme]):
+                    raise _Refused(f"port {port}")
+                if not parts.hostname:
+                    raise _Refused("no host")
+                host = parts.hostname.encode("idna").decode("ascii")
+                ip = _public_ip(host, _DEFAULT_PORT[scheme], resolve)
+                netloc = f"[{ip}]" if ":" in ip else ip
+                target = urlunsplit(
+                    (scheme, netloc, parts.path or "/", parts.query, "")
+                )
+                # sni_hostname: TLS SNI and certificate checks use the name.
+                ext = {"sni_hostname": host} if scheme == "https" else {}
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return Response(0, "", _TIMED_OUT)
+                with client.stream(
+                    "GET",
+                    target,
+                    headers={"Host": host, "User-Agent": user_agent},
+                    extensions=ext,
+                    timeout=max(0.0, min(PHASE_TIMEOUT_SECONDS, left)),
+                ) as r:
+                    location = r.headers.get("location")
+                    if r.status_code in _REDIRECTS and location:
+                        url = urljoin(url, location)
+                        continue
+                    body = bytearray()
+                    for chunk in r.iter_bytes():
+                        body += chunk
+                        if time.monotonic() > deadline:
+                            return Response(0, "", _TIMED_OUT)
+                        if len(body) >= BODY_CAP_BYTES:
+                            break
+                    data = bytes(body[:BODY_CAP_BYTES])
+                    return Response(
+                        r.status_code, _decode(data, r.charset_encoding)
+                    )
+            raise _Refused("too many redirects")
+    except _Refused as e:
+        return Response(0, "", f"refused: {e}")
     except Exception as e:
         return Response(0, "", repr(e))
 
@@ -219,7 +322,7 @@ def _has_org(scripts: list[str]) -> bool:
 def _root_tag(body: str) -> str:
     """The sitemap's root element name: the first start tag decides.
 
-    http_fetch keeps only the first BODY_CAP characters, so a large
+    http_fetch keeps only the first BODY_CAP_BYTES bytes, so a large
     sitemap arrives cut off mid-element. The whole capped body is fed to
     the parser; feed() queues a later parse error as an event instead of
     raising it, and the root's start event is read first. close() is
