@@ -320,11 +320,21 @@ unchanged:
    points inside. What now happens, on every hop:
    - only `http`/`https` on the default port (80/443) is fetched;
    - the host is resolved once, and the fetch is refused unless every
-     returned address is globally routable (`ipaddress` `is_global`, with
-     an IPv4-mapped IPv6 address judged by its IPv4 address): loopback,
-     private, link-local (including `169.254.169.254`), CGNAT, unspecified,
-     multicast, reserved and ULA ranges are all refused, and an IP literal
-     in the URL goes through the same check;
+     returned address is globally routable and not multicast (`ipaddress`
+     `is_global`, plus an explicit multicast check, since `is_global` calls
+     `224.0.0.1` and `ff02::1` global): loopback, private, link-local
+     (including `169.254.169.254`), CGNAT, unspecified, multicast, reserved
+     and ULA ranges are all refused, and an IP literal in the URL goes
+     through the same check;
+   - an IPv6 address that carries an IPv4 one is judged by that IPv4
+     address: IPv4-mapped (`::ffff:0:0/96`), 6to4 (`2002::/16`) and the
+     well-known NAT64 prefix (`64:ff9b::/96`, so `64:ff9b::a9fe:a9fe`,
+     i.e. 169.254.169.254, is refused and `64:ff9b::808:808` allowed);
+     Teredo (`2001::/32`) and IPv4-compatible (`::/96`) addresses are
+     refused outright. The rule is spelled out rather than left to
+     `is_global`, whose IPv6 tables differ before Python 3.13
+     (requires-python is >=3.12). A network-specific NAT64 prefix cannot
+     be recognised and is judged as plain IPv6;
    - the connection is pinned to the checked address: the request URL
      carries the IP, `Host` carries the name, and for https the name is
      passed as `sni_hostname`, which httpcore uses as the TLS
@@ -332,17 +342,29 @@ unchanged:
      real name (verification stays on); environment proxies are ignored;
    - redirects are followed by hand, at most 5, each Location resolved
      against the current URL and re-checked from the top;
-   - the body is streamed and cut at `BODY_CAP_BYTES` (512 KiB) of decoded
-     bytes, and the whole fetch, all hops included, stops at 30 s.
+   - the body is read raw and decoded by the audit itself: only
+     `Accept-Encoding: gzip, deflate` is sent, a single gzip/x-gzip/deflate
+     layer is inflated with zlib's `max_length` so the output never passes
+     `BODY_CAP_BYTES` (512 KiB), and stacked (`gzip, gzip`, which let a
+     1.8 KB response reach 2.1 GiB of heap under httpx's own decoder) or
+     unknown encodings are refused; a 1 GiB gzip bomb now peaks at about
+     3 MiB of Python heap;
+   - the whole fetch, all hops included, stops at 30 s: each request's
+     timeout is the time left (at most 15 s per phase). DNS resolution is
+     not time-bounded: `getaddrinfo` takes no timeout, so a slow resolver
+     can hold a fetch past the deadline.
 
    A refused URL is a `Response(0, "", "refused: <reason>")`, e.g.
    `refused: 169.254.169.254 is not a public address`. As defence in depth
    the API now rejects, with 422, a brand domain or competitor domain whose
-   normalized host is an IP literal or has no dot
-   (`matching.is_public_hostname`). `tests/unit/test_http_fetch.py` covers
+   normalized host is an IP literal, has no dot, or has a last label that
+   does not start with a letter (`127.1`, `0x7f.0x1`)
+   (`matching.is_public_hostname`). Model-suggested competitor domains skip
+   this check; they are never crawled. `tests/unit/test_http_fetch.py` covers
    every refused range, DNS that answers with an internal or mixed set of
-   addresses, pinning, redirects, the byte cap, a gzip bomb and the
-   deadline, with DNS and HTTP faked.
+   addresses, embedded IPv4, pinning, redirects, the byte cap, a gzip bomb
+   (with a memory bound), stacked encodings and the deadline, with DNS and
+   HTTP faked.
 9. **Fixed (crawl-hardening): robots.txt is read per RFC 9309.**
    `urllib.robotparser` applied the first rule whose path prefixed the URL,
    where RFC 9309 says the longest match wins, so `User-agent: *` /
@@ -353,16 +375,24 @@ unchanged:
    `Host:` and unknown keys do not split them); a bot uses every group
    whose product token equals its name, case-insensitively, else every
    `*` group; `*` and a trailing `$` work in patterns; the longest matching
-   pattern wins and Allow wins a tie. `observed` is the lines the verdict
-   came from and always re-evaluates to the same verdict (a seeded
-   3000-file fuzz pins that). Two verdicts change on purpose:
+   pattern wins and Allow wins a tie. Lines follow the RFC grammar: only
+   CR, LF and CRLF end a line, only space and tab are whitespace (so NEL,
+   U+2028 and NBSP are ordinary characters), and a leading BOM is dropped
+   rather than hiding the first line. Percent-encoding is not normalized,
+   which cannot matter for "/". `observed` is the verdict's lines,
+   normalized (`Disallow: /`, no padding), and always re-evaluates to the
+   same verdict; seeded fuzzes pin that and compare every verdict with an
+   independent RFC reading. Three verdicts change on purpose:
    - a loose name no longer covers a bot: `User-agent: Claude` does not
      apply to ClaudeBot (its product token is `ClaudeBot`), which now falls
      to the `*` group; `User-agent: claudebot/1.0` does apply;
    - an unreachable robots.txt (5xx, or a fetch that failed or was
-     refused) now means disallow-all (RFC 9309 §2.3.1.4) and fails every
-     `bot_blocked` check with the reason in `observed`; robotparser's
-     reading was allow-all. A 4xx is still "no robots.txt", allow-all.
+     refused by the SSRF guard) now means disallow-all (RFC 9309 §2.3.1.4)
+     and fails every `bot_blocked` check with the reason in `observed`;
+     robotparser's reading was allow-all. A 4xx is still "no robots.txt",
+     allow-all, and so is a robots.txt behind more than 5 redirects, which
+     §2.3.1.2 calls unavailable;
+   - a robots.txt starting with a BOM is now read from its first line.
 
 ## 6. Spend
 
