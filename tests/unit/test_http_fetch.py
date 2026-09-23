@@ -1,6 +1,7 @@
 """http_fetch fetches only public addresses. DNS and HTTP are faked."""
 
 import gzip
+import ipaddress
 import itertools
 import tracemalloc
 import zlib
@@ -85,7 +86,10 @@ def test_internal_addresses_are_refused(ip):
     ):
         r, seen = fetch(url, table)
         assert (r.status, r.body) == (0, "")
-        assert r.error == f"refused: {ip} is not a public address", url
+        # Python 3.13 changed how IPv4-mapped addresses print, so expect
+        # whatever this interpreter prints rather than the literal.
+        shown = ipaddress.ip_address(ip)
+        assert r.error == f"refused: {shown} is not a public address", url
         assert seen == []
 
 
