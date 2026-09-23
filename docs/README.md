@@ -85,6 +85,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-23-slice8-entity-consistency.md](superpowers/plans/2026-09-23-slice8-entity-consistency.md) | Implementation plan, Tasks 1–5. |
 | [findings-slice8.md](findings-slice8.md) | Results: a live `audit_entity()` run against real domains with every check, which Wikidata candidates matched and why, where `fix_entity` ranks against `fix_crawlability`, and what is deferred. |
 
+## Slice 9: competitor intelligence
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-23-slice9-competitor-intelligence-design.md](superpowers/specs/2026-09-23-slice9-competitor-intelligence-design.md) | Design spec: per-competitor metrics with Wilson intervals, a leaderboard, week-over-week deltas, and a visibility change feed gated by the PRD's count rule plus a pooled Newcombe test; computed on read. |
+| [superpowers/plans/2026-09-23-slice9-competitor-intelligence.md](superpowers/plans/2026-09-23-slice9-competitor-intelligence.md) | Implementation plan, Tasks 1–5. |
+| [findings-slice9.md](findings-slice9.md) | Results: the Run 1 leaderboard, why the feed is empty on a single-burst run, what the synthetic fixture proves, and what is deferred. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 
