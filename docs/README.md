@@ -75,7 +75,7 @@ In the order they were written:
 |---|---|
 | [superpowers/specs/2026-09-23-slice7-citations-and-crawlability-design.md](superpowers/specs/2026-09-23-slice7-citations-and-crawlability-design.md) | Design spec: per-domain citation sources with a gap flag, a crawlability audit of the brand's own domain (robots.txt, bot user agents, sitemap, llms.txt, on-page checks), a weekly audit job, and a `fix_crawlability` recommendation type. |
 | [superpowers/plans/2026-09-23-slice7-citations-and-crawlability.md](superpowers/plans/2026-09-23-slice7-citations-and-crawlability.md) | Implementation plan, Tasks 1–10. |
-| [findings-slice7.md](findings-slice7.md) | Results: `sources()` and `generate()` on "Run 1" (247 cited domains, 136 gaps, and why the gap count is large), a live `audit_domain()` run against nytimes.com and example.com with every failing check, where `fix_crawlability` lands in `top_by_type` (first, tied at priority 0.8), the corrected 12-fetch budget, an SSRF gap in the crawler that must be closed before hosted deployment, and spend (unchanged). |
+| [findings-slice7.md](findings-slice7.md) | Results: `sources()` and `generate()` on "Run 1" (247 cited domains, 136 gaps, and why the gap count is large), a live `audit_domain()` run against nytimes.com and example.com with every failing check, where `fix_crawlability` lands in `top_by_type` (first, tied at priority 0.8), the corrected 12-fetch budget, the SSRF guard and RFC 9309 robots.txt reading added by crawl-hardening (§5.8, §5.9), and spend (unchanged). |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

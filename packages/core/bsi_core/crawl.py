@@ -6,15 +6,18 @@ check is derived from canned responses in tests; the network is behind
 one injected callable, as model calls are.
 """
 
+import ipaddress
 import json
+import re
+import socket
 import time
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+import zlib
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Any, NamedTuple
-from urllib import robotparser
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 
@@ -36,10 +39,14 @@ BOTS = (
     "Googlebot",
     "Bingbot",
 )
-BODY_CAP = 512 * 1024
+BODY_CAP_BYTES = 512 * 1024  # decoded bytes kept per fetch
 OBSERVED_CAP = 300
 PAUSE_SECONDS = 0.5
-TIMEOUT_SECONDS = 15
+PHASE_TIMEOUT_SECONDS = 15  # connect, each read
+DEADLINE_SECONDS = 30  # the whole fetch, every redirect hop included
+MAX_REDIRECTS = 5
+_REDIRECTS = {301, 302, 303, 307, 308}
+_DEFAULT_PORT = {"http": 80, "https": 443}
 # Statuses a CDN uses to turn a bot away. A timeout (status 0) is not
 # counted: it is as likely our side.
 BLOCKED = {401, 403, 429}
@@ -119,23 +126,164 @@ def expected(code: str) -> str:
     return EXPECTED[family(code)]
 
 
-# SECURITY: no private-address check and redirects are followed —
-# see docs/findings-slice7.md §5 (SSRF). Must be closed before any hosted
-# deployment.
-def http_fetch(url: str, user_agent: str) -> Response:
-    """The real fetch. Never raises: an error is a Response with status 0.
+class _Refused(Exception):
+    """A URL the fetch will not touch; the message says why."""
 
-    ponytail: reads the whole body before capping; stream it if a site
-    ever serves a homepage large enough to matter.
-    """
+
+def _resolve(host: str, port: int) -> list[str]:
+    infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    return [str(info[4][0]) for info in infos]
+
+
+def _public_ip(
+    host: str, port: int, resolve: Callable[[str, int], list[str]]
+) -> str:
+    """The address to connect to. Every address the name resolves to must
+    be globally routable, or one lookup could pass the check and the next
+    land inside."""
     try:
-        with httpx.Client(
-            timeout=TIMEOUT_SECONDS,
-            follow_redirects=True,
-            headers={"User-Agent": user_agent},
-        ) as client:
-            r = client.get(url)
-        return Response(r.status_code, r.text[:BODY_CAP])
+        ips = [str(ipaddress.ip_address(host))]
+    except ValueError:
+        try:
+            # Parsed once, so the check, the message and the pinned
+            # address all use one form whatever the resolver returned.
+            ips = [str(ipaddress.ip_address(ip)) for ip in resolve(host, port)]
+        except OSError as e:
+            raise _Refused(f"{host} does not resolve") from e
+    if not ips:
+        raise _Refused(f"{host} does not resolve")
+    for ip in ips:
+        if not _is_public(ipaddress.ip_address(ip)):
+            raise _Refused(f"{ip} is not a public address")
+    return ips[0]
+
+
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+_V4_COMPATIBLE = ipaddress.ip_network("::/96")
+
+
+def _is_public(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Globally routable and not multicast; an IPv6 address that embeds
+    an IPv4 one is judged by that IPv4 address. Spelled out rather than
+    left to `is_global`, whose IPv6 tables differ before Python 3.13
+    (requires-python is >=3.12).
+
+    ponytail: a network-specific NAT64 prefix (RFC 6052 §2.2) cannot be
+    told from an ordinary address, so only 64:ff9b::/96 is unwrapped.
+    """
+    if isinstance(addr, ipaddress.IPv6Address):
+        if addr.teredo or addr in _V4_COMPATIBLE:
+            return False
+        if addr in _NAT64:
+            addr = ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
+        else:
+            addr = addr.ipv4_mapped or addr.sixtofour or addr
+    return addr.is_global and not addr.is_multicast
+
+
+def _decode(body: bytes, charset: str | None) -> str:
+    try:
+        return body.decode(charset or "utf-8", "replace")
+    except LookupError:  # a charset Python does not know
+        return body.decode("utf-8", "replace")
+
+
+def _decompressor(encoding: str) -> Any:
+    """A zlib decoder for the body's Content-Encoding, None for none.
+    Anything else is refused: stacked encodings (one layer can hide a
+    bomb inside another) and codings we cannot bound."""
+    encoding = encoding.strip().lower()
+    if "," in encoding:
+        raise _Refused("stacked content-encoding")
+    if encoding in ("", "identity"):
+        return None
+    if encoding in ("gzip", "x-gzip", "deflate"):
+        return zlib.decompressobj(47)  # 32 + 15: gzip or zlib header
+    raise _Refused(f"content-encoding {encoding}")
+
+
+_REDIRECTS_REFUSED = "too many redirects"
+_TIMED_OUT = f"timeout: over the {DEADLINE_SECONDS} s deadline"
+
+
+# SECURITY: this is the SSRF guard (docs/findings-slice7.md §5.8). Every
+# hop is checked and pinned: http(s) on the default port only, every
+# resolved address public, the connection made to the checked address
+# (never a second lookup), redirects followed by hand and re-checked.
+def http_fetch(
+    url: str,
+    user_agent: str,
+    *,
+    resolve: Callable[[str, int], list[str]] = _resolve,
+    transport: httpx.BaseTransport | None = None,
+) -> Response:
+    """The real fetch. Never raises: an error is a Response with status 0,
+    and a URL it will not fetch has error "refused: <reason>".
+
+    The body is decoded here, not by httpx, so a compressed body never
+    inflates past BODY_CAP_BYTES. The 30 s deadline covers connecting,
+    sending and reading on every hop, but not DNS: getaddrinfo takes no
+    timeout, so a slow resolver can hold a fetch past it.
+    """
+    deadline = time.monotonic() + DEADLINE_SECONDS
+    try:
+        # trust_env=False: an environment proxy would do its own lookup.
+        with httpx.Client(transport=transport, trust_env=False) as client:
+            for _ in range(MAX_REDIRECTS + 1):
+                parts = urlsplit(url)
+                scheme = parts.scheme
+                if scheme not in _DEFAULT_PORT:
+                    raise _Refused(f"scheme {scheme or 'missing'}")
+                try:
+                    port = parts.port
+                except ValueError as e:
+                    raise _Refused("bad port") from e
+                if port not in (None, _DEFAULT_PORT[scheme]):
+                    raise _Refused(f"port {port}")
+                if not parts.hostname:
+                    raise _Refused("no host")
+                host = parts.hostname.encode("idna").decode("ascii")
+                ip = _public_ip(host, _DEFAULT_PORT[scheme], resolve)
+                netloc = f"[{ip}]" if ":" in ip else ip
+                target = urlunsplit(
+                    (scheme, netloc, parts.path or "/", parts.query, "")
+                )
+                # sni_hostname: TLS SNI and certificate checks use the name.
+                ext = {"sni_hostname": host} if scheme == "https" else {}
+                left = deadline - time.monotonic()
+                if left <= 0:
+                    return Response(0, "", _TIMED_OUT)
+                with client.stream(
+                    "GET",
+                    target,
+                    headers={
+                        "Host": host,
+                        "User-Agent": user_agent,
+                        "Accept-Encoding": "gzip, deflate",
+                    },
+                    extensions=ext,
+                    timeout=httpx.Timeout(min(PHASE_TIMEOUT_SECONDS, left)),
+                ) as r:
+                    location = r.headers.get("location")
+                    if r.status_code in _REDIRECTS and location:
+                        url = urljoin(url, location)
+                        continue
+                    z = _decompressor(r.headers.get("content-encoding", ""))
+                    body = bytearray()
+                    for raw in r.iter_raw():
+                        room = BODY_CAP_BYTES - len(body)
+                        # max_length bounds each inflate to what fits.
+                        body += z.decompress(raw, room) if z else raw[:room]
+                        if time.monotonic() > deadline:
+                            return Response(0, "", _TIMED_OUT)
+                        if len(body) >= BODY_CAP_BYTES:
+                            break
+                    return Response(
+                        r.status_code, _decode(bytes(body), r.charset_encoding)
+                    )
+            raise _Refused(_REDIRECTS_REFUSED)
+    except _Refused as e:
+        return Response(0, "", f"refused: {e}")
     except Exception as e:
         return Response(0, "", repr(e))
 
@@ -219,7 +367,7 @@ def _has_org(scripts: list[str]) -> bool:
 def _root_tag(body: str) -> str:
     """The sitemap's root element name: the first start tag decides.
 
-    http_fetch keeps only the first BODY_CAP characters, so a large
+    http_fetch keeps only the first BODY_CAP_BYTES bytes, so a large
     sitemap arrives cut off mid-element. The whole capped body is fed to
     the parser; feed() queues a later parse error as an event instead of
     raising it, and the root's start event is read first. close() is
@@ -241,95 +389,121 @@ def _root_tag(body: str) -> str:
 
 
 def _clip(s: str) -> str:
-    return s.strip()[:OBSERVED_CAP]
+    # Only ASCII whitespace: str.strip() also drops characters such as
+    # NBSP or \x0b that are part of a robots.txt value (RFC 9309 WS is
+    # space and tab), which would make the evidence contradict the verdict.
+    return s.strip(" \t\r\n")[:OBSERVED_CAP]
 
 
-_RULE_KEYS = ("allow", "disallow", "crawl-delay", "request-rate")
+_KEYS = {"user-agent": "User-agent", "allow": "Allow", "disallow": "Disallow"}
 
 
-def _robots_groups(robots: str) -> list[tuple[list[str], list[str]]]:
-    """Split robots.txt into (agents, lines) groups exactly as robotparser
-    does, so the evidence shown is the entry it actually applied.
+def _robots_lines(robots: str) -> Iterator[tuple[str, str, str]]:
+    """(key, value, line) for every `key: value` line, comment removed.
 
-    The same state machine as RobotFileParser.parse: 0 start, 1 after a
-    User-agent line, 2 after a rule. An empty line discards a group that
-    has no rule yet (state 1) and closes one that has (state 2); comments
-    and unknown keys are ignored; Sitemap: has no grouping effect; a rule
-    before any User-agent line belongs to nobody; only groups with a rule
-    are kept.
+    RFC 9309's grammar: only CR, LF and CRLF end a line and only space and
+    tab are whitespace, so NEL, U+2028 and NBSP are ordinary characters. A
+    leading BOM is dropped. `line` is normalized (`Disallow: /`), so the
+    evidence shows exactly what was matched, with no padding to be cut.
     """
-    groups: list[tuple[list[str], list[str]]] = []
-    agents: list[str] = []
-    lines: list[str] = []
-    state = 0
-    for raw in robots.splitlines():
-        if not raw:  # robotparser tests the raw line, not the stripped one
-            if state == 2:
-                groups.append((agents, lines))
-            if state:
-                agents, lines, state = [], [], 0
-        line = raw.split("#", 1)[0].strip()
-        key, colon, value = line.partition(":")
-        key = key.strip().lower()
-        if not colon:
-            continue
+    for raw in re.split(r"\r\n|\r|\n", robots.removeprefix("\ufeff")):
+        key, colon, value = raw.split("#", 1)[0].partition(":")
+        if colon:
+            key, value = key.strip(" \t").lower(), value.strip(" \t")
+            yield key, value, f"{_KEYS.get(key, key)}: {value}"
+
+
+def _token(agent: str) -> str:
+    """RFC 9309 product token: `*`, or the leading [A-Za-z_-] run."""
+    return "*" if agent == "*" else re.sub(r"[^A-Za-z_-].*", "", agent).lower()
+
+
+def _robots_groups(robots: str) -> list[tuple[set[str], list[str]]]:
+    """(product tokens, lines) per RFC 9309 group. A user-agent line after
+    a rule starts a new group; blank lines, comments and other keys
+    (sitemap, host, crawl-delay) do not affect grouping; rules before the
+    first user-agent line belong to nobody."""
+    groups: list[tuple[set[str], list[str]]] = []
+    after_rule = True
+    for key, value, line in _robots_lines(robots):
         if key == "user-agent":
-            if state == 2:
-                groups.append((agents, lines))
-                agents, lines = [], []
-            agents.append(value.strip().lower())
-            lines.append(line)
-            state = 1
-        elif key in _RULE_KEYS and state:
-            lines.append(line)
-            state = 2
-    if state == 2:
-        groups.append((agents, lines))
+            if after_rule:
+                groups.append((set(), []))
+                after_rule = False
+            groups[-1][0].add(_token(value))
+            groups[-1][1].append(line)
+        elif key in ("allow", "disallow") and groups:
+            groups[-1][1].append(line)
+            after_rule = True
     return groups
 
 
-def _group_lines(robots: str, bot: str) -> str:
-    """The first applicable robots.txt group for this bot, for `observed`.
+def _matches(pattern: str, path: str) -> bool:
+    """RFC 9309 §2.2.3: `*` is any sequence, a trailing `$` ends the path."""
+    anchored = pattern.endswith("$")
+    body = pattern[:-1] if anchored else pattern
+    regex = ".*".join(map(re.escape, body.split("*")))
+    return re.match(regex + (r"\Z" if anchored else ""), path) is not None
 
-    Mirrors robotparser's choice: a group containing `*` is the default
-    entry (only the first one counts), never a named match; the first
-    other group with an agent token that is a substring of the bot's
-    name token applies (Entry.applies_to), so `User-agent: Claude`
-    covers ClaudeBot; the default applies only when none does.
+
+def _decisive_rule(robots: str, path: str) -> str | None:
+    """The rule line that decides `path`: the longest matching pattern,
+    Allow on a tie. None when no rule matches (allowed)."""
+    best: str | None = None
+    rank = (-1, False)
+    for key, value, line in _robots_lines(robots):
+        if key in ("allow", "disallow") and value and _matches(value, path):
+            mine = (len(value.encode()), key == "allow")
+            if mine > rank:
+                best, rank = line, mine
+    return best
+
+
+def robots_allows(robots: str, path: str = "/") -> bool:
+    """Whether the Allow/Disallow lines in `robots` let a crawler fetch
+    `path`. Group selection happens before; this sees one bot's rules.
+
+    ponytail: percent-encoding is not normalized (RFC 9309 §2.2.2); the
+    audit only asks about "/", where it cannot matter.
     """
-    bot_l = bot.split("/")[0].lower()
-    groups = _robots_groups(robots)
-    named = [
-        lines
-        for agents, lines in groups
-        if "*" not in agents and any(a in bot_l for a in agents)
+    rule = _decisive_rule(robots, path)
+    return rule is None or rule.lower().startswith("allow")
+
+
+def _bot_verdict(
+    groups: list[tuple[set[str], list[str]]], bot: str
+) -> tuple[bool, str]:
+    """(allowed, evidence) for the homepage. Every group naming the bot is
+    merged; failing that, every `*` group; failing that, no rules."""
+    token = bot.lower()
+    used = [ls for ts, ls in groups if token in ts] or [
+        ls for ts, ls in groups if "*" in ts
     ]
-    starred = [lines for agents, lines in groups if "*" in agents]
-    return "\n".join((named or starred or [[]])[0])
+    lines = [line for ls in used for line in ls]
+    text = "\n".join(lines)
+    allowed = robots_allows(text)
+    if not lines:
+        return allowed, "no matching group"
+    if len(text) <= OBSERVED_CAP:
+        return allowed, text
+    # Too long to show whole: the user-agent lines that matched and the
+    # deciding rule are all the verdict rests on; failing that, the rule.
+    rule = _decisive_rule(text, "/")
+    agents = [
+        line
+        for key, value, line in _robots_lines(text)
+        if key == "user-agent" and _token(value) in (token, "*")
+    ]
+    short = "\n".join(agents + ([rule] if rule else []))
+    if len(short) <= OBSERVED_CAP:
+        return allowed, short
+    return allowed, rule or "no rule matches /"
 
 
-def _strip_wildcards(robots: str) -> str:
-    """urllib.robotparser matches Allow/Disallow paths by plain prefix; it
-    has no `*` wildcard support, so `Disallow: /*` would otherwise only
-    match a literal `/*`. Strip a trailing `*` and `$` from each such
-    path so `/*` degrades to the prefix `/` instead of matching nothing.
-
-    ponytail: only a trailing wildcard is handled; a mid-path wildcard
-    (e.g. `/foo/*.pdf`) stays unsupported. Add real wildcard-to-regex
-    matching if that ever shows up in practice.
-    """
-    out = []
-    for line in robots.splitlines():
-        key, sep, value = line.partition(":")
-        if sep and key.strip().lower() in ("allow", "disallow"):
-            # Drop the comment first, or `Disallow: /* # all` keeps its `*`.
-            path = value.split("#", 1)[0].strip()
-            while path and path[-1] in "*$":
-                path = path[:-1]
-            out.append(f"{key}: {path}")
-        else:
-            out.append(line)
-    return "\n".join(out)
+_TOO_MANY_REDIRECTS = (
+    f"robots.txt: more than {MAX_REDIRECTS} redirects, read as unavailable "
+    "(RFC 9309 §2.3.1.2)"
+)
 
 
 def _owned_sitemap(host: str, url: str) -> bool:
@@ -395,22 +569,24 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
 
     robots_url = f"https://{host}/robots.txt"
     robots = get(robots_url)
-    rp = robotparser.RobotFileParser()
-    if robots.ok:
-        rp.parse(_strip_wildcards(robots.body).splitlines())
-    else:
-        rp.parse([])  # no file: everything is allowed
+    groups = _robots_groups(robots.body) if robots.ok else []
     for bot in BOTS:
-        allowed = rp.can_fetch(bot, home_url)
-        observed = (
-            _group_lines(robots.body, bot) if robots.ok else "no robots.txt"
-        )
-        add(
-            f"bot_blocked:{bot}",
-            allowed,
-            observed or "no matching group",
-            robots_url,
-        )
+        if robots.ok:
+            allowed, observed = _bot_verdict(groups, bot)
+        elif robots.error == f"refused: {_REDIRECTS_REFUSED}":
+            # §2.3.1.2: unresolved redirects are "unavailable", allow all.
+            allowed, observed = True, _TOO_MANY_REDIRECTS
+        elif robots.status == 0 or robots.status >= 500:
+            # RFC 9309 §2.3.1.4: unreachable means assume full disallow.
+            allowed = False
+            why = robots.error or f"HTTP {robots.status}"
+            observed = (
+                f"robots.txt unreachable ({why}): RFC 9309 reads that "
+                "as disallow all"
+            )
+        else:  # §2.3.1.3: unavailable (4xx) means no restrictions
+            allowed, observed = True, f"no robots.txt (HTTP {robots.status})"
+        add(f"bot_blocked:{bot}", allowed, observed, robots_url)
 
     # With no browser baseline a bot's answer means nothing: skip them.
     for bot in BOTS if home.ok else ():
@@ -424,7 +600,12 @@ def audit_domain(host: str, fetch: Fetch, *, pause: float = 0.0) -> Audit:
         )
 
     default_sitemap = f"https://{host}/sitemap.xml"
-    owned = [u for u in (rp.site_maps() or []) if _owned_sitemap(host, u)]
+    declared = (
+        [v for k, v, _ in _robots_lines(robots.body) if k == "sitemap"]
+        if robots.ok
+        else []
+    )
+    owned = [u for u in declared if _owned_sitemap(host, u)]
     # ponytail: the first owned sitemap; the rest (and any off-host or
     # non-http(s) entries) are unread.
     sm_url = owned[0] if owned else default_sitemap

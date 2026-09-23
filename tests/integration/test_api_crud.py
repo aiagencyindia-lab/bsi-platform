@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_health_needs_no_key(client):
     assert client.get("/healthz").json() == {"status": "ok"}
 
@@ -82,6 +85,62 @@ def test_competitors_and_domains(client, make_org, make_brand):
         f"{base}/domains", headers=org.headers, json={"host": "acme.com"}
     )
     assert r.status_code == 409
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "localhost",
+        "127.0.0.1",
+        "http://169.254.169.254/latest",
+        "[::1]",
+        "10.1",
+    ],
+)
+def test_a_host_that_is_not_a_public_name_is_422(
+    client, make_org, make_brand, host
+):
+    org = make_org()
+    base = f"/v1/brands/{make_brand(org)}"
+    h = org.headers
+    r = client.post(f"{base}/domains", headers=h, json={"host": host})
+    assert r.status_code == 422, r.text
+    assert r.json()["errors"][0]["loc"][-1] == "host"
+    r = client.post(
+        f"{base}/competitors", headers=h, json={"name": "R", "domains": [host]}
+    )
+    assert r.status_code == 422, r.text
+    cid = client.post(
+        f"{base}/competitors",
+        headers=h,
+        json={"name": "R", "domains": ["r.com"]},
+    ).json()["id"]
+    r = client.patch(
+        f"{base}/competitors/{cid}",
+        headers=h,
+        json={"domains": ["ok.com", host]},
+    )
+    assert r.status_code == 422, r.text
+    got = client.get(f"{base}/competitors", headers=h).json()
+    assert got[0]["domains"] == ["r.com"]  # the bad PATCH wrote nothing
+
+
+def test_competitor_domains_are_normalized(client, make_org, make_brand):
+    org = make_org()
+    base = f"/v1/brands/{make_brand(org)}"
+    h = org.headers
+    r = client.post(
+        f"{base}/competitors",
+        headers=h,
+        json={"name": "R", "domains": ["https://WWW.Rival.com/x"]},
+    )
+    assert r.json()["domains"] == ["rival.com"]
+    r = client.patch(
+        f"{base}/competitors/{r.json()['id']}",
+        headers=h,
+        json={"domains": ["Shop.Rival.com:443"]},
+    )
+    assert r.json()["domains"] == ["shop.rival.com"]
 
 
 def test_prompts_single_bulk_and_pause(client, make_org, make_brand):
