@@ -41,7 +41,7 @@ same filters. A row:
 | `entity_id`, `name`, `type` | `brand` or `competitor` |
 | `mention_rate` | done answers with a `mention` row for the entity / done answers |
 | `recommendation_rate` | done answers with a mention whose `rec_status = 'recommended'` / done answers; the API flags it `experimental`, as the brand's is |
-| `avg_position` | mean `mention.position` over the entity's mentions, `{value, n}`; `value` null when n = 0 |
+| `avg_position` | mean `mention.position` over the entity's mentions, `{value, n_mentioned}`; `value` null when `n_mentioned` = 0 |
 | `citation_rate` | done answers with a citation whose domain is owned by one of the entity's domains / done answers. Brand domains come from `domain.host`; competitor domains from `competitor.domains`. Ownership is exact host or subdomain (`matching.is_owned` semantics, done in SQL with `c.domain = d OR c.domain LIKE '%.' || d`). No domains means k = 0 |
 | `sov` | the entity's row of `metrics.brand_sov` (`share` with its interval and `mentions`) |
 | `prompt_coverage` | prompts with ≥ 1 done answer naming the entity / prompts with ≥ 1 done answer |
@@ -134,8 +134,8 @@ test each. No writes.
 - Change feed: one card per entry: name, direction, pooled before → after
   with the delta and interval, the moved prompts with their rates, engines,
   new citing domains, and links to `/o/{oid}`. Empty state prints
-  `reason`, or "No competitor moved ≥ 10 points on ≥ 10 prompts with a
-  significant pooled change" when `reason` is null.
+  `reason`, or "No competitor moved at least 10 points on at least 10
+  prompts with a significant pooled change" when `reason` is null.
 - `lib/types.ts` gains the three aliases; `npm run gen` regenerates
   `schema.d.ts`. The page sorts and computes nothing.
 
@@ -155,12 +155,12 @@ fixture:
 - **Deltas:** two windows by backdating `requested_at`; a competitor with
   no before-window mentions; mixed pipeline versions → not comparable with
   the same reason as `brand_deltas`.
-- **Feed:** 12 prompts × 5 answers per window. Rival A named in 0/5 before
-  and 5/5 after on 11 prompts → one `up` entry with the computed pooled
+- **Feed:** 12 prompts × 10 answers per window. Rival A named in 0/10
+  before and 10/10 after on 11 prompts → one `up` entry with the computed pooled
   delta, prompts largest shift first, engines, capped observation ids, one
   new citing domain present and one old domain absent. Rival B moves on 9
   prompts → no entry. Rival C moves on 10 prompts by exactly one answer
-  each (1/5 → 2/5) → pooled interval includes zero → no entry. Fewer than
+  each (4/10 → 5/10) → pooled interval includes zero → no entry. Fewer than
   10 prompts in both windows → empty with the prompts reason.
 - **Filters:** engine and locale filters apply to all three functions.
 - **API:** owner-path 200 for the three routes, the isolation cases, 422 on
@@ -202,7 +202,11 @@ reason. Recorded in `docs/findings-slice9.md`.
 - **Empty feed on current data.** Run 1 cannot produce an entry; the rule
   is proved by the synthetic fixture only until a second sampling window
   exists.
-- **Query cost.** Three per-request queries over mentions and citations,
-  bounded by the brand's observations; fine at current sizes, indexed on
-  `(org_id, entity_id, observation_id)` and `(org_id, domain,
-  observation_id)`.
+- **Query cost.** Queries run per entity, not per request.
+  `entity_metrics` runs 2 queries per entity plus about 5 fixed;
+  `entity_deltas` runs it twice plus 2; `visibility_changes` about 8 plus
+  3 per entry. A Competitors page load for a brand with 25 competitors is
+  about 181 + 3E queries (E = feed entries), each scanning the brand's
+  done answers in the window. Fine at current sizes. Upgrade path: one
+  grouped query per window (`GROUP BY mn.entity_id`, and an unnest of
+  (entity, host) pairs for citations).

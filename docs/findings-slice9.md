@@ -81,8 +81,9 @@ Every domain not marked is `third_party`.
 **Reading it.**
 - Adidas leads Skechers, but their mention-rate intervals overlap
   (0.375-0.567 and 0.319-0.508); on 100 answers the order of the top two
-  is not settled. Everyone is clearly ahead of the brand, whose upper
-  bound (0.162) is below every rival's lower bound except Crocs (0.125).
+  is not settled. Every rival but Crocs is clearly ahead of the brand:
+  the brand's upper bound (0.162) is below each of their lower bounds,
+  but above Crocs's (0.125).
 - The owner tag follows declared domains only. Adidas declares
   `adidas.co.in`, so `adidas.com` (15 answers) is tagged `third_party`,
   and Adidas's 0.130 citation rate counts only `adidas.co.in` hits. The
@@ -166,6 +167,17 @@ and three competitors. The pooled numbers below were computed with
   a prompt filter that leaves 5 shared prompts, and mixed pipeline
   versions (`comparable=False` with a reason naming them).
 
+**Coverage.** `competitors.py` is not under the coverage gate (only
+`metrics.py` is). Measured with
+`uv run pytest -q tests/integration/test_competitors.py
+tests/integration/test_api_competitors.py --cov=bsi_core.competitors
+--cov-report=term`:
+
+```
+packages/core/bsi_core/competitors.py     127      0   100%
+18 passed, 2 warnings
+```
+
 ## 5. Deferred, by decision
 
 - **Undeclared rival domains.** Ownership follows declared domains
@@ -185,6 +197,13 @@ and three competitors. The pooled numbers below were computed with
 - **Correlated windows.** `delta()` assumes independent samples. The two
   windows share prompts, so the pooled test is somewhat optimistic; the
   count rule in front of it limits how often that matters.
+- **Query cost.** Queries run per entity: `entity_metrics` is 2 per
+  entity plus about 5 fixed, `entity_deltas` runs it twice plus 2, and
+  `visibility_changes` about 8 plus 3 per entry. A Competitors page load
+  for a brand with 25 competitors is about 181 + 3E queries (E = feed
+  entries), each scanning the brand's done answers in the window. Fine at
+  current sizes. Upgrade path: one grouped query per window (`GROUP BY
+  mn.entity_id`, and an unnest of (entity, host) pairs for citations).
 
 ## 6. Spend
 
