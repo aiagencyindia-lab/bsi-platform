@@ -4,6 +4,7 @@ import {
   auditNote,
   ciText,
   highlight,
+  labelNote,
   lastDay,
   pct,
   pts,
@@ -86,6 +87,18 @@ test("auditNote says what the run button actually did", () => {
   );
   expect(auditNote("failed")).toBe("Queued again after a failed run.");
   expect(auditNote(undefined)).toBeNull();
+});
+
+test("labelNote says what the label button actually did", () => {
+  const queued = "Queued; the worker labels them within a minute.";
+  expect(labelNote("queued")).toBe(queued);
+  expect(labelNote("running")).toBe(queued);
+  expect(labelNote("done")).toBe("Already queued this hour.");
+  expect(labelNote("failed")).toBe("Queued again after a failed run.");
+  expect(labelNote("bogus")).toBeNull();
+  expect(labelNote("constructor")).toBeNull();
+  expect(labelNote(["queued", "done"])).toBeNull();
+  expect(labelNote(undefined)).toBeNull();
 });
 
 test("validDays accepts 1..90 digits only", () => {
