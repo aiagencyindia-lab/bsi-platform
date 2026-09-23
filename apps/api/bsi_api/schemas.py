@@ -161,10 +161,17 @@ class ChangeOut(BaseModel):
     observation_ids: list[uuid.UUID]
 
 
+class ChangeWindowOut(BaseModel):
+    before_from: datetime
+    split: datetime
+    to: datetime
+
+
 class ChangesOut(BaseModel):
     comparable: bool
     reason: str | None
     prompts: int
+    window: ChangeWindowOut
     changes: list[ChangeOut]
 
 

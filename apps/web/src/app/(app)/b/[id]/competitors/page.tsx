@@ -9,6 +9,9 @@ import type { Changes, EntityDeltas, EntityMetrics } from "@/lib/types";
 // the leaderboard deltas.
 const FEED_DAYS = 14;
 
+// Formatting only: the API sets the window.
+const date = (v: string) => new Date(v).toISOString().slice(0, 10);
+
 const num = (v: number | null | undefined, digits = 1) =>
   v == null ? "—" : v.toFixed(digits);
 
@@ -99,9 +102,10 @@ export default async function Competitors({
       </table>
       <h2>Visibility changes</h2>
       <p className="muted">
-        A rival that gained or lost at least 10 points on at least 10 prompts in
-        the last {FEED_DAYS} days, with a significant pooled change. {feed.prompts}{" "}
-        prompts have answers in both windows.
+        A rival that gained or lost at least 10 points on at least 10 prompts
+        between {date(feed.window.before_from)}–{date(feed.window.split)} and{" "}
+        {date(feed.window.split)}–{date(feed.window.to)}, with a significant
+        pooled change. {feed.prompts} prompts have answers in both windows.
       </p>
       {feed.changes.length === 0 && (
         <p className="muted">

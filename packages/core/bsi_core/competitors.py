@@ -331,6 +331,7 @@ def visibility_changes(
         "comparable": comparable,
         "reason": reason,
         "prompts": len(shared),
+        "window": {"before_from": start, "split": mid, "to": to},
         "changes": [],
     }
     if not comparable:

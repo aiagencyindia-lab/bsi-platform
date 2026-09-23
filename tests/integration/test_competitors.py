@@ -400,6 +400,20 @@ def test_only_the_qualifying_competitor_gets_an_entry(owner, feed):
     }
 
 
+def test_feed_reports_its_window(feed):
+    org, bid, _ = feed
+    window = {
+        "before_from": NOW - timedelta(days=28),
+        "split": NOW - timedelta(days=14),
+        "to": NOW,
+    }
+    assert changes(org, bid)["window"] == window
+    # Also when it returns early.
+    few = changes(org, bid, days=3)
+    assert few["reason"] is not None
+    assert few["window"]["split"] == NOW - timedelta(days=3)
+
+
 def test_the_count_rule_and_the_pooled_test_both_gate(feed):
     org, bid, _ids = feed
     names = {c["name"] for c in changes(org, bid)["changes"]}

@@ -50,6 +50,8 @@ def test_deltas_and_changes(client, feed):  # noqa: F811
     assert r.status_code == 200, r.text
     c = r.json()
     assert c["prompts"] == 12
+    assert set(c["window"]) == {"before_from", "split", "to"}
+    assert c["window"]["to"].startswith(NOW.isoformat()[:19])
     assert [x["name"] for x in c["changes"]] == ["A"]
     assert c["changes"][0]["direction"] == "up"
     assert c["changes"][0]["new_citing_domains"] == ["new.com"]
