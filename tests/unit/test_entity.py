@@ -1,7 +1,7 @@
 """audit_entity from canned responses. Nothing here touches the network."""
 
 import json
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 import pytest
 from bsi_core import crawl, entity
@@ -24,6 +24,8 @@ HOME_CODES = {
     "title_brand_missing",
     "about_missing",
 }
+ABOUT_CODES = {"about_unreachable", "about_brand_missing"}
+ABOUT_URL = "https://acme.com/about-us"
 ORG = {
     "@type": "Organization",
     "name": "Acme, Inc.",
@@ -57,15 +59,20 @@ def org_home(drop=(), **kv):
     return Response(200, home(org=org))
 
 
-def fetcher(home_resp=None, search=None, entities=None):
-    """A fetch that answers the homepage, the Wikidata search and the
-    SPARQL query."""
+def fetcher(
+    home_resp=None, search=None, entities=None, about_resp=None, about_url=None
+):
+    """A fetch that answers the homepage, the About page at exactly
+    about_url (ABOUT_URL by default), the Wikidata search and the SPARQL
+    query."""
     calls = []
 
     def fetch(url, ua):
         calls.append((url, ua))
         if url == "https://acme.com/":
             return home_resp or Response(200, home())
+        if url == (about_url or ABOUT_URL):
+            return about_resp or Response(200, "<title>About Acme</title>")
         if urlsplit(url).hostname == "query.wikidata.org":
             return entities or sparql({})
         action = parse_qs(urlsplit(url).query).get("action", [""])[0]
@@ -249,7 +256,10 @@ def test_an_unreachable_homepage_emits_no_home_rows():
 )
 def test_about_link_must_stay_on_the_brand_host(href, ok):
     resp = Response(200, home(links=(f'<a href="{href}">x</a>',)))
-    assert verdicts(run(fetcher(home_resp=resp)))["about_missing"] is ok
+    # A found link is fetched at exactly its resolved URL.
+    about = urljoin("https://acme.com/", href) if ok else None
+    f = fetcher(home_resp=resp, about_url=about)
+    assert verdicts(run(f))["about_missing"] is ok
 
 
 def test_constants_are_consistent():
@@ -259,7 +269,7 @@ def test_constants_are_consistent():
     assert SIGNAL == "This is an optimisation signal, not a promised outcome."
     # The rule routes by family: entity and crawl must never share one.
     assert not FAMILIES & set(crawl.SEVERITY)
-    assert len(FAMILIES) == 11
+    assert len(FAMILIES) == 13
     assert "English (or default) label" in EXPECTED["wikidata_name_mismatch"]
 
 
@@ -338,12 +348,18 @@ def test_a_consistent_brand_passes_every_check():
     f = wiki()
     a = run(f)
     assert verdicts(a) == dict.fromkeys(SEVERITY, True)
-    assert a.fetches == 3
-    assert [ua for _, ua in f.calls] == [BROWSER_UA, WIKIDATA_UA, WIKIDATA_UA]
-    search = parse_qs(urlsplit(f.calls[1][0]).query)
+    assert a.fetches == 4  # home, About, Wikidata search, SPARQL
+    assert [ua for _, ua in f.calls] == [
+        BROWSER_UA,
+        BROWSER_UA,
+        WIKIDATA_UA,
+        WIKIDATA_UA,
+    ]
+    assert f.calls[1][0] == ABOUT_URL
+    search = parse_qs(urlsplit(f.calls[2][0]).query)
     assert search["action"] == ["wbsearchentities"]
     assert search["search"] == ["Acme"]
-    got = urlsplit(f.calls[2][0])
+    got = urlsplit(f.calls[3][0])
     assert (got.scheme, got.hostname, got.path) == (
         "https",
         "query.wikidata.org",
@@ -391,27 +407,28 @@ def test_empty_search_is_missing_without_a_second_call():
     a = run(f)
     got = {c.code: (c.ok, c.observed) for c in a.checks if c.code in WIKI_CODES}
     assert got == {"wikidata_missing": (False, "no search results")}
-    assert a.fetches == 2
+    assert a.fetches == 3  # home, About, search
 
 
 @pytest.mark.parametrize(
     ("kw", "fetches"),
+    # Each count includes the About fetch.
     [
-        ({"search": Response(500, "")}, 2),
-        ({"search": Response(0, "", "ConnectError('x')")}, 2),
-        ({"search": Response(200, "<html>")}, 2),
-        ({"search": Response(200, json.dumps({"error": {"code": "x"}}))}, 2),
-        ({"search": Response(200, json.dumps({"search": [{"x": 1}]}))}, 2),
-        ({"entities": Response(503, "")}, 3),
-        ({"entities": Response(200, "not json")}, 3),
-        ({"entities": Response(200, json.dumps({"results": {}}))}, 3),
+        ({"search": Response(500, "")}, 3),
+        ({"search": Response(0, "", "ConnectError('x')")}, 3),
+        ({"search": Response(200, "<html>")}, 3),
+        ({"search": Response(200, json.dumps({"error": {"code": "x"}}))}, 3),
+        ({"search": Response(200, json.dumps({"search": [{"x": 1}]}))}, 3),
+        ({"entities": Response(503, "")}, 4),
+        ({"entities": Response(200, "not json")}, 4),
+        ({"entities": Response(200, json.dumps({"results": {}}))}, 4),
         (
             {
                 "entities": Response(
                     200, json.dumps({"results": {"bindings": [{"item": 1}]}})
                 )
             },
-            3,
+            4,
         ),
     ],
 )
@@ -432,7 +449,7 @@ def test_search_ids_that_are_not_item_ids_stay_out_of_the_query():
     ]
     f = wiki(search=Response(200, json.dumps({"search": hits})))
     a = run(f)
-    query = parse_qs(urlsplit(f.calls[2][0]).query)["query"][0]
+    query = parse_qs(urlsplit(f.calls[3][0]).query)["query"][0]
     assert "VALUES ?item { wd:Q2 }" in query
     assert "DROP" not in query and "P31" not in query
     miss = next(c for c in a.checks if c.code == "wikidata_missing")
@@ -445,7 +462,7 @@ def test_only_invalid_ids_read_as_no_search_results():
     a = run(f)
     got = {c.code: (c.ok, c.observed) for c in a.checks if c.code in WIKI_CODES}
     assert got == {"wikidata_missing": (False, "no search results")}
-    assert a.fetches == 2
+    assert a.fetches == 3  # home, About, search
 
 
 @pytest.mark.parametrize(
@@ -496,7 +513,7 @@ def test_the_mul_label_stands_in_for_english(label, mul, ok, observed):
     a = run(f)
     c = next(c for c in a.checks if c.code == "wikidata_name_mismatch")
     assert (c.ok, c.observed) == (ok, observed)
-    query = parse_qs(urlsplit(f.calls[2][0]).query)["query"][0]
+    query = parse_qs(urlsplit(f.calls[3][0]).query)["query"][0]
     assert 'LANG(?mul_) = "mul"' in query
 
 
@@ -578,14 +595,14 @@ def test_youtube_is_left_out_of_the_social_comparison():
     )
     c = next(c for c in run(f).checks if c.code == "social_links_conflict")
     assert (c.ok, c.observed) == (True, "2 profiles agree")
-    assert "P2397" not in parse_qs(urlsplit(f.calls[2][0]).query)["query"][0]
+    assert "P2397" not in parse_qs(urlsplit(f.calls[3][0]).query)["query"][0]
 
 
 def test_pause_is_taken_before_every_fetch(monkeypatch):
     sleeps = []
     monkeypatch.setattr(entity.time, "sleep", sleeps.append)
     run(wiki(), pause=0.5)
-    assert sleeps == [0.5, 0.5, 0.5]
+    assert sleeps == [0.5] * 4  # home, About, search, SPARQL
 
 
 def test_a_nested_organization_stub_does_not_shadow_the_brand_node():
@@ -596,3 +613,132 @@ def test_a_nested_organization_stub_does_not_shadow_the_brand_node():
     resp = Response(200, home(org=stub, extra=(ORG,)))
     got = home_verdicts(run(fetcher(home_resp=resp)))
     assert got == dict.fromkeys(HOME_CODES, True)
+
+
+def about_rows(audit):
+    return {c.code: c for c in audit.checks if c.code in ABOUT_CODES}
+
+
+def about_page(title="About Acme", h1=None, org=None):
+    ld = (
+        f'<script type="application/ld+json">{json.dumps(org)}</script>'
+        if org
+        else ""
+    )
+    h = f"<h1>{h1}</h1>" if h1 is not None else ""
+    return Response(200, f"<title>{title}</title>{ld}{h}")
+
+
+@pytest.mark.parametrize(
+    ("title", "h1", "brand", "ok"),
+    [
+        ("About Acme", None, "Acme", True),
+        ("Our story", "Who we are", "Acme", False),
+        ("Our story", "Meet Acme", "Acme", True),
+        ("About Acme Inc.", None, "Acme", True),
+        # A registered name matches through its _legal_name form.
+        ("About Acme", None, "Acme Ltd", True),
+    ],
+)
+def test_the_about_page_must_name_the_brand(title, h1, brand, ok):
+    f = fetcher(about_resp=about_page(title, h1))
+    a = run(f, name=brand, aliases=())
+    got = about_rows(a)
+    assert got["about_unreachable"].ok
+    c = got["about_brand_missing"]
+    assert (c.ok, c.url) == (ok, ABOUT_URL)
+
+
+def test_an_about_page_that_omits_the_brand_fails_alone():
+    a = run(wiki(about_resp=about_page("Our story", "Who we are")))
+    assert {k for k, ok in verdicts(a).items() if not ok} == {
+        "about_brand_missing"
+    }
+
+
+def test_about_brand_missing_names_what_it_found():
+    a = run(fetcher(about_resp=about_page("Our story", "Who we are")))
+    c = about_rows(a)["about_brand_missing"]
+    assert c.observed == "title: Our story; h1: Who we are"
+    a = run(fetcher(about_resp=Response(200, "<p>hi</p>")))
+    c = about_rows(a)["about_brand_missing"]
+    assert c.observed == "title: absent; h1: absent"
+
+
+def test_about_evidence_collapses_whitespace():
+    page = about_page("Our\n  story", "Who\r\n    we\tare")
+    c = about_rows(run(fetcher(about_resp=page)))["about_brand_missing"]
+    assert c.observed == "title: Our story; h1: Who we are"
+
+
+@pytest.mark.parametrize(
+    ("resp", "observed"),
+    [
+        (Response(404, "<title>About Acme</title>"), "HTTP 404"),
+        (Response(0, "", "ConnectError('x')"), "ConnectError('x')"),
+    ],
+)
+def test_an_unreachable_about_page_fails_alone(resp, observed):
+    got = about_rows(run(fetcher(about_resp=resp)))
+    assert set(got) == {"about_unreachable"}
+    c = got["about_unreachable"]
+    assert (c.ok, c.observed, c.url, c.severity) == (
+        False,
+        observed,
+        ABOUT_URL,
+        "medium",
+    )
+
+
+def test_no_about_link_means_no_about_fetch_and_no_about_rows():
+    f = wiki(home_resp=Response(200, home(links=())))
+    a = run(f)
+    assert not about_rows(a)
+    assert a.fetches == 3  # home, search, SPARQL
+    assert ABOUT_URL not in [u for u, _ in f.calls]
+
+
+def test_a_down_homepage_skips_the_about_page():
+    f = fetcher(home_resp=Response(500, ""))
+    a = run(f)
+    assert not about_rows(a)
+    assert ABOUT_URL not in [u for u, _ in f.calls]
+
+
+ORG_CODES = {
+    "org_name_mismatch",
+    "org_url_mismatch",
+    "org_logo_missing",
+    "org_sameas_missing",
+}
+
+
+def test_the_about_organization_stands_in_for_a_missing_home_one():
+    about = about_page(org={**ORG, "url": "/"})
+    a = run(fetcher(home_resp=Response(200, home(org=None)), about_resp=about))
+    org = {c.code: c for c in a.checks if c.code in ORG_CODES}
+    assert set(org) == ORG_CODES
+    assert all(c.ok and c.url == ABOUT_URL for c in org.values())
+
+
+def test_a_failing_about_organization_is_reported_on_the_about_url():
+    about = about_page(org={**ORG, "name": "Acme Rockets Ltd"})
+    a = run(fetcher(home_resp=Response(200, home(org=None)), about_resp=about))
+    c = next(c for c in a.checks if c.code == "org_name_mismatch")
+    assert (c.ok, c.observed, c.url) == (False, "Acme Rockets Ltd", ABOUT_URL)
+
+
+def test_the_about_sameas_feeds_the_social_comparison():
+    about = about_page(org={**ORG, "sameAs": ["https://instagram.com/acme"]})
+    f = wiki(home_resp=Response(200, home(org=None)), about_resp=about)
+    c = next(c for c in run(f).checks if c.code == "social_links_conflict")
+    assert not c.ok
+    assert "on site only: instagram.com/acme" in c.observed
+
+
+def test_the_home_organization_wins_over_the_about_one():
+    about = about_page(org={**ORG, "name": "Acme Rockets Ltd"})
+    a = run(fetcher(about_resp=about))
+    org = [c for c in a.checks if c.code in ORG_CODES]
+    assert len(org) == 4
+    assert all(c.ok and c.url == "https://acme.com/" for c in org)
