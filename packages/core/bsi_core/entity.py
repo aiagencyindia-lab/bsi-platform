@@ -487,12 +487,12 @@ def _wikidata_rows(
         for k, qid in ranked
         if k < 2 or _legal_name(items[qid]["label"]) in legal
     ]
-    match = min(named, key=lambda r: r[0])[1] if named else None
+    match = min(named, key=lambda t: t[0])[1] if named else None
     if match is None:
         seen = ", ".join(f"{qid} {labels[qid]}" for qid in ids)
         obs = f"candidates: {seen}"
         if ranked:
-            sub = min(ranked, key=lambda r: r[0])[1]
+            sub = min(ranked, key=lambda t: t[0])[1]
             obs += (
                 f"; {sub} {items[sub]['label'] or 'no label'} is only on a "
                 "subdomain and its label does not name the brand"

@@ -1,6 +1,7 @@
 """audit_entity from canned responses. Nothing here touches the network."""
 
 import json
+import logging
 from urllib.parse import parse_qs, urljoin, urlsplit
 
 import pytest
@@ -492,7 +493,12 @@ def test_an_unreadable_wikidata_answer_skips_its_checks(kw, fetches, caplog):
     assert a.fetches == fetches
     assert HOME_CODES <= set(verdicts(a))  # the home rows still stand
     # Skipped, but not silently.
-    assert "acme.com" in caplog.text
+    assert any(
+        r.name == "bsi.entity"
+        and r.levelno == logging.WARNING
+        and "acme.com" in r.getMessage()
+        for r in caplog.records
+    )
 
 
 def test_search_ids_that_are_not_item_ids_stay_out_of_the_query():
@@ -507,6 +513,13 @@ def test_search_ids_that_are_not_item_ids_stay_out_of_the_query():
     assert "VALUES ?item { wd:Q2 }" in query
     assert "DROP" not in query and "P31" not in query
     miss = next(c for c in a.checks if c.code == "wikidata_missing")
+    assert (miss.ok, miss.observed) == (True, "Q2: Acme Inc")
+
+
+def test_a_search_id_the_query_leaves_out_is_not_a_candidate():
+    # Q1 was searched but SPARQL returned no row for it.
+    f = wiki(entities=sparql({"Q2": item()}))
+    miss = next(c for c in run(f).checks if c.code == "wikidata_missing")
     assert (miss.ok, miss.observed) == (True, "Q2: Acme Inc")
 
 
@@ -680,6 +693,12 @@ def test_mobile_social_hosts_match_wikidata(fb):
     )
     c = next(c for c in run(f).checks if c.code == "social_links_conflict")
     assert (c.ok, c.observed) == (True, "3 profiles agree")
+
+
+def test_a_malformed_sameas_url_is_left_out_of_the_social_comparison():
+    f = wiki(home_resp=org_home(sameAs=[*ORG["sameAs"], "http://[::1"]))
+    c = next(c for c in run(f).checks if c.code == "social_links_conflict")
+    assert (c.ok, c.observed) == (True, "2 profiles agree")
 
 
 def test_youtube_is_left_out_of_the_social_comparison():

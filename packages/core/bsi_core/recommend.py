@@ -497,8 +497,15 @@ def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
             elif fam in _CRAWL_TITLES:
                 kind, copy = "fix_crawlability", crawl_copy
             else:
-                kind = ""
-            if not kind or check["severity"] not in PRESSURE_BY_SEVERITY:
+                log.warning(
+                    "skipping unrecognized site check: brand=%s domain=%s "
+                    "code=%s",
+                    brand,
+                    domain,
+                    code,
+                )
+                continue
+            if check["severity"] not in PRESSURE_BY_SEVERITY:
                 log.warning(
                     "skipping unrecognized site check: brand=%s domain=%s "
                     "code=%s",
