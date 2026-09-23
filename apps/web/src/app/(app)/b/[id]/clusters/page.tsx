@@ -26,7 +26,6 @@ export default async function ClustersPage({
   const sp = await searchParams;
   // The API sorts clusters and brief sources; the page keeps its order.
   const data = await api<Clusters>(`/brands/${id}/clusters/gaps${apiQuery(sp)}`);
-  const gaps = data.clusters.filter((c) => c.gap).length;
   return (
     <>
       <Filters sp={sp} />
@@ -44,8 +43,10 @@ export default async function ClustersPage({
         </form>
       )}
       <p className="muted">
-        {data.clusters.length} clusters · {gaps} gaps · a gap: the brand is
-        absent from at least half the answers and a rival is named in one
+        {data.clusters.length} clusters · {data.gaps} gaps · a gap: the brand
+        is absent from at least half the answers, a rival is named in one of
+        those, and the main absence reason is rivals leading or the brand not
+        being retrieved
       </p>
       {data.clusters.length === 0 && (
         <p>No labelled prompts with answers for these filters.</p>
@@ -157,7 +158,11 @@ export default async function ClustersPage({
                 </td>
                 <td
                   className={
-                    c.spread == null ? "muted" : c.spread < 0 ? "down" : "up"
+                    c.spread == null || c.spread === 0
+                      ? "muted"
+                      : c.spread < 0
+                        ? "down"
+                        : "up"
                   }
                 >
                   {pts(c.spread)}

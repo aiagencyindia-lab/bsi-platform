@@ -19,7 +19,9 @@ def list_gap_clusters(
     brand_id: uuid.UUID, f: Filters = Depends(filters), c: Ctx = TENANT
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
+    rows = clusters(c.s, brand_id, f)
     return {
         "unlabelled": unlabelled(c.s, brand_id),
-        "clusters": clusters(c.s, brand_id, f),
+        "gaps": sum(r["gap"] for r in rows),
+        "clusters": rows,
     }

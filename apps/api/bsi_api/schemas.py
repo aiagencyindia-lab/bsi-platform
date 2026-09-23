@@ -170,6 +170,7 @@ class GapClusterOut(BaseModel):
 
 class ClustersOut(BaseModel):
     unlabelled: int
+    gaps: int
     clusters: list[GapClusterOut]
 
 

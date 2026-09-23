@@ -62,11 +62,12 @@ function Card({ r, id }: { r: Recommendation; id: string }) {
             <Link href={`/b/${id}/prompts/${prompts[0]}`}>the prompt</Link>
           )}
           {prompts.length > 1 &&
-            prompts.map((p) => (
+            prompts.slice(0, 5).map((p) => (
               <span key={p}>
                 <Link href={`/b/${id}/prompts/${p}`}>{p.slice(0, 8)}</Link>{" "}
               </span>
             ))}
+          {prompts.length > 5 && `and ${prompts.length - 5} more`}
           {answers.slice(0, 5).map((o, i) => (
             <span key={o}>
               {" · "}

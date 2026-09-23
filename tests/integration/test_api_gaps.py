@@ -11,6 +11,7 @@ def test_clusters_route_returns_numbers_and_briefs(client, scene):  # noqa: F811
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["unlabelled"] == 1
+    assert body["gaps"] == sum(c["gap"] for c in body["clusters"]) == 1
     keys = [c["key"] for c in body["clusters"]]
     assert keys[0] == "cluster:comparison:running shoes"
     gap = body["clusters"][0]

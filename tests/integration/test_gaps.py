@@ -313,6 +313,21 @@ def test_every_intent_has_a_page_type():
     assert set(PAGE_TYPES) == set(m.INTENTS)
 
 
+def test_how_to_heading_reads_with_a_noun_topic():
+    c = {
+        "intent": "problem-based",
+        "topic": "kids shoes",
+        "prompts": [{"prompt_id": 1, "text": "why do kids shoes wear out"}],
+        "rivals": [],
+        "sources": [],
+        "brand_urls": [],
+        "absent_obs": [],
+    }
+    assert (
+        brief(c, "Nike")["structure"][0] == "H1: kids shoes: problems and fixes"
+    )
+
+
 def test_evidence_is_newest_across_the_cluster(scene, owner):
     # Backdate every answer of the prompt whose UUID sorts first, so a
     # per-prompt ordering would put its (older) answers first.

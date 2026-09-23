@@ -923,6 +923,8 @@ export interface components {
         ClustersOut: {
             /** Clusters */
             clusters: components["schemas"]["GapClusterOut"][];
+            /** Gaps */
+            gaps: number;
             /** Unlabelled */
             unlabelled: number;
         };

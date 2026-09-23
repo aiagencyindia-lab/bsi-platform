@@ -182,3 +182,7 @@ def test_cluster_copy_uses_an_before_a_vowel():
     assert cluster_copy("N", "i", "t", "guide", ["q"], 1, 2, [])[0].startswith(
         "Publish a guide"
     )
+
+
+def test_cluster_copy_names_rivals_in_this_cluster():
+    assert "Rivals named in this cluster: Adidas." in ALTERNATIVES[1]

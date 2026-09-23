@@ -148,7 +148,7 @@ def cluster_copy(
     rivals: list[str],
 ) -> tuple[str, str]:
     asks = " and ".join(f"“{q}”" for q in worst[:2])
-    led = f" Rivals named there: {names(rivals)}." if rivals else ""
+    led = f" Rivals named in this cluster: {names(rivals)}." if rivals else ""
     # ponytail: first-letter rule; every PAGE_TYPES value reads right by it.
     art = "an" if page_type[0] in "aeiou" else "a"
     return (

@@ -64,7 +64,7 @@ STRUCTURES = {
     "category page": ["H1: {topic}", "H2: {q}", "H2: Products", "H2: FAQ"],
     "product page": ["H1: {topic}", "H2: {q}", "H2: Specifications", "H2: FAQ"],
     "how-to": [
-        "H1: How to {topic}",
+        "H1: {topic}: problems and fixes",
         "H2: {q}",
         "H2: Step by step",
         "H2: Sources and evidence",
