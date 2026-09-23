@@ -3,6 +3,7 @@ from bsi_core import entity
 from bsi_core.crawl import SEVERITY
 from bsi_core.recommend import (
     citation_copy,
+    cluster_copy,
     competitor_copy,
     content_copy,
     crawl_copy,
@@ -37,6 +38,29 @@ CASES = [
     competitor_copy("Puma", 2),
     sample_copy("Nike", "best shoes", 3, 4, "Adidas"),
     sample_copy("Nike", "best shoes", 3, 7, "Adidas"),
+]
+
+CASES += [
+    cluster_copy(
+        "Nike",
+        "comparison",
+        "running shoes",
+        "comparison page",
+        ["nike vs adidas", "best running shoe brand"],
+        6,
+        8,
+        ["Adidas", "Puma"],
+    ),
+    cluster_copy(
+        "Nike",
+        "informational",
+        "sizing",
+        "guide",
+        ["shoe size chart"],
+        2,
+        3,
+        [],
+    ),
 ]
 
 # Every crawl family, so the scans below cover each template.

@@ -415,3 +415,107 @@ def test_absent_answers_naming_no_active_rival_are_not_a_gap(scene, owner):
     assert (gap["absent"], gap["rival_absent"]) == (6, 0)
     assert gap["top_rival"]["name"] == "Adidas"  # the present answer
     assert gap["gap"] is False and gap["brief"] is None
+
+
+from bsi_core.recommend import generate, refresh  # noqa: E402
+
+
+def found(ids):
+    with tenant_session(ids.org.id) as s:
+        return {(c.type, c.subject_key): c for c in generate(s, ids.brand)}
+
+
+def test_one_content_rec_per_gap_cluster_and_per_prompt_only_when_unlabelled(
+    scene,
+):
+    recs = found(scene)
+    content = {k: c for k, c in recs.items() if k[0] == "create_content"}
+    assert set(content) == {
+        ("create_content", "cluster:comparison:running shoes"),
+        ("create_content", str(scene.old)),  # unlabelled: per-prompt rule
+    }
+    c = content[("create_content", "cluster:comparison:running shoes")]
+    # total = 8 + 4 + 4 + 3 = 19 done answers on active prompts.
+    assert (c.reach, c.pressure, c.feasibility) == (
+        pytest.approx(6 / 19),
+        pytest.approx(5 / 6),
+        0.4,
+    )
+    assert c.priority == round(6 / 19 * 5 / 6 * 0.4, 4)
+    assert c.title == "Publish a comparison page for running shoes (comparison)"
+    assert "Adidas" in c.body and "Metric to watch:" in c.body
+    ev = c.evidence
+    assert ev["cluster"] == {"intent": "comparison", "topic": "running shoes"}
+    assert (ev["reason"], ev["absent"], ev["n"]) == (
+        "competitor_dominance",
+        6,
+        8,
+    )
+    assert set(ev["prompt_ids"]) == {str(scene.vs), str(scene.best)}
+    assert len(ev["observation_ids"]) == 6
+    assert ev["page_type"] == "comparison page" and ev["internal_links"] == [
+        "https://nike.com/run"
+    ]
+    assert ev["competitors"] == ["Adidas"]
+
+
+def test_labelling_a_prompt_moves_it_from_prompt_rec_to_cluster_rec(
+    scene, owner
+):
+    with tenant_session(scene.org.id) as s:
+        refresh(s, scene.org.id, scene.brand)
+        keys = set(
+            s.scalars(
+                select(m.Recommendation.subject_key).where(
+                    m.Recommendation.type == "create_content"
+                )
+            )
+        )
+    assert str(scene.old) in keys
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Prompt)
+            .where(m.Prompt.id == scene.old)
+            .values(intent="comparison", topic="running shoes")
+        )
+    with tenant_session(scene.org.id) as s:
+        refresh(s, scene.org.id, scene.brand)
+        rows_ = s.scalars(
+            select(m.Recommendation).where(
+                m.Recommendation.type == "create_content"
+            )
+        ).all()
+    assert {r.subject_key for r in rows_} == {
+        "cluster:comparison:running shoes"
+    }
+    cluster = rows_[0]
+    assert cluster.evidence["n"] == 11 and cluster.evidence["absent"] == 9
+
+
+def test_an_accepted_prompt_rec_survives_labelling(scene, owner):
+    with tenant_session(scene.org.id) as s:
+        refresh(s, scene.org.id, scene.brand)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Recommendation)
+            .where(m.Recommendation.subject_key == str(scene.old))
+            .values(status="accepted")
+        )
+        s.execute(
+            update(m.Prompt)
+            .where(m.Prompt.id == scene.old)
+            .values(intent="informational", topic="history")
+        )
+    with tenant_session(scene.org.id) as s:
+        refresh(s, scene.org.id, scene.brand)
+        statuses = dict(
+            s.execute(
+                select(
+                    m.Recommendation.subject_key, m.Recommendation.status
+                ).where(m.Recommendation.type == "create_content")
+            ).all()
+        )
+    assert statuses[str(scene.old)] == "accepted"
+    assert (
+        "cluster:informational:history" in statuses
+    )  # 3/3 absent, Adidas named
