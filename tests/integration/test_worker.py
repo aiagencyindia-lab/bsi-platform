@@ -8,6 +8,7 @@ from bsi_core.impact import close_window
 from bsi_core.providers.base import EngineResult, ParsedAnswer
 from bsi_core.scheduling import run_schedule
 from bsi_core.storage import LocalRawStore
+from bsi_core.suggest import LABEL_JOB_MICROS
 from bsi_workers.worker import (
     close_due_impact_windows,
     process_one,
@@ -468,6 +469,72 @@ def test_a_queued_prompts_job_runs_and_is_marked_done(
     job = _load_job(owner, job_id)
     assert (job.status, job.error, job.cost_micros) == ("done", None, 755)
     assert worker.process_job(FakeAdapter(), generator, embedder) is False
+
+
+def test_a_label_job_labels_only_unlabelled_prompts_and_adds_none(
+    owner, make_org, make_brand, make_observation
+):
+    import json
+
+    org = make_org()
+    bid = make_brand(org)
+    a = make_observation(org, bid, status="done", text="alpha")
+    make_observation(org, bid, status="done", text="beta")
+    with owner() as s, s.begin():
+        pa = s.get(m.Observation, a).prompt_id
+        s.execute(
+            update(m.Prompt)
+            .where(m.Prompt.id == pa)
+            .values(intent="informational", topic="done")
+        )
+    job_id = _job(owner, org, bid, "label_prompts", "queued")
+    seen = []
+
+    def generator(prompt, schema, temperature):
+        seen.append(prompt)
+        return (
+            json.dumps(
+                {
+                    "prompts": [
+                        {
+                            "text": "beta",
+                            "intent": "comparison",
+                            "topic": " Sizing ",
+                        }
+                    ]
+                }
+            ),
+            700,
+            "fake",
+        )
+
+    def embedder(texts):
+        # prompt.embedding is vector(768): the shared _spender's [1.0]
+        # vectors would not fit the column.
+        return [[0.0] * 767 + [1.0] for _ in texts], 55
+
+    assert worker.process_job(FakeAdapter(), generator, embedder) is True
+    job = _load_job(owner, job_id)
+    assert (job.status, job.error) == ("done", None)
+    assert job.cost_micros == 700 + 55
+    assert len(seen) == 1 and "beta" in seen[0]  # alpha is labelled already
+    # (alpha still appears in the request's existing-prompts context.)
+    with owner() as s:
+        rows = {
+            p.text: p
+            for p in s.scalars(select(m.Prompt).where(m.Prompt.brand_id == bid))
+        }
+    assert len(rows) == 2  # nothing generated
+    assert (rows["beta"].intent, rows["beta"].topic) == ("comparison", "sizing")
+    assert rows["alpha"].topic == "done"
+    assert (
+        rows["alpha"].embedding is not None
+        and rows["beta"].embedding is not None
+    )
+
+
+def test_label_job_estimate_is_budget_gated(owner, make_org, make_brand):
+    assert worker.JOB_ESTIMATES["label_prompts"] == LABEL_JOB_MICROS == 10_000
 
 
 def test_a_failing_job_records_the_error_and_keeps_its_cost(

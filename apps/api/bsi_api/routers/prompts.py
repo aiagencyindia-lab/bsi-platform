@@ -154,3 +154,9 @@ def suggest(
     return queue_suggestion(
         c, brand_id, "suggest_prompts", {"count": body.count}
     )
+
+
+@router.post("/label", status_code=202)
+def label(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
+    """Label and embed prompts that lack intent, topic or embedding."""
+    return queue_suggestion(c, brand_id, "label_prompts", {})
