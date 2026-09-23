@@ -1,0 +1,145 @@
+import Link from "next/link";
+import { Filters } from "@/components/Filters";
+import { CiBar } from "@/components/Tile";
+import { api } from "@/lib/api";
+import { apiQuery, ciText, pct, pts, type Params } from "@/lib/format";
+import type { Changes, EntityDeltas, EntityMetrics } from "@/lib/types";
+
+// The change feed always reads a fixed window; the days filter sets only
+// the leaderboard deltas.
+const FEED_DAYS = 14;
+
+const num = (v: number | null | undefined, digits = 1) =>
+  v == null ? "—" : v.toFixed(digits);
+
+export default async function Competitors({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Params>;
+}) {
+  const { id } = await params;
+  const sp = await searchParams;
+  const q = apiQuery(sp);
+  // Window routes take days and date_to; they refuse date_from.
+  const wq = apiQuery(sp, ["days"], ["date_from"]);
+  const fq = apiQuery(sp, [], ["date_from"]);
+  const feedQuery = `${fq}${fq ? "&" : "?"}days=${FEED_DAYS}`;
+  const [rows, d, feed] = await Promise.all([
+    api<EntityMetrics[]>(`/brands/${id}/competitors/metrics${q}`),
+    api<EntityDeltas>(`/brands/${id}/competitors/deltas${wq}`),
+    api<Changes>(`/brands/${id}/competitors/changes${feedQuery}`),
+  ]);
+  const days = typeof sp.days === "string" ? Number(sp.days) || 7 : 7;
+  const deltaText = (eid: string, key: "mention_rate" | "sov") => {
+    const x = d.deltas?.[eid]?.[key];
+    if (!x) return null;
+    const sig = x.label === "increase" || x.label === "decrease";
+    return (
+      <div className={sig ? (x.label === "increase" ? "up" : "down") : "muted"}>
+        {sig ? `${pts(x.value)} vs previous ${days} days` : x.label}
+      </div>
+    );
+  };
+  return (
+    <>
+      <Filters sp={sp} days />
+      <h2>Leaderboard</h2>
+      {!d.comparable && <p className="muted">Deltas hidden: {d.reason}</p>}
+      <table>
+        <thead>
+          <tr>
+            <th>Entity</th>
+            <th>Mention rate</th>
+            <th>Recommended</th>
+            <th>Share of voice</th>
+            <th>Coverage</th>
+            <th>Cited</th>
+            <th>Avg position</th>
+            <th>Sentiment</th>
+            <th>Cited alongside</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.entity_id}>
+              <td>
+                {r.name} {r.type === "brand" && <span className="tag">you</span>}
+              </td>
+              <td>
+                {pct(r.mention_rate.value)}
+                <CiBar r={r.mention_rate} />
+                <div className="muted">{ciText(r.mention_rate)}</div>
+                {deltaText(r.entity_id, "mention_rate")}
+              </td>
+              <td>
+                {pct(r.recommendation_rate.value)}{" "}
+                {r.recommendation_rate.experimental && (
+                  <span className="tag">experimental</span>
+                )}
+              </td>
+              <td>
+                {pct(r.sov.value)}
+                <div className="muted">{ciText(r.sov)}</div>
+                {deltaText(r.entity_id, "sov")}
+              </td>
+              <td>{pct(r.prompt_coverage.value)}</td>
+              <td>{pct(r.citation_rate.value)}</td>
+              <td>{num(r.avg_position.value)}</td>
+              <td title={`+${pct(r.sentiment.positive.value)} / −${pct(r.sentiment.negative.value)}`}>
+                {num(r.sentiment.index, 2)}
+              </td>
+              <td className="muted">
+                {r.citing_domains.map((c) => `${c.domain} (${c.answers})`).join(", ") || "—"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <h2>Visibility changes</h2>
+      <p className="muted">
+        A rival that gained or lost at least 10 points on at least 10 prompts in
+        the last {FEED_DAYS} days, with a significant pooled change. {feed.prompts}{" "}
+        prompts have answers in both windows.
+      </p>
+      {feed.changes.length === 0 && (
+        <p className="muted">
+          {feed.reason ??
+            "No competitor moved at least 10 points on at least 10 prompts with a significant pooled change."}
+        </p>
+      )}
+      {feed.changes.map((c) => (
+        <div className="card" key={`${c.competitor_id}-${c.direction}`}>
+          <h3>
+            {c.name} <span className={`tag ${c.direction === "up" ? "up" : "down"}`}>{c.direction}</span>
+          </h3>
+          <p>
+            {pct(c.before.value)} → {pct(c.after.value)} ({pts(c.delta.value)},{" "}
+            {pts(c.delta.ci_low)} to {pts(c.delta.ci_high)}) over {c.prompts.length} prompts ·
+            engines {c.engines.join(", ") || "—"}
+          </p>
+          {c.new_citing_domains.length > 0 && (
+            <p className="muted">New citing domains: {c.new_citing_domains.join(", ")}</p>
+          )}
+          <ul>
+            {c.prompts.map((p) => (
+              <li key={p.prompt_id}>
+                {p.text}: {pct(p.before.value)} → {pct(p.after.value)}
+              </li>
+            ))}
+          </ul>
+          <p className="muted">
+            Evidence:{" "}
+            {c.observation_ids.length === 0 && "—"}
+            {c.observation_ids.map((o) => (
+              <Link key={o} href={`/o/${o}`} style={{ marginRight: 6 }}>
+                {o.slice(0, 8)}
+              </Link>
+            ))}
+          </p>
+        </div>
+      ))}
+    </>
+  );
+}

@@ -101,6 +101,73 @@ class SovOut(BaseModel):
     computed_at: datetime
 
 
+class SentimentOut(BaseModel):
+    positive: Rate
+    negative: Rate
+    index: float | None
+
+
+class CitingDomainOut(BaseModel):
+    domain: str
+    answers: int
+    owner: Literal["brand", "rival", "third_party"]
+
+
+class EntityMetricsOut(BaseModel):
+    entity_id: uuid.UUID
+    name: str
+    type: Literal["brand", "competitor"]
+    mention_rate: Rate
+    recommendation_rate: RecRate
+    citation_rate: Rate
+    prompt_coverage: Rate
+    sov: Rate
+    avg_position: AvgPosition
+    sentiment: SentimentOut
+    citing_domains: list[CitingDomainOut]
+
+
+class EntityWindowOut(BaseModel):
+    from_: datetime = Field(alias="from")
+    to: datetime
+    entities: list[EntityMetricsOut]
+
+
+class EntityDeltasOut(BaseModel):
+    before: EntityWindowOut
+    after: EntityWindowOut
+    comparable: bool
+    reason: str | None
+    deltas: dict[uuid.UUID, dict[str, Delta]] | None
+
+
+class ChangePromptOut(BaseModel):
+    prompt_id: uuid.UUID
+    text: str
+    before: Rate
+    after: Rate
+
+
+class ChangeOut(BaseModel):
+    competitor_id: uuid.UUID
+    name: str
+    direction: Literal["up", "down"]
+    before: Rate
+    after: Rate
+    delta: Delta
+    prompts: list[ChangePromptOut]
+    engines: list[str]
+    new_citing_domains: list[str]
+    observation_ids: list[uuid.UUID]
+
+
+class ChangesOut(BaseModel):
+    comparable: bool
+    reason: str | None
+    prompts: int
+    changes: list[ChangeOut]
+
+
 class EntityRate(Rate):
     entity_id: uuid.UUID
     name: str
