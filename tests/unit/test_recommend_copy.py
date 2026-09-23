@@ -63,6 +63,18 @@ CASES += [
     ),
 ]
 
+ALTERNATIVES = cluster_copy(
+    "Nike",
+    "alternative",
+    "running shoes",
+    "alternatives page",
+    ["adidas alternatives"],
+    3,
+    4,
+    ["Adidas"],
+)
+CASES.append(ALTERNATIVES)
+
 # Every crawl family, so the scans below cover each template.
 CRAWL_CODES = [f"{c}:GPTBot" if c.startswith("bot_") else c for c in SEVERITY]
 CASES += [
@@ -161,3 +173,12 @@ def test_crawl_copy_names_the_bot_and_the_file():
     )
     assert "ClaudeBot" in title and "nike.com" in title
     assert "HTTP 403" in body and "https://nike.com/" in body
+
+
+def test_cluster_copy_uses_an_before_a_vowel():
+    title, body = ALTERNATIVES
+    assert title.startswith("Publish an alternatives page for ")
+    assert "An alternatives page that answers" in body
+    assert cluster_copy("N", "i", "t", "guide", ["q"], 1, 2, [])[0].startswith(
+        "Publish a guide"
+    )

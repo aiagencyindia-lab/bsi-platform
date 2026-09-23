@@ -492,14 +492,15 @@ def test_labelling_a_prompt_moves_it_from_prompt_rec_to_cluster_rec(
     assert cluster.evidence["n"] == 11 and cluster.evidence["absent"] == 9
 
 
-def test_an_accepted_prompt_rec_survives_labelling(scene, owner):
+@pytest.mark.parametrize("decision", ["accepted", "dismissed"])
+def test_a_decided_prompt_rec_survives_labelling(scene, owner, decision):
     with tenant_session(scene.org.id) as s:
         refresh(s, scene.org.id, scene.brand)
     with owner() as s, s.begin():
         s.execute(
             update(m.Recommendation)
             .where(m.Recommendation.subject_key == str(scene.old))
-            .values(status="accepted")
+            .values(status=decision)
         )
         s.execute(
             update(m.Prompt)
@@ -515,7 +516,30 @@ def test_an_accepted_prompt_rec_survives_labelling(scene, owner):
                 ).where(m.Recommendation.type == "create_content")
             ).all()
         )
-    assert statuses[str(scene.old)] == "accepted"
+    assert statuses[str(scene.old)] == decision
     assert (
         "cluster:informational:history" in statuses
     )  # 3/3 absent, Adidas named
+
+
+def test_a_half_labelled_prompt_stays_per_prompt(scene, owner):
+    # intent set, topic null: still unlabelled, so no cluster takes it.
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Prompt)
+            .where(m.Prompt.id == scene.old)
+            .values(intent="comparison")
+        )
+    content = {k for k in found(scene) if k[0] == "create_content"}
+    assert content == {
+        ("create_content", "cluster:comparison:running shoes"),
+        ("create_content", str(scene.old)),
+    }
+    got = rows(scene)
+    assert got["cluster:comparison:running shoes"]["n"] == 8
+    assert not any(
+        str(scene.old) in c["brief"]["evidence"]["prompt_ids"]
+        for c in got.values()
+        if c["brief"]
+    )
+    assert all(c["topic"] is not None for c in got.values())

@@ -149,11 +149,14 @@ def cluster_copy(
 ) -> tuple[str, str]:
     asks = " and ".join(f"“{q}”" for q in worst[:2])
     led = f" Rivals named there: {names(rivals)}." if rivals else ""
+    # ponytail: first-letter rule; every PAGE_TYPES value reads right by it.
+    art = "an" if page_type[0] in "aeiou" else "a"
     return (
-        f"Publish a {page_type} for {topic} ({intent})",
+        f"Publish {art} {page_type} for {topic} ({intent})",
         f"{brand} is absent from {absent} of {n} answers in this cluster, "
-        f"led by {asks}.{led} A {page_type} that answers these prompts "
-        "directly gives engines something of the brand's own to retrieve. "
+        f"led by {asks}.{led} {art.capitalize()} {page_type} that answers "
+        "these prompts directly gives engines something of the brand's "
+        "own to retrieve. "
         f"Metric to watch: {brand}'s mention rate on the cluster's prompts.",
     )
 
