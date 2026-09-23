@@ -515,9 +515,10 @@ def feed(owner, make_org, make_brand):
     A: before 0/10 everywhere; after 10/10 on q00..q10 (11 prompts), 0/10
        on q11  -> up on 11 prompts, pooled 0/110 -> 110/110: qualifies.
     B: after 10/10 on q00..q08 (9 prompts)  -> count rule fails.
-    C: before 1/10, after 2/10 on q00..q09 (10 prompts, shift exactly
-       MIN_SHIFT) -> pooled 10/100 -> 20/100: delta() must say
+    C: before 4/10, after 5/10 on q00..q09 (10 prompts, shift exactly
+       MIN_SHIFT) -> pooled 40/100 -> 50/100: delta() says
        "no significant change" (the test computes it, not the fixture).
+       (1/10 -> 2/10 would NOT do: 10/100 -> 20/100 is just significant.)
     Citations: every before answer on q00 cites old.com; after answers
     naming A on q00 cite old.com and new.com.
     """
@@ -542,8 +543,8 @@ def feed(owner, make_org, make_brand):
         if i < 9:
             ment += [_mention(org, o, "competitor", cb, 2) for o in after[p]]
         if i < 10:
-            ment += [_mention(org, o, "competitor", cc, 3) for o in before[p][:1]]
-            ment += [_mention(org, o, "competitor", cc, 3) for o in after[p][:2]]
+            ment += [_mention(org, o, "competitor", cc, 3) for o in before[p][:4]]
+            ment += [_mention(org, o, "competitor", cc, 3) for o in after[p][:5]]
     cites += [_cite(org, o, "old.com") for o in before[prompts[0]]]
     cites += [_cite(org, o, d) for o in after[prompts[0]] for d in ("old.com", "new.com")]
     with owner() as s, s.begin():
@@ -588,7 +589,7 @@ def test_the_count_rule_and_the_pooled_test_both_gate(feed):
     names = {c["name"] for c in changes(org, bid)["changes"]}
     assert "B" not in names  # 9 prompts moved: below MIN_PROMPTS
     assert "C" not in names  # 10 moved by exactly MIN_SHIFT, but pooled:
-    assert delta(rate(10, 100), rate(20, 100))["label"] == "no significant change"
+    assert delta(rate(40, 100), rate(50, 100))["label"] == "no significant change"
 
 
 def test_direction_down_and_filters(feed):
@@ -799,7 +800,9 @@ def visibility_changes(
         for pid in shared:
             (_, nb), (_, na) = pb[pid], pa[pid]
             k1, k2 = kb.get((pid, cid), 0), ka.get((pid, cid), 0)
-            shift = k2 / na - k1 / nb
+            # Rounded: 3/10 - 2/10 is 0.0999... in floats, and a
+            # one-answer shift at n=10 must count as MIN_SHIFT.
+            shift = round(k2 / na - k1 / nb, 9)
             if shift >= MIN_SHIFT:
                 moved["up"].append((pid, shift, k1, nb, k2, na))
             elif -shift >= MIN_SHIFT:
@@ -894,7 +897,7 @@ Fix the one awkward line: build the engines query plainly instead of `str.replac
 - [ ] **Step 4: Run to verify pass**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest tests/integration/test_competitors.py -q`
-Expected: all pass. If `test_the_count_rule_and_the_pooled_test_both_gate` fails on C's label, the fixture's C numbers are wrong, not the rule: re-check that C has 1 before and 2 after mentions on exactly 10 prompts with n = 10 each, and that `delta(rate(10,100), rate(20,100))` really is "no significant change" (Newcombe low ≈ −0.002).
+Expected: all pass. If `test_the_count_rule_and_the_pooled_test_both_gate` fails on C, re-check that C has 4 before and 5 after mentions on exactly 10 prompts with n = 10 each; `delta(rate(40,100), rate(50,100))` is "no significant change" (Newcombe low ≈ −0.037). If C is missing from the moved count altogether, the shift comparison is suffering float error: 5/10 − 4/10 must count as 0.10.
 
 - [ ] **Step 5: Gate, commit**
 
