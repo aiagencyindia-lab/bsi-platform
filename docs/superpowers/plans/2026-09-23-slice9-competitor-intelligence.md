@@ -960,10 +960,11 @@ def test_metrics_honours_filters(client, scene):  # noqa: F811
 
 def test_deltas_and_changes(client, feed):  # noqa: F811
     org, bid, ids = feed
-    to = NOW.isoformat()
+    # params=, not an f-string: "+00:00" in a raw query string reads as
+    # a space.
+    q = {"days": 14, "date_to": NOW.isoformat()}
     r = client.get(
-        f"/v1/brands/{bid}/competitors/deltas?days=14&date_to={to}",
-        headers=org.headers,
+        f"/v1/brands/{bid}/competitors/deltas", params=q, headers=org.headers
     )
     assert r.status_code == 200, r.text
     d = r.json()
@@ -971,8 +972,7 @@ def test_deltas_and_changes(client, feed):  # noqa: F811
     assert d["deltas"][str(ids["a"])]["mention_rate"]["label"] == "increase"
     assert d["after"]["entities"][0]["recommendation_rate"]["experimental"] is True
     r = client.get(
-        f"/v1/brands/{bid}/competitors/changes?days=14&date_to={to}",
-        headers=org.headers,
+        f"/v1/brands/{bid}/competitors/changes", params=q, headers=org.headers
     )
     assert r.status_code == 200, r.text
     c = r.json()
@@ -988,10 +988,13 @@ def test_date_from_is_rejected_on_window_routes(client, scene):  # noqa: F811
     frm = (NOW - timedelta(days=3)).isoformat()
     for route in ("deltas", "changes"):
         r = client.get(
-            f"/v1/brands/{bid}/competitors/{route}?date_from={frm}",
+            f"/v1/brands/{bid}/competitors/{route}",
+            params={"date_from": frm},
             headers=org.headers,
         )
         assert r.status_code == 422, route
+        # The route's own refusal, not a parse error on the timestamp.
+        assert "date_from is not allowed" in r.text, route
 
 
 def test_unknown_brand_is_404(client, make_org):
