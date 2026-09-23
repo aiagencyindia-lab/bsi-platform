@@ -85,8 +85,8 @@ EXPECTED = {
     f"same host. {SIGNAL}",
     "wikidata_missing": "Wikidata holds an item for the brand whose "
     f"official website is a declared domain. {SIGNAL}",
-    "wikidata_name_mismatch": "The Wikidata item's English label reads as "
-    f"the brand's name or a declared alias. {SIGNAL}",
+    "wikidata_name_mismatch": "The Wikidata item's English (or default) "
+    f"label reads as the brand's name or a declared alias. {SIGNAL}",
     "wikidata_logo_missing": "The Wikidata item has a logo image (P154). "
     f"{SIGNAL}",
     "social_links_conflict": "The social profiles in the site's sameAs and "
@@ -110,6 +110,24 @@ Row = tuple[str, bool, str, str]  # code, ok, observed, url
 def _norm(s: str) -> str:
     """Casefold, keep letters and digits: "Acme, Inc." == "acme inc"."""
     return "".join(ch for ch in s.casefold() if ch.isalnum())
+
+
+# Trailing words a registered name adds to the brand's: "Nike, Inc.",
+# "Acme Pvt. Ltd.", "Acme Private Limited".
+LEGAL_SUFFIXES = frozenset(
+    "inc incorporated ltd limited llc gmbh corp corporation plc co pvt "
+    "private ag sa".split()
+)
+
+
+def _legal_name(s: str) -> str:
+    """_norm after dropping trailing legal-suffix words; one word always
+    stays, so a brand called "Co" is still "co". For the name checks only:
+    a title is matched as written."""
+    words = re.findall(r"[^\W_]+", s.casefold())
+    while len(words) > 1 and words[-1] in LEGAL_SUFFIXES:
+        words.pop()
+    return _norm(" ".join(words))
 
 
 def _nodes(doc: object) -> Iterator[dict[str, Any]]:
@@ -172,9 +190,16 @@ def _about(href: str, home_url: str, host: str) -> bool:
 
 
 def _home_rows(
-    body: str, url: str, host: str, names: set[str], hosts: Sequence[str]
+    body: str,
+    url: str,
+    host: str,
+    names: set[str],
+    legal: set[str],
+    hosts: Sequence[str],
 ) -> tuple[list[Row], list[str]]:
-    """The home-page rows, and the sameAs URLs for the social comparison."""
+    """The home-page rows, and the sameAs URLs for the social comparison.
+    names are _norm'd brand names for the title, legal their _legal_name
+    forms for the Organization name."""
     head = Head()
     head.feed(body)
     nodes = _ld_nodes(head.ld)
@@ -191,13 +216,26 @@ def _home_rows(
         name = org.get("name")
         name = name.strip() if isinstance(name, str) else ""
         rows.append(
-            ("org_name_mismatch", _norm(name) in names, name or "absent", url)
+            (
+                "org_name_mismatch",
+                _legal_name(name) in legal,
+                name or "absent",
+                url,
+            )
         )
         urls = _strings(org.get("url"))
+
+        def owned(u: str) -> bool:
+            # A relative url ("/", "/en/") is on the homepage's host.
+            try:
+                return _owned(urljoin(url, u), hosts)
+            except ValueError:
+                return False
+
         rows.append(
             (
                 "org_url_mismatch",
-                any(_owned(u, hosts) for u in urls),
+                any(owned(u) for u in urls),
                 urls[0] if urls else "absent",
                 url,
             )
@@ -253,10 +291,11 @@ def _home_rows(
 
 def _social(url: str) -> str | None:
     """A profile URL as lowercase host + path, or None if it is not on a
-    tracked network. x.com is twitter.com."""
+    tracked network. x.com is twitter.com; www., m. and mobile. hosts are
+    the plain one."""
     try:
         p = urlsplit(url if "://" in url else f"https://{url}")
-        host = (p.hostname or "").removeprefix("www.")
+        host = re.sub(r"^(?:www|m|mobile)\.", "", p.hostname or "")
     except ValueError:
         return None
     host = "twitter.com" if host == "x.com" else host
@@ -318,7 +357,7 @@ def _wikidata_rows(
     get: Callable[[str, str], Response],
     host: str,
     brand_name: str,
-    names: set[str],
+    legal: set[str],
     hosts: Sequence[str],
     site_social: set[str],
 ) -> list[Row]:
@@ -407,8 +446,8 @@ def _wikidata_rows(
         ("wikidata_missing", True, f"{match}: {label}", page),
         (
             "wikidata_name_mismatch",
-            _norm(label) in names,
-            f"{match}: {label or 'no English label'}",
+            _legal_name(label) in legal,
+            f"{match}: {label or 'no English (or default) label'}",
             page,
         ),
         ("wikidata_logo_missing", item["P154"] > 0, match, page),
@@ -429,6 +468,7 @@ def audit_entity(
     home rows need a reachable homepage, org rows an Organization node."""
     fetches = 0
     names = {_norm(n) for n in (brand_name, *aliases)} - {""}
+    legal = {_legal_name(n) for n in (brand_name, *aliases)} - {""}
 
     def get(url: str, ua: str) -> Response:
         nonlocal fetches
@@ -444,10 +484,12 @@ def audit_entity(
     rows: list[Row] = []
     same_as: list[str] = []
     if home.ok:
-        rows, same_as = _home_rows(home.body, home_url, host, names, hosts)
+        rows, same_as = _home_rows(
+            home.body, home_url, host, names, legal, hosts
+        )
     site_social = {s for u in same_as if (s := _social(u))}
     try:
-        rows += _wikidata_rows(get, host, brand_name, names, hosts, site_social)
+        rows += _wikidata_rows(get, host, brand_name, legal, hosts, site_social)
     except (ValueError, TypeError, AttributeError, KeyError) as e:
         # An answer of the wrong shape: skip, as for a non-2xx.
         log.warning("unreadable wikidata answer: host=%s error=%r", host, e)

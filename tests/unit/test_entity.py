@@ -129,6 +129,31 @@ def test_observed_values_name_what_was_found():
     assert obs["org_url_mismatch"] == "absent"
 
 
+@pytest.mark.parametrize(
+    ("name", "brand", "ok"),
+    [
+        ("Nike, Inc.", "Nike", True),
+        ("Acme Pvt. Ltd.", "Acme", True),
+        ("Acme Private Limited", "Acme", True),
+        ("Acme", "Acme GmbH", True),
+        ("Acme Rockets Ltd", "Acme", False),
+        # A brand named after a suffix is not stripped to nothing.
+        ("Co", "Co", True),
+        ("Co Inc", "Co", True),
+        ("Acme", "Co", False),
+    ],
+)
+def test_org_name_ignores_trailing_legal_suffixes(name, brand, ok):
+    f = fetcher(home_resp=org_home(name=name))
+    assert verdicts(run(f, name=brand, aliases=()))["org_name_mismatch"] is ok
+
+
+def test_title_check_does_not_strip_legal_suffixes():
+    f = fetcher(home_resp=Response(200, home(title="Acme | Rockets")))
+    got = verdicts(run(f, name="Acme Ltd", aliases=()))
+    assert not got["title_brand_missing"]
+
+
 def test_names_normalise_case_punctuation_and_unicode():
     org = {**ORG, "name": "CAFÉ NOIR!"}
     f = fetcher(home_resp=Response(200, home(org=org, title="café-noir shop")))
@@ -144,6 +169,10 @@ def test_names_normalise_case_punctuation_and_unicode():
         ("https://shop.acme.com/x", True),
         ("https://acme.com.evil.net/", False),
         ("", False),
+        # Relative urls resolve against the homepage.
+        ("/", True),
+        ("/en/", True),
+        ("http://[::1", False),
     ],
 )
 def test_org_url_must_be_a_declared_domain(url, ok):
@@ -225,6 +254,7 @@ def test_constants_are_consistent():
     # The rule routes by family: entity and crawl must never share one.
     assert not FAMILIES & set(crawl.SEVERITY)
     assert len(FAMILIES) == 11
+    assert "English (or default) label" in EXPECTED["wikidata_name_mismatch"]
 
 
 MATCH_PROPS = {
@@ -452,7 +482,7 @@ def test_equal_sites_keep_search_order():
         ("", "Acme Inc", True, "Q2: Acme Inc"),
         # English wins when both exist.
         ("Acme Rockets", "Acme Inc", False, "Q2: Acme Rockets"),
-        ("", "", False, "Q2: no English label"),
+        ("", "", False, "Q2: no English (or default) label"),
     ],
 )
 def test_the_mul_label_stands_in_for_english(label, mul, ok, observed):
@@ -462,6 +492,20 @@ def test_the_mul_label_stands_in_for_english(label, mul, ok, observed):
     assert (c.ok, c.observed) == (ok, observed)
     query = parse_qs(urlsplit(f.calls[2][0]).query)["query"][0]
     assert 'LANG(?mul_) = "mul"' in query
+
+
+@pytest.mark.parametrize(
+    ("label", "ok"),
+    [("Acme Pvt. Ltd.", True), ("Acme Rockets Ltd", False)],
+)
+def test_wikidata_label_ignores_trailing_legal_suffixes(label, ok):
+    f = wiki(entities=ents(item(label=label)))
+    c = next(
+        c
+        for c in run(f, aliases=()).checks
+        if c.code == "wikidata_name_mismatch"
+    )
+    assert c.ok is ok
 
 
 def test_wikidata_runs_when_the_homepage_is_down():
@@ -505,6 +549,18 @@ def test_no_conflict_when_one_side_has_no_socials(same_as, drop):
     c = next(c for c in run(f).checks if c.code == "social_links_conflict")
     assert c.ok
     assert c.observed.startswith("nothing to compare")
+
+
+@pytest.mark.parametrize(
+    "fb", ["https://m.facebook.com/Acme", "https://mobile.facebook.com/Acme"]
+)
+def test_mobile_social_hosts_match_wikidata(fb):
+    f = wiki(
+        home_resp=org_home(sameAs=[*ORG["sameAs"], fb]),
+        entities=ents(item(P2013=["Acme"])),
+    )
+    c = next(c for c in run(f).checks if c.code == "social_links_conflict")
+    assert (c.ok, c.observed) == (True, "3 profiles agree")
 
 
 def test_youtube_is_left_out_of_the_social_comparison():
