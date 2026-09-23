@@ -133,6 +133,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brands/{brand_id}/competitors/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Changes */
+        get: operations["get_changes_v1_brands__brand_id__competitors_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/competitors/deltas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entity Deltas */
+        get: operations["get_entity_deltas_v1_brands__brand_id__competitors_deltas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/competitors/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entity Metrics */
+        get: operations["get_entity_metrics_v1_brands__brand_id__competitors_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/competitors/suggest": {
         parameters: {
             query?: never;
@@ -658,6 +709,55 @@ export interface components {
              */
             status: "suggested" | "active" | "paused" | "archived";
         };
+        /** ChangeOut */
+        ChangeOut: {
+            after: components["schemas"]["Rate"];
+            before: components["schemas"]["Rate"];
+            /**
+             * Competitor Id
+             * Format: uuid
+             */
+            competitor_id: string;
+            delta: components["schemas"]["Delta"];
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "up" | "down";
+            /** Engines */
+            engines: string[];
+            /** Name */
+            name: string;
+            /** New Citing Domains */
+            new_citing_domains: string[];
+            /** Observation Ids */
+            observation_ids: string[];
+            /** Prompts */
+            prompts: components["schemas"]["ChangePromptOut"][];
+        };
+        /** ChangePromptOut */
+        ChangePromptOut: {
+            after: components["schemas"]["Rate"];
+            before: components["schemas"]["Rate"];
+            /**
+             * Prompt Id
+             * Format: uuid
+             */
+            prompt_id: string;
+            /** Text */
+            text: string;
+        };
+        /** ChangesOut */
+        ChangesOut: {
+            /** Changes */
+            changes: components["schemas"]["ChangeOut"][];
+            /** Comparable */
+            comparable: boolean;
+            /** Prompts */
+            prompts: number;
+            /** Reason */
+            reason: string | null;
+        };
         /** CheckOut */
         CheckOut: {
             /** Code */
@@ -686,6 +786,18 @@ export interface components {
             position: number;
             /** Url */
             url: string;
+        };
+        /** CitingDomainOut */
+        CitingDomainOut: {
+            /** Answers */
+            answers: number;
+            /** Domain */
+            domain: string;
+            /**
+             * Owner
+             * @enum {string}
+             */
+            owner: "brand" | "rival" | "third_party";
         };
         /** ClusterOut */
         ClusterOut: {
@@ -825,6 +937,45 @@ export interface components {
             /** Is Primary */
             is_primary: boolean;
         };
+        /** EntityDeltasOut */
+        EntityDeltasOut: {
+            after: components["schemas"]["EntityWindowOut"];
+            before: components["schemas"]["EntityWindowOut"];
+            /** Comparable */
+            comparable: boolean;
+            /** Deltas */
+            deltas: {
+                [key: string]: {
+                    [key: string]: components["schemas"]["Delta"];
+                };
+            } | null;
+            /** Reason */
+            reason: string | null;
+        };
+        /** EntityMetricsOut */
+        EntityMetricsOut: {
+            avg_position: components["schemas"]["AvgPosition"];
+            citation_rate: components["schemas"]["Rate"];
+            /** Citing Domains */
+            citing_domains: components["schemas"]["CitingDomainOut"][];
+            /**
+             * Entity Id
+             * Format: uuid
+             */
+            entity_id: string;
+            mention_rate: components["schemas"]["Rate"];
+            /** Name */
+            name: string;
+            prompt_coverage: components["schemas"]["Rate"];
+            recommendation_rate: components["schemas"]["RecRate"];
+            sentiment: components["schemas"]["SentimentOut"];
+            sov: components["schemas"]["Rate"];
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "brand" | "competitor";
+        };
         /** EntityRate */
         EntityRate: {
             /** Ci High */
@@ -847,6 +998,21 @@ export interface components {
             type: "brand" | "competitor";
             /** Value */
             value: number | null;
+        };
+        /** EntityWindowOut */
+        EntityWindowOut: {
+            /** Entities */
+            entities: components["schemas"]["EntityMetricsOut"][];
+            /**
+             * From
+             * Format: date-time
+             */
+            from: string;
+            /**
+             * To
+             * Format: date-time
+             */
+            to: string;
         };
         /** ExtractionOut */
         ExtractionOut: {
@@ -1365,6 +1531,13 @@ export interface components {
             samples: number;
             /** Status */
             status: string;
+        };
+        /** SentimentOut */
+        SentimentOut: {
+            /** Index */
+            index: number | null;
+            negative: components["schemas"]["Rate"];
+            positive: components["schemas"]["Rate"];
         };
         /** SiteAuditOut */
         SiteAuditOut: {
@@ -1941,6 +2114,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CompetitorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_changes_v1_brands__brand_id__competitors_changes_get: {
+        parameters: {
+            query?: {
+                days?: number;
+                engine?: string | null;
+                locale_id?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                prompt_ids?: string[] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entity_deltas_v1_brands__brand_id__competitors_deltas_get: {
+        parameters: {
+            query?: {
+                days?: number;
+                engine?: string | null;
+                locale_id?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                prompt_ids?: string[] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityDeltasOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entity_metrics_v1_brands__brand_id__competitors_metrics_get: {
+        parameters: {
+            query?: {
+                engine?: string | null;
+                locale_id?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                prompt_ids?: string[] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityMetricsOut"][];
                 };
             };
             /** @description Validation Error */

@@ -170,6 +170,144 @@
         "title": "BulkPatch",
         "type": "object"
       },
+      "ChangeOut": {
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "before": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "competitor_id": {
+            "format": "uuid",
+            "title": "Competitor Id",
+            "type": "string"
+          },
+          "delta": {
+            "$ref": "#/components/schemas/Delta"
+          },
+          "direction": {
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "engines": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Engines",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "new_citing_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "New Citing Domains",
+            "type": "array"
+          },
+          "observation_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "prompts": {
+            "items": {
+              "$ref": "#/components/schemas/ChangePromptOut"
+            },
+            "title": "Prompts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "competitor_id",
+          "name",
+          "direction",
+          "before",
+          "after",
+          "delta",
+          "prompts",
+          "engines",
+          "new_citing_domains",
+          "observation_ids"
+        ],
+        "title": "ChangeOut",
+        "type": "object"
+      },
+      "ChangePromptOut": {
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "before": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "prompt_id": {
+            "format": "uuid",
+            "title": "Prompt Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt_id",
+          "text",
+          "before",
+          "after"
+        ],
+        "title": "ChangePromptOut",
+        "type": "object"
+      },
+      "ChangesOut": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "comparable": {
+            "title": "Comparable",
+            "type": "boolean"
+          },
+          "prompts": {
+            "title": "Prompts",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "comparable",
+          "reason",
+          "prompts",
+          "changes"
+        ],
+        "title": "ChangesOut",
+        "type": "object"
+      },
       "CheckOut": {
         "properties": {
           "code": {
@@ -239,6 +377,34 @@
           "is_brand_owned"
         ],
         "title": "CitationOut",
+        "type": "object"
+      },
+      "CitingDomainOut": {
+        "properties": {
+          "answers": {
+            "title": "Answers",
+            "type": "integer"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "owner": {
+            "enum": [
+              "brand",
+              "rival",
+              "third_party"
+            ],
+            "title": "Owner",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "answers",
+          "owner"
+        ],
+        "title": "CitingDomainOut",
         "type": "object"
       },
       "ClusterOut": {
@@ -634,6 +800,124 @@
         "title": "DomainOut",
         "type": "object"
       },
+      "EntityDeltasOut": {
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/EntityWindowOut"
+          },
+          "before": {
+            "$ref": "#/components/schemas/EntityWindowOut"
+          },
+          "comparable": {
+            "title": "Comparable",
+            "type": "boolean"
+          },
+          "deltas": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/Delta"
+                  },
+                  "type": "object"
+                },
+                "propertyNames": {
+                  "format": "uuid"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deltas"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "before",
+          "after",
+          "comparable",
+          "reason",
+          "deltas"
+        ],
+        "title": "EntityDeltasOut",
+        "type": "object"
+      },
+      "EntityMetricsOut": {
+        "properties": {
+          "avg_position": {
+            "$ref": "#/components/schemas/AvgPosition"
+          },
+          "citation_rate": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "citing_domains": {
+            "items": {
+              "$ref": "#/components/schemas/CitingDomainOut"
+            },
+            "title": "Citing Domains",
+            "type": "array"
+          },
+          "entity_id": {
+            "format": "uuid",
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "mention_rate": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "prompt_coverage": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "recommendation_rate": {
+            "$ref": "#/components/schemas/RecRate"
+          },
+          "sentiment": {
+            "$ref": "#/components/schemas/SentimentOut"
+          },
+          "sov": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "type": {
+            "enum": [
+              "brand",
+              "competitor"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "name",
+          "type",
+          "mention_rate",
+          "recommendation_rate",
+          "citation_rate",
+          "prompt_coverage",
+          "sov",
+          "avg_position",
+          "sentiment",
+          "citing_domains"
+        ],
+        "title": "EntityMetricsOut",
+        "type": "object"
+      },
       "EntityRate": {
         "properties": {
           "ci_high": {
@@ -687,6 +971,34 @@
           "type"
         ],
         "title": "EntityRate",
+        "type": "object"
+      },
+      "EntityWindowOut": {
+        "properties": {
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/EntityMetricsOut"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "from": {
+            "format": "date-time",
+            "title": "From",
+            "type": "string"
+          },
+          "to": {
+            "format": "date-time",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "entities"
+        ],
+        "title": "EntityWindowOut",
         "type": "object"
       },
       "ExtractionOut": {
@@ -2106,6 +2418,34 @@
         "title": "ScheduleRow",
         "type": "object"
       },
+      "SentimentOut": {
+        "properties": {
+          "index": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index"
+          },
+          "negative": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "positive": {
+            "$ref": "#/components/schemas/Rate"
+          }
+        },
+        "required": [
+          "positive",
+          "negative",
+          "index"
+        ],
+        "title": "SentimentOut",
+        "type": "object"
+      },
       "SiteAuditOut": {
         "properties": {
           "checks": {
@@ -3379,6 +3719,472 @@
         "summary": "Create Competitor",
         "tags": [
           "brands"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/competitors/changes": {
+      "get": {
+        "operationId": "get_changes_v1_brands__brand_id__competitors_changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engine"
+            }
+          },
+          {
+            "in": "query",
+            "name": "locale_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Ids"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Changes",
+        "tags": [
+          "competitors"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/competitors/deltas": {
+      "get": {
+        "operationId": "get_entity_deltas_v1_brands__brand_id__competitors_deltas_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engine"
+            }
+          },
+          {
+            "in": "query",
+            "name": "locale_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Ids"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityDeltasOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Entity Deltas",
+        "tags": [
+          "competitors"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/competitors/metrics": {
+      "get": {
+        "operationId": "get_entity_metrics_v1_brands__brand_id__competitors_metrics_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engine"
+            }
+          },
+          {
+            "in": "query",
+            "name": "locale_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Ids"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EntityMetricsOut"
+                  },
+                  "title": "Response Get Entity Metrics V1 Brands  Brand Id  Competitors Metrics Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Entity Metrics",
+        "tags": [
+          "competitors"
         ]
       }
     },
