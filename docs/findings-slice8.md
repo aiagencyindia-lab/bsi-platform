@@ -289,8 +289,9 @@ Both About pages answer and name the brand: Mozilla in the title, Python
 in the title (`About Python™`, matched through the alias). Neither home
 nor About page carries an Organization node, so no `org_*` rows appear
 and the fallback did not fire. Four fetches each: home, About, search,
-SPARQL. python.org's first `<h1>` spans several lines, and `observed`
-keeps its line breaks as written.
+SPARQL. python.org's first `<h1>` spans several lines, and this run kept
+its line breaks in `observed`; a later fix collapses each whitespace run
+in the About title and h1 to one space.
 
 ## 5. Deferred, by decision
 

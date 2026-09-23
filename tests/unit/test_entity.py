@@ -659,6 +659,12 @@ def test_about_brand_missing_names_what_it_found():
     assert c.observed == "title: absent; h1: absent"
 
 
+def test_about_evidence_collapses_whitespace():
+    page = about_page("Our\n  story", "Who\r\n    we\tare")
+    c = about_rows(run(fetcher(about_resp=page)))["about_brand_missing"]
+    assert c.observed == "title: Our story; h1: Who we are"
+
+
 @pytest.mark.parametrize(
     ("resp", "observed"),
     [

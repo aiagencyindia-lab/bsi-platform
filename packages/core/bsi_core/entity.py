@@ -316,8 +316,9 @@ def _about_rows(
         ], []
     head = Head()
     head.feed(r.body)
-    title = (head.title or "").strip()
-    h1 = (head.h1 or "").strip()
+    # One space per whitespace run: a multi-line h1 reads as one line.
+    title = " ".join((head.title or "").split())
+    h1 = " ".join((head.h1 or "").split())
     rows: list[Row] = [
         ("about_unreachable", True, f"HTTP {r.status}", url),
         (
