@@ -21,7 +21,8 @@ commit printed identical output.
 
 ## 1. What was measured, and how
 
-Run with `uv run python live_entity.py` from the repo root:
+Run with `uv run python live_entity_fix2.py` from the repo root (the
+script of the final run):
 
 ```python
 import logging
@@ -231,6 +232,16 @@ The root preference guards against Q308915 or Q9661 appearing first.
   on wikimediafoundation.org passes `wikidata_name_mismatch` through its
   `mul` label.
 
+**Found and fixed: legal suffixes (final review, not the live run).**
+`org_name_mismatch` and `wikidata_name_mismatch` compared whole names, so
+an Organization named "Nike, Inc." failed against the brand "Nike" (high,
+priority 0.7), and so would a Wikidata label like "Apple Inc.". Both
+checks now drop trailing legal-suffix words (inc, ltd, llc, gmbh, pvt,
+co, …) from both sides before comparing, always keeping one word. The
+same review made a relative Organization `url` ("/") resolve against the
+homepage, and read `m.` and `mobile.` social hosts as the plain host. None
+of the six live cases hit these, so the results above are unchanged.
+
 **Rejected.** example.com: the search for "Acme Rocket Widgets Pvt"
 returned nothing, so `wikidata_missing` fails with "no search results".
 
@@ -257,10 +268,16 @@ them rank below any high crawl finding for the same brand.
 - The logo URL is not fetched.
 - Wikipedia text is not read.
 - Product, Article and BreadcrumbList schema are not checked.
-- The Wikidata search repeats for each declared domain, so a two-domain
-  brand gets two `wikidata_missing` recs.
+- The Wikidata checks run once per declared domain. The three brand-level
+  ones (`wikidata_missing`, `wikidata_name_mismatch`,
+  `wikidata_logo_missing`) say the same thing each time, so a two-domain
+  brand gets each rec twice. `social_links_conflict` is legitimately per
+  domain, since each site has its own `sameAs`. Follow-up: run Wikidata
+  once per brand, or drop the domain from those three checks'
+  `subject_key`.
 - Only four social properties are compared (YouTube excluded: handle vs
-  channel id), and `x.com` is the only host alias.
+  channel id). Host aliases are `x.com` for twitter.com and a leading
+  `www.`, `m.` or `mobile.`.
 - A brand whose item lacks P856 reads as `wikidata_missing`, which errs
   on the safe side.
 - `/aboutique`-style paths count as an About link (prefix match), and an

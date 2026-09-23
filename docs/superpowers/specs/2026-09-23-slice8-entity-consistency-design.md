@@ -42,9 +42,16 @@ now uses it). `Head` gains `links: list[str]` (every `<a href>` value),
 nothing else. JSON-LD nodes are walked in `entity.py` itself, since the
 checks need the nodes, not just their types.
 
-**Name normalisation.** `_norm(s)`: casefold, keep alphanumerics only. A
-name "matches the brand" when `_norm(name)` is in
-`{_norm(brand_name)} | {_norm(a) for a in aliases}`.
+**Name normalisation.** `_norm(s)`: casefold, keep alphanumerics only.
+The two name checks (`org_name_mismatch`, `wikidata_name_mismatch`) first
+drop trailing legal-suffix words (`_legal_name`): split on
+non-alphanumerics, then repeatedly drop a last word in {inc, incorporated,
+ltd, limited, llc, gmbh, corp, corporation, plc, co, pvt, private, ag, sa},
+always keeping one word, then `_norm`. A name "matches the brand" when
+`_legal_name(name)` is in `{_legal_name(brand_name)} |
+{_legal_name(a) for a in aliases}`, so "Nike, Inc." matches "Nike" and
+"Acme Pvt. Ltd." matches "Acme", while a brand called "Co" stays "co".
+`title_brand_missing` does not strip: it uses `_norm` as written.
 
 **Organization node.** The first JSON-LD node (recursing `@graph`) whose
 `@type` set intersects `ORG_TYPES = {Organization, Corporation,
@@ -59,7 +66,7 @@ skipped (slice 7 emits `org_schema_missing`, high).
 | Code | Severity | Fails when | observed |
 |---|---|---|---|
 | `org_name_mismatch` | high | Organization `name` does not match the brand | the name |
-| `org_url_mismatch` | medium | Organization `url` host (via `matching.normalize_domain`) is not owned by a declared domain (`matching.is_owned`, so a subdomain counts); missing `url` also fails | the url or "absent" |
+| `org_url_mismatch` | medium | Organization `url`, resolved with `urljoin` against the home URL (so "/" or "/en/" is the home host), has a host (via `matching.normalize_domain`) is not owned by a declared domain (`matching.is_owned`, so a subdomain counts); missing `url` also fails | the url or "absent" |
 | `org_logo_missing` | medium | no `logo` (accept a string, an object with `url`, or a list of either) | "absent" |
 | `org_sameas_missing` | medium | `sameAs` absent or empty (accept string or list) | "absent" |
 | `website_schema_missing` | low | no node with `@type` `WebSite` in any block | "N ld+json block(s)" |
@@ -104,7 +111,7 @@ and the reason. A search that returns zero valid ids fails
 | Code | Severity | Fails when | observed |
 |---|---|---|---|
 | `wikidata_missing` | low | no domain-verified candidate | "candidates: Q1 Label, Q2 Label …" (clipped) or "no search results" |
-| `wikidata_name_mismatch` | medium | matched item's `labels.en.value` does not match the brand | "Q123: Label" |
+| `wikidata_name_mismatch` | medium | matched item's label from the SPARQL query (English, else `mul`, the "default for all languages" label) does not match the brand | "Q123: Label" or "Q123: no English (or default) label" |
 | `wikidata_logo_missing` | low | matched item has no P154 | "Q123" |
 | `social_links_conflict` | medium | see below | "on Wikidata only: …; on site only: …" |
 
@@ -116,9 +123,10 @@ P2013 → `facebook.com/{v}`, P2003 → `instagram.com/{v}`, P4264 →
 `linkedin.com/company/{v}`. YouTube is left out: a site's `sameAs`
 usually holds `youtube.com/@handle`, which never equals Wikidata P2397's
 `youtube.com/channel/<id>`, so comparing them raised false conflicts. Site
-side: `sameAs` URLs whose host, without `www.` and with `x.com` read as
+side: `sameAs` URLs whose host, without a leading `www.`, `m.` or
+`mobile.` (m.facebook.com, mobile.twitter.com) and with `x.com` read as
 `twitter.com`, is one of those four. Both sides normalised to `host + path`,
-lowercase, no `www.`, no trailing slash, then compared as sets. Conflict
+lowercase, no `www.`/`m.`/`mobile.`, no trailing slash, then compared as sets. Conflict
 when the sets differ **and both are non-empty**; if one side has no socials
 at all, `org_sameas_missing` or Wikidata's own incompleteness covers it and
 no conflict is raised. Passing observed: "N profiles agree".
@@ -239,8 +247,7 @@ empty. Results go into `docs/findings-slice8.md`.
 
 ## Files touched
 
-- `packages/core/bsi_core/crawl.py` (promote `Head`, `ld_types`; collect
-  links), `entity.py` (new), `models.py`, `recommend.py`
+- `packages/core/bsi_core/crawl.py` (promote `Head`; collect links), `entity.py` (new), `models.py`, `recommend.py`
 - `migrations/versions/0013_fix_entity_rec_type.py` (new)
 - `apps/workers/bsi_workers/worker.py`
 - `apps/api/bsi_api/schemas.py`, `routers/recommendations.py`
