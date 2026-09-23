@@ -10,7 +10,13 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+)
 
 
 class Rate(BaseModel):
@@ -208,6 +214,13 @@ class CheckOut(BaseModel):
     observed: str
     expected: str
     url: str
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _known_severity(cls, v: object) -> object:
+        # A stored severity outside the set (edited data, a future rename)
+        # reads as low: the rule already skips it, the page must not 500.
+        return v if v in ("high", "medium", "low") else "low"
 
 
 class SiteAuditOut(BaseModel):

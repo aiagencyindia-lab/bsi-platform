@@ -11,8 +11,9 @@ from typing import Any, Protocol
 
 from bsi_core import models as m
 from bsi_core.config import get_settings
-from bsi_core.crawl import PAUSE_SECONDS, Fetch, audit_domain, http_fetch
+from bsi_core.crawl import PAUSE_SECONDS, Audit, Fetch, audit_domain, http_fetch
 from bsi_core.db import system_session, tenant_session
+from bsi_core.entity import audit_entity
 from bsi_core.extraction import Extractor
 from bsi_core.impact import close_window
 from bsi_core.judge import JUDGE_PRICES, JUDGES, generate
@@ -144,12 +145,14 @@ def run_crawl_audit(
     job_id: uuid.UUID,
     fetch: Fetch = http_fetch,
 ) -> int:
-    """Audit every declared domain of the brand; returns how many.
+    """Audit each declared domain (crawl and entity checks); returns how many.
 
     Fetching happens with no transaction open, as model calls do; the
     rows are written together at the end.
     """
     with tenant_session(org_id) as s:
+        brand = s.get_one(m.Brand, brand_id)
+        name, aliases = brand.name, list(brand.aliases)
         hosts = list(
             s.scalars(
                 select(m.Domain.host)
@@ -159,13 +162,28 @@ def run_crawl_audit(
         )
     audits = []
     for host in hosts:
-        # One host crashing must not lose the others' rows.
+        # One host crashing must not lose the others' rows. A crawl crash
+        # stores nothing, so the domain stays due.
         try:
-            audits.append(
-                (host, audit_domain(host, fetch, pause=PAUSE_SECONDS))
-            )
+            crawl = audit_domain(host, fetch, pause=PAUSE_SECONDS)
         except Exception:
             log.exception("brand %s: audit of %s failed", brand_id, host)
+            continue
+        # The entity checks ride along; their crash must not cost the
+        # crawl checks.
+        try:
+            ent = audit_entity(
+                host, name, aliases, hosts, fetch, pause=PAUSE_SECONDS
+            )
+        except Exception:
+            log.exception("brand %s: entity audit of %s failed", brand_id, host)
+            ent = Audit([], 0)
+        audits.append(
+            (
+                host,
+                Audit(crawl.checks + ent.checks, crawl.fetches + ent.fetches),
+            )
+        )
     with tenant_session(org_id) as s:
         for host, audit in audits:
             s.add(

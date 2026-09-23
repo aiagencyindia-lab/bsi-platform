@@ -121,7 +121,13 @@ def test_audit_job_stores_one_row_per_domain(owner, make_org, make_brand):
         ("nike.com", job_id),
         ("nike.in", job_id),
     ]
-    assert rows[0].fetches == 12 and len(rows[0].checks) >= 20
+    # 12 crawl fetches, then the entity audit: the homepage and a Wikidata
+    # search whose HTML answer is unreadable, so no Wikidata rows.
+    assert rows[0].fetches == 14 and len(rows[0].checks) >= 20
+    codes = {c["code"] for c in rows[0].checks}
+    # "<title>x</title>" names no Acme and links nothing; no JSON-LD.
+    assert {"title_brand_missing", "about_missing"} <= codes
+    assert not {c for c in codes if c.startswith(("org_n", "wikidata"))}
     assert {c["code"] for c in rows[0].checks} >= {"home_unreachable"}
     # Everything the page needs is in the JSON, no dataclass leaked.
     assert set(rows[0].checks[0]) == {
@@ -254,7 +260,9 @@ def test_production_pauses_between_fetches(
     _, generator, embedder = _spender()
     fetch = _fake_fetch()
     worker.process_job(FakeAdapter(), generator, embedder, fetch=fetch)
-    assert sleeps == [0.25] * 11
+    # 11 between the 12 crawl fetches, then one before each of the two
+    # entity fetches.
+    assert sleeps == [0.25] * 13
 
 
 def test_an_audit_still_runs_when_the_org_budget_is_exhausted(
@@ -367,3 +375,48 @@ def test_one_domain_crashing_keeps_the_others_rows(owner, make_org, make_brand):
     with owner() as s:
         rows = s.scalars(select(m.SiteAudit)).all()
     assert [r.domain for r in rows] == ["nike.in"]
+
+
+def test_an_entity_crash_keeps_the_crawl_checks(
+    monkeypatch, owner, make_org, make_brand
+):
+    def boom(*a, **k):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(worker, "audit_entity", boom)
+    org = make_org()
+    bid = make_brand(org)
+    _domain(owner, org, bid)
+    job_id = _job(owner, org, bid, "audit_crawl", "queued")
+    _, generator, embedder = _spender()
+    fetch = _fake_fetch()
+    assert worker.process_job(FakeAdapter(), generator, embedder, fetch=fetch)
+    assert _load_job(owner, job_id).status == "done"
+    with owner() as s:
+        (row,) = s.scalars(select(m.SiteAudit)).all()
+    assert row.fetches == 12
+    assert "home_unreachable" in {c["code"] for c in row.checks}
+    assert "title_brand_missing" not in {c["code"] for c in row.checks}
+
+
+def test_the_entity_audit_gets_the_brand_record(
+    monkeypatch, owner, make_org, make_brand
+):
+    seen = []
+
+    def spy(host, name, aliases, hosts, fetch, *, pause):
+        seen.append((host, name, list(aliases), sorted(hosts)))
+        return worker.Audit([], 0)
+
+    monkeypatch.setattr(worker, "audit_entity", spy)
+    org = make_org()
+    bid = make_brand(org, "Nike", aliases=("Nike Inc",))
+    _domain(owner, org, bid, "nike.com")
+    _domain(owner, org, bid, "nike.in")
+    _job(owner, org, bid, "audit_crawl", "queued")
+    _, generator, embedder = _spender()
+    worker.process_job(FakeAdapter(), generator, embedder, fetch=_fake_fetch())
+    assert sorted(seen) == [
+        ("nike.com", "Nike", ["Nike Inc"], ["nike.com", "nike.in"]),
+        ("nike.in", "Nike", ["Nike Inc"], ["nike.com", "nike.in"]),
+    ]
