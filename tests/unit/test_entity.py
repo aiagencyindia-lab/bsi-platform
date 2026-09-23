@@ -189,6 +189,14 @@ def test_title_check_does_not_strip_legal_suffixes():
         ("Go — the app", "Go", (), True),
         ("Acmeworks", "Acme", (), False),
         ("Roadrunner Traps", "Acme", ("Roadrunner",), True),
+        # Scripts written without spaces fall back to a substring test.
+        ("索尼中国官网", "索尼", (), True),
+        ("ソニー株式会社", "ソニー", (), True),
+        ("松下官网", "索尼", (), False),
+        # Apostrophes are dropped on both sides.
+        ("McDonalds", "McDonald's", (), True),
+        ("McDonald\u2019s menu", "McDonald's", (), True),
+        ("McDonald's menu", "McDonald's", (), True),
     ],
 )
 def test_the_title_must_name_the_brand_as_whole_words(
@@ -291,6 +299,12 @@ def test_an_unreachable_homepage_emits_no_home_rows():
         ("/about/team", True),
         ("/en-US/company", True),
         ("/company-info", True),
+        ("/about.html", True),
+        ("/aboutus", True),
+        ("/aboutus.html", True),
+        ("/company.aspx", True),
+        ("/en-us/about.html", True),
+        ("/about-us.php", True),
         ("/aboutique", False),
         ("/companyname", False),
         ("/shop/about", False),
@@ -575,11 +589,26 @@ def test_a_subdomain_only_item_with_another_name_is_no_match():
     got = {k: v for k, v in verdicts(a).items() if k in WIKI_CODES}
     assert got == {"wikidata_missing": False}
     miss = next(c for c in a.checks if c.code == "wikidata_missing")
+    # One label per item: the search label, as in the candidates list.
     assert miss.observed == (
-        "candidates: Q1 Acme, Q2 Acme Inc; Q2 Acme Governance Wiki is only on "
+        "candidates: Q1 Acme, Q2 Acme Inc; Q2 Acme Inc is only on "
         "a subdomain and its label does not name the brand"
     )
     assert miss.url == "https://www.wikidata.org/w/index.php?search=Acme"
+
+
+def test_the_best_subdomain_item_that_names_the_brand_wins():
+    wiki_item = item(
+        label="Acme Governance Wiki", P856=["https://gov.acme.com/"]
+    )
+    shop = item(P856=["https://shop.acme.com/x"])
+    entities = sparql({"Q1": wiki_item, "Q2": shop})
+    miss = next(
+        c
+        for c in run(wiki(entities=entities)).checks
+        if c.code == "wikidata_missing"
+    )
+    assert (miss.ok, miss.observed) == (True, "Q2: Acme Inc")
 
 
 def test_an_exact_host_item_beats_a_subdomain_item_that_names_the_brand():

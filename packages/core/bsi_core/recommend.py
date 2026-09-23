@@ -492,28 +492,20 @@ def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
                 continue
             code = check["code"]
             fam = family(code)
+            known = fam in entity.FAMILIES or fam in _CRAWL_TITLES
+            if not known or check["severity"] not in PRESSURE_BY_SEVERITY:
+                log.warning(
+                    "skipping unrecognized site check: brand=%s domain=%s "
+                    "code=%s",
+                    brand,
+                    domain,
+                    code,
+                )
+                continue
             if fam in entity.FAMILIES:
                 kind, copy = "fix_entity", entity_copy
-            elif fam in _CRAWL_TITLES:
-                kind, copy = "fix_crawlability", crawl_copy
             else:
-                log.warning(
-                    "skipping unrecognized site check: brand=%s domain=%s "
-                    "code=%s",
-                    brand,
-                    domain,
-                    code,
-                )
-                continue
-            if check["severity"] not in PRESSURE_BY_SEVERITY:
-                log.warning(
-                    "skipping unrecognized site check: brand=%s domain=%s "
-                    "code=%s",
-                    brand,
-                    domain,
-                    code,
-                )
-                continue
+                kind, copy = "fix_crawlability", crawl_copy
             key = _subject(domain, check)
             if key in out:
                 # A merged Wikidata key repeats across domains; any other

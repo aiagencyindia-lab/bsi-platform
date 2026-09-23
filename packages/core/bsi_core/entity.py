@@ -34,11 +34,12 @@ WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 # large items overflow http_fetch's body cap (findings-slice8 section 3).
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
 _QID = re.compile(r"Q[0-9]+")
-# /about, /company, or either under a locale segment like /en-US/; the
-# keyword ends its segment or goes on after - or _ (/about-us), so
-# /aboutique and /companyname are not About pages.
+# /about, /aboutus, /company, or any under a locale segment like /en-US/;
+# the keyword ends its segment or goes on after -, _ or . (/about-us,
+# /about.html), so /aboutique and /companyname are not About pages.
 _ABOUT_PATH = re.compile(
-    r"/(?:[a-z]{2}(?:[-_][a-z]{2})?/)?(?:about|company)(?:[-_][^/]+)?(?:/|\Z)",
+    r"/(?:[a-z]{2}(?:[-_][a-z]{2})?/)?"
+    r"(?:about(?:-?us)?|company)(?:[-_.][^/]*)?(?:/|\Z)",
     re.IGNORECASE,
 )
 WIKIDATA_UA = (
@@ -117,8 +118,21 @@ Row = tuple[str, bool, str, str]  # code, ok, observed, url
 
 
 def _words(s: str) -> tuple[str, ...]:
-    """Casefolded runs of letters and digits: "Café-Noir!" -> café, noir."""
-    return tuple(re.findall(r"[^\W_]+", s.casefold()))
+    """Casefolded runs of letters and digits, apostrophes dropped:
+    "Café-Noir!" -> café, noir; "McDonald's" -> mcdonalds."""
+    return tuple(re.findall(r"[^\W_]+", re.sub("['\u2019]", "", s.casefold())))
+
+
+def _norm(s: str) -> str:
+    """Casefold, keep letters and digits: "Acme, Inc." == "acmeinc"."""
+    return "".join(ch for ch in s.casefold() if ch.isalnum())
+
+
+# Han, Hiragana, Katakana (with half-width) and Thai are written without
+# spaces between words, so a name in them is matched as a substring.
+_NO_SPACES = re.compile(
+    "[\u0e00-\u0e7f\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]"
+)
 
 
 # Trailing words a registered name adds to the brand's: "Nike, Inc.",
@@ -144,15 +158,22 @@ def _legal_name(s: str) -> str:
     return "".join(_legal_words(s))
 
 
-def _names_in(text: str, names: set[tuple[str, ...]]) -> bool:
+def _names_in(text: str, names: set[str]) -> bool:
     """Whether some name's words appear as a whole-word run in text:
-    "Go" is in "Go - the app" but not in "Google Search"."""
+    "Go" is in "Go - the app" but not in "Google Search". A name in a
+    script without spaces ("索尼") is a substring test instead."""
     words = _words(text)
-    return any(
-        words[i : i + len(n)] == n
-        for n in names
-        for i in range(len(words) - len(n) + 1)
-    )
+    for name in names:
+        if _NO_SPACES.search(name):
+            if _norm(name) in _norm(text):
+                return True
+        elif n := _words(name):
+            if any(
+                words[i : i + len(n)] == n
+                for i in range(len(words) - len(n) + 1)
+            ):
+                return True
+    return False
 
 
 def _nodes(doc: object) -> Iterator[dict[str, Any]]:
@@ -275,13 +296,13 @@ def _home_rows(
     body: str,
     url: str,
     host: str,
-    names: set[tuple[str, ...]],
+    names: set[str],
     legal: set[str],
     hosts: Sequence[str],
 ) -> tuple[list[Row], list[str], str | None, bool]:
     """The home-page rows, the sameAs URLs for the social comparison, the
     About URL (or None) and whether an Organization node was found.
-    names are the brand names' _words for the title, legal their
+    names are the brand names and aliases for the title, legal their
     _legal_name forms for the Organization name."""
     head = Head()
     head.feed(body)
@@ -326,7 +347,7 @@ def _home_rows(
 def _about_rows(
     r: Response,
     url: str,
-    needles: set[tuple[str, ...]],
+    needles: set[str],
     legal: set[str],
     hosts: Sequence[str],
     want_org: bool,
@@ -494,7 +515,7 @@ def _wikidata_rows(
         if ranked:
             sub = min(ranked, key=lambda t: t[0])[1]
             obs += (
-                f"; {sub} {items[sub]['label'] or 'no label'} is only on a "
+                f"; {sub} {labels[sub]} is only on a "
                 "subdomain and its label does not name the brand"
             )
         return [("wikidata_missing", False, obs, human_url)]
@@ -550,11 +571,10 @@ def audit_entity(
     """Every entity check for one host. Skipped checks are not emitted:
     home rows need a reachable homepage, org rows an Organization node."""
     fetches = 0
-    names = {_words(n) for n in (brand_name, *aliases)} - {()}
+    names = {brand_name, *aliases}
     legal = {_legal_name(n) for n in (brand_name, *aliases)} - {""}
     # The About page may use the registered name: "About Acme Ltd".
-    about_names = names | {_legal_words(n) for n in (brand_name, *aliases)}
-    about_names.discard(())  # an empty name would match every page
+    about_names = names | {" ".join(_legal_words(n)) for n in names}
 
     def get(url: str, ua: str) -> Response:
         nonlocal fetches
