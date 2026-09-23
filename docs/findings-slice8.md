@@ -221,7 +221,7 @@ The root preference guards against Q308915 or Q9661 appearing first.
   `https://foundation.wikimedia.org/`, and `is_owned` counts subdomains.
   Candidates are now ranked: exact host at the root, then exact host,
   then subdomain root, then subdomain. Ties keep search order.
-- **wikimedia.org still matches Q57077840.** No candidate has P856 on
+- **wikimedia.org still matches Q57077840** (see §5, Fixed later). No candidate has P856 on
   wikimedia.org itself, so the subdomain item is the best there is.
   `wikidata_name_mismatch` fails against its label, so the operator sees
   the mismatch. The declared domain was the case's mistake; with
@@ -322,14 +322,24 @@ in the About title and h1 to one space.
   `www.`, `m.` or `mobile.`.
 - A brand whose item lacks P856 reads as `wikidata_missing`, which errs
   on the safe side.
-- `/aboutique`-style paths count as an About link (prefix match), and an
-  About section under another name (`/who-we-are/` on
-  wikimediafoundation.org) does not.
+- An About section under another name (`/who-we-are/` on
+  wikimediafoundation.org) does not count as an About link.
 - The cadence is weekly; the PRD asks for monthly.
 
-**Open, found in this run.** When the only domain-verified candidate sits
-on a subdomain, it still matches (wikimedia.org, section 3).
-`wikidata_name_mismatch` is what flags it.
+**Fixed later.** `/aboutique`-style paths no longer count as an About
+link: the keyword (`about`, `aboutus`, `about-us` or `company`) must end
+its path segment or go on after `-`, `_` or `.`, so `/about.html` and
+`/company.aspx` still count. The title and About name checks now match
+whole words, with apostrophes dropped ("McDonald's" names "McDonalds"); a
+name or page text containing Han, Hiragana, Katakana or Thai falls back to
+the substring test ("索尼" names "索尼中国官网", "Sony" names
+"Sony中国官网"), and empty aliases are skipped.
+A subdomain-only Wikidata candidate now matches only when its label names
+the brand; otherwise `wikidata_missing` fails and names the rejected item.
+On wikimedia.org that would read `wikidata_missing` with observed ending
+"Q57077840 Wikimedia Foundation Governance Wiki is only on a subdomain
+and its label does not name the brand". This follows from the rule; the
+live checks were not re-run.
 
 ## 6. Spend
 

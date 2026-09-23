@@ -34,9 +34,13 @@ WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 # large items overflow http_fetch's body cap (findings-slice8 section 3).
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
 _QID = re.compile(r"Q[0-9]+")
-# /about, /company, or either under a locale segment like /en-US/.
+# /about, /aboutus, /company, or any under a locale segment like /en-US/;
+# the keyword ends its segment or goes on after -, _ or . (/about-us,
+# /about.html), so /aboutique and /companyname are not About pages.
 _ABOUT_PATH = re.compile(
-    r"/(?:[a-z]{2}(?:[-_][a-z]{2})?/)?(?:about|company)", re.IGNORECASE
+    r"/(?:[a-z]{2}(?:[-_][a-z]{2})?/)?"
+    r"(?:about(?:-?us)?|company)(?:[-_.][^/]*)?(?:/|\Z)",
+    re.IGNORECASE,
 )
 WIKIDATA_UA = (
     "bsi-platform/0.1 entity-audit "
@@ -113,9 +117,22 @@ _SOCIAL_HOSTS = {p.split("/", 1)[0] for p in SOCIAL_PROPS.values()}
 Row = tuple[str, bool, str, str]  # code, ok, observed, url
 
 
+def _words(s: str) -> tuple[str, ...]:
+    """Casefolded runs of letters and digits, apostrophes dropped:
+    "Café-Noir!" -> café, noir; "McDonald's" -> mcdonalds."""
+    return tuple(re.findall(r"[^\W_]+", re.sub("['\u2019]", "", s.casefold())))
+
+
 def _norm(s: str) -> str:
-    """Casefold, keep letters and digits: "Acme, Inc." == "acme inc"."""
+    """Casefold, keep letters and digits: "Acme, Inc." == "acmeinc"."""
     return "".join(ch for ch in s.casefold() if ch.isalnum())
+
+
+# Han, Hiragana, Katakana (with half-width) and Thai are written without
+# spaces between words, so a name in them is matched as a substring.
+_NO_SPACES = re.compile(
+    "[\u0e00-\u0e7f\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]"
+)
 
 
 # Trailing words a registered name adds to the brand's: "Nike, Inc.",
@@ -126,14 +143,39 @@ LEGAL_SUFFIXES = frozenset(
 )
 
 
-def _legal_name(s: str) -> str:
-    """_norm after dropping trailing legal-suffix words; one word always
-    stays, so a brand called "Co" is still "co". For the name checks only:
-    a title is matched as written."""
-    words = re.findall(r"[^\W_]+", s.casefold())
+def _legal_words(s: str) -> tuple[str, ...]:
+    """_words after dropping trailing legal-suffix words; one word always
+    stays, so a brand called "Co" is still "co"."""
+    words = _words(s)
     while len(words) > 1 and words[-1] in LEGAL_SUFFIXES:
-        words.pop()
-    return _norm(" ".join(words))
+        words = words[:-1]
+    return words
+
+
+def _legal_name(s: str) -> str:
+    """The legal-suffix-free name as one string: "Acme, Inc." == "acme".
+    For the name checks only: a title is matched as written."""
+    return "".join(_legal_words(s))
+
+
+def _names_in(text: str, names: set[str]) -> bool:
+    """Whether some name's words appear as a whole-word run in text:
+    "Go" is in "Go - the app" but not in "Google Search". A name in a
+    script without spaces ("索尼"), or any name in a text in one
+    ("Sony中国官网"), is a substring test instead."""
+    words = _words(text)
+    no_spaces = _NO_SPACES.search(text) is not None
+    for name in names:
+        if no_spaces or _NO_SPACES.search(name):
+            if (s := _norm(name)) and s in _norm(text):
+                return True
+        elif n := _words(name):
+            if any(
+                words[i : i + len(n)] == n
+                for i in range(len(words) - len(n) + 1)
+            ):
+                return True
+    return False
 
 
 def _nodes(doc: object) -> Iterator[dict[str, Any]]:
@@ -208,8 +250,12 @@ def _org_rows(
     org: dict[str, Any], url: str, legal: set[str], hosts: Sequence[str]
 ) -> tuple[list[Row], list[str]]:
     """The four org_* rows for the page at url, and the node's sameAs."""
-    name = org.get("name")
-    name = name.strip() if isinstance(name, str) else ""
+    raw = org.get("name")
+    name = raw.strip() if isinstance(raw, str) else ""
+    if raw is not None and not isinstance(raw, str):
+        name_obs = f"not a string ({type(raw).__name__})"
+    else:
+        name_obs = name or "absent"
     urls = _strings(org.get("url"))
 
     def owned(u: str) -> bool:
@@ -228,7 +274,7 @@ def _org_rows(
         (
             "org_name_mismatch",
             _legal_name(name) in legal,
-            name or "absent",
+            name_obs,
             url,
         ),
         (
@@ -258,8 +304,8 @@ def _home_rows(
 ) -> tuple[list[Row], list[str], str | None, bool]:
     """The home-page rows, the sameAs URLs for the social comparison, the
     About URL (or None) and whether an Organization node was found.
-    names are _norm'd brand names for the title, legal their _legal_name
-    forms for the Organization name."""
+    names are the brand names and aliases for the title, legal their
+    _legal_name forms for the Organization name."""
     head = Head()
     head.feed(body)
     nodes = _ld_nodes(head.ld)
@@ -281,7 +327,7 @@ def _home_rows(
     rows.append(
         (
             "title_brand_missing",
-            any(n in _norm(title) for n in names),
+            _names_in(title, names),
             title or "absent",
             url,
         )
@@ -323,7 +369,7 @@ def _about_rows(
         ("about_unreachable", True, f"HTTP {r.status}", url),
         (
             "about_brand_missing",
-            any(n in _norm(t) for n in needles for t in (title, h1)),
+            _names_in(title, needles) or _names_in(h1, needles),
             f"title: {title or 'absent'}; h1: {h1 or 'absent'}",
             url,
         ),
@@ -425,7 +471,7 @@ def _wikidata_rows(
         )
         return []
     hits = json.loads(r.body)["search"]
-    labels = {h["id"]: str(h.get("label", "")) for h in hits}
+    labels = {h["id"]: str(h.get("label") or "no label") for h in hits}
     # The ids go into a SPARQL query: anything but a Q-id stays out.
     ids = [i for i in labels if isinstance(i, str) and _QID.fullmatch(i)]
     if not ids:
@@ -445,7 +491,9 @@ def _wikidata_rows(
     # (P856) is a declared domain is the brand. A product's item can list
     # a page on the domain, and a project's a subdomain, so the best site
     # wins: exact host at the root, exact host, subdomain root, subdomain.
-    # Ties keep search order.
+    # Ties keep search order. A subdomain can host someone else's project
+    # (a governance wiki), so a subdomain-only item must also be named
+    # for the brand; an exact-host item always wins over it.
     exact = {normalize_domain(h) for h in hosts}
 
     def rank(v: str) -> int:
@@ -457,10 +505,22 @@ def _wikidata_rows(
         if qid in items
         and (sites := [v for v in items[qid]["P856"] if _owned(v, hosts)])
     ]
-    match = min(ranked, key=lambda r: r[0])[1] if ranked else None
+    named = [
+        (k, qid)
+        for k, qid in ranked
+        if k < 2 or _legal_name(items[qid]["label"]) in legal
+    ]
+    match = min(named, key=lambda t: t[0])[1] if named else None
     if match is None:
         seen = ", ".join(f"{qid} {labels[qid]}" for qid in ids)
-        return [("wikidata_missing", False, f"candidates: {seen}", human_url)]
+        obs = f"candidates: {seen}"
+        if ranked:
+            sub = min(ranked, key=lambda t: t[0])[1]
+            obs += (
+                f"; {sub} {labels[sub]} is only on a "
+                "subdomain and its label does not name the brand"
+            )
+        return [("wikidata_missing", False, obs, human_url)]
     item = items[match]
     label = item["label"]
     page = f"https://www.wikidata.org/wiki/{match}"
@@ -513,8 +573,10 @@ def audit_entity(
     """Every entity check for one host. Skipped checks are not emitted:
     home rows need a reachable homepage, org rows an Organization node."""
     fetches = 0
-    names = {_norm(n) for n in (brand_name, *aliases)} - {""}
+    names = {brand_name, *aliases}
     legal = {_legal_name(n) for n in (brand_name, *aliases)} - {""}
+    # The About page may use the registered name: "About Acme Ltd".
+    about_names = names | {" ".join(_legal_words(n)) for n in names}
 
     def get(url: str, ua: str) -> Response:
         nonlocal fetches
@@ -537,7 +599,7 @@ def audit_entity(
             more, about_same = _about_rows(
                 get(about_url, BROWSER_UA),
                 about_url,
-                names | legal,
+                about_names,
                 legal,
                 hosts,
                 not has_org,

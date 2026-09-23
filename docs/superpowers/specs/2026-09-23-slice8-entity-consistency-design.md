@@ -43,16 +43,28 @@ now uses it). `Head` gains `links: list[str]` (every `<a href>` value),
 nothing else. JSON-LD nodes are walked in `entity.py` itself, since the
 checks need the nodes, not just their types.
 
-**Name normalisation.** `_norm(s)`: casefold, keep alphanumerics only.
+**Name normalisation.** `_words(s)`: drop apostrophes (' and ’), then
+take the casefolded runs of letters and digits (`[^\W_]+`), so "Café-Noir!"
+is `café noir` and "McDonald's" is `mcdonalds`.
 The two name checks (`org_name_mismatch`, `wikidata_name_mismatch`) first
 drop trailing legal-suffix words (`_legal_name`): split on
 non-alphanumerics, then repeatedly drop a last word in {inc, incorporated,
 ltd, limited, llc, gmbh, corp, corporation, plc, co, pvt, private, ag, sa},
-always keeping one word, then `_norm`. A name "matches the brand" when
+always keeping one word, then join the words. A name "matches the brand" when
 `_legal_name(name)` is in `{_legal_name(brand_name)} |
 {_legal_name(a) for a in aliases}`, so "Nike, Inc." matches "Nike" and
 "Acme Pvt. Ltd." matches "Acme", while a brand called "Co" stays "co".
-`title_brand_missing` does not strip: it uses `_norm` as written.
+`title_brand_missing` and `about_brand_missing` match whole words
+(`_names_in`): a brand name or alias passes when its `_words` appear as a
+contiguous run in the text's `_words`, so "Acme | Rockets" names "Acme" and
+"Go — the app" names "Go", while "Acmeworks" and "Google Search" do not.
+When either the name or the text contains a Han, Hiragana, Katakana or
+Thai character (scripts written without spaces), the name is matched as a
+substring instead: `_norm(name) in _norm(text)`, where `_norm` casefolds
+and keeps letters and digits, so "索尼" names "索尼中国官网" and "Sony"
+names "Sony中国官网". Empty names and aliases are skipped, so they never
+match. The title does not strip legal
+suffixes; the About check also tries each name's `_legal_name` word form.
 
 **Organization node.** The first JSON-LD node (recursing `@graph`) whose
 `@type` set intersects `ORG_TYPES = {Organization, Corporation,
@@ -66,13 +78,13 @@ skipped (slice 7 emits `org_schema_missing`, high).
 
 | Code | Severity | Fails when | observed |
 |---|---|---|---|
-| `org_name_mismatch` | high | Organization `name` does not match the brand | the name |
+| `org_name_mismatch` | high | Organization `name` does not match the brand | the name, "absent" when missing or empty, or "not a string (list)" (the value's type) when it is not a string |
 | `org_url_mismatch` | medium | Organization `url` whose host (via `matching.normalize_domain`; a value starting with a single "/" is first resolved against the home URL) is not owned by a declared domain (`matching.is_owned`, so a subdomain counts); missing `url` also fails | the url or "absent" |
 | `org_logo_missing` | medium | no `logo` (accept a string, an object with `url`, or a list of either) | "absent" |
 | `org_sameas_missing` | medium | `sameAs` absent or empty (accept string or list) | "absent" |
 | `website_schema_missing` | low | no node with `@type` `WebSite` in any block | "N ld+json block(s)" |
-| `title_brand_missing` | medium | normalised `<title>` does not contain the normalised brand name or any alias | the title (clipped) |
-| `about_missing` | low | no `<a href>` that resolves (`urllib.parse.urljoin` against the home URL) to the same host with a path starting `/about` or `/company`, optionally under one locale segment (`/en/`, `/en-US/`, `/en_GB/`), case-insensitive | "no /about or /company link among N links" |
+| `title_brand_missing` | medium | `<title>` does not contain the brand name or any alias as whole words (`_names_in`) | the title (clipped) |
+| `about_missing` | low | no `<a href>` that resolves (`urllib.parse.urljoin` against the home URL) to the same host with a path starting `/about` or `/company`, optionally under one locale segment (`/en/`, `/en-US/`, `/en_GB/`), case-insensitive; the keyword is `about`, `aboutus`, `about-us` or `company`, and must end the segment (followed by `/` or the end of the path) or go on after `-`, `_` or `.` (`/about-us`, `/company_info`, `/about.html`, `/aboutus.html`, `/company.aspx`), so `/aboutique` and `/companyname` do not count | "no /about or /company link among N links" |
 
 **About page** (added later; browser UA, 0 or 1 fetch). Fetched once, at
 the URL `about_missing` reports, only when the homepage answered 2xx and
@@ -82,7 +94,7 @@ fetch and neither row.
 | Code | Severity | Fails when | observed |
 |---|---|---|---|
 | `about_unreachable` | medium | the About fetch is not 2xx | the fetch error, else "HTTP {status}" |
-| `about_brand_missing` | low | neither the About page's `<title>` nor its first `<h1>` contains (after `_norm`) the brand name or an alias, nor their `_legal_name` forms; emitted only when the About page is reachable | "title: {title or absent}; h1: {h1 or absent}" (each whitespace run collapsed to one space) |
+| `about_brand_missing` | low | neither the About page's `<title>` nor its first `<h1>` contains the brand name or an alias, nor their `_legal_name` forms, as whole words (`_names_in`); emitted only when the About page is reachable | "title: {title or absent}; h1: {h1 or absent}" (each whitespace run collapsed to one space) |
 
 Both rows carry the About URL. **Organization fallback:** when the
 homepage has no Organization node but the reachable About page does
@@ -120,8 +132,17 @@ host) with an empty or `/` path, then exact host, then subdomain root, then
 subdomain. Ties keep search order. A product item can list a page on the
 brand's domain (`mozilla.org/MPL/`), and a project a subdomain
 (`foundation.wikimedia.org`); the ranking keeps both from beating the
-organisation. A subdomain item still matches when it is the only
-domain-verified candidate. For either call, a non-2xx status, a
+organisation. A subdomain-only item (no candidate has P856 on an exact
+declared host) matches only when its label names the brand
+(`_legal_name(label)` in the brand's `_legal_name` forms, the
+`wikidata_name_mismatch` test): a subdomain can host another project, such
+as a governance wiki. The best-ranked subdomain candidate whose label
+names the brand wins. Otherwise `wikidata_missing` fails with observed
+"candidates: …; Q123 Label is only on a subdomain and its label does not
+name the brand" (the best-ranked subdomain candidate, with its search
+label as in the candidates list), and no other
+Wikidata row is emitted. A search hit with no label reads "no label" in
+the candidates list. For either call, a non-2xx status, a
 `json.loads` failure or an unexpected shape skips **all** Wikidata checks
 (fetches still counted) and logs a warning on `bsi.entity` naming the host
 and the reason. A search that returns zero valid ids fails
