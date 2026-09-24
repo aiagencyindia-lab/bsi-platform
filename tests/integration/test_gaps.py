@@ -310,6 +310,33 @@ def test_filters_narrow_clusters(scene):
     assert got["cluster:comparison:running shoes"]["n"] == 4
 
 
+def test_engine_filter_narrows_clusters(scene, owner):
+    # engine is shared, not tenant data: the row is removed afterwards.
+    with owner() as s, s.begin():
+        other = m.Engine(code="other", provider="x", default_model="x")
+        s.add(other)
+        s.flush()
+        s.execute(
+            update(m.Observation)
+            .where(m.Observation.id.in_(scene.vs_obs[:2]))
+            .values(engine_id=other.id)
+        )
+    try:
+        got = rows(scene, engine="other")
+        assert list(got) == ["cluster:comparison:running shoes"]
+        gap = got["cluster:comparison:running shoes"]
+        assert (gap["n"], gap["absent"]) == (2, 1)
+        assert gap["brand"] == rate(1, 2)
+        rest = rows(scene, engine="gemini")["cluster:comparison:running shoes"]
+        assert (rest["n"], rest["absent"]) == (6, 5)
+    finally:
+        with owner() as s, s.begin():
+            s.execute(text("TRUNCATE organization CASCADE"))
+            s.execute(
+                m.Engine.__table__.delete().where(m.Engine.code == "other")
+            )
+
+
 def test_unlabelled_counts_active_prompts_missing_a_label(scene, owner):
     with tenant_session(scene.org.id) as s:
         assert unlabelled(s, scene.brand) == 1
