@@ -102,7 +102,8 @@ topic.
 - Decided clusters: once a cluster rec is accepted or dismissed it is not
   raised again. `covered` = the `prompt_ids` of decided recs keyed `K` or
   `K:+…`; the cluster's other prompts (`new`), if any, are re-clustered
-  with `Filters(prompt_ids=new)` and, when they alone are a gap, raised
+  with `Filters(prompt_ids=new)` and, when they alone are a gap (the
+  whole cluster need not still be one), raised
   as one candidate keyed `K:+<first 8 hex of sha1(",".join(sorted(new)))>`
   with their own numbers and only their prompt ids. A further new prompt
   changes the hash, so `refresh()` replaces the open `:+` row; decided

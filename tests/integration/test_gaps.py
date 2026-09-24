@@ -654,6 +654,30 @@ def test_a_new_prompt_in_a_decided_cluster_gets_its_own_rec(
     assert "absent from 1 of 1 answers" in c.body
 
 
+def test_a_new_losing_prompt_is_raised_when_the_cluster_is_now_won(
+    scene, owner, make_observation
+):
+    _decide(scene, owner)
+    for i in range(4, 12):  # 8 winning answers on a covered prompt
+        oid = make_observation(
+            scene.org,
+            scene.brand,
+            status="done",
+            prompt_id=scene.vs,
+            sample_index=i,
+        )
+        with owner() as s, s.begin():
+            s.add(_mention(scene.org, oid, "brand", scene.brand))
+    new, _ = scene.add("nike or adidas", "comparison", "running shoes", LOSING)
+    whole = rows(scene)[GAP]
+    assert (whole["absent"], whole["n"], whole["gap"]) == (8, 18, False)
+    recs = _cluster_recs(scene)
+    assert list(recs) == [("create_content", _plus(new))]
+    assert recs[("create_content", _plus(new))].evidence["prompt_ids"] == [
+        str(new)
+    ]
+
+
 def test_a_decided_cluster_without_new_prompts_is_not_raised(scene, owner):
     _decide(scene, owner)
     assert _cluster_recs(scene) == {}

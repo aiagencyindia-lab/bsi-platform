@@ -447,7 +447,8 @@ def _content_clusters(
 
     A decided (accepted or dismissed) cluster is never raised again. Its
     prompts that no decided rec covers yet get their own candidate, keyed
-    `<cluster key>:+<hash of those prompts>`, when they alone are a gap.
+    `<cluster key>:+<hash of those prompts>`, when they alone are a gap,
+    even if the cluster as a whole no longer is.
     """
     from .gaps import clusters  # gaps imports CONTENT_REASONS from here
 
@@ -461,13 +462,14 @@ def _content_clusters(
     ).all()
     out = []
     for c in clusters(s, brand_id, Filters()):
-        if not c["gap"]:
-            continue
         key = c["key"]
         mine = [ev for k, ev in decided if k == key or k.startswith(key + ":+")]
         if not mine:
-            out.append(_cluster_candidate(c, key, brand, total))
+            if c["gap"]:
+                out.append(_cluster_candidate(c, key, brand, total))
             continue
+        # Decided: only the new prompts count, whether or not the whole
+        # cluster is still a gap.
         covered = {p for ev in mine for p in ev.get("prompt_ids", [])}
         new = sorted({str(p["prompt_id"]) for p in c["prompts"]} - covered)
         if not new:

@@ -297,6 +297,9 @@ its priority is 0.0 under both rules.
   prompt whose per-prompt recommendation was dismissed still reappears
   as a target query of its cluster once labelled. No live rerun: no
   recommendation is decided in Run 1, so its output is unchanged.
+  The new prompts are judged alone, even when the cluster as a whole is
+  no longer a gap. Each decided cluster with new prompts costs one more
+  `clusters()` call in `generate()`.
 - **Query count (fixed later).** `clusters()` now runs 6 statements
   (was 8) regardless of the number of clusters; brief target queries are
   capped at 20 with `prompts_total`, and a cluster recommendation stores
