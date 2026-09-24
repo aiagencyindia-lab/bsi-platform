@@ -109,6 +109,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-24-slice11-url-optimizer.md](superpowers/plans/2026-09-24-slice11-url-optimizer.md) | Implementation plan, Tasks 1–8. |
 | [findings-slice11.md](findings-slice11.md) | Results: what was built, the read-only live check with `scripts/score_page.py`, calibration notes, and what is deferred. |
 
+## Slice 12: competitor site crawl
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-24-slice12-competitor-site-crawl-design.md](superpowers/specs/2026-09-24-slice12-competitor-site-crawl-design.md) | Design spec: a weekly, spend-free crawl of each competitor's declared domain (robots.txt, sitemaps, homepage and new pages' JSON-LD types), new pages and new structured data per competitor, and that evidence in the visibility change feed. |
+| [superpowers/plans/2026-09-24-slice12-competitor-site-crawl.md](superpowers/plans/2026-09-24-slice12-competitor-site-crawl.md) | Implementation plan, Tasks 1–7. |
+| [findings-slice12.md](findings-slice12.md) | Results: what was built, the read-only live check with `scripts/snapshot_rival.py`, and what is deferred. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 
