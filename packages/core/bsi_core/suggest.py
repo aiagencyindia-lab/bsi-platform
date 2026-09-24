@@ -176,9 +176,10 @@ def merge_competitors(
         in_set: dict[str, tuple[str, str]] = {}
         for guess in guesses:
             name = guess.name.strip()[:MAX_NAME_CHARS]
-            # ponytail: model-suggested domains are never crawled, so they
-            # skip matching.is_public_hostname; they must pass it if
-            # competitor domains are ever audited.
+            # ponytail: model-suggested domains skip
+            # matching.is_public_hostname. Confirming a suggestion makes
+            # them rival-crawl targets, guarded only by http_fetch's own
+            # resolved-address check.
             domain = normalize_domain(guess.domain)
             group = domain or key(name)
             if not name or not group or group in skip or key(name) in skip:

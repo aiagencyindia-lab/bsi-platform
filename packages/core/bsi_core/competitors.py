@@ -125,10 +125,9 @@ def entity_metrics(
             p,
         )
     }
-    # k_cit matches the entity's declared hosts as they are now. The
-    # Overview tile counts citation.is_brand_owned, set at extraction,
-    # so the brand's citation_rate here can differ from it after a
-    # brand domain changes, until the answers are re-extracted.
+    # The domain routes re-compute citation.is_brand_owned whenever a
+    # brand domain is added or removed, so from then on the Overview
+    # flag and k_cit agree.
     # Host match as matching.is_owned: equal, or a dot then the host.
     # No LIKE, so "_" or "%" in a host is not a wildcard.
     k_cit: dict[uuid.UUID, int] = dict(
