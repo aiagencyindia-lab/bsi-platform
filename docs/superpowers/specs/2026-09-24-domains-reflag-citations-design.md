@@ -4,7 +4,7 @@ Written after the build, as a process fix: this change was planned in plan mode 
 
 ## Context
 
-Run 1 (brand `BSOAgentTestBrand`) had no brand domain, and its competitors declared only their Indian hosts. The next step was to declare them:
+Run 1 (brand `BSOAgentTestBrand`) had no brand domain, and its competitors declared only their Indian hosts. The next step was to declare them (citation counts are from a read-only dev-DB query, 2026-09-24):
 - brand domain **walkaroo.in**, a real kids-shoe site cited 28 times in Run 1 and not a declared competitor;
 - **adidas.com** on Adidas and **skechers.com** on Skechers, which Run 1 cites more often than their Indian hosts.
 
@@ -30,7 +30,7 @@ The worker is not started. Once it runs, it audits walkaroo.in and crawls the tw
 
 ## Tests
 
-Integration tests through the API cover:
+Integration tests cover the cases below, all through the API except the no-op check, which calls `reflag_citations` directly:
 - an exact host and a subdomain become owned;
 - two lookalikes stay unowned;
 - another brand in the same org is untouched;
