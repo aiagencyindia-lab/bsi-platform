@@ -352,3 +352,27 @@ def test_robots_disallowed_sitemap_gets_an_error_line():
     assert snap.errors == [
         "sitemap https://r.com/sitemap.xml: disallowed by robots.txt"
     ]
+
+
+def test_snapshot_pauses_between_fetches_not_before_the_first(monkeypatch):
+    import bsi_core.rivals as rivals
+
+    log = []
+    monkeypatch.setattr(rivals.time, "sleep", lambda s: log.append(("z", s)))
+    inner = site(
+        {
+            "https://r.com/sitemap.xml": urlset(("https://r.com/a", None)),
+            "https://r.com/": HOME,
+        }
+    )
+
+    def fetch(url, ua):
+        log.append(("f", url))
+        return inner(url, ua)
+
+    snap = snapshot_domain("r.com", fetch, known=set(), pause=0.5)
+    fetches = [e for e in log if e[0] == "f"]
+    assert snap.fetches == len(fetches) > 2
+    assert log[0][0] == "f"  # no sleep before the first fetch
+    assert log[1::2] == [("z", 0.5)] * (len(fetches) - 1)
+    assert log[::2] == fetches

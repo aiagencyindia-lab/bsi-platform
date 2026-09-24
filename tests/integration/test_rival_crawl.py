@@ -31,7 +31,17 @@ def _rival(
         return c.id
 
 
-def _crawl(owner, org, bid, cid, domain, days_ago, baseline=False, types=None):
+def _crawl(
+    owner,
+    org,
+    bid,
+    cid,
+    domain,
+    days_ago,
+    baseline=False,
+    types=None,
+    complete=True,
+):
     with owner() as s, s.begin():
         c = m.RivalCrawl(
             org_id=org.id,
@@ -39,7 +49,7 @@ def _crawl(owner, org, bid, cid, domain, days_ago, baseline=False, types=None):
             competitor_id=cid,
             domain=domain,
             baseline=baseline,
-            complete=True,
+            complete=complete,
             types=types or {},
         )
         s.add(c)
@@ -653,3 +663,93 @@ def test_feed_evidence_is_windowed_per_competitor_in_two_statements(
     assert ev == {
         a: {"new_pages": ["https://r.com/in"], "new_types": ["HowTo"]}
     }
+
+
+def _age_crawls(owner, days=8):
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.RivalCrawl).values(
+                created_at=func.now() - func.make_interval(0, 0, 0, days)
+            )
+        )
+
+
+def test_known_urls_keep_their_types_when_not_resampled(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    cid = _rival(owner, org, bid, domains=("r.com",))
+    product = '<script type="application/ld+json">{"@type":"Product"}</script>'
+    one = {
+        "https://r.com/sitemap.xml": urlset(("https://r.com/a", None)),
+        "https://r.com/": HOME,
+        "https://r.com/a": product,
+    }
+    _run(owner, org, bid, _fake({"r.com": one}))
+    first = _pages(owner, cid)["https://r.com/a"]
+    assert first.types == ["Product"]
+    _age_crawls(owner)
+    two = {
+        **one,
+        "https://r.com/sitemap.xml": urlset(
+            ("https://r.com/a", None), ("https://r.com/b", None)
+        ),
+    }
+    fetch = _fake({"r.com": two})
+    _run(owner, org, bid, fetch)
+    assert "https://r.com/a" not in fetch.calls  # known: not re-sampled
+    again = _pages(owner, cid)["https://r.com/a"]
+    assert again.types == ["Product"]
+    assert again.last_seen_at > first.last_seen_at
+
+
+def test_run_rival_crawl_passes_the_pause(
+    owner, make_org, make_brand, monkeypatch
+):
+    org = make_org()
+    bid = make_brand(org)
+    _rival(owner, org, bid, domains=("r.com",))
+    monkeypatch.setattr(worker, "PAUSE_SECONDS", 0.25)
+    pauses = []
+
+    def snap(host, fetch, known, **kw):
+        pauses.append(kw.get("pause"))
+        return worker.Snapshot()
+
+    monkeypatch.setattr(worker, "snapshot_domain", snap)
+    _direct(owner, org, bid, _fake({}), lambda: 0.0)
+    assert pauses == [0.25]
+
+
+def test_site_changes_orders_by_new_pages_then_name(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    zeta = _rival(owner, org, bid, "Zeta", domains=("z.com",))
+    alpha = _rival(owner, org, bid, "Alpha", domains=("a.com",))
+    _rival(owner, org, bid, "Mid", domains=("m.com",))
+    _rival(owner, org, bid, "Beta", domains=("b.com",))
+    for i in range(2):
+        _page(owner, org, bid, zeta, f"https://z.com/{i}", 1, domain="z.com")
+    _page(owner, org, bid, alpha, "https://a.com/0", 1, domain="a.com")
+    names = [c["name"] for c in _changes(org, bid)["competitors"]]
+    assert names == ["Zeta", "Alpha", "Beta", "Mid"]
+
+
+def test_site_changes_reports_the_latest_crawl_of_declared_domains(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    cid = _rival(owner, org, bid, domains=("r.com",))
+    _crawl(owner, org, bid, cid, "r.com", days_ago=5)
+    newer = _crawl(owner, org, bid, cid, "r.com", days_ago=1, complete=False)
+    _crawl(owner, org, bid, cid, "gone.com", days_ago=1)  # not declared
+    with owner() as s:
+        at = s.get(m.RivalCrawl, newer).created_at
+    [ad] = _changes(org, bid)["competitors"]
+    assert [
+        (c["domain"], c["complete"], c["crawled_at"]) for c in ad["crawls"]
+    ] == [("r.com", False, at)]
