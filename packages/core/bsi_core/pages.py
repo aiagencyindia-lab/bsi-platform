@@ -277,9 +277,9 @@ def _suggestion(
 ) -> dict[str, Any]:
     return {
         "text": text,
-        "urls": urls or [],
-        "prompt_ids": prompt_ids or [],
-        "observation_ids": observation_ids or [],
+        "urls": list(urls or []),
+        "prompt_ids": list(prompt_ids or []),
+        "observation_ids": list(observation_ids or []),
     }
 
 
@@ -338,6 +338,8 @@ def score(
     `section_vectors` with `page.sections`."""
     obs = t.observation_ids
     all_pids = [pid for pid, _ in t.queries]
+    # A cluster with no absent answers: cite its prompts instead.
+    lone = [] if obs else all_pids
     values: dict[str, tuple[float, str, list[str]]] = {}
     add: list[dict[str, Any]] = []
     remove: list[dict[str, Any]] = []
@@ -396,7 +398,11 @@ def score(
             or is_owned(host, t.rival_hosts)
         ):
             continue
-        (linked_cited if is_owned(host, cited_domains) else other).add(host)
+        matched = {d for d in cited_domains if is_owned(host, [d])}
+        if matched:
+            linked_cited |= matched
+        else:
+            other.add(host.removeprefix("www."))
     value = round(
         0.6 * min(1.0, len(linked_cited) / 3) + 0.4 * min(1.0, len(other) / 5),
         4,
@@ -432,6 +438,7 @@ def score(
             add.append(
                 _suggestion(
                     f"Add {what}: a {t.page_type} is expected to have it.",
+                    prompt_ids=lone,
                     observation_ids=obs,
                 )
             )
@@ -463,7 +470,9 @@ def score(
     if not in_head:
         rewrite.append(
             _suggestion(
-                f"Name {t.brand} in the title or H1.", observation_ids=obs
+                f"Name {t.brand} in the title or H1.",
+                prompt_ids=lone,
+                observation_ids=obs,
             )
         )
     values["entity_coverage"] = (
@@ -488,12 +497,17 @@ def score(
             _suggestion(
                 f"Remove the {page.h1_count - 1} extra H1 heading(s); "
                 "keep one.",
+                prompt_ids=lone,
                 observation_ids=obs,
             )
         )
     elif page.h1_count == 0:
         add.append(
-            _suggestion("Add one H1 naming the topic.", observation_ids=obs)
+            _suggestion(
+                "Add one H1 naming the topic.",
+                prompt_ids=lone,
+                observation_ids=obs,
+            )
         )
     if h2 < 3:
         add.append(
@@ -506,13 +520,16 @@ def score(
     if skipped:
         rewrite.append(
             _suggestion(
-                "Fix skipped heading levels (H1 to H3).", observation_ids=obs
+                "Fix skipped heading levels (H1 to H3).",
+                prompt_ids=lone,
+                observation_ids=obs,
             )
         )
     if page.words < MIN_WORDS:
         rewrite.append(
             _suggestion(
                 f"Expand the page: {page.words} words, under {MIN_WORDS}.",
+                prompt_ids=lone,
                 observation_ids=obs,
             )
         )
@@ -548,6 +565,7 @@ def score(
         remove.append(
             _suggestion(
                 "Remove the duplicate FAQPage blocks; keep one.",
+                prompt_ids=lone,
                 observation_ids=obs,
             )
         )
@@ -566,6 +584,7 @@ def score(
             remove.append(
                 _suggestion(
                     f"Remove the “in this article” opener under “{s.heading}”.",
+                    prompt_ids=lone,
                     observation_ids=obs,
                 )
             )
@@ -573,6 +592,7 @@ def score(
             _suggestion(
                 f"Open “{s.heading}” with a direct answer of at most "
                 f"{FIRST_SENTENCE_WORDS} words.",
+                prompt_ids=lone,
                 observation_ids=obs,
             )
         )
@@ -593,6 +613,7 @@ def score(
         add.append(
             _suggestion(
                 "Add an author byline or Article schema with an author.",
+                prompt_ids=lone,
                 observation_ids=obs,
             )
         )
@@ -608,6 +629,7 @@ def score(
             _suggestion(
                 "Add a table (a comparison or a specification) with at "
                 "least two rows.",
+                prompt_ids=lone,
                 observation_ids=obs,
             )
         )

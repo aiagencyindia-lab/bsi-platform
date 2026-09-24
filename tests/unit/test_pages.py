@@ -391,3 +391,31 @@ def test_suggestion_copy_has_no_banned_words():
     for text in texts:
         for word in FORBIDDEN:
             assert word not in text.lower(), (word, text)
+
+
+def test_evidence_counts_cited_domains_not_hosts():
+    p = parse(
+        '<h1>t</h1><a href="https://forbes.com/a">a</a>'
+        '<a href="https://www.forbes.com/b">b</a>'
+        '<a href="https://m.forbes.com/c">c</a>'
+        '<a href="https://nyt.com/a">d</a>'
+        '<a href="https://www.nyt.com/b">e</a>'
+    )
+    t = target(cited=[target().cited[0]])  # forbes.com only
+    c = by_code(score(p, t, *vectors(p, t.queries)))["evidence"]
+    assert c["value"] == round(0.6 * (1 / 3) + 0.4 * (1 / 5), 4)
+    assert c["observed"].startswith("1 cited domains linked, 1 other")
+    assert c["evidence"] == ["forbes.com"]
+
+
+def test_suggestions_cite_prompts_when_the_cluster_has_no_absent_answers():
+    p = parse("<h1>Nothing here</h1><h1>again</h1><h3>skip</h3><p>x</p>")
+    t = target(observation_ids=[], cited=[])
+    r = score(p, t, *vectors(p, t.queries))
+    items = [s for lst in r["suggestions"].values() for s in lst]
+    assert len(items) >= 5
+    for s in items:
+        assert s["urls"] or s["prompt_ids"] or s["observation_ids"], s
+    # every suggestion owns its lists
+    ids = [id(s[k]) for s in items for k in ("prompt_ids", "observation_ids")]
+    assert len(ids) == len(set(ids))
