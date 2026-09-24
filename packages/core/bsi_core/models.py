@@ -465,3 +465,60 @@ class PageAudit(Tenant, Base):
             "created_at",
         ),
     )
+
+
+class RivalCrawl(Tenant, Base):
+    """One crawl of one competitor domain. `baseline`: no earlier crawl
+    of the domain read URLs (a domain stays a baseline until one does);
+    its pages and types never count as new. `types`: JSON-LD @type ->
+    the first URL it was seen on, this crawl."""
+
+    __tablename__ = "rival_crawl"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    competitor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("competitor.id", ondelete="CASCADE")
+    )
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job.id"))
+    domain: Mapped[str]
+    baseline: Mapped[bool] = mapped_column(server_default="false")
+    complete: Mapped[bool] = mapped_column(server_default="false")
+    urls_seen: Mapped[int] = mapped_column(server_default="0")
+    new_urls: Mapped[int] = mapped_column(server_default="0")
+    fetches: Mapped[int] = mapped_column(server_default="0")
+    errors: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")
+    types: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    __table_args__ = (
+        Index(
+            "ix_rival_crawl_latest",
+            "brand_id",
+            "competitor_id",
+            "domain",
+            "created_at",
+        ),
+    )
+
+
+class RivalPage(Tenant, Base):
+    """One URL a competitor's sitemap listed; first and last seen."""
+
+    __tablename__ = "rival_page"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    competitor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("competitor.id", ondelete="CASCADE")
+    )
+    domain: Mapped[str]
+    url: Mapped[str]
+    first_seen_at: Mapped[datetime] = mapped_column(
+        TSZ, server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        TSZ, server_default=func.now()
+    )
+    baseline: Mapped[bool] = mapped_column(server_default="false")
+    types: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
+    __table_args__ = (
+        UniqueConstraint("competitor_id", "url"),
+        Index(
+            "ix_rival_page_new", "brand_id", "competitor_id", "first_seen_at"
+        ),
+    )

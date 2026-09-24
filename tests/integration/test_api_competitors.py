@@ -1,5 +1,8 @@
 from datetime import timedelta
 
+from bsi_core import models as m
+from sqlalchemy import update
+
 from tests.integration.test_competitors import (  # noqa: F401
     NOW,
     feed,
@@ -93,3 +96,56 @@ def test_patch_and_delete_on_metrics_are_a_uuid_parse_error(client, scene):  # n
     ):
         assert r.status_code == 422, r.text
         assert "uuid" in r.text.lower(), r.text
+
+
+def test_crawl_route_queues_one_job_per_hour(client, owner, scene):  # noqa: F811
+    org, bid, _ = scene
+    r = client.post(f"/v1/brands/{bid}/competitors/crawl", headers=org.headers)
+    assert r.status_code == 202, r.text
+    again = client.post(
+        f"/v1/brands/{bid}/competitors/crawl", headers=org.headers
+    )
+    assert again.json()["job_id"] == r.json()["job_id"]
+    with owner() as s:
+        job = s.get(m.Job, r.json()["job_id"])
+    assert (job.kind, job.status) == ("crawl_rivals", "queued")
+
+
+def test_crawl_route_on_an_archived_brand_is_409(client, owner, scene):  # noqa: F811
+    org, bid, _ = scene
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Brand).where(m.Brand.id == bid).values(status="archived")
+        )
+    r = client.post(f"/v1/brands/{bid}/competitors/crawl", headers=org.headers)
+    assert r.status_code == 409
+
+
+def test_site_changes_route(client, owner, scene):  # noqa: F811
+    org, bid, ids = scene
+    with owner() as s, s.begin():
+        s.add(
+            m.RivalPage(
+                org_id=org.id,
+                brand_id=bid,
+                competitor_id=ids["adidas"],
+                domain="adidas.co.in",
+                url="https://adidas.co.in/n",
+            )
+        )
+    url = f"/v1/brands/{bid}/competitors/site-changes"
+    r = client.get(url, headers=org.headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["competitors"][0]["name"] == "Adidas"
+    assert body["competitors"][0]["new_pages"][0]["url"] == (
+        "https://adidas.co.in/n"
+    )
+    bad = client.get(url, params={"days": 0}, headers=org.headers)
+    assert bad.status_code == 422
+    refused = client.get(
+        url,
+        params={"date_from": "2026-01-01T00:00:00+00:00"},
+        headers=org.headers,
+    )
+    assert refused.status_code == 422

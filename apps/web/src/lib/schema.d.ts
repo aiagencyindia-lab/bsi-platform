@@ -167,6 +167,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brands/{brand_id}/competitors/crawl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue Rival Crawl */
+        post: operations["queue_rival_crawl_v1_brands__brand_id__competitors_crawl_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/competitors/deltas": {
         parameters: {
             query?: never;
@@ -193,6 +210,23 @@ export interface paths {
         };
         /** Get Entity Metrics */
         get: operations["get_entity_metrics_v1_brands__brand_id__competitors_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/competitors/site-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Site Changes */
+        get: operations["get_site_changes_v1_brands__brand_id__competitors_site_changes_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -849,6 +883,16 @@ export interface components {
             name: string;
             /** New Citing Domains */
             new_citing_domains: string[];
+            /**
+             * New Pages
+             * @default []
+             */
+            new_pages: string[];
+            /**
+             * New Types
+             * @default []
+             */
+            new_types: string[];
             /** Observation Ids */
             observation_ids: string[];
             /** Prompts */
@@ -1397,6 +1441,25 @@ export interface components {
             recommendation_rate: components["schemas"]["RecRate"];
             sov: components["schemas"]["Rate"];
         };
+        /** NewPageOut */
+        NewPageOut: {
+            /**
+             * First Seen At
+             * Format: date-time
+             */
+            first_seen_at: string;
+            /** Types */
+            types: string[];
+            /** Url */
+            url: string;
+        };
+        /** NewTypeOut */
+        NewTypeOut: {
+            /** Type */
+            type: string;
+            /** Url */
+            url: string;
+        };
         /** ObservationDetail */
         ObservationDetail: {
             /** Attempts */
@@ -1700,6 +1763,40 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** RivalChangesOut */
+        RivalChangesOut: {
+            /**
+             * Competitor Id
+             * Format: uuid
+             */
+            competitor_id: string;
+            /** Crawls */
+            crawls: components["schemas"]["RivalCrawlStatusOut"][];
+            /** Name */
+            name: string;
+            /** New Pages */
+            new_pages: components["schemas"]["NewPageOut"][];
+            /** New Pages Total */
+            new_pages_total: number;
+            /** New Types */
+            new_types: components["schemas"]["NewTypeOut"][];
+        };
+        /** RivalCrawlStatusOut */
+        RivalCrawlStatusOut: {
+            /** Complete */
+            complete: boolean;
+            /**
+             * Crawled At
+             * Format: date-time
+             */
+            crawled_at: string;
+            /** Domain */
+            domain: string;
+            /** Errors */
+            errors: string[];
+            /** Urls Seen */
+            urls_seen: number;
+        };
         /** RivalOut */
         RivalOut: {
             /** Answers */
@@ -1827,6 +1924,25 @@ export interface components {
             id: string;
             /** Job Id */
             job_id: string | null;
+        };
+        /** SiteChangesOut */
+        SiteChangesOut: {
+            /** Competitors */
+            competitors: components["schemas"]["RivalChangesOut"][];
+            window: components["schemas"]["SiteChangesWindowOut"];
+        };
+        /** SiteChangesWindowOut */
+        SiteChangesWindowOut: {
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * To
+             * Format: date-time
+             */
+            to: string;
         };
         /**
          * SourceOut
@@ -2526,6 +2642,39 @@ export interface operations {
             };
         };
     };
+    queue_rival_crawl_v1_brands__brand_id__competitors_crawl_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueuedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_entity_deltas_v1_brands__brand_id__competitors_deltas_get: {
         parameters: {
             query?: {
@@ -2592,6 +2741,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntityMetricsOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_changes_v1_brands__brand_id__competitors_site_changes_get: {
+        parameters: {
+            query?: {
+                days?: number;
+                engine?: string | null;
+                locale_id?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                prompt_ids?: string[] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteChangesOut"];
                 };
             };
             /** @description Validation Error */

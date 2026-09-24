@@ -222,6 +222,8 @@ class ChangeOut(BaseModel):
     engines: list[str]
     new_citing_domains: list[str]
     observation_ids: list[uuid.UUID]
+    new_pages: list[str] = []
+    new_types: list[str] = []
 
 
 class ChangeWindowOut(BaseModel):
@@ -236,6 +238,44 @@ class ChangesOut(BaseModel):
     prompts: int
     window: ChangeWindowOut
     changes: list[ChangeOut]
+
+
+class NewPageOut(BaseModel):
+    url: str
+    first_seen_at: datetime
+    types: list[str]
+
+
+class NewTypeOut(BaseModel):
+    type: str
+    url: str
+
+
+class RivalCrawlStatusOut(BaseModel):
+    domain: str
+    crawled_at: datetime
+    complete: bool
+    urls_seen: int
+    errors: list[str]
+
+
+class RivalChangesOut(BaseModel):
+    competitor_id: uuid.UUID
+    name: str
+    new_pages_total: int
+    new_pages: list[NewPageOut]
+    new_types: list[NewTypeOut]
+    crawls: list[RivalCrawlStatusOut]
+
+
+class SiteChangesWindowOut(BaseModel):
+    start: datetime
+    to: datetime
+
+
+class SiteChangesOut(BaseModel):
+    window: SiteChangesWindowOut
+    competitors: list[RivalChangesOut]
 
 
 class EntityRate(Rate):

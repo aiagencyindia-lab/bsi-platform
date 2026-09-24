@@ -305,6 +305,22 @@
             "title": "New Citing Domains",
             "type": "array"
           },
+          "new_pages": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "New Pages",
+            "type": "array"
+          },
+          "new_types": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "New Types",
+            "type": "array"
+          },
           "observation_ids": {
             "items": {
               "format": "uuid",
@@ -1852,6 +1868,51 @@
         "title": "MetricsOut",
         "type": "object"
       },
+      "NewPageOut": {
+        "properties": {
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Types",
+            "type": "array"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "first_seen_at",
+          "types"
+        ],
+        "title": "NewPageOut",
+        "type": "object"
+      },
+      "NewTypeOut": {
+        "properties": {
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "url"
+        ],
+        "title": "NewTypeOut",
+        "type": "object"
+      },
       "ObservationDetail": {
         "properties": {
           "attempts": {
@@ -2700,6 +2761,91 @@
         "title": "RecommendationOut",
         "type": "object"
       },
+      "RivalChangesOut": {
+        "properties": {
+          "competitor_id": {
+            "format": "uuid",
+            "title": "Competitor Id",
+            "type": "string"
+          },
+          "crawls": {
+            "items": {
+              "$ref": "#/components/schemas/RivalCrawlStatusOut"
+            },
+            "title": "Crawls",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "new_pages": {
+            "items": {
+              "$ref": "#/components/schemas/NewPageOut"
+            },
+            "title": "New Pages",
+            "type": "array"
+          },
+          "new_pages_total": {
+            "title": "New Pages Total",
+            "type": "integer"
+          },
+          "new_types": {
+            "items": {
+              "$ref": "#/components/schemas/NewTypeOut"
+            },
+            "title": "New Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "competitor_id",
+          "name",
+          "new_pages_total",
+          "new_pages",
+          "new_types",
+          "crawls"
+        ],
+        "title": "RivalChangesOut",
+        "type": "object"
+      },
+      "RivalCrawlStatusOut": {
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "crawled_at": {
+            "format": "date-time",
+            "title": "Crawled At",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "urls_seen": {
+            "title": "Urls Seen",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "domain",
+          "crawled_at",
+          "complete",
+          "urls_seen",
+          "errors"
+        ],
+        "title": "RivalCrawlStatusOut",
+        "type": "object"
+      },
       "RivalOut": {
         "properties": {
           "answers": {
@@ -2997,6 +3143,46 @@
           "checks"
         ],
         "title": "SiteAuditOut",
+        "type": "object"
+      },
+      "SiteChangesOut": {
+        "properties": {
+          "competitors": {
+            "items": {
+              "$ref": "#/components/schemas/RivalChangesOut"
+            },
+            "title": "Competitors",
+            "type": "array"
+          },
+          "window": {
+            "$ref": "#/components/schemas/SiteChangesWindowOut"
+          }
+        },
+        "required": [
+          "window",
+          "competitors"
+        ],
+        "title": "SiteChangesOut",
+        "type": "object"
+      },
+      "SiteChangesWindowOut": {
+        "properties": {
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          },
+          "to": {
+            "format": "date-time",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "to"
+        ],
+        "title": "SiteChangesWindowOut",
         "type": "object"
       },
       "SourceOut": {
@@ -4649,6 +4835,65 @@
         ]
       }
     },
+    "/v1/brands/{brand_id}/competitors/crawl": {
+      "post": {
+        "operationId": "queue_rival_crawl_v1_brands__brand_id__competitors_crawl_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Queue Rival Crawl",
+        "tags": [
+          "competitors"
+        ]
+      }
+    },
     "/v1/brands/{brand_id}/competitors/deltas": {
       "get": {
         "operationId": "get_entity_deltas_v1_brands__brand_id__competitors_deltas_get",
@@ -4952,6 +5197,164 @@
           }
         },
         "summary": "Get Entity Metrics",
+        "tags": [
+          "competitors"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/competitors/site-changes": {
+      "get": {
+        "operationId": "get_site_changes_v1_brands__brand_id__competitors_site_changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engine"
+            }
+          },
+          {
+            "in": "query",
+            "name": "locale_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Ids"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteChangesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Site Changes",
         "tags": [
           "competitors"
         ]

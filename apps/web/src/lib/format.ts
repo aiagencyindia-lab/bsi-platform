@@ -121,6 +121,15 @@ const PAGE_NOTES: Record<string, string> = {
   failed: "Queued again after a failed run.",
 };
 
+const CRAWL_QUEUED =
+  "Queued; the worker crawls competitor domains not crawled in the last 7 days, within a few minutes.";
+const CRAWL_NOTES: Record<string, string> = {
+  queued: CRAWL_QUEUED,
+  running: CRAWL_QUEUED,
+  done: "Already crawled this hour; a new crawl can start from the next hour.",
+  failed: "Queued again after a failed run.",
+};
+
 // hasOwn, so a `?queued=constructor` reads as unknown, not a prototype key.
 const note = (notes: Record<string, string>, status: Params[string]) =>
   typeof status === "string" && Object.hasOwn(notes, status)
@@ -135,3 +144,6 @@ export const labelNote = (status: Params[string]) => note(LABEL_NOTES, status);
 
 /** What "Score a URL" did, from the job status the API returned. */
 export const pageNote = (status: Params[string]) => note(PAGE_NOTES, status);
+
+/** What "Crawl competitor sites now" did, from the job status. */
+export const crawlNote = (status: Params[string]) => note(CRAWL_NOTES, status);

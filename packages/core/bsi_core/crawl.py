@@ -490,8 +490,9 @@ def robots_allows(robots: str, path: str = "/") -> bool:
     """Whether the Allow/Disallow lines in `robots` let a crawler fetch
     `path`. Group selection happens before; this sees one bot's rules.
 
-    ponytail: percent-encoding is not normalized (RFC 9309 §2.2.2); the
-    audit only asks about "/", where it cannot matter.
+    ponytail: percent-encoding is not normalized (RFC 9309 §2.2.2). The
+    rival crawl checks arbitrary paths, so a percent-encoded rule may not
+    match its decoded path (ceiling); upgrade path: normalize both sides.
     """
     rule = _decisive_rule(robots, path)
     return rule is None or rule.lower().startswith("allow")

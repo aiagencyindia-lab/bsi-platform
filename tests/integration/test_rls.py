@@ -27,6 +27,8 @@ TENANT_TABLES = [
     "task",
     "site_audit",
     "page_audit",
+    "rival_crawl",
+    "rival_page",
 ]
 
 
@@ -119,6 +121,27 @@ def org_b(owner, make_org, make_brand, make_observation):
                 weights_version="v1",
                 score=50,
             )
+        )
+        s.flush()
+        s.add_all(
+            [
+                m.RivalCrawl(
+                    org_id=b.id,
+                    brand_id=bid,
+                    competitor_id=comp.id,
+                    domain="rival.com",
+                    baseline=True,
+                    complete=True,
+                ),
+                m.RivalPage(
+                    org_id=b.id,
+                    brand_id=bid,
+                    competitor_id=comp.id,
+                    domain="rival.com",
+                    url="https://rival.com/p",
+                    baseline=True,
+                ),
+            ]
         )
     return b
 
