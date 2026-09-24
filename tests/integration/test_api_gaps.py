@@ -17,6 +17,7 @@ def test_clusters_route_returns_numbers_and_briefs(client, scene):  # noqa: F811
     gap = body["clusters"][0]
     assert gap["gap"] is True and gap["brief"]["page_type"] == "comparison page"
     assert gap["brand"]["n"] == 8 and gap["top_rival"]["name"] == "Adidas"
+    assert gap["brief"]["prompts_total"] == 2
     assert body["clusters"][-1]["brief"] is None
 
 

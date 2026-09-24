@@ -426,7 +426,8 @@ def _cluster_candidate(
         title,
         body,
         {
-            **b,
+            # The brief once: its inner evidence is these two keys.
+            **{k: v for k, v in b.items() if k != "evidence"},
             "prompt_ids": b["evidence"]["prompt_ids"],
             "observation_ids": b["evidence"]["observation_ids"],
             "cluster": {"intent": c["intent"], "topic": c["topic"]},

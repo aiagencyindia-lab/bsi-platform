@@ -17,6 +17,7 @@ from .recommend import CONTENT_REASONS
 EVIDENCE_CAP = 20
 SOURCES_CAP = 10
 LINKS_CAP = 10
+QUERIES_CAP = 20
 NOTE = (
     "Page type and structure are templates by intent, not a judgement of "
     "the site."
@@ -104,13 +105,11 @@ def unlabelled(s: Session, brand_id: uuid.UUID) -> int:
     )
 
 
-def brief(c: dict[str, Any], brand: str) -> dict[str, Any]:
-    """The model-free content brief for a gap cluster.
-
-    `brand` is unused; it is kept for the interface.
-    """
+def brief(c: dict[str, Any]) -> dict[str, Any]:
+    """The model-free content brief for a gap cluster: the worst
+    QUERIES_CAP prompts as target queries, `prompts_total` of them all."""
     page_type = PAGE_TYPES[c["intent"]]
-    queries = [p["text"] for p in c["prompts"]]
+    queries = [p["text"] for p in c["prompts"][:QUERIES_CAP]]
     structure: list[str] = []
     for h in STRUCTURES[page_type]:
         if "{q}" in h:
@@ -119,6 +118,7 @@ def brief(c: dict[str, Any], brand: str) -> dict[str, Any]:
             structure.append(h.format(topic=c["topic"]))
     return {
         "target_queries": queries,
+        "prompts_total": len(c["prompts"]),
         "page_type": page_type,
         "structure": structure,
         "competitors": [r["name"] for r in c["rivals"]],
@@ -140,24 +140,28 @@ def clusters(
     s: Session, brand_id: uuid.UUID, f: Filters
 ) -> list[dict[str, Any]]:
     where, params = _where(brand_id, f)
-    brand = s.get_one(m.Brand, brand_id).name
     _, hosts = _entities_and_hosts(s, brand_id)
     brand_hosts = hosts[brand_id]
     rival_hosts = [h for e, hs in hosts.items() if e != brand_id for h in hs]
+    # Per-answer flags from grouped subqueries joined once, not an EXISTS
+    # per row.
     answers = s.execute(
         text(
             "SELECT p.intent, p.topic, o.prompt_id, p.text, o.id, "
-            "o.requested_at, "
-            "EXISTS (SELECT 1 FROM mention mn WHERE mn.observation_id = o.id "
-            "  AND mn.entity_type = 'brand') AS present, "
-            "EXISTS (SELECT 1 FROM mention mn JOIN competitor cp "
-            "  ON cp.id = mn.entity_id WHERE mn.observation_id = o.id "
-            "  AND mn.entity_type = 'competitor' AND cp.status = 'active') "
-            "  AS rival, "
-            "EXISTS (SELECT 1 FROM citation c WHERE c.observation_id = o.id "
-            "  AND c.is_brand_owned) AS cited, "
-            "e.absence_reason "
+            "o.requested_at, bm.observation_id IS NOT NULL AS present, "
+            "rv.observation_id IS NOT NULL AS rival, "
+            "ow.observation_id IS NOT NULL AS cited, e.absence_reason "
             f"{_FROM} LEFT JOIN extraction e ON e.observation_id = o.id "
+            "LEFT JOIN (SELECT mn.observation_id FROM mention mn "
+            "  WHERE mn.entity_type = 'brand' GROUP BY 1) bm "
+            "  ON bm.observation_id = o.id "
+            "LEFT JOIN (SELECT mn.observation_id FROM mention mn "
+            "  JOIN competitor cp ON cp.id = mn.entity_id "
+            "  WHERE mn.entity_type = 'competitor' AND cp.status = 'active' "
+            "  GROUP BY 1) rv ON rv.observation_id = o.id "
+            "LEFT JOIN (SELECT c.observation_id FROM citation c "
+            "  WHERE c.is_brand_owned GROUP BY 1) ow "
+            "  ON ow.observation_id = o.id "
             f"WHERE {where} AND {_BASE} "
             "ORDER BY p.intent, p.topic, o.prompt_id, o.requested_at DESC, o.id"
         ),
@@ -176,23 +180,20 @@ def clusters(
         ),
         params,
     ).all()
-    sources = s.execute(
+    # Cited domains (answers counted) and owned URLs (answers NULL) in one
+    # read; the database orders both, as it did when they were two.
+    cited = (
+        "FROM citation c JOIN observation o ON o.id = c.observation_id "
+        f"JOIN prompt p ON p.id = o.prompt_id WHERE {where} AND {_BASE}"
+    )
+    citations = s.execute(
         text(
-            "SELECT p.intent, p.topic, c.domain, "
-            "count(DISTINCT o.id) AS answers "
-            "FROM citation c JOIN observation o ON o.id = c.observation_id "
-            "JOIN prompt p ON p.id = o.prompt_id "
-            f"WHERE {where} AND {_BASE} "
-            "GROUP BY 1, 2, 3 ORDER BY 1, 2, 4 DESC, 3"
-        ),
-        params,
-    ).all()
-    urls = s.execute(
-        text(
-            "SELECT DISTINCT p.intent, p.topic, c.url "
-            "FROM citation c JOIN observation o ON o.id = c.observation_id "
-            "JOIN prompt p ON p.id = o.prompt_id "
-            f"WHERE {where} AND {_BASE} AND c.is_brand_owned ORDER BY 1, 2, 3"
+            "SELECT p.intent, p.topic, c.domain AS v, "
+            f"count(DISTINCT o.id) AS answers {cited} GROUP BY 1, 2, 3 "
+            "UNION ALL "
+            "SELECT DISTINCT p.intent, p.topic, c.url, NULL::bigint "
+            f"{cited} AND c.is_brand_owned "
+            "ORDER BY 1, 2, 4 DESC NULLS LAST, 3"
         ),
         params,
     ).all()
@@ -230,17 +231,18 @@ def clusters(
             {"competitor_id": r.id, "name": r.name, "answers": r.answers}
         )
     src: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
-    for r in sources:
-        src[(r.intent, r.topic)].append(
-            {
-                "domain": r.domain,
-                "answers": r.answers,
-                "owner": owner_of(r.domain, brand_hosts, rival_hosts),
-            }
-        )
     lnk: dict[tuple[str, str], list[str]] = defaultdict(list)
-    for r in urls:
-        lnk[(r.intent, r.topic)].append(r.url)
+    for r in citations:
+        if r.answers is None:
+            lnk[(r.intent, r.topic)].append(r.v)
+        else:
+            src[(r.intent, r.topic)].append(
+                {
+                    "domain": r.v,
+                    "answers": r.answers,
+                    "owner": owner_of(r.v, brand_hosts, rival_hosts),
+                }
+            )
     out = []
     for (intent, topic), c in by_key.items():
         n, absent = c["n"], c["n"] - c["present"]
@@ -291,7 +293,7 @@ def clusters(
                 :EVIDENCE_CAP
             ],
         }
-        row["brief"] = brief(row, brand) if gap else None
+        row["brief"] = brief(row) if gap else None
         out.append(row)
     out.sort(
         key=lambda r: (

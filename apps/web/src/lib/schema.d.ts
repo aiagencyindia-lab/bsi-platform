@@ -754,6 +754,8 @@ export interface components {
             note: string;
             /** Page Type */
             page_type: string;
+            /** Prompts Total */
+            prompts_total: number;
             /** Sources */
             sources: components["schemas"]["CitingDomainOut"][];
             /** Structure */

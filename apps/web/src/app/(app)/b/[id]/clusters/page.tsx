@@ -78,6 +78,15 @@ export default async function ClustersPage({
                         {c.brief.target_queries.map((q) => (
                           <li key={q}>{q}</li>
                         ))}
+                        {c.brief.prompts_total >
+                          c.brief.target_queries.length && (
+                          <li className="muted">
+                            and{" "}
+                            {c.brief.prompts_total -
+                              c.brief.target_queries.length}{" "}
+                            more
+                          </li>
+                        )}
                       </ul>
                       <strong>Structure</strong>
                       <ul>
