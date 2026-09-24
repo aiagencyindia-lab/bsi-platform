@@ -54,6 +54,10 @@ Rulings during the build:
 - Ruling 9: the live check ran the detectors in a rolled-back session instead of calling the scan route, which writes and needs 0016. Cost if wrong: the route and dedupe were not exercised on real data; the tests cover them.
 - Ruling 10: alert copy is plain strings, checked by a separate forbidden-word test. Cost if wrong: alert titles have no "Metric to watch" line (the spec does not require one).
 - Ruling 11 (amended after the review): the baseline is a full window of history. `new_source` returns nothing unless the brand's earliest done answer is at or before `to` minus 14 days; one old answer only delayed the flood (Run 1 would have flooded again from about 2026-09-26 09:17 UTC). Cost if wrong: a new brand gets no new-source alerts for its first 14 days of history.
+- Ruling 12: final-review minor 3 stays deferred under Ruling 7. One slow webhook with N due alerts costs up to N x 30 s in one pass. Cost if wrong: a dead webhook with many due alerts delays every tenant's schedule checks.
+- Clearing the webhook stops pending deliveries: `PATCH {"webhook_url": null}` sets `next_attempt_at` to null on the brand's undelivered alerts, so they are not posted to a URL set later.
+- Scans of one brand are serialised by a transaction advisory lock (`alert-scan:<brand_id>`), so a manual scan and the daily scan cannot both pass the dedupe and insert twice.
+- The webhook POST sends the user agent `bsi-platform-alerts/1.0`, not the browser user agent.
 
 Minor items deferred from the task reviews:
 - No test that `due_alert_deliveries()` skips archived brands.
@@ -74,3 +78,5 @@ Minor items deferred from the task reviews:
 ## 4. Not covered by tests
 - The Alerts page rendering (the web app has no component tests).
 - The migration downgrade, which was checked by reading only.
+- No delivery was tried against a real webhook endpoint (Slack or other); delivery is tested only with a fake fetch. Slack compatibility rests on the documented `text` field only.
+- No test runs two scans concurrently; the advisory lock was checked by reading and by the sequential scan tests, which run as `bsi_app` under RLS.

@@ -224,6 +224,12 @@ def scan(
     """Run every detector and store what is not a duplicate. `deliver`
     is whether the brand has a webhook now: an alert stored without one
     is never delivered later."""
+    # A manual scan and the daily scan of one brand would both pass the
+    # check-then-insert dedupe; serialise them. Released at commit.
+    s.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+        {"k": f"alert-scan:{brand_id}"},
+    )
     rows = []
     for detect in DETECTORS:
         for c in detect(s, brand_id, to):

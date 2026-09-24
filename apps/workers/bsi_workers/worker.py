@@ -77,6 +77,7 @@ CITED_URLS_CAP = 10
 # is given up and keeps its last error.
 BACKOFF_DELIVERY = (60, 300, 1800, 7200)
 MAX_DELIVERY_ATTEMPTS = 5
+WEBHOOK_UA = "bsi-platform-alerts/1.0"  # a machine POST, not a browser
 
 
 class Poster(Protocol):
@@ -245,7 +246,7 @@ def deliver_due_alerts(fetch: Poster = http_fetch) -> int:
             assert url is not None  # due_alert_deliveries() filtered on it
             resp = fetch(
                 url,
-                BROWSER_UA,
+                WEBHOOK_UA,
                 method="POST",
                 body=body,
                 content_type="application/json",

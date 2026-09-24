@@ -13,6 +13,7 @@ from bsi_core.storage import LocalRawStore
 from bsi_core.suggest import LABEL_JOB_MICROS
 from bsi_workers.worker import (
     BACKOFF_DELIVERY,
+    WEBHOOK_UA,
     close_due_impact_windows,
     deliver_due_alerts,
     process_one,
@@ -903,7 +904,7 @@ class _Hook:
         self.status, self.error = status, error
 
     def __call__(self, url, ua, *, method, body, content_type):
-        self.calls.append((url, method, content_type, json.loads(body)))
+        self.calls.append((url, ua, method, content_type, json.loads(body)))
         return Response(self.status, "", self.error)
 
 
@@ -927,9 +928,10 @@ def test_deliver_posts_the_payload_and_marks_delivered(
     aid = _due_alert(owner, org, bid)
     hook = _Hook()
     assert deliver_due_alerts(fetch=hook) == 1
-    (url, method, ctype, body) = hook.calls[0]
-    assert (url, method, ctype) == (
+    (url, ua, method, ctype, body) = hook.calls[0]
+    assert (url, ua, method, ctype) == (
         "https://hooks.example.com/in",
+        WEBHOOK_UA,
         "POST",
         "application/json",
     )

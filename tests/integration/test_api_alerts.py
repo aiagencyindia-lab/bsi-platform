@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from bsi_core import models as m
 from sqlalchemy import select
@@ -76,3 +78,21 @@ def test_null_clears_the_webhook(client, owner, make_org, make_brand):
     assert r.status_code == 200 and r.json()["webhook_url"] is None
     with owner() as s:
         assert s.get(m.Brand, bid).webhook_url is None
+
+
+def test_clearing_the_webhook_stops_pending_deliveries(
+    client, owner, make_org, make_brand
+):
+    org = make_org()
+    bid, other = make_brand(org), make_brand(org, "Other")
+    now = datetime.now(UTC)
+    pending = _alert(owner, org, bid, next_attempt_at=now)
+    kept = _alert(owner, org, other, next_attempt_at=now)
+    r = client.patch(
+        f"/v1/brands/{bid}", headers=org.headers, json={"webhook_url": None}
+    )
+    assert r.status_code == 200
+    with owner() as s:
+        a, b = s.get(m.Alert, pending), s.get(m.Alert, kept)
+    assert a.next_attempt_at is None and a.delivered_at is None
+    assert b.next_attempt_at is not None
