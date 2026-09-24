@@ -1,8 +1,10 @@
+import json
 from datetime import UTC, datetime, timedelta
 
 import bsi_workers.worker as worker
 import pytest
 from bsi_core import models as m
+from bsi_core.crawl import Response
 from bsi_core.db import system_session
 from bsi_core.impact import close_window
 from bsi_core.providers.base import EngineResult, ParsedAnswer
@@ -10,14 +12,19 @@ from bsi_core.scheduling import run_schedule
 from bsi_core.storage import LocalRawStore
 from bsi_core.suggest import LABEL_JOB_MICROS
 from bsi_workers.worker import (
+    BACKOFF_DELIVERY,
     close_due_impact_windows,
+    deliver_due_alerts,
     process_one,
     refresh_due_recommendations,
     reset_stale,
     run_due_schedules,
+    scan_due_alerts,
     tick,
 )
 from sqlalchemy import func, select, text, update
+
+from tests.integration.test_alerts import _alert
 
 OK = EngineResult(
     "ok",
@@ -865,3 +872,156 @@ def test_one_failing_refresh_does_not_block_the_rest(
         # The failed brand kept its null stamp, so it stays due.
         stamps = s.scalars(select(m.Brand.recs_refreshed_at)).all()
     assert sorted(t is None for t in stamps) == [False, True]
+
+
+def _hooked_brand(owner, make_org, make_brand, name="A"):
+    org = make_org(name)
+    bid = make_brand(org, "Nike")
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Brand)
+            .where(m.Brand.id == bid)
+            .values(webhook_url="https://hooks.example.com/in")
+        )
+    return org, bid
+
+
+def _due_alert(owner, org, bid):
+    return _alert(
+        owner,
+        org,
+        bid,
+        next_attempt_at=func.now() - func.make_interval(0, 0, 0, 0, 0, 1),
+    )
+
+
+class _Hook:
+    """A fake fetch that records what was posted and answers as told."""
+
+    def __init__(self, status=200, error=None):
+        self.calls = []
+        self.status, self.error = status, error
+
+    def __call__(self, url, ua, *, method, body, content_type):
+        self.calls.append((url, method, content_type, json.loads(body)))
+        return Response(self.status, "", self.error)
+
+
+def test_scan_due_alerts_serves_every_tenant_and_stamps(
+    owner, make_org, make_brand
+):
+    ids = [make_brand(make_org(n)) for n in ("A", "B")]
+    assert scan_due_alerts() == 2
+    with owner() as s:
+        stamps = s.scalars(
+            select(m.Brand.alerts_scanned_at).where(m.Brand.id.in_(ids))
+        ).all()
+    assert all(t is not None for t in stamps)
+    assert scan_due_alerts() == 0
+
+
+def test_deliver_posts_the_payload_and_marks_delivered(
+    owner, make_org, make_brand
+):
+    org, bid = _hooked_brand(owner, make_org, make_brand)
+    aid = _due_alert(owner, org, bid)
+    hook = _Hook()
+    assert deliver_due_alerts(fetch=hook) == 1
+    (url, method, ctype, body) = hook.calls[0]
+    assert (url, method, ctype) == (
+        "https://hooks.example.com/in",
+        "POST",
+        "application/json",
+    )
+    assert body["id"] == str(aid) and body["brand"] == "Nike"
+    assert body["text"] == body["title"] == "t"
+    with owner() as s:
+        a = s.get(m.Alert, aid)
+    assert a.delivered_at is not None and a.next_attempt_at is None
+    assert (a.delivery_attempts, a.last_error) == (1, None)
+    assert deliver_due_alerts(fetch=hook) == 0
+
+
+def test_delivery_walks_the_backoff_schedule_then_gives_up(
+    owner, make_org, make_brand
+):
+    org, bid = _hooked_brand(owner, make_org, make_brand)
+    aid = _due_alert(owner, org, bid)
+    hook = _Hook(500)
+    for attempt, wait in enumerate(BACKOFF_DELIVERY, start=1):
+        assert deliver_due_alerts(fetch=hook) == 0
+        with owner() as s:
+            a = s.get(m.Alert, aid)
+            now = s.scalar(select(func.now()))
+        assert (a.delivery_attempts, a.last_error) == (attempt, "HTTP 500")
+        assert a.delivered_at is None
+        assert abs((a.next_attempt_at - now).total_seconds() - wait) < 5
+        with owner() as s, s.begin():  # bring the next attempt forward
+            s.execute(
+                update(m.Alert)
+                .where(m.Alert.id == aid)
+                .values(next_attempt_at=func.now())
+            )
+    assert deliver_due_alerts(fetch=hook) == 0
+    with owner() as s:
+        a = s.get(m.Alert, aid)
+    assert (a.delivery_attempts, a.next_attempt_at) == (5, None)
+    assert a.last_error == "HTTP 500" and len(hook.calls) == 5
+
+
+def test_a_refused_url_is_recorded_as_the_error(owner, make_org, make_brand):
+    org, bid = _hooked_brand(owner, make_org, make_brand)
+    aid = _due_alert(owner, org, bid)
+    deliver_due_alerts(fetch=_Hook(0, "refused: 10.0.0.1 is not public"))
+    with owner() as s:
+        a = s.get(m.Alert, aid)
+    assert a.last_error == "refused: 10.0.0.1 is not public"
+    assert a.delivery_attempts == 1 and a.next_attempt_at is not None
+
+
+def test_no_transaction_is_open_during_the_webhook_post(
+    owner, make_org, make_brand
+):
+    org, bid = _hooked_brand(owner, make_org, make_brand)
+    _due_alert(owner, org, bid)
+    seen = []
+
+    def fetch(url, ua, *, method, body, content_type):
+        with owner() as s:
+            seen.append(
+                s.scalar(
+                    text(
+                        "SELECT count(*) FROM pg_stat_activity "
+                        "WHERE state = 'idle in transaction' "
+                        "AND pid <> pg_backend_pid()"
+                    )
+                )
+            )
+        return Response(200, "")
+
+    deliver_due_alerts(fetch=fetch)
+    assert seen == [0]
+
+
+def test_one_failing_delivery_does_not_block_the_rest(
+    owner, make_org, make_brand
+):
+    org, bid = _hooked_brand(owner, make_org, make_brand)
+    bad = _due_alert(owner, org, bid)
+    good = _due_alert(owner, org, bid)
+    with owner() as s, s.begin():  # bad is first in next_attempt_at order
+        s.execute(
+            update(m.Alert)
+            .where(m.Alert.id == bad)
+            .values(next_attempt_at=func.now() - func.make_interval(0, 0, 0, 1))
+        )
+
+    def fetch(url, ua, *, method, body, content_type):
+        if json.loads(body)["id"] == str(bad):
+            raise RuntimeError("boom")
+        return Response(200, "")
+
+    assert deliver_due_alerts(fetch=fetch) == 1
+    with owner() as s:
+        assert s.get(m.Alert, good).delivered_at is not None
+        assert s.get(m.Alert, bad).delivered_at is None
