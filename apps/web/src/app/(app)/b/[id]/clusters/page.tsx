@@ -10,7 +10,7 @@ import {
   type Params,
 } from "@/lib/format";
 import type { Clusters } from "@/lib/types";
-import { labelPrompts } from "./actions";
+import { labelPrompts, optimizeUrl } from "./actions";
 
 // Stored citation URLs; only web links become hrefs (same guard as Site).
 const isWeb = (u: string) => u.startsWith("https://") || u.startsWith("http://");
@@ -141,6 +141,19 @@ export default async function ClustersPage({
                           </Link>
                         ))}
                       </p>
+                      <form action={optimizeUrl} className="row">
+                        <input type="hidden" name="brand_id" value={id} />
+                        <input type="hidden" name="cluster_key" value={c.key} />
+                        <input
+                          type="url"
+                          name="url"
+                          aria-label="Page URL to score"
+                          required
+                          placeholder="https://your-site.com/page"
+                          style={{ minWidth: 280 }}
+                        />
+                        <button>Score a URL</button>
+                      </form>
                     </details>
                   )}
                 </td>

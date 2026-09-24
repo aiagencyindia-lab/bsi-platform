@@ -43,6 +43,7 @@ REC_TYPES = (
     "sample_more",
     "fix_crawlability",
     "fix_entity",
+    "optimize_page",
 )
 REC_STATES = ("open", "accepted", "dismissed")
 TASK_STATUSES = ("open", "in_progress", "done", "impact_measured")
@@ -432,4 +433,35 @@ class SiteAudit(Tenant, Base):
     fetches: Mapped[int] = mapped_column(server_default="0")
     __table_args__ = (
         Index("ix_site_audit_latest", "brand_id", "domain", "created_at"),
+    )
+
+
+class PageAudit(Tenant, Base):
+    """One scoring of one URL against one gap cluster; the latest row per
+    (cluster_key, url) is what the Pages tab and the optimize_page rule
+    read. A failed fetch is stored too (score NULL, error set)."""
+
+    __tablename__ = "page_audit"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job.id"))
+    url: Mapped[str]
+    cluster_key: Mapped[str]
+    status: Mapped[int] = mapped_column(server_default="0")
+    error: Mapped[str | None]
+    weights_version: Mapped[str]
+    score: Mapped[int | None]
+    components: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default="[]"
+    )
+    suggestions: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    evidence: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    fetches: Mapped[int] = mapped_column(server_default="0")
+    __table_args__ = (
+        Index(
+            "ix_page_audit_latest",
+            "brand_id",
+            "cluster_key",
+            "url",
+            "created_at",
+        ),
     )

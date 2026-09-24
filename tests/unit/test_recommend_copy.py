@@ -9,6 +9,7 @@ from bsi_core.recommend import (
     crawl_copy,
     entity_copy,
     names,
+    page_copy,
     sample_copy,
 )
 
@@ -126,6 +127,54 @@ def test_entity_copy_names_the_brand_domain_and_evidence():
     assert "mention rate" in body
 
 
+PAGE_SUGGESTIONS = {
+    "add": [
+        {
+            "text": "Add a section that answers “best school shoes” directly.",
+            "urls": [],
+            "prompt_ids": ["p"],
+            "observation_ids": [],
+        }
+    ],
+    "remove": [],
+    "rewrite": [
+        {
+            "text": "Name Nike in the title or H1.",
+            "urls": [],
+            "prompt_ids": [],
+            "observation_ids": ["o"],
+        }
+    ],
+    "evidence_to_add": [
+        {
+            "text": "Cite https://forbes.com/x: 3 answers in this cluster "
+            "draw on it.",
+            "urls": ["https://forbes.com/x"],
+            "prompt_ids": [],
+            "observation_ids": ["o"],
+        }
+    ],
+}
+CASES += [
+    page_copy(
+        "Nike",
+        "https://nike.com/kids/school",
+        "school shoes",
+        4,
+        62,
+        PAGE_SUGGESTIONS,
+    ),
+    page_copy(
+        "Nike",
+        "https://nike.com/",
+        "school shoes",
+        1,
+        0,
+        {"add": [], "remove": [], "rewrite": [], "evidence_to_add": []},
+    ),
+]
+
+
 @pytest.mark.parametrize("copy", CASES)
 def test_copy_never_promises_an_outcome(copy):
     text = " ".join(copy).lower()
@@ -186,3 +235,23 @@ def test_cluster_copy_uses_an_before_a_vowel():
 
 def test_cluster_copy_names_rivals_in_this_cluster():
     assert "Rivals named in this cluster: Adidas." in ALTERNATIVES[1]
+
+
+def test_page_copy_names_the_page_score_and_first_steps():
+    title, body = page_copy(
+        "Nike",
+        "https://nike.com/kids/school",
+        "school shoes",
+        4,
+        62,
+        PAGE_SUGGESTIONS,
+    )
+    assert title == "Improve nike.com/kids/school for school shoes"
+    assert "62/100" in body and "v1" in body
+    assert "best school shoes" in body and "forbes.com" in body
+    assert "4 prompts" in body and "Metric to watch:" in body
+
+
+def test_page_copy_drops_a_bare_root_path():
+    title, _ = page_copy("Nike", "https://nike.com/", "school shoes", 1, 0, {})
+    assert title == "Improve nike.com for school shoes"

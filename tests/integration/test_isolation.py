@@ -76,8 +76,19 @@ def other(owner, make_org, make_brand, make_observation):
             org_id=b.id, brand_id=bid, recommendation_id=rec.id, title="Secret"
         )
         s.add(task)
+        audit = m.PageAudit(
+            org_id=b.id,
+            brand_id=bid,
+            url="https://secret.com/p",
+            cluster_key="cluster:guide:Secret",
+            status=200,
+            weights_version="v1",
+            score=1,
+            error="Secret",
+        )
+        s.add(audit)
         s.flush()
-        rid, tid = rec.id, task.id
+        rid, tid, aid = rec.id, task.id, audit.id
     return {
         "b": bid,
         "c": cid,
@@ -89,6 +100,7 @@ def other(owner, make_org, make_brand, make_observation):
         "e": bid,
         "r": rid,
         "t": tid,
+        "a": aid,
     }
 
 
@@ -143,6 +155,13 @@ CASES = [
     ("GET", "/v1/brands/{b}/audits/crawl", None),
     ("GET", "/v1/brands/{b}/clusters/gaps", None),
     ("POST", "/v1/brands/{b}/prompts/label", None),
+    (
+        "POST",
+        "/v1/brands/{b}/pages/optimize",
+        {"url": "https://x.com/", "cluster_key": "cluster:guide:Secret"},
+    ),
+    ("GET", "/v1/brands/{b}/pages", None),
+    ("GET", "/v1/brands/{b}/pages/{a}", None),
 ]
 
 

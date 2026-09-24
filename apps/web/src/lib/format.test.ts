@@ -4,8 +4,10 @@ import {
   auditNote,
   ciText,
   highlight,
+  KIND,
   labelNote,
   lastDay,
+  pageNote,
   pct,
   pts,
   usd,
@@ -123,3 +125,16 @@ test("lastDay is the day before an exclusive end", () => {
   // Month rollover.
   expect(lastDay("2026-10-01T00:00:00+00:00")).toBe("2026-09-30");
 });
+
+test("pageNote says what the score button actually did", () => {
+  const queued = "Queued; the worker scores it within a minute.";
+  expect(pageNote("queued")).toBe(queued);
+  expect(pageNote("running")).toBe(queued);
+  expect(pageNote("done")).toBe("Already scored.");
+  expect(pageNote("failed")).toBe("Queued again after a failed run.");
+  expect(pageNote(undefined)).toBeNull();
+  expect(pageNote("constructor")).toBeNull();
+});
+
+test("KIND labels the page-fix recommendation", () =>
+  expect(KIND.optimize_page).toBe("Page fix"));

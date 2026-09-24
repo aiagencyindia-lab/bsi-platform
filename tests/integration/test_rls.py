@@ -26,6 +26,7 @@ TENANT_TABLES = [
     "recommendation",
     "task",
     "site_audit",
+    "page_audit",
 ]
 
 
@@ -106,6 +107,17 @@ def org_b(owner, make_org, make_brand, make_observation):
                 brand_id=bid,
                 domain="b.com",
                 checks=[{"code": "llms_missing", "ok": False}],
+            )
+        )
+        s.add(
+            m.PageAudit(
+                org_id=b.id,
+                brand_id=bid,
+                url="https://b.com/p",
+                cluster_key="cluster:guide:x",
+                status=200,
+                weights_version="v1",
+                score=50,
             )
         )
     return b
