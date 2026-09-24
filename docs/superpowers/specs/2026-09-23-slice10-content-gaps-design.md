@@ -13,8 +13,8 @@ sources, suggested structure, internal links and a priority. Decisions made in b
   definition; the `/clusters` count endpoint already groups this way).
   Unlabelled prompts keep the per-prompt rule.
 - **Gap rule** = the slice 6 absence rule at cluster level (brand absent
-  in ≥ half the cluster's answers with a rival named in an absent answer;
-  most common absence reason in `CONTENT_REASONS`).
+  in ≥ half the cluster's answers; most common absence reason in
+  `CONTENT_REASONS`).
 - **Rec shape** = `create_content` keyed by cluster replaces the per-prompt
   rec for labelled prompts. No new rec type, no migration.
 - **Labelling** = new job kind `label_prompts` that calls
@@ -24,6 +24,9 @@ sources, suggested structure, internal links and a priority. Decisions made in b
   them once (≈ a cent, approved).
 - **Brief fields** are heuristics without a model call: page type and
   structure are templates by intent, labelled as such.
+- Changed after review at the user's decision: the rival condition was
+  dropped so the cluster rule matches the old per-prompt rule (no rival
+  required; such gaps get pressure 0).
 
 Run 1 today: 20 prompts, 0 labelled, 100 done answers. Spend $9.2762 of
 $15.
@@ -52,7 +55,8 @@ the Prompts page). Per cluster:
 | `cited` | `rate(answers citing a brand-owned domain (is_brand_owned), n)` |
 | `sources` | top 10 `{domain, answers, owner}` cited in the cluster's answers (`owner` via `competitors.owner_of`) |
 | `brand_urls` | distinct `citation.url` with `is_brand_owned` in the cluster's answers, up to 10 |
-| `gap` | `absent ≥ n/2` and `rival_absent ≥ 1` and `max(reasons) ∈ CONTENT_REASONS`, where `rival_absent` = absent answers naming ≥ 1 active rival |
+| `rival_absent` | absent answers naming ≥ 1 active rival (drives the rec's pressure) |
+| `gap` | `absent ≥ n/2` and `max(reasons) ∈ CONTENT_REASONS` (ties: highest count, then name) |
 | `brief` | null unless `gap`; see B |
 
 Sorted by `spread` ascending (null last), then `n` desc, then key. Both

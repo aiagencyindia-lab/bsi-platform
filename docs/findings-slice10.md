@@ -6,7 +6,9 @@ only paid call in this slice, approved at about $0.01), then read-only
 calls of `bsi_core.gaps.clusters()`, `unlabelled()`,
 `bsi_core.recommend.generate()` and `top_by_type()` in a tenant session,
 plus a few read-only `psql` queries. `refresh()` was not called and the
-read session was rolled back. Afterwards the dev tables `recommendation`,
+read session was rolled back. The gap numbers below were re-read the
+same way after the gap rule dropped its rival condition (section 3).
+Afterwards the dev tables `recommendation`,
 `task` and `site_audit` held `0|0|0` rows.
 
 ## 1. What was run, and how
@@ -110,9 +112,9 @@ is those of them naming an active rival. Spread is brand minus top rival.
 | problem-based: school shoes | 1 | 5 | 0.000 (0.000-0.434) | Crocs 0.200 (0.036-0.624) | 5 | 1 | -0.2 | not_retrieved 4, competitor_dominance 1 | yes |
 | informational: kids shoe brands | 2 | 10 | 0.400 (0.168-0.687) | Skechers 0.500 (0.237-0.763) | 6 | 5 | -0.1 | competitor_dominance 5, not_retrieved 1 | yes |
 | informational: light-up sneakers | 1 | 5 | 1.000 (0.566-1.000) | Skechers 0.200 (0.036-0.624) | 0 | 0 | +0.8 | none | no |
-| recommendation: toddler shoes | 1 | 5 | 0.000 (0.000-0.434) | none | 5 | 0 | none | not_retrieved 5 | no |
+| recommendation: toddler shoes | 1 | 5 | 0.000 (0.000-0.434) | none | 5 | 0 | none | not_retrieved 5 | yes |
 
-13 of 15 clusters are gaps. The brand's cited rate is 0.000 in every
+14 of 15 clusters are gaps. The brand's cited rate is 0.000 in every
 cluster: it has no `domain` rows, so no citation can be brand-owned
 (findings-slice9 §2).
 
@@ -127,10 +129,12 @@ cluster: it has no `domain` rows, so no citation can be brand-owned
   absent, the brand's own "Is BSOAgentTestBrand a good brand for kids
   shoes?" is 1/5. The prompt that names the brand props up the cluster's
   brand rate (0.400). The brief lists both as target queries.
-- `recommendation: toddler shoes` is not a gap for want of a rival: all
-  five answers are `not_retrieved` and none names an active competitor.
-  The gap rule requires a rival in an absent answer; the old per-prompt
-  rule did not (section 5).
+- `recommendation: toddler shoes` is a gap with no rival: all five
+  answers are `not_retrieved` and none names an active competitor
+  (rival in absent 0). The gap rule first required a rival in an absent
+  answer, which left this cluster out; at the user's decision after
+  review that condition was dropped, so the cluster rule now matches the
+  old per-prompt rule (section 5).
 - The only cluster the brand leads is its own light-up review prompt
   (+0.8), as in every slice so far.
 
@@ -157,6 +161,7 @@ and 0 internal links (no brand-owned citations).
 | problem-based: kids shoes | how-to | Adidas, Crocs, Skechers | childrensphysicaltherapyandwellness.com 5, pediped.com 5, reddit.com 5 | - | 1, 5 |
 | problem-based: school shoes | how-to | Crocs | completefeetusa.com 5, naplespodiatrist.com 5, forbes.com 4 | - | 1, 5 |
 | informational: kids shoe brands | guide | Skechers, Adidas, Crocs | reviewed.com 6, facebook.com 5, forbes.com 5 | - | 2, 6 |
+| recommendation: toddler shoes | best-of round-up | - | napacenter.org 5, pediped.com 5, pibaby.com 5 | - | 1, 5 |
 
 The structure for `comparison: kids shoe brands`, as generated:
 
@@ -192,7 +197,7 @@ judgement of the site."
 
 ## 5. Where the cluster recommendations land
 
-`generate()` returned 75 candidates: 56 `pursue_citation_source`, 13
+`generate()` returned 76 candidates: 56 `pursue_citation_source`, 14
 `create_content` (one per gap cluster, none per prompt since every
 prompt is labelled) and 6 `sample_more`. The `create_content` ranks
 overall:
@@ -206,6 +211,7 @@ overall:
 | 34-40 | 0.0200 | 0.050-0.060 | 0.833-1.000 | the six other single-prompt gap clusters, and informational: kids shoe brands |
 | 65 | 0.0080 | 0.050 | 0.400 | problem-based: kids shoes |
 | 73 | 0.0040 | 0.050 | 0.200 | problem-based: school shoes |
+| 74 | 0.0000 | 0.050 | 0.000 | recommendation: toddler shoes |
 
 Nine citation sources outrank the best content gap (youtube.com leads at
 0.1080). Content's feasibility is 0.4 against citations' 0.3, but a
@@ -213,7 +219,9 @@ source's reach spreads over many prompts while a cluster's reach is its
 own absent answers over 100, at most 0.100 here. The two-prompt clusters
 double the reach of a single prompt and so rank first among content, as
 intended. The two problem-based clusters rank low because few of their
-absent answers name a rival (pressure 0.400 and 0.200).
+absent answers name a rival (pressure 0.400 and 0.200), and toddler
+shoes, where none does, has pressure 0 and so priority 0.0, ranking
+74th of 76.
 
 `top_by_type` (k=3), which the Overview shortlist uses, gives:
 
@@ -230,24 +238,22 @@ citation sources.
 **What the cluster rule replaced.** The per-prompt rule, applied to all
 20 prompts as if unlabelled (the `_content` query and logic without the
 label filter, read-only), fires on 18 prompts: every prompt except the
-brand's two named prompts. The cluster rule gives 13 recommendations
-covering 17 of those 18 prompts. The eighteenth is "best shoes for
-toddlers learning to walk" (`not_retrieved` 5/5): the per-prompt rule
-does not ask for a rival in an absent answer, the cluster rule does, so
-that prompt no longer yields a content recommendation. That follows the
-spec's gap rule; it is a real change in behaviour for rival-free
-prompts, not only a regrouping. Net: 18 per-prompt recommendations
-became 13 cluster recommendations, 5 fewer; four two-prompt clusters
-each merged two, and one was dropped.
+brand's two named prompts. The cluster rule gives 14 recommendations
+covering all 18. Neither rule asks for a rival in an absent answer: the
+cluster rule first did, which dropped "best shoes for toddlers learning
+to walk" (`not_retrieved` 5/5, no rival named), and the user decided
+after review to drop that condition so the two rules agree. Net: 18
+per-prompt recommendations became 14 cluster recommendations, 4 fewer;
+four two-prompt clusters each merged two.
 
 Pooling can move a prompt either way. It can drop a prompt's gap: a
 prompt 3/5 absent pooled with one 0/5 absent gives 3/10, under half, so
 neither is a gap. It can add one: a brand-named prompt pulled into a gap
 cluster becomes a target query of that cluster's brief even when the
 brand is present in its own answers (`informational: kids shoe brands`,
-section 3). The dropped toddler-shoes recommendation cost little: with
-no rival in any absent answer its pressure was 0, so under the old rule
-its priority was 0.0.
+section 3). The toddler-shoes recommendation keeps the priority the old
+rule gave it: with no rival in any absent answer its pressure is 0, so
+its priority is 0.0 under both rules.
 
 ## 6. Label quality
 
