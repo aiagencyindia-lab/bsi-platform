@@ -102,14 +102,16 @@ def test_archived_brands_are_never_due(owner, make_org, make_brand):
     assert due() == []
 
 
-def test_never_crawled_brands_come_first(owner, make_org, make_brand):
+def test_never_crawled_first_then_oldest(owner, make_org, make_brand):
     org = make_org()
-    old = make_brand(org, "Old")
-    new = make_brand(org, "New")
-    c_old = _rival(owner, org, old)
-    _rival(owner, org, new)
-    _crawl(owner, org, old, c_old, "adidas.co.in", days_ago=9)
-    assert due() == [new, old]
+    # Roles go against id order (the tiebreak), so an id-only ORDER BY
+    # fails every run, not by chance.
+    eight, ten, never = sorted(make_brand(org, n) for n in ("A", "B", "C"))
+    for bid, days in ((eight, 8), (ten, 10)):
+        cid = _rival(owner, org, bid)
+        _crawl(owner, org, bid, cid, "adidas.co.in", days_ago=days)
+    _rival(owner, org, never)
+    assert due() == [never, ten, eight]
 
 
 def test_deleting_a_competitor_deletes_its_rows(owner, make_org, make_brand):
