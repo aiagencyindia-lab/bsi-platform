@@ -1,21 +1,33 @@
 """Content-gap clusters (PRD F11): clusters, the gap rule, the brief."""
 
+import hashlib
+import uuid
+from collections import Counter, defaultdict
 from datetime import timedelta
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from bsi_core import models as m
+from bsi_core.competitors import _entities_and_hosts, owner_of
 from bsi_core.db import tenant_session
 from bsi_core.gaps import (
+    _BASE,
+    _FROM,
     EVIDENCE_CAP,
+    LINKS_CAP,
     NOTE,
     PAGE_TYPES,
+    QUERIES_CAP,
+    SOURCES_CAP,
     brief,
     clusters,
     unlabelled,
 )
-from bsi_core.metrics import Filters, prompt_metrics, rate
-from sqlalchemy import select, update
+from bsi_core.metrics import Filters, _where, prompt_metrics, rate
+from bsi_core.recommend import CONTENT_REASONS
+from sqlalchemy import event, select, text, update
+from sqlalchemy.orm import Session
 
 
 def _mention(org, obs, etype, eid, pos=1):
@@ -156,6 +168,7 @@ def scene(owner, make_org, make_brand, make_observation):
     ids.old, _ = prompt(
         "old prompt", None, None, [(False, [A], "competitor_dominance", [])] * 3
     )
+    ids.add = prompt  # tests add prompts to the same brand
     return ids
 
 
@@ -249,7 +262,7 @@ def test_gap_rule_edges(scene, owner):
 def test_brief_fields(scene):
     gap = rows(scene)["cluster:comparison:running shoes"]
     b = gap["brief"]
-    assert b == brief(gap, "Nike")  # brief is pure and stored on the row
+    assert b == brief(gap)  # brief is pure and stored on the row
     assert b["target_queries"] == ["best running shoe brand", "nike vs adidas"]
     assert b["page_type"] == PAGE_TYPES["comparison"] == "comparison page"
     assert b["structure"][0].startswith("H1")
@@ -263,6 +276,7 @@ def test_brief_fields(scene):
     assert set(b["evidence"]["prompt_ids"]) == {str(scene.vs), str(scene.best)}
     assert len(b["evidence"]["observation_ids"]) == 6
     assert b["note"] == NOTE
+    assert b["prompts_total"] == 2
 
 
 def test_evidence_is_capped(scene, owner, make_observation):
@@ -296,6 +310,33 @@ def test_filters_narrow_clusters(scene):
     assert got["cluster:comparison:running shoes"]["n"] == 4
 
 
+def test_engine_filter_narrows_clusters(scene, owner):
+    # engine is shared, not tenant data: the row is removed afterwards.
+    with owner() as s, s.begin():
+        other = m.Engine(code="other", provider="x", default_model="x")
+        s.add(other)
+        s.flush()
+        s.execute(
+            update(m.Observation)
+            .where(m.Observation.id.in_(scene.vs_obs[:2]))
+            .values(engine_id=other.id)
+        )
+    try:
+        got = rows(scene, engine="other")
+        assert list(got) == ["cluster:comparison:running shoes"]
+        gap = got["cluster:comparison:running shoes"]
+        assert (gap["n"], gap["absent"]) == (2, 1)
+        assert gap["brand"] == rate(1, 2)
+        rest = rows(scene, engine="gemini")["cluster:comparison:running shoes"]
+        assert (rest["n"], rest["absent"]) == (6, 5)
+    finally:
+        with owner() as s, s.begin():
+            s.execute(text("TRUNCATE organization CASCADE"))
+            s.execute(
+                m.Engine.__table__.delete().where(m.Engine.code == "other")
+            )
+
+
 def test_unlabelled_counts_active_prompts_missing_a_label(scene, owner):
     with tenant_session(scene.org.id) as s:
         assert unlabelled(s, scene.brand) == 1
@@ -323,9 +364,7 @@ def test_how_to_heading_reads_with_a_noun_topic():
         "brand_urls": [],
         "absent_obs": [],
     }
-    assert (
-        brief(c, "Nike")["structure"][0] == "H1: kids shoes: problems and fixes"
-    )
+    assert brief(c)["structure"][0] == "H1: kids shoes: problems and fixes"
 
 
 def test_evidence_is_newest_across_the_cluster(scene, owner):
@@ -571,3 +610,449 @@ def test_a_half_labelled_prompt_stays_per_prompt(scene, owner):
         if c["brief"]
     )
     assert all(c["topic"] is not None for c in got.values())
+
+
+GAP = "cluster:comparison:running shoes"
+LOSING = [(False, [], "competitor_dominance", [])] * 2
+
+
+def _decide(scene, owner, status="accepted"):
+    with tenant_session(scene.org.id) as s:
+        refresh(s, scene.org.id, scene.brand)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Recommendation)
+            .where(m.Recommendation.subject_key == GAP)
+            .values(status=status)
+        )
+
+
+def _plus(*pids):
+    h = hashlib.sha1(",".join(sorted(map(str, pids))).encode()).hexdigest()
+    return f"{GAP}:+{h[:8]}"
+
+
+def _cluster_recs(scene):
+    return {k: c for k, c in found(scene).items() if k[1].startswith(GAP)}
+
+
+@pytest.mark.parametrize("decision", ["accepted", "dismissed"])
+def test_a_new_prompt_in_a_decided_cluster_gets_its_own_rec(
+    scene, owner, decision
+):
+    _decide(scene, owner, decision)
+    rivals = [(False, [scene.adidas], "competitor_dominance", [])]
+    new, _ = scene.add("nike or adidas", "comparison", "running shoes", rivals)
+    recs = _cluster_recs(scene)
+    assert list(recs) == [("create_content", _plus(new))]
+    c = recs[("create_content", _plus(new))]
+    assert c.evidence["prompt_ids"] == [str(new)]
+    assert (c.evidence["absent"], c.evidence["n"]) == (1, 1)
+    assert c.evidence["target_queries"] == ["nike or adidas"]
+    # total = 19 + 1; the new prompt's one absent answer names Adidas.
+    assert (c.reach, c.pressure) == (pytest.approx(1 / 20), 1.0)
+    assert "absent from 1 of 1 answers" in c.body
+    assert c.title == (
+        "Publish a comparison page for running shoes (comparison) (new prompts)"
+    )
+
+
+def test_a_new_losing_prompt_is_raised_when_the_cluster_is_now_won(
+    scene, owner, make_observation
+):
+    _decide(scene, owner)
+    for i in range(4, 12):  # 8 winning answers on a covered prompt
+        oid = make_observation(
+            scene.org,
+            scene.brand,
+            status="done",
+            prompt_id=scene.vs,
+            sample_index=i,
+        )
+        with owner() as s, s.begin():
+            s.add(_mention(scene.org, oid, "brand", scene.brand))
+    new, _ = scene.add("nike or adidas", "comparison", "running shoes", LOSING)
+    whole = rows(scene)[GAP]
+    assert (whole["absent"], whole["n"], whole["gap"]) == (8, 18, False)
+    recs = _cluster_recs(scene)
+    assert list(recs) == [("create_content", _plus(new))]
+    assert recs[("create_content", _plus(new))].evidence["prompt_ids"] == [
+        str(new)
+    ]
+
+
+def test_a_decided_rec_on_a_lookalike_topic_does_not_cover_the_cluster(
+    scene, owner
+):
+    other = "cluster:comparison:running shoes:+x"
+    scene.add("nike or adidas", "comparison", "running shoes:+x", LOSING)
+    with tenant_session(scene.org.id) as s:
+        refresh(s, scene.org.id, scene.brand)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Recommendation)
+            .where(m.Recommendation.subject_key == other)
+            .values(status="accepted")
+        )
+    keys = {k for t, k in found(scene) if t == "create_content"}
+    assert GAP in keys and other not in keys
+    assert not any(k.startswith(GAP + ":+") and k != other for k in keys)
+
+
+def test_a_decided_cluster_without_new_prompts_is_not_raised(scene, owner):
+    _decide(scene, owner)
+    assert _cluster_recs(scene) == {}
+
+
+def test_a_new_prompt_the_brand_wins_is_not_raised(scene, owner):
+    _decide(scene, owner)
+    scene.add(
+        "nike running", "comparison", "running shoes", [(True, [], None, [])]
+    )
+    assert _cluster_recs(scene) == {}
+
+
+def test_accepting_the_new_prompt_rec_tasks_only_the_new_prompt(
+    client, scene, owner
+):
+    _decide(scene, owner)
+    new, _ = scene.add("nike or adidas", "comparison", "running shoes", LOSING)
+    base = f"/v1/brands/{scene.brand}/recommendations"
+    r = client.post(f"{base}/generate", headers=scene.org.headers)
+    rec = next(x for x in r.json() if x["subject_key"] == _plus(new))
+    t = client.post(f"{base}/{rec['id']}/accept", headers=scene.org.headers)
+    assert t.status_code == 201, t.text
+    assert t.json()["prompt_ids"] == [str(new)]
+    # Its prompt is now decided too: nothing is raised for the cluster.
+    assert _cluster_recs(scene) == {}
+
+
+def test_a_second_new_prompt_replaces_the_open_rec(scene, owner):
+    _decide(scene, owner)
+    one, _ = scene.add("nike or adidas", "comparison", "running shoes", LOSING)
+
+    def stored():
+        with tenant_session(scene.org.id) as s:
+            refresh(s, scene.org.id, scene.brand)
+            return {
+                r.subject_key: (r.status, r.evidence["prompt_ids"])
+                for r in s.scalars(
+                    select(m.Recommendation).where(
+                        m.Recommendation.subject_key.startswith(GAP)
+                    )
+                )
+            }
+
+    first = stored()
+    assert first[_plus(one)] == ("open", [str(one)])
+    two, _ = scene.add("adidas or nike", "comparison", "running shoes", LOSING)
+    assert _plus(one) != _plus(one, two)
+    second = stored()
+    assert set(second) == {GAP, _plus(one, two)}
+    assert second[GAP] == first[GAP]  # the decided row is untouched
+    assert second[GAP][0] == "accepted"
+    assert sorted(second[_plus(one, two)][1]) == sorted([str(one), str(two)])
+
+
+# The oracle for the grouped-query rewrite: clusters() as it was before
+# it, verbatim but for the name and today's brief(row) (the brand name it
+# read only for the old brief(row, brand) is dropped).
+def _old_clusters(
+    s: Session, brand_id: uuid.UUID, f: Filters
+) -> list[dict[str, Any]]:
+    where, params = _where(brand_id, f)
+    _, hosts = _entities_and_hosts(s, brand_id)
+    brand_hosts = hosts[brand_id]
+    rival_hosts = [h for e, hs in hosts.items() if e != brand_id for h in hs]
+    answers = s.execute(
+        text(
+            "SELECT p.intent, p.topic, o.prompt_id, p.text, o.id, "
+            "o.requested_at, "
+            "EXISTS (SELECT 1 FROM mention mn WHERE mn.observation_id = o.id "
+            "  AND mn.entity_type = 'brand') AS present, "
+            "EXISTS (SELECT 1 FROM mention mn JOIN competitor cp "
+            "  ON cp.id = mn.entity_id WHERE mn.observation_id = o.id "
+            "  AND mn.entity_type = 'competitor' AND cp.status = 'active') "
+            "  AS rival, "
+            "EXISTS (SELECT 1 FROM citation c WHERE c.observation_id = o.id "
+            "  AND c.is_brand_owned) AS cited, "
+            "e.absence_reason "
+            f"{_FROM} LEFT JOIN extraction e ON e.observation_id = o.id "
+            f"WHERE {where} AND {_BASE} "
+            "ORDER BY p.intent, p.topic, o.prompt_id, o.requested_at DESC, o.id"
+        ),
+        params,
+    ).all()
+    rivals = s.execute(
+        text(
+            "SELECT p.intent, p.topic, cp.id, cp.name, "
+            "count(DISTINCT o.id) AS answers "
+            "FROM mention mn JOIN competitor cp ON cp.id = mn.entity_id "
+            "JOIN observation o ON o.id = mn.observation_id "
+            "JOIN prompt p ON p.id = o.prompt_id "
+            f"WHERE {where} AND {_BASE} AND mn.entity_type = 'competitor' "
+            "AND cp.status = 'active' "
+            "GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 5 DESC, 4"
+        ),
+        params,
+    ).all()
+    sources = s.execute(
+        text(
+            "SELECT p.intent, p.topic, c.domain, "
+            "count(DISTINCT o.id) AS answers "
+            "FROM citation c JOIN observation o ON o.id = c.observation_id "
+            "JOIN prompt p ON p.id = o.prompt_id "
+            f"WHERE {where} AND {_BASE} "
+            "GROUP BY 1, 2, 3 ORDER BY 1, 2, 4 DESC, 3"
+        ),
+        params,
+    ).all()
+    urls = s.execute(
+        text(
+            "SELECT DISTINCT p.intent, p.topic, c.url "
+            "FROM citation c JOIN observation o ON o.id = c.observation_id "
+            "JOIN prompt p ON p.id = o.prompt_id "
+            f"WHERE {where} AND {_BASE} AND c.is_brand_owned ORDER BY 1, 2, 3"
+        ),
+        params,
+    ).all()
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for r in answers:
+        c = by_key.setdefault(
+            (r.intent, r.topic),
+            {
+                "n": 0,
+                "present": 0,
+                "cited": 0,
+                "rival_absent": 0,
+                "reasons": Counter(),
+                "prompts": {},
+                "absent_obs": [],
+            },
+        )
+        c["n"] += 1
+        c["present"] += r.present
+        c["cited"] += r.cited
+        p = c["prompts"].setdefault(
+            r.prompt_id,
+            {"prompt_id": r.prompt_id, "text": r.text, "n": 0, "absent": 0},
+        )
+        p["n"] += 1
+        if not r.present:
+            p["absent"] += 1
+            c["absent_obs"].append((r.requested_at, r.id))
+            c["rival_absent"] += r.rival
+            if r.absence_reason:
+                c["reasons"][r.absence_reason] += 1
+    riv: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for r in rivals:
+        riv[(r.intent, r.topic)].append(
+            {"competitor_id": r.id, "name": r.name, "answers": r.answers}
+        )
+    src: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for r in sources:
+        src[(r.intent, r.topic)].append(
+            {
+                "domain": r.domain,
+                "answers": r.answers,
+                "owner": owner_of(r.domain, brand_hosts, rival_hosts),
+            }
+        )
+    lnk: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for r in urls:
+        lnk[(r.intent, r.topic)].append(r.url)
+    out = []
+    for (intent, topic), c in by_key.items():
+        n, absent = c["n"], c["n"] - c["present"]
+        top = riv[(intent, topic)][:1]
+        top_rival = (
+            {
+                "name": top[0]["name"],
+                "competitor_id": top[0]["competitor_id"],
+                **rate(top[0]["answers"], n),
+            }
+            if top
+            else None
+        )
+        b = rate(c["present"], n)
+        reasons = dict(c["reasons"])
+        # Top reason: highest count, ties broken by reason name.
+        reason = (
+            min(reasons, key=lambda k: (-reasons[k], k)) if reasons else None
+        )
+        # No rival required (user decision): such gaps get pressure 0.
+        # n >= 1, so absent * 2 >= n implies absent >= 1, which keeps
+        # recommend's rival_absent / absent defined.
+        gap = absent * 2 >= n and reason in CONTENT_REASONS
+        row: dict[str, Any] = {
+            "intent": intent,
+            "topic": topic,
+            "key": f"cluster:{intent}:{topic}",
+            "prompts": sorted(
+                c["prompts"].values(),
+                key=lambda p: (-(p["absent"] / p["n"]), p["text"]),
+            ),
+            "n": n,
+            "brand": b,
+            "absent": absent,
+            "rival_absent": c["rival_absent"],
+            "reasons": reasons,
+            "reason": reason,
+            "rivals": riv[(intent, topic)],
+            "top_rival": top_rival,
+            "spread": (b["value"] - top_rival["value"]) if top_rival else None,
+            "cited": rate(c["cited"], n),
+            "sources": src[(intent, topic)][:SOURCES_CAP],
+            "brand_urls": lnk[(intent, topic)][:LINKS_CAP],
+            "gap": gap,
+            # The cluster's newest absent answers (id breaks ties), capped:
+            # the brief's evidence.
+            "absent_obs": [i for _, i in sorted(c["absent_obs"], reverse=True)][
+                :EVIDENCE_CAP
+            ],
+        }
+        row["brief"] = brief(row) if gap else None
+        out.append(row)
+    out.sort(
+        key=lambda r: (
+            r["spread"] is None,
+            r["spread"] or 0.0,
+            -r["n"],
+            r["key"],
+        )
+    )
+    return out
+
+
+@pytest.fixture
+def big(scene, owner, make_observation):
+    """The scene plus: Puma owns puma.com and is named; a rival tie in
+    (informational, care); null absence reasons in (transactional,
+    stores); brand, rival and third-party citations, two owned hosts; a
+    paused prompt and an unfinished answer, which no cluster counts."""
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Competitor)
+            .where(m.Competitor.id == scene.puma)
+            .values(domains=["puma.com"])
+        )
+    A, P, B = scene.adidas, scene.puma, scene.bata
+    forbes = ("https://forbes.com/x", "forbes.com", False)
+    reddit = ("https://reddit.com/r", "reddit.com", False)
+    puma = ("https://puma.com/a", "puma.com", False)
+    trail = ("https://nike.com/trail", "nike.com", True)
+    www = ("https://www.nike.com/x", "www.nike.com", True)
+    scene.add(
+        "puma vs nike",
+        "comparison",
+        "trail",
+        [
+            (False, [P, A], None, [puma, forbes]),
+            (False, [P], "not_retrieved", [trail]),
+            (True, [A], None, [trail, www]),
+        ],
+    )
+    scene.add(
+        "trail shoe care",
+        "informational",
+        "care",
+        [
+            (False, [A, P], "competitor_dominance", [reddit]),
+            (False, [P, A], "competitor_dominance", [forbes]),
+            (True, [], None, [reddit]),
+        ],
+    )
+    scene.add(
+        "where to buy nike",
+        "transactional",
+        "stores",
+        [(False, [B], None, [www]), (False, [], None, [])],
+    )
+    paused, _ = scene.add(
+        "paused one", "comparison", "trail", [(False, [A], None, [puma])]
+    )
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Prompt)
+            .where(m.Prompt.id == paused)
+            .values(status="paused")
+        )
+    make_observation(
+        scene.org,
+        scene.brand,
+        status="fetched",
+        prompt_id=scene.vs,
+        sample_index=9,
+    )
+    return scene
+
+
+def _same(ids, f):
+    with tenant_session(ids.org.id) as s:
+        new = clusters(s, ids.brand, f)
+    with tenant_session(ids.org.id) as s:
+        old = _old_clusters(s, ids.brand, f)
+    assert new == old
+    return new
+
+
+def test_clusters_match_the_old_queries_on_the_scene(scene):
+    assert len(_same(scene, Filters())) == 3
+    assert len(_same(scene, Filters(prompt_ids=[scene.vs]))) == 1
+
+
+def test_clusters_match_the_old_queries_on_a_bigger_scene(big):
+    got = _same(big, Filters())
+    assert len(got) >= 6
+    care = next(c for c in got if c["topic"] == "care")
+    assert [r["answers"] for r in care["rivals"]] == [2, 2]  # a tie
+    assert _same(big, Filters(prompt_ids=[big.vs, big.size]))
+
+
+def _statements(ids):
+    seen = []
+
+    def count(_conn, _cursor, statement, *_):
+        seen.append(statement)
+
+    with tenant_session(ids.org.id) as s:
+        bind = s.get_bind()
+        event.listen(bind, "before_cursor_execute", count)
+        try:
+            clusters(s, ids.brand, Filters())
+        finally:
+            event.remove(bind, "before_cursor_execute", count)
+    return seen
+
+
+def test_statement_count_does_not_grow_with_clusters(scene):
+    few = len(_statements(scene))
+    for i in range(3):
+        scene.add(
+            f"extra {i}",
+            "commercial",
+            f"topic {i}",
+            [(False, [scene.adidas], "competitor_dominance", [])],
+        )
+    many = len(_statements(scene))
+    assert few == many <= 6, (few, many)
+
+
+def test_brief_queries_are_capped_and_evidence_is_stored_once(scene):
+    rows_ = [(False, [scene.adidas], "competitor_dominance", [])]
+    pids = [
+        scene.add(f"boots {i:02}", "commercial", "boots", rows_)[0]
+        for i in range(QUERIES_CAP + 1)
+    ]
+    b = rows(scene)["cluster:commercial:boots"]["brief"]
+    assert len(b["target_queries"]) == QUERIES_CAP == 20
+    assert b["target_queries"][0] == "boots 00"  # worst first, then text
+    assert b["prompts_total"] == QUERIES_CAP + 1
+    assert (
+        sum(h.startswith("H2: boots ") for h in b["structure"]) == QUERIES_CAP
+    )
+    c = found(scene)[("create_content", "cluster:commercial:boots")]
+    assert "evidence" not in c.evidence
+    assert sorted(c.evidence["prompt_ids"]) == sorted(map(str, pids))
+    assert len(c.evidence["observation_ids"]) == QUERIES_CAP  # EVIDENCE_CAP
+    assert c.evidence["prompts_total"] == QUERIES_CAP + 1

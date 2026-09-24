@@ -138,6 +138,7 @@ class BriefEvidenceOut(BaseModel):
 
 class BriefOut(BaseModel):
     target_queries: list[str]
+    prompts_total: int
     page_type: str
     structure: list[str]
     competitors: list[str]

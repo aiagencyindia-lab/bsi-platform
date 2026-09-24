@@ -62,18 +62,25 @@ the Prompts page). Per cluster:
 Sorted by `spread` ascending (null last), then `n` desc, then key. Both
 gaps and winning clusters are returned; the page shows both.
 
+`clusters()` runs a fixed 6 statements whatever the number of clusters
+(brand, active competitors, brand domains, answers, rivals, citations):
+per-answer brand/rival/owned-citation flags come from LEFT JOINs to
+subqueries grouped by observation, and cited domains and owned URLs come
+from one `UNION ALL` citation read. Every value is bound.
+
 `unlabelled(s, brand_id) -> int`: active prompts with a null intent or
 topic.
 
 ### B. The brief
 
-`brief(cluster, brand_name) -> dict` (pure):
+`brief(cluster) -> dict` (pure):
 
 | Field | Source |
 |---|---|
-| `target_queries` | the cluster's prompt texts, worst first |
+| `target_queries` | the cluster's prompt texts, worst first, capped at `QUERIES_CAP = 20` |
+| `prompts_total` | how many prompts the cluster has; the page shows "and N more" past the cap |
 | `page_type` | `PAGE_TYPES[intent]`: comparison→"comparison page", alternative→"alternatives page", recommendation→"best-of round-up", informational→"guide", commercial→"category page", transactional→"product page", problem-based→"how-to", persona-specific→"solution page", industry-specific→"solution page", geographic→"local page" |
-| `structure` | `STRUCTURES[page_type]`: a list of heading strings, with the prompts slotted in as questions (e.g. guide: "What is …", one "H2: {prompt}" per prompt, "Sources and evidence", "FAQ") |
+| `structure` | `STRUCTURES[page_type]`: a list of heading strings, with the capped target queries slotted in as questions (e.g. guide: "What is …", one "H2: {prompt}" per prompt, "Sources and evidence", "FAQ") |
 | `competitors` | `rivals` names in order |
 | `sources` | `sources` with `owner != "brand"`, third-party first |
 | `internal_links` | `brand_urls`, or `[]` (page says "none cited yet") |
@@ -88,8 +95,19 @@ topic.
   (via `gaps.clusters` with default `Filters()`), one `Candidate` of type
   `create_content`, `subject_key = key`, `reach = absent/total`,
   `pressure` = share of absent answers naming ≥ 1 active rival (same
-  meaning as `_rivals`), evidence = brief + `{"cluster": {intent, topic},
-  "reason": top reason, "absent", "n", "prompt_ids", "observation_ids"}`.
+  meaning as `_rivals`), evidence = the brief without its inner
+  `evidence` (stored once) + `{"cluster": {intent, topic}, "reason": top
+  reason, "absent", "n", "prompt_ids" (every cluster prompt, uncapped),
+  "observation_ids" (≤ EVIDENCE_CAP)}`.
+- Decided clusters: once a cluster rec is accepted or dismissed it is not
+  raised again. `covered` = the `prompt_ids` of decided recs keyed `K` or
+  `K:+…`; the cluster's other prompts (`new`), if any, are re-clustered
+  with `Filters(prompt_ids=new)` and, when they alone are a gap (the
+  whole cluster need not still be one), raised
+  as one candidate keyed `K:+<first 8 hex of sha1(",".join(sorted(new)))>`
+  with their own numbers and only their prompt ids. A further new prompt
+  changes the hash, so `refresh()` replaces the open `:+` row; decided
+  rows are untouched and accepted tasks keep their prompt ids.
 - `cluster_copy(brand, intent, topic, page_type, worst_prompts, absent,
   n, rivals) -> (title, body)`: title "Publish a {page_type} for {topic}
   ({intent})"; body names the absence share, the two worst prompts, the

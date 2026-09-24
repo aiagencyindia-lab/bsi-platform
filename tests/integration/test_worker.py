@@ -533,6 +533,30 @@ def test_a_label_job_labels_only_unlabelled_prompts_and_adds_none(
     )
 
 
+def test_a_label_job_whose_embedder_fails_is_failed_with_its_cost(
+    owner, make_org, make_brand, make_observation
+):
+    import json
+
+    org = make_org()
+    bid = make_brand(org)
+    make_observation(org, bid, status="done", text="beta")
+    job_id = _job(owner, org, bid, "label_prompts", "queued")
+
+    def generator(prompt, schema, temperature):
+        label = {"text": "beta", "intent": "comparison", "topic": "sizing"}
+        return json.dumps({"prompts": [label]}), 700, "fake"
+
+    def embedder(texts):
+        raise RuntimeError("embedder is down")
+
+    assert worker.process_job(FakeAdapter(), generator, embedder) is True
+    job = _load_job(owner, job_id)
+    # Failed for good, not re-queued, and the label call's spend is kept.
+    assert (job.status, job.cost_micros) == ("failed", 700)
+    assert "embedder is down" in job.error
+
+
 def test_an_over_budget_label_job_fails_without_calling_the_model(
     owner, make_org, make_brand
 ):

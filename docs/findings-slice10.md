@@ -289,12 +289,21 @@ its priority is 0.0 under both rules.
 - **Stored clusters.** Clusters and briefs are computed on read; nothing
   is stored beyond the recommendation that `refresh()` would write.
 - **Alerts.** Nothing alerts when a cluster becomes or stops being a gap.
-- **Decided cluster recommendations.** Once a cluster recommendation is
-  accepted or dismissed, prompts that later join the cluster do not
-  reopen it (`refresh()` updates only open rows), and the accepted
-  task's `prompt_ids` stay as they were at accept time. A prompt whose
-  per-prompt recommendation was dismissed reappears as a target query of
-  its cluster once labelled.
+- **Fixed later: decided cluster recommendations.** Prompts that join a
+  cluster after its recommendation was accepted or dismissed now get
+  their own recommendation, keyed `cluster:<intent>:<topic>:+<hash>`,
+  when they alone are a gap; prompts under a decided recommendation are
+  never raised again, and an accepted task keeps its prompt ids. A
+  prompt whose per-prompt recommendation was dismissed still reappears
+  as a target query of its cluster once labelled. No live rerun: no
+  recommendation is decided in Run 1, so its output is unchanged.
+  The new prompts are judged alone, even when the cluster as a whole is
+  no longer a gap. Each decided cluster with new prompts costs one more
+  `clusters()` call in `generate()`.
+- **Query count (fixed later).** `clusters()` now runs 6 statements
+  (was 8) regardless of the number of clusters; brief target queries are
+  capped at 20 with `prompts_total`, and a cluster recommendation stores
+  the brief's evidence once.
 
 ## 8. Spend
 

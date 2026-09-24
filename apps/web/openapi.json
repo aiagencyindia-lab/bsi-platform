@@ -192,6 +192,10 @@
             "title": "Page Type",
             "type": "string"
           },
+          "prompts_total": {
+            "title": "Prompts Total",
+            "type": "integer"
+          },
           "sources": {
             "items": {
               "$ref": "#/components/schemas/CitingDomainOut"
@@ -216,6 +220,7 @@
         },
         "required": [
           "target_queries",
+          "prompts_total",
           "page_type",
           "structure",
           "competitors",

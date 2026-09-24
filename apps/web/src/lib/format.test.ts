@@ -87,6 +87,7 @@ test("auditNote says what the run button actually did", () => {
   );
   expect(auditNote("failed")).toBe("Queued again after a failed run.");
   expect(auditNote(undefined)).toBeNull();
+  expect(auditNote("constructor")).toBeNull();
 });
 
 test("labelNote says what the label button actually did", () => {
