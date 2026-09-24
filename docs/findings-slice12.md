@@ -47,3 +47,12 @@ I ran `scripts/snapshot_rival.py` read-only against Run 1's five competitor doma
 - The site-changes section uses the feed's window, including the user's `date_to`.
 - Not covered by tests: none of the Server Component rendering (the page has no component tests); the exact 7-day boundary (tests use 6 and 8 days).
 - Deferred from the task reviews: `skipped` URLs are not capped (not stored); `rival_crawl` subqueries in `due_rival_crawls()` don't lead with `brand_id`, so they can't use the index prefix; the empty-state message shows even when a brand has no active competitors; the section heading omits "(last 14 days)" (the dates are in the paragraph below it).
+
+## 4. Follow-up: brand domains re-flag citations
+
+Adding or deleting a brand domain now recomputes `citation.is_brand_owned` for that brand's answers (`citations.reflag_citations`), so the Overview citation rate and the competitor `k_cit` use the same hosts from then on.
+- Citations flagged before this change are corrected the next time any domain of that brand is added or removed; no bulk backfill was run.
+- An extraction running at the moment a domain changes can still write a flag from the old host list.
+- Competitor domains need no re-flag: rival ownership is read live, not stored per citation.
+- Suggested competitors' domains skip `is_public_hostname` (`suggest.py`) and become crawl targets when confirmed; the confirm PATCH does not re-check them.
+- Deferred test nits: the two-domain delete test repeats host names instead of using its `hosts` list, and its POSTs do not assert 201.
