@@ -57,3 +57,26 @@ Adding or deleting a brand domain now recomputes `citation.is_brand_owned` for t
 - Suggested competitors' domains skip `is_public_hostname` (`suggest.py`) and become crawl targets when confirmed; the confirm PATCH does not re-check them.
 - Two overlapping hosts (e.g. `x.com` and `sub.x.com`) deleted by simultaneous requests can leave a citation flagged owned with neither host declared, until the brand's next domain change.
 - Deferred test nits: the two-domain delete test repeats host names instead of using its `hosts` list, and its POSTs do not assert 201.
+
+## 5. First worker pass on dev (2026-09-25)
+
+Run 1's domains were declared through the API: walkaroo.in as the brand's primary domain, adidas.com on Adidas and skechers.com on Skechers. Then the worker was started on dev. Before that, the overdue daily schedule of org "Slice3 check" was paused so the pass had no model spend. That org has no API key on record, so the pause was a direct owner-role update, not the schedules route.
+
+- **Crawl audit of walkaroo.in:** 33 checks, 5 failing.
+  - Failing: the Organization name (high), the brand name in the title (medium), the homepage h1, an About link, and a Wikidata item (low).
+  - The Organization-name, title and Wikidata checks compare against the brand's name, "BSOAgentTestBrand". Those failures come from pairing a fictional brand name with a real site.
+  - The audit's refresh produced 4 `fix_entity` and 1 `fix_crawlability` recommendations for Run 1.
+- **Competitor crawls:** three `crawl_rivals` jobs ran, one per brand with active competitors. The three Run 1-style brands in different orgs share the same five competitors, so the same sites were fetched up to three times, in 17 domain crawls. Run 1's crawls, as observed:
+
+| Domain | Complete | URLs seen | Error |
+|---|---|---|---|
+| campusshoes.com | yes | 3,915 | none |
+| skechers.com | no | 3,015 | a product sitemap cut off or not XML |
+| skechers.in | no | 2,765 | a sitemap cut off or not XML |
+| crocs.in | no | 654 | the product sitemap cut off or not XML |
+| adidas.co.in | no | 0 | sitemap 403 |
+| adidas.com | no | 0 | sitemap 403 |
+| bata.com | no | 0 | robots.txt read timed out |
+
+- **Every first crawl is a baseline.** A domain stays a baseline until a crawl reads URLs. The adidas and bata domains read none, so their next crawl that reads URLs is again a baseline, and new pages can show for them only from the crawl after that. Campus, Skechers and Crocs can show new pages from their next weekly crawl.
+- **Spend** for the pass was 0.
