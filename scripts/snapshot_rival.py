@@ -1,4 +1,4 @@
-"""Snapshot one competitor domain, read-only: nothing is stored.
+"""Snapshot competitor domains, read-only: nothing is stored.
 
 usage: uv run python scripts/snapshot_rival.py <host> [<host> ...]
 No model spend; real HTTP fetches to the named hosts."""
