@@ -22,3 +22,4 @@ export type EntityMetrics = S["EntityMetricsOut"];
 export type EntityDeltas = S["EntityDeltasOut"];
 export type Changes = S["ChangesOut"];
 export type Clusters = S["ClustersOut"];
+export type PageAudit = S["PageAuditOut"];
