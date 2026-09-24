@@ -3,16 +3,10 @@
 import bsi_workers.worker as worker
 import pytest
 from bsi_core import models as m
+from bsi_core import pages
 from bsi_core.crawl import Response
 from bsi_core.db import tenant_session
-from bsi_core.pages import (
-    COS_COVERED,
-    COS_FLOOR,
-    COS_SPAN,
-    WEIGHTS_VERSION,
-    cosine,
-    parse,
-)
+from bsi_core.pages import WEIGHTS_VERSION
 from sqlalchemy import select, text, update
 
 from tests.integration.test_gaps import scene  # noqa: F401
@@ -69,7 +63,16 @@ def _run(owner, scene, params, fetch=None, embedder=_embedder):  # noqa: F811
         return _load_job(owner, jid), rows
 
 
-def test_job_stores_a_scored_row_and_refreshes_recs(owner, scene):  # noqa: F811
+def test_job_stores_a_scored_row_and_refreshes_recs(
+    owner,
+    scene,  # noqa: F811
+    monkeypatch,
+):
+    # Bow cosines here are ~0.71 ("nike vs adidas") and ~0.60 ("best running
+    # shoe brand"): lower the lines so one prompt is covered and one is not,
+    # which pins each prompt vector to its own prompt id.
+    monkeypatch.setattr(pages, "COS_FLOOR", 0.5)
+    monkeypatch.setattr(pages, "COS_COVERED", 0.65)
     _embed_prompts(owner, scene)
     fetch = _fetch()
     job, rows = _run(owner, scene, {"url": URL, "cluster_key": KEY}, fetch)
@@ -89,15 +92,14 @@ def test_job_stores_a_scored_row_and_refreshes_recs(owner, scene):  # noqa: F811
         "evidence",
     ]
     topic = next(c for c in a.components if c["code"] == "topic_coverage")
-    sections = [bow(x.embed_text()) for x in parse(PAGE).sections]
-    best = [
-        max(cosine(bow(q), sv) for sv in sections)
-        for q in ("nike vs adidas", "best running shoe brand")
+    assert topic["value"] > 0
+    assert topic["observed"] == "1 of 2 prompts covered"
+    adds = [
+        x
+        for x in a.suggestions["add"]
+        if x["text"].startswith("Add a section that answers")
     ]
-    covered = sum(b >= COS_COVERED for b in best)
-    mapped = [min(1.0, max(0.0, (b - COS_FLOOR) / COS_SPAN)) for b in best]
-    assert topic["value"] == pytest.approx(round(sum(mapped) / 2, 4))
-    assert topic["observed"] == f"{covered} of 2 prompts covered"
+    assert [x["prompt_ids"] for x in adds] == [[str(scene.best)]]
     assert set(a.evidence["prompt_ids"]) == {str(scene.vs), str(scene.best)}
     assert len(a.evidence["observation_ids"]) == 6
     assert a.evidence["cluster"] == {
