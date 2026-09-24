@@ -454,7 +454,7 @@ CASES += [
 
 - [ ] **Step 2: Write the failing integration tests**
 
-Append to `tests/integration/test_alerts.py` (imports: add `from bsi_core.alerts import (NEW_SOURCE_MIN_ANSWERS, is_duplicate, detect_competitor_shift, detect_mention_drop, detect_new_source, scan)`, `from bsi_core.competitors import MIN_PROMPTS`, `from tests.integration.test_competitors import NOW, _answers, _cite, _mention, _prompt, feed  # noqa: F401`):
+Append to `tests/integration/test_alerts.py` (imports: add `from bsi_core.alerts import (NEW_SOURCE_MIN_ANSWERS, SOURCE_DAYS, is_duplicate, detect_competitor_shift, detect_mention_drop, detect_new_source, scan)`, `from bsi_core.metrics import Filters, brand_deltas`, `from bsi_core.alerts import DROP_DAYS`, `from tests.integration.test_competitors import NOW, _answers, _cite, _mention, _prompt, feed  # noqa: F401`):
 ```python
 def _brand_mentions(owner, org, obs_ids):
     """The brand named in every one of these answers."""
@@ -500,15 +500,28 @@ def test_mention_drop_fires_on_a_significant_drop_of_15_points(
 def test_mention_drop_needs_both_the_label_and_the_floor(
     owner, make_org, make_brand
 ):
-    # 80% -> 70%: significant with n=50? No: the interval overlaps; and
-    # 10 points is under the floor either way.
-    org, bid = _drop_scene(owner, make_org, make_brand, 40, 35)
+    # The floor alone: 100/200 -> 75/200 is a significant "decrease" but
+    # only 12.5 points. Assert the label, so the case really tests the floor.
+    org, bid = _drop_scene(owner, make_org, make_brand, 100, 75, n=200)
     with tenant_session(org.id) as s:
+        d = brand_deltas(s, bid, Filters(), DROP_DAYS, NOW)
+        assert d["deltas"]["mention_rate"]["label"] == "decrease"
         assert detect_mention_drop(s, bid, NOW) == []
-    # 50% -> 36%: 14 points, under the floor even if the label said so.
-    org, bid = _drop_scene(owner, make_org, make_brand, 25, 18)
+    # The label alone: 5/10 -> 3/10 is 20 points but not significant.
+    org, bid = _drop_scene(owner, make_org, make_brand, 5, 3, n=10)
     with tenant_session(org.id) as s:
+        d = brand_deltas(s, bid, Filters(), DROP_DAYS, NOW)
+        assert d["deltas"]["mention_rate"]["label"] != "decrease"
         assert detect_mention_drop(s, bid, NOW) == []
+
+
+def test_an_exact_15_point_drop_counts(owner, make_org, make_brand):
+    # 60% -> 45% of 200: float subtraction gives -0.14999999999999997.
+    org, bid = _drop_scene(owner, make_org, make_brand, 120, 90, n=200)
+    with tenant_session(org.id) as s:
+        d = brand_deltas(s, bid, Filters(), DROP_DAYS, NOW)
+        assert d["deltas"]["mention_rate"]["label"] == "decrease"
+        assert len(detect_mention_drop(s, bid, NOW)) == 1
 
 
 def test_mention_drop_is_silent_when_windows_are_not_comparable(
@@ -592,34 +605,46 @@ def test_new_source_needs_min_answers_first_seen_in_window_third_party(
     )
 
 
-def test_scan_inserts_dedupes_and_refires_after_the_window(
+def test_scan_inserts_and_dedupes_within_the_window(
     owner, make_org, make_brand
 ):
     org, bid, _ = _source_scene(owner, make_org, make_brand)
-    with tenant_session(org.id) as s, s.begin():
+    with tenant_session(org.id) as s:
         rows = scan(s, org.id, bid, NOW, deliver=False)
         assert [r.subject_key for r in rows] == ["forbes.com"]
         assert rows[0].next_attempt_at is None
-    with tenant_session(org.id) as s, s.begin():
+    with tenant_session(org.id) as s:
         assert scan(s, org.id, bid, NOW, deliver=False) == []  # same window
         assert scan(s, org.id, bid, NOW + timedelta(days=3), deliver=True) == []
-    # A later window with fresh evidence fires again, for delivery this time.
+    # Later answers citing forbes.com again: it is not new any more.
     later = NOW + timedelta(days=8)
     p = _prompt(owner, org, bid, "another")
     again = _answers(owner, org, bid, p, later - timedelta(days=1), 6)
     with owner() as s, s.begin():
         s.add_all(_cite(org, o, "forbes.com") for o in again)
-    with tenant_session(org.id) as s, s.begin():
+    with tenant_session(org.id) as s:
         assert scan(s, org.id, bid, later, deliver=False) == []  # not new any more
     with owner() as s:
         assert s.scalar(select(func.count(m.Alert.id))) == 1
+
+
+def test_scan_marks_alerts_for_delivery_only_with_a_webhook(
+    owner, make_org, make_brand
+):
+    org, bid, _ = _source_scene(owner, make_org, make_brand)
+    with tenant_session(org.id) as s:
+        (row,) = scan(s, org.id, bid, NOW, deliver=True)
+        aid = row.id
+    with owner() as s:
+        a = s.get(m.Alert, aid)
+    assert a.next_attempt_at is not None and a.delivered_at is None
 
 
 def test_is_duplicate_matches_only_a_younger_alert_of_the_same_subject(
     owner, make_org, make_brand
 ):
     org, bid, _ = _source_scene(owner, make_org, make_brand)
-    with tenant_session(org.id) as s, s.begin():
+    with tenant_session(org.id) as s:
         (c,) = detect_new_source(s, bid, NOW)
         assert not is_duplicate(s, bid, c)
         scan(s, org.id, bid, NOW, deliver=False)
@@ -631,7 +656,7 @@ def test_is_duplicate_matches_only_a_younger_alert_of_the_same_subject(
     with tenant_session(org.id) as s:
         assert not is_duplicate(s, bid, c)
 ```
-Note for the implementer: the `feed` fixture is imported for pytest to find it; the `# noqa: F811` on the test parameter matches how `tests/integration/test_api_citations.py` reuses fixtures. `SOURCE_DAYS` must be added to the import line.
+Note for the implementer: the `feed` fixture is imported for pytest to find it; the `# noqa: F811` on the test parameter matches how `tests/integration/test_api_citations.py` reuses fixtures. Merge these imports into the top import block Task 1 created; do not add a second block. `tenant_session` already opens a transaction and commits on exit: never add `s.begin()` to it.
 
 - [ ] **Step 3: Run the tests to verify they fail**
 
@@ -649,6 +674,7 @@ fire from a single observation. `to` is a parameter everywhere so tests
 are deterministic. Copy states what was observed and never promises.
 """
 
+import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -716,7 +742,8 @@ def detect_mention_drop(
     if not d["comparable"]:
         return []
     delta = d["deltas"]["mention_rate"]
-    if delta["label"] != "decrease" or delta["value"] > -DROP_MIN_PTS:
+    # Rounded: 0.45 - 0.6 is -0.14999999999999997 in floats.
+    if delta["label"] != "decrease" or round(delta["value"], 9) > -DROP_MIN_PTS:
         return []
     before, after = d["before"]["mention_rate"], d["after"]["mention_rate"]
     return [
@@ -857,7 +884,8 @@ def scan(
                     type=c.type,
                     subject_key=c.subject_key,
                     title=c.title,
-                    detail=c.detail,
+                    # UUIDs and rate dicts -> plain JSON for JSONB.
+                    detail=json.loads(json.dumps(c.detail, default=str)),
                     window_from=c.window_from,
                     window_to=c.window_to,
                     next_attempt_at=func.now() if deliver else None,
@@ -885,7 +913,7 @@ def payload(alert: Any, brand_name: str) -> dict[str, Any]:
         "detail": alert.detail,
     }
 ```
-Notes for the implementer: `detail` holds UUIDs and `rate` dicts; JSONB needs them serialisable, so before building `m.Alert` convert with `json.loads(json.dumps(c.detail, default=str))` inside `scan` (one line; keep `Candidate.detail` raw for tests). If `array_agg(...)[1:N]` on uuid returns a list of `uuid.UUID` already, `list(r.obs)` is fine; the tests compare against `recent` (UUIDs), so cast with `uuid.UUID(str(x))` only if psycopg returns strings. The `float` comparison `delta["value"] > -DROP_MIN_PTS` uses values rounded to 9 places by `metrics.delta`; 0.15 exactly counts as a drop.
+Notes for the implementer: `scan` stores `detail` through a json round trip (UUIDs become strings); `Candidate.detail` stays raw for the detector tests. If `array_agg(...)[1:N]` on uuid returns a list of `uuid.UUID` already, `list(r.obs)` is fine; the tests compare against `recent` (UUIDs), so cast with `uuid.UUID(str(x))` only if psycopg returns strings. `metrics.delta` does not round, so the comparison rounds to 9 places; an exact 15-point drop counts (test_an_exact_15_point_drop_counts).
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
@@ -1007,7 +1035,7 @@ Add to the docstring: "POST sends `body` (and `content_type` as Content-Type) an
                         url = urljoin(url, location)
                         continue
 ```
-Nothing else changes.
+Rename the response buffer `body = bytearray()` and its uses (`len(body)`, `body += ...`, `bytes(body)`) to `buf`, because `body` is now the request-body parameter (mypy --strict rejects the reuse). Nothing else changes.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -1665,7 +1693,9 @@ export default async function Alerts({
           style={{ minWidth: 360 }}
         />
         <button className="primary">Save webhook</button>
-        <button name="clear" value="1">Clear</button>
+        <button name="clear" value="1" formNoValidate>
+          Clear
+        </button>
       </form>
       <form action={scanNow} className="row" style={{ marginTop: 8 }}>
         <input type="hidden" name="brand_id" value={id} />
@@ -1750,7 +1780,28 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add apps/web/src && git commi
 
 - [ ] **Step 1: Live check (controller, read-only for dev)**
 
-With the API running on the branch (`set -a && source .env && set +a && uv run uvicorn bsi_api.main:app --port 8000`), `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/alerts/scan` with the Run 1 key, then `GET .../alerts`. Record what fired, as observed. Do not set a webhook on dev and do not start the worker.
+The detectors read only existing tables, so they run on dev without migration 0016 and without writing. Run them in a tenant session that is rolled back, never committed:
+```bash
+cd /Users/vineet/Downloads/ADK/bsi-platform && set -a && source .env && set +a && uv run python - <<'PY'
+import uuid
+from datetime import UTC, datetime
+from bsi_core.alerts import DETECTORS
+from bsi_core.db import tenant_session
+ORG = uuid.UUID("de2e7f7b-3aab-45f9-843b-48bb54c1710e")
+BRAND = uuid.UUID("34db213a-f484-4991-a969-c52cfa5e1c10")
+class Rollback(Exception):
+    """Leaving the session by exception rolls it back."""
+try:
+    with tenant_session(ORG) as s:
+        for detect in DETECTORS:
+            found = detect(s, BRAND, datetime.now(UTC))
+            print(detect.__name__, len(found), [c.title for c in found])
+        raise Rollback
+except Rollback:
+    pass
+PY
+```
+Record what fired, as observed. Do not migrate dev, set a webhook, call the scan route, or start the worker.
 
 - [ ] **Step 2: Write `docs/findings-slice13.md`**
 
