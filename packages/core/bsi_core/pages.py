@@ -20,14 +20,14 @@ _SKIP = frozenset(
         "script",
         "style",
         "nav",
-        "header",
-        "footer",
         "aside",
         "noscript",
         "template",
         "svg",
     }
 )
+# header/footer are chrome at page level but content inside these.
+_CONTENT = frozenset({"article", "main", "section"})
 _LEVELS = {"h1": 1, "h2": 2, "h3": 3}
 
 
@@ -63,6 +63,8 @@ class Page(HTMLParser):
         self.byline = False
         self.words = 0
         self._skip = 0
+        self._content = 0
+        self._chrome: list[bool] = []  # open header/footer: skipped?
         self._in: str | None = None
         self._heading: tuple[int, list[str]] | None = None
         self._section: Section | None = None
@@ -83,11 +85,19 @@ class Page(HTMLParser):
             self._in = "ld"
             self.ld.append("")
             return
+        if tag in ("header", "footer"):
+            skipped = bool(self._skip) or not self._content
+            self._chrome.append(skipped)
+            if skipped:
+                self._skip += 1
+                return
         if tag in _SKIP:
             self._skip += 1
             return
         if self._skip:
             return
+        if tag in _CONTENT:
+            self._content += 1
         marker = f"{a.get('class', '')} {a.get('id', '')}".lower()
         if "author" in marker or "byline" in marker:
             self.byline = True
@@ -122,11 +132,17 @@ class Page(HTMLParser):
         if tag == "script" and self._in == "ld":
             self._in = None
             return
+        if tag in ("header", "footer"):
+            if self._chrome and self._chrome.pop():
+                self._skip = max(0, self._skip - 1)
+            return
         if tag in _SKIP:
             self._skip = max(0, self._skip - 1)
             return
         if self._skip:
             return
+        if tag in _CONTENT:
+            self._content = max(0, self._content - 1)
         if tag == "title":
             self._in = None
         elif tag in _LEVELS and self._heading is not None:

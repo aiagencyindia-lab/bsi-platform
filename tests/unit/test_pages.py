@@ -113,3 +113,28 @@ def test_normalize_url_refuses(bad):
 
 def test_module_states_the_score_is_a_diagnostic():
     assert "not a promised outcome" in pages.NOTE
+
+
+def test_header_inside_article_is_content():
+    p = parse(
+        '<article><header><h1>Title</h1><span class="byline">By J</span>'
+        "</header><p>body text</p></article>"
+    )
+    assert p.headings == [(1, "Title")]
+    assert p.byline is True
+    assert "body text" in p.sections[0].text
+
+
+def test_top_level_header_is_still_skipped():
+    p = parse("<header><h1>Site</h1></header><main><h1>Page</h1></main>")
+    assert p.headings == [(1, "Page")]
+
+
+def test_footer_kept_inside_article_dropped_at_top_level():
+    p = parse(
+        "<article><h1>t</h1><footer>kept words</footer></article>"
+        "<footer>dropped words</footer>"
+    )
+    assert "kept words" in p.sections[0].text
+    assert "dropped" not in p.sections[0].text
+    assert p.words == 2
