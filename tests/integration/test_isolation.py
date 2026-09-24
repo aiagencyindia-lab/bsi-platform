@@ -87,6 +87,16 @@ def other(owner, make_org, make_brand, make_observation):
             error="Secret",
         )
         s.add(audit)
+        alert = m.Alert(
+            org_id=b.id,
+            brand_id=bid,
+            type="new_source",
+            subject_key="secret.com",
+            title="Secret",
+            window_from=datetime.now(UTC),
+            window_to=datetime.now(UTC),
+        )
+        s.add(alert)
         s.flush()
         rid, tid, aid = rec.id, task.id, audit.id
     return {
@@ -164,6 +174,8 @@ CASES = [
     ),
     ("GET", "/v1/brands/{b}/pages", None),
     ("GET", "/v1/brands/{b}/pages/{a}", None),
+    ("GET", "/v1/brands/{b}/alerts", None),
+    ("POST", "/v1/brands/{b}/alerts/scan", None),
 ]
 
 

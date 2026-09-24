@@ -58,6 +58,45 @@ export interface paths {
         patch: operations["patch_brand_v1_brands__brand_id__patch"];
         trace?: never;
     };
+    "/v1/brands/{brand_id}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Alerts */
+        get: operations["list_alerts_v1_brands__brand_id__alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/alerts/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan Now
+         * @description Run the detectors now. SQL only, so it runs inline. It does not
+         *     stamp alerts_scanned_at: an operator's click must not defer the daily
+         *     pass.
+         */
+        post: operations["scan_now_v1_brands__brand_id__alerts_scan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/audits/crawl": {
         parameters: {
             query?: never;
@@ -784,6 +823,52 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AlertOut */
+        AlertOut: {
+            /**
+             * Brand Id
+             * Format: uuid
+             */
+            brand_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Delivered At */
+            delivered_at: string | null;
+            /** Delivery Attempts */
+            delivery_attempts: number;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Next Attempt At */
+            next_attempt_at: string | null;
+            /** Subject Key */
+            subject_key: string;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+            /**
+             * Window From
+             * Format: date-time
+             */
+            window_from: string;
+            /**
+             * Window To
+             * Format: date-time
+             */
+            window_to: string;
+        };
         /** AvgPosition */
         AvgPosition: {
             /** N Mentioned */
@@ -815,6 +900,8 @@ export interface components {
             name: string;
             /** Status */
             status: string;
+            /** Webhook Url */
+            webhook_url: string | null;
         };
         /** BrandPatch */
         BrandPatch: {
@@ -824,6 +911,8 @@ export interface components {
             category?: string | null;
             /** Name */
             name?: string;
+            /** Webhook Url */
+            webhook_url?: string | null;
         };
         /** BriefEvidenceOut */
         BriefEvidenceOut: {
@@ -1817,6 +1906,11 @@ export interface components {
              */
             samples: number;
         };
+        /** ScanOut */
+        ScanOut: {
+            /** Created */
+            created: number;
+        };
         /** ScheduleIn */
         ScheduleIn: {
             /**
@@ -2340,6 +2434,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_alerts_v1_brands__brand_id__alerts_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scan_now_v1_brands__brand_id__alerts_scan_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanOut"];
                 };
             };
             /** @description Validation Error */
