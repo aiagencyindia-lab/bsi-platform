@@ -54,6 +54,8 @@ New constants (were 0.55 / 0.30 / 0.70, set from the slice-4 prompt-to-prompt ba
 
 Ceiling: one cluster, one model, 8 pages. Recalibrate when more clusters are probed.
 
+Re-check after the change (read-only, 1,640 micros): the indiatimes article scores 60 / 100 with topic coverage 0.82 (2 of 2 prompts covered); Photosynthesis scores 36 / 100 with topic coverage 0.0 (0 of 2). Slice 11 live spend in total: 7,853 micros ($0.0079).
+
 ## 4. Deferred / decisions
 - Competitor pages are cited, not fetched.
 - brand_urls are not scored automatically.
