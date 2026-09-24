@@ -49,7 +49,7 @@ export default async function Competitors({
     api<EntityMetrics[]>(`/brands/${id}/competitors/metrics${q}`),
     api<EntityDeltas>(`/brands/${id}/competitors/deltas${wq}`),
     api<Changes>(`/brands/${id}/competitors/changes${feedQuery}`),
-    api<SiteChanges>(`/brands/${id}/competitors/site-changes?days=${FEED_DAYS}`),
+    api<SiteChanges>(`/brands/${id}/competitors/site-changes${feedQuery}`),
   ]);
   const deltaText = (eid: string, key: "mention_rate" | "sov") => {
     const x = d.deltas?.[eid]?.[key];
