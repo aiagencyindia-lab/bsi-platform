@@ -146,6 +146,16 @@ def detect_new_source(
     s: Session, brand_id: uuid.UUID, to: datetime
 ) -> list[Candidate]:
     start = to - timedelta(days=SOURCE_DAYS)
+    # Without answers from before the window every cited domain looks new
+    # (Run 1: 54 "new" sources), so wait for a baseline.
+    if not s.scalar(
+        text(
+            "SELECT EXISTS (SELECT 1 FROM observation WHERE brand_id = :brand "
+            "AND status = 'done' AND requested_at < :from)"
+        ),
+        {"brand": brand_id, "from": start},
+    ):
+        return []
     hosts = list(
         s.scalars(select(m.Domain.host).where(m.Domain.brand_id == brand_id))
     )

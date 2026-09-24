@@ -271,6 +271,23 @@ def test_new_source_needs_min_answers_first_seen_in_window_third_party(
     )
 
 
+def test_new_source_needs_a_baseline_before_the_window(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Nike")
+    p = _prompt(owner, org, bid, "best shoes")
+    recent = _answers(owner, org, bid, p, NOW - timedelta(days=2), 6)
+    with owner() as s, s.begin():
+        s.add_all(_cite(org, o, "forbes.com") for o in recent)
+    with tenant_session(org.id) as s:
+        assert detect_new_source(s, bid, NOW) == []  # no history yet
+    _answers(owner, org, bid, p, NOW - timedelta(days=30), 1)
+    with tenant_session(org.id) as s:
+        found = detect_new_source(s, bid, NOW)
+    assert [c.subject_key for c in found] == ["forbes.com"]
+
+
 def test_scan_inserts_and_dedupes_within_the_window(
     owner, make_org, make_brand
 ):
