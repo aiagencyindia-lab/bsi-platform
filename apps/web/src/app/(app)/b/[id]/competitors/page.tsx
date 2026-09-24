@@ -144,8 +144,8 @@ export default async function Competitors({
           )}
           {c.new_pages.length > 0 && (
             <p className="muted">
-              New pages on their site: {c.new_pages.length}{" "}
-              {c.new_pages.slice(0, 5).map((u) =>
+              New pages on their site (up to 20 shown):{" "}
+              {c.new_pages.map((u) =>
                 isWeb(u) ? (
                   <a key={u} href={u} rel="noreferrer" style={{ marginRight: 6 }}>
                     {u}

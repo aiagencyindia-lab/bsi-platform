@@ -121,7 +121,8 @@ const PAGE_NOTES: Record<string, string> = {
   failed: "Queued again after a failed run.",
 };
 
-const CRAWL_QUEUED = "Queued; the worker crawls competitor sites within a few minutes.";
+const CRAWL_QUEUED =
+  "Queued; the worker crawls competitor domains not crawled in the last 7 days, within a few minutes.";
 const CRAWL_NOTES: Record<string, string> = {
   queued: CRAWL_QUEUED,
   running: CRAWL_QUEUED,

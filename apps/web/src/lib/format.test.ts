@@ -141,7 +141,7 @@ test("KIND labels the page-fix recommendation", () =>
   expect(KIND.optimize_page).toBe("Page fix"));
 
 test("crawlNote says what the crawl button actually did", () => {
-  const queued = "Queued; the worker crawls competitor sites within a few minutes.";
+  const queued = "Queued; the worker crawls competitor domains not crawled in the last 7 days, within a few minutes.";
   expect(crawlNote("queued")).toBe(queued);
   expect(crawlNote("running")).toBe(queued);
   expect(crawlNote("done")).toBe("Already crawled this hour; a new crawl can start from the next hour.");
