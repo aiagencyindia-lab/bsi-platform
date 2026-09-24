@@ -260,11 +260,10 @@ def clusters(
         reason = (
             min(reasons, key=lambda k: (-reasons[k], k)) if reasons else None
         )
-        gap = (
-            absent * 2 >= n
-            and c["rival_absent"] >= 1
-            and reason in CONTENT_REASONS
-        )
+        # No rival required (user decision): such gaps get pressure 0.
+        # n >= 1, so absent * 2 >= n implies absent >= 1, which keeps
+        # recommend's rival_absent / absent defined.
+        gap = absent * 2 >= n and reason in CONTENT_REASONS
         row: dict[str, Any] = {
             "intent": intent,
             "topic": topic,

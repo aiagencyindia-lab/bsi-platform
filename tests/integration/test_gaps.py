@@ -414,8 +414,8 @@ def test_cluster_counts_match_prompt_metrics(scene):
         assert c["n"] - c["absent"] == present
 
 
-def test_absent_answers_naming_no_active_rival_are_not_a_gap(scene, owner):
-    # Absent answers name only Bata (suggested): majority-absent, no gap.
+def _only_bata_on_absent_answers(scene, owner):
+    """Absent answers name only Bata (suggested), so no active rival."""
     absent = scene.vs_obs[1:] + scene.best_obs[1:]
     with owner() as s, s.begin():
         s.execute(
@@ -426,10 +426,17 @@ def test_absent_answers_naming_no_active_rival_are_not_a_gap(scene, owner):
         )
         for oid in absent:
             s.add(_mention(scene.org, oid, "competitor", scene.bata, 2))
+
+
+def test_a_gap_needs_no_rival(scene, owner):
+    # Majority-absent with a content reason is a gap even when no absent
+    # answer names an active rival (user decision; matches the old
+    # per-prompt rule).
+    _only_bata_on_absent_answers(scene, owner)
     gap = rows(scene)["cluster:comparison:running shoes"]
     assert (gap["absent"], gap["rival_absent"]) == (6, 0)
     assert gap["top_rival"]["name"] == "Adidas"  # the present answer
-    assert gap["gap"] is False and gap["brief"] is None
+    assert gap["gap"] is True and gap["brief"] is not None
 
 
 from bsi_core.recommend import generate, refresh  # noqa: E402
@@ -438,6 +445,12 @@ from bsi_core.recommend import generate, refresh  # noqa: E402
 def found(ids):
     with tenant_session(ids.org.id) as s:
         return {(c.type, c.subject_key): c for c in generate(s, ids.brand)}
+
+
+def test_a_rivalless_gap_rec_has_zero_pressure(scene, owner):
+    _only_bata_on_absent_answers(scene, owner)
+    c = found(scene)[("create_content", "cluster:comparison:running shoes")]
+    assert (c.pressure, c.priority) == (0.0, 0.0)
 
 
 def test_one_content_rec_per_gap_cluster_and_per_prompt_only_when_unlabelled(

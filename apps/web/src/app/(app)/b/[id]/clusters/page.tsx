@@ -44,9 +44,8 @@ export default async function ClustersPage({
       )}
       <p className="muted">
         {data.clusters.length} clusters · {data.gaps} gaps · a gap: the brand
-        is absent from at least half the answers, a rival is named in one of
-        those, and the main absence reason is rivals leading or the brand not
-        being retrieved
+        is absent from at least half the answers and the main absence reason
+        is rivals leading or the brand not being retrieved
       </p>
       {data.clusters.length === 0 && (
         <p>No labelled prompts with answers for these filters.</p>
