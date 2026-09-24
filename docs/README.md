@@ -117,6 +117,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-24-slice12-competitor-site-crawl.md](superpowers/plans/2026-09-24-slice12-competitor-site-crawl.md) | Implementation plan, Tasks 1–7. |
 | [findings-slice12.md](findings-slice12.md) | Results: what was built, the read-only live check with `scripts/snapshot_rival.py`, and what is deferred. |
 
+## Brand domains re-flag citations (after slice 12)
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-24-domains-reflag-citations-design.md](superpowers/specs/2026-09-24-domains-reflag-citations-design.md) | Design, written after the build: adding or removing a brand domain recomputes the stored brand-owned flag on that brand's citations, and Run 1's domains to declare. |
+| [superpowers/plans/2026-09-24-domains-reflag-citations.md](superpowers/plans/2026-09-24-domains-reflag-citations.md) | Plan, Tasks 1–2 and the post-merge data step. |
+| [findings-slice12.md](findings-slice12.md) §4 | The change's limits and deferred items. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 

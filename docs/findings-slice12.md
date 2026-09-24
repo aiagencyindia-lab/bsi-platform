@@ -55,4 +55,5 @@ Adding or deleting a brand domain now recomputes `citation.is_brand_owned` for t
 - An extraction running at the moment a domain changes can still write a flag from the old host list.
 - Competitor domains need no re-flag: rival ownership is read live, not stored per citation.
 - Suggested competitors' domains skip `is_public_hostname` (`suggest.py`) and become crawl targets when confirmed; the confirm PATCH does not re-check them.
+- Two overlapping hosts (e.g. `x.com` and `sub.x.com`) deleted by simultaneous requests can leave a citation flagged owned with neither host declared, until the brand's next domain change.
 - Deferred test nits: the two-domain delete test repeats host names instead of using its `hosts` list, and its POSTs do not assert 201.
