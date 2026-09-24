@@ -8,15 +8,27 @@ from collections.abc import Callable
 from dataclasses import asdict
 from datetime import timedelta
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 from bsi_core import models as m
+from bsi_core.competitors import _entities_and_hosts, owner_of
 from bsi_core.config import get_settings
-from bsi_core.crawl import PAUSE_SECONDS, Audit, Fetch, audit_domain, http_fetch
+from bsi_core.crawl import (
+    BROWSER_UA,
+    PAUSE_SECONDS,
+    Audit,
+    Fetch,
+    audit_domain,
+    http_fetch,
+)
 from bsi_core.db import system_session, tenant_session
 from bsi_core.entity import audit_entity
 from bsi_core.extraction import Extractor
+from bsi_core.gaps import clusters
 from bsi_core.impact import close_window
 from bsi_core.judge import JUDGE_PRICES, JUDGES, generate
+from bsi_core.metrics import Filters
+from bsi_core.pages import WEIGHTS_VERSION, Target, normalize_url, parse, score
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.recommend import refresh
@@ -42,12 +54,16 @@ BACKOFF_SECONDS = (15, 60)
 JITTER = 0.2
 STALE_RESET_SECONDS = 300
 SCHEDULE_CHECK_SECONDS = 60
+# 60 sections x ~250 tokens of gemini-embedding-001 at $0.15/M, rounded up.
+PAGE_JOB_MICROS = 2_000
+CITED_URLS_CAP = 10
 # What a suggestion job reserves before it spends (spec §5).
 JOB_ESTIMATES = {
     "suggest_prompts": PROMPT_JOB_MICROS,
     "suggest_competitors": COMPETITOR_JOB_MICROS,
     "label_prompts": LABEL_JOB_MICROS,
     "audit_crawl": 0,  # HTTP only: no model, no spend
+    "optimize_url": PAGE_JOB_MICROS,
 }
 
 
@@ -204,6 +220,157 @@ def run_crawl_audit(
         # refresh must not defer the weekly one.
         refresh(s, org_id, brand_id)
     return len(audits)
+
+
+def cited_urls(
+    s: Session,
+    brand_id: uuid.UUID,
+    prompt_ids: list[uuid.UUID],
+    brand_hosts: list[str],
+    rival_hosts: list[str],
+) -> list[dict[str, Any]]:
+    """The cluster's most-cited pages that the brand does not own: the
+    evidence a page can add. Answers counted per URL; rivals' pages stay
+    in, marked, because they are the competitor pages that win."""
+    rows = s.execute(
+        text(
+            "SELECT c.url, c.domain, count(DISTINCT o.id) AS answers, "
+            "array_agg(DISTINCT o.id::text) AS obs "
+            "FROM citation c JOIN observation o ON o.id = c.observation_id "
+            "WHERE o.brand_id = :brand AND o.status = 'done' "
+            "AND o.prompt_id = ANY(:ids) AND NOT c.is_brand_owned "
+            "GROUP BY 1, 2 ORDER BY 3 DESC, 1"
+        ),
+        {"brand": brand_id, "ids": prompt_ids},
+    ).all()
+    out = []
+    for r in rows:
+        owner = owner_of(r.domain, brand_hosts, rival_hosts)
+        if owner == "brand":
+            continue
+        out.append(
+            {
+                "url": r.url,
+                "domain": r.domain,
+                "owner": owner,
+                "answers": int(r.answers),
+                "observation_ids": sorted(r.obs),
+            }
+        )
+        if len(out) == CITED_URLS_CAP:
+            break
+    return out
+
+
+def audit_page(
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    params: dict[str, Any],
+    embedder: Any,
+    fetch: Fetch = http_fetch,
+) -> dict[str, Any]:
+    """Read the cluster, fetch the page, embed its sections, score. Returns
+    the page_audit columns; writes nothing. The read session is closed
+    before the fetch and the embed."""
+    url = normalize_url(str(params.get("url", "")))
+    key = str(params.get("cluster_key", ""))
+    with tenant_session(org_id) as s:
+        brand = s.get_one(m.Brand, brand_id)
+        name, aliases = brand.name, list(brand.aliases)
+        _, hosts = _entities_and_hosts(s, brand_id)
+        brand_hosts = hosts[brand_id]
+        rival_hosts = [
+            h for e, hs in hosts.items() if e != brand_id for h in hs
+        ]
+        cluster = next(
+            (c for c in clusters(s, brand_id, Filters()) if c["key"] == key),
+            None,
+        )
+        if cluster is None:
+            raise ValueError(f"unknown cluster {key!r}")
+        pids = [p["prompt_id"] for p in cluster["prompts"]]
+        vectors = {
+            pid: None if v is None else [float(x) for x in v]
+            for pid, v in s.execute(
+                select(m.Prompt.id, m.Prompt.embedding).where(
+                    m.Prompt.id.in_(pids)
+                )
+            ).all()
+        }
+        cited = cited_urls(s, brand_id, pids, brand_hosts, rival_hosts)
+    target = Target(
+        intent=cluster["intent"],
+        topic=cluster["topic"],
+        queries=[(str(p["prompt_id"]), p["text"]) for p in cluster["prompts"]],
+        rivals=[r["name"] for r in cluster["rivals"]],
+        brand=name,
+        aliases=aliases,
+        # The audited page's own host is the brand's, declared or not.
+        brand_hosts=[*brand_hosts, urlsplit(url).hostname or ""],
+        rival_hosts=rival_hosts,
+        cited=cited,
+        observation_ids=[str(o) for o in cluster["absent_obs"]],
+    )
+    row: dict[str, Any] = {
+        "url": url,
+        "cluster_key": key,
+        "status": 0,
+        "error": None,
+        "weights_version": WEIGHTS_VERSION,
+        "score": None,
+        "components": [],
+        # Every key present even when unscored: the API schema and the
+        # generated TS type treat the four lists as required.
+        "suggestions": {
+            "add": [],
+            "remove": [],
+            "rewrite": [],
+            "evidence_to_add": [],
+        },
+        "evidence": {
+            "prompt_ids": [str(p) for p in pids],
+            "observation_ids": target.observation_ids,
+            "cluster": {"intent": cluster["intent"], "topic": cluster["topic"]},
+        },
+        "fetches": 1,
+    }
+    resp = fetch(url, BROWSER_UA)
+    row["status"] = resp.status
+    if resp.error or not resp.ok:
+        row["error"] = resp.error or f"HTTP {resp.status}"
+        return row
+    page = parse(resp.body)
+    if not page.sections:
+        row["error"] = "no headings found (is the page rendered by JavaScript?)"
+        return row
+    section_vectors, _ = embedder([sec.embed_text() for sec in page.sections])
+    result = score(
+        page, target, [vectors.get(p) for p in pids], section_vectors
+    )
+    row.update(
+        score=result["score"],
+        components=result["components"],
+        suggestions=result["suggestions"],
+    )
+    return row
+
+
+def run_page_audit(
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    job_id: uuid.UUID,
+    params: dict[str, Any],
+    embedder: Any,
+    fetch: Fetch = http_fetch,
+) -> None:
+    """audit_page, then store the row and refresh recommendations."""
+    row = audit_page(org_id, brand_id, params, embedder, fetch)
+    with tenant_session(org_id) as s:
+        s.add(
+            m.PageAudit(org_id=org_id, brand_id=brand_id, job_id=job_id, **row)
+        )
+        s.flush()
+        refresh(s, org_id, brand_id)
 
 
 def queue_due_crawl_audits() -> int:
@@ -418,6 +585,9 @@ def process_job(
             org_id, brand_id, meter, meter.generate
         ),
         "audit_crawl": lambda: run_crawl_audit(org_id, brand_id, job_id, fetch),
+        "optimize_url": lambda: run_page_audit(
+            org_id, brand_id, job_id, params, meter.embed, fetch
+        ),
     }
     try:
         result = runners[kind]()
