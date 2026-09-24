@@ -33,6 +33,7 @@ from bsi_core.pages import WEIGHTS_VERSION, Target, normalize_url, parse, score
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.recommend import refresh
+from bsi_core.rivals import OutOfTime, snapshot_domain, with_deadline
 from bsi_core.scheduling import budget_fits, enqueue_job, run_schedule
 from bsi_core.storage import LocalRawStore, RawStore
 from bsi_core.suggest import (
@@ -45,6 +46,7 @@ from bsi_core.suggest import (
     suggest_prompts,
 )
 from sqlalchemy import Text, cast, func, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 log = logging.getLogger("bsi.worker")
@@ -58,6 +60,10 @@ SCHEDULE_CHECK_SECONDS = 60
 # Worst case: 60 sections x 2,000 chars ~= 60 x ~520 tokens ~= 31k tokens
 # of gemini-embedding-001 at $0.15/M ~= 4,700 micros, rounded up.
 PAGE_JOB_MICROS = 5_000
+# Under claim_job's 10-minute stale cutoff; a domain cut short is not
+# stored and stays due for the next hourly pass.
+RIVAL_JOB_SECONDS = 420
+RIVAL_UPSERT_CHUNK = 2_000  # 8 binds a row: far under the 65,535 limit
 CITED_URLS_CAP = 10
 # What a suggestion job reserves before it spends (spec §5).
 JOB_ESTIMATES = {
@@ -66,6 +72,7 @@ JOB_ESTIMATES = {
     "label_prompts": LABEL_JOB_MICROS,
     "audit_crawl": 0,  # HTTP only: no model, no spend
     "optimize_url": PAGE_JOB_MICROS,
+    "crawl_rivals": 0,  # HTTP only: no model, no spend
 }
 
 
@@ -376,6 +383,143 @@ def run_page_audit(
         refresh(s, org_id, brand_id)
 
 
+def _due_rival_domains(
+    s: Session, brand_id: uuid.UUID
+) -> list[tuple[uuid.UUID, str, bool]]:
+    """(competitor_id, domain, never crawled) for the brand's active
+    competitors' declared domains with no crawl in 7 days, oldest first."""
+    rows = s.execute(
+        text(
+            "SELECT c.id, d.domain, max(r.created_at) AS last "
+            "FROM competitor c "
+            "CROSS JOIN LATERAL unnest(c.domains) AS d(domain) "
+            "LEFT JOIN rival_crawl r ON r.competitor_id = c.id "
+            "  AND r.domain = d.domain "
+            "WHERE c.brand_id = :brand AND c.status = 'active' "
+            "GROUP BY c.id, d.domain "
+            "HAVING max(r.created_at) IS NULL "
+            "  OR max(r.created_at) <= now() - interval '7 days' "
+            "ORDER BY max(r.created_at) NULLS FIRST, c.id, d.domain"
+        ),
+        {"brand": brand_id},
+    ).all()
+    return [(r.id, r.domain, r.last is None) for r in rows]
+
+
+def run_rival_crawl(
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    job_id: uuid.UUID,
+    fetch: Fetch = http_fetch,
+) -> int:
+    """Snapshot each due competitor domain; returns how many were stored.
+
+    Reads, then fetches with no transaction open, then writes. A domain
+    that crashes or runs out of the job's time is not stored and stays
+    due. The first crawl of a domain is its baseline."""
+    with tenant_session(org_id) as s:
+        due = _due_rival_domains(s, brand_id)
+        cids = sorted({cid for cid, _, _ in due})
+        known: dict[uuid.UUID, set[str]] = {cid: set() for cid in cids}
+        for cid, url in s.execute(
+            select(m.RivalPage.competitor_id, m.RivalPage.url).where(
+                m.RivalPage.competitor_id.in_(cids)
+            )
+        ).tuples():
+            known[cid].add(url)
+    bounded = with_deadline(fetch, RIVAL_JOB_SECONDS)
+    done = []
+    for cid, domain, baseline in due:
+        try:
+            snap = snapshot_domain(
+                domain, bounded, known[cid], pause=PAUSE_SECONDS
+            )
+        except OutOfTime:
+            log.info(
+                "brand %s: rival crawl out of time at %s", brand_id, domain
+            )
+            break
+        except Exception:
+            log.exception(
+                "brand %s: rival crawl of %s failed", brand_id, domain
+            )
+            continue
+        done.append((cid, domain, baseline, snap))
+    with tenant_session(org_id) as s:
+        for cid, domain, baseline, snap in done:
+            fresh = [u for u in snap.urls if u not in known[cid]]
+            s.add(
+                m.RivalCrawl(
+                    org_id=org_id,
+                    brand_id=brand_id,
+                    competitor_id=cid,
+                    job_id=job_id,
+                    domain=domain,
+                    baseline=baseline,
+                    complete=snap.complete,
+                    urls_seen=len(snap.urls),
+                    new_urls=len(fresh),
+                    fetches=snap.fetches,
+                    errors=snap.errors,
+                    types=snap.domain_types,
+                )
+            )
+            sampled = {p["url"]: p["types"] for p in snap.pages}
+            rows = [
+                {
+                    "org_id": org_id,
+                    "brand_id": brand_id,
+                    "competitor_id": cid,
+                    "domain": domain,
+                    "url": u,
+                    "baseline": baseline,
+                    "types": sampled.get(u),
+                }
+                for u in snap.urls
+            ]
+            for i in range(0, len(rows), RIVAL_UPSERT_CHUNK):
+                stmt = pg_insert(m.RivalPage).values(
+                    rows[i : i + RIVAL_UPSERT_CHUNK]
+                )
+                s.execute(
+                    stmt.on_conflict_do_update(
+                        index_elements=["competitor_id", "url"],
+                        set_={
+                            "last_seen_at": func.now(),
+                            "types": func.coalesce(
+                                stmt.excluded.types, m.RivalPage.types
+                            ),
+                        },
+                    )
+                )
+    return len(done)
+
+
+def queue_due_rival_crawls() -> int:
+    """Queue a rival crawl for every brand due one; returns how many.
+    Same contract as queue_due_crawl_audits."""
+    with system_session() as s:
+        due = s.execute(
+            text("SELECT brand_id, org_id FROM due_rival_crawls()")
+        ).all()
+    queued = 0
+    for brand_id, org_id in due:
+        try:
+            with tenant_session(org_id) as s:
+                enqueue_job(
+                    s,
+                    org_id,
+                    brand_id,
+                    "crawl_rivals",
+                    {},
+                    requeue_failed=False,
+                )
+            queued += 1
+        except Exception:
+            log.exception("brand %s rival crawl queue failed", brand_id)
+    return queued
+
+
 def queue_due_crawl_audits() -> int:
     """Queue an audit for every brand due one; returns how many.
 
@@ -591,6 +735,9 @@ def process_job(
         "optimize_url": lambda: run_page_audit(
             org_id, brand_id, job_id, params, meter.embed, fetch
         ),
+        "crawl_rivals": lambda: run_rival_crawl(
+            org_id, brand_id, job_id, fetch
+        ),
     }
     try:
         result = runners[kind]()
@@ -670,6 +817,10 @@ def main() -> None:
                 log.info("queued %d crawl audits", queue_due_crawl_audits())
             except Exception:
                 log.exception("queue_due_crawl_audits failed")
+            try:
+                log.info("queued %d rival crawls", queue_due_rival_crawls())
+            except Exception:
+                log.exception("queue_due_rival_crawls failed")
             last_schedule_check = time.monotonic()
         if not tick(adapter, store, extractor):
             time.sleep(1)
