@@ -40,3 +40,10 @@ I ran `scripts/snapshot_rival.py` read-only against Run 1's five competitor doma
 - A domain listed under two competitors is fetched once per competitor.
 - A URL listed under two domains of one competitor can be counted twice in `new_urls` within one job.
 - The site-changes route accepts the shared filter parameters (engine, locale, prompt_ids) and ignores them; only `date_to` applies.
+- A sitemap whose root is not `urlset` or `sitemapindex` (a soft-404 page, an RSS feed) marks the snapshot incomplete, and its URLs are not read.
+- A sitemap disallowed by robots.txt adds an error line and marks the snapshot incomplete.
+- The site-changes window is returned as `start`/`to` (not `from`), so the schema needs no alias.
+- The feed card lists up to 20 new pages ("up to 20 shown") and shows no count; the site-changes section shows the full count.
+- The site-changes section uses the feed's window, including the user's `date_to`.
+- Not covered by tests: none of the Server Component rendering (the page has no component tests); the exact 7-day boundary (tests use 6 and 8 days).
+- Deferred from the task reviews: `skipped` URLs are not capped (not stored); `rival_crawl` subqueries in `due_rival_crawls()` don't lead with `brand_id`, so they can't use the index prefix; the empty-state message shows even when a brand has no active competitors; the section heading omits "(last 14 days)" (the dates are in the paragraph below it).

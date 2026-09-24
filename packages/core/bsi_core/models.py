@@ -468,9 +468,10 @@ class PageAudit(Tenant, Base):
 
 
 class RivalCrawl(Tenant, Base):
-    """One crawl of one competitor domain. `baseline`: the domain's first
-    crawl, whose pages and types never count as new. `types`: JSON-LD
-    @type -> the first URL it was seen on, this crawl."""
+    """One crawl of one competitor domain. `baseline`: no earlier crawl
+    of the domain read URLs (a domain stays a baseline until one does);
+    its pages and types never count as new. `types`: JSON-LD @type ->
+    the first URL it was seen on, this crawl."""
 
     __tablename__ = "rival_crawl"
     brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))

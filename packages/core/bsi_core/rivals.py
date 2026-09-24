@@ -38,7 +38,9 @@ MAX_TYPE_CHARS = 200
 
 
 class OutOfTime(Exception):
-    """The job's time budget ran out mid-domain; nothing is stored."""
+    """The job's time budget ran out mid-domain. The job's first domain
+    is stored as an incomplete "out of time" crawl; any later one is not
+    stored and stays due."""
 
 
 def with_deadline(
