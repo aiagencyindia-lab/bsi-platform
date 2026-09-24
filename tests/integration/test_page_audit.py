@@ -5,7 +5,14 @@ import pytest
 from bsi_core import models as m
 from bsi_core.crawl import Response
 from bsi_core.db import tenant_session
-from bsi_core.pages import COS_COVERED, WEIGHTS_VERSION, cosine, parse
+from bsi_core.pages import (
+    COS_COVERED,
+    COS_FLOOR,
+    COS_SPAN,
+    WEIGHTS_VERSION,
+    cosine,
+    parse,
+)
 from sqlalchemy import select, text, update
 
 from tests.integration.test_gaps import scene  # noqa: F401
@@ -83,11 +90,13 @@ def test_job_stores_a_scored_row_and_refreshes_recs(owner, scene):  # noqa: F811
     ]
     topic = next(c for c in a.components if c["code"] == "topic_coverage")
     sections = [bow(x.embed_text()) for x in parse(PAGE).sections]
-    covered = sum(
-        max(cosine(bow(q), sv) for sv in sections) >= COS_COVERED
+    best = [
+        max(cosine(bow(q), sv) for sv in sections)
         for q in ("nike vs adidas", "best running shoe brand")
-    )
-    assert topic["value"] > 0
+    ]
+    covered = sum(b >= COS_COVERED for b in best)
+    mapped = [min(1.0, max(0.0, (b - COS_FLOOR) / COS_SPAN)) for b in best]
+    assert topic["value"] == pytest.approx(round(sum(mapped) / 2, 4))
     assert topic["observed"] == f"{covered} of 2 prompts covered"
     assert set(a.evidence["prompt_ids"]) == {str(scene.vs), str(scene.best)}
     assert len(a.evidence["observation_ids"]) == 6
@@ -104,7 +113,7 @@ def test_job_stores_a_scored_row_and_refreshes_recs(owner, scene):  # noqa: F811
                 m.Recommendation.type == "optimize_page"
             )
         ).all()
-    # The fixture page scores 47: under 70, so the rule fires.
+    # The fixture page scores under 70, so the rule fires.
     assert a.score < 70
     assert [r.subject_key for r in recs] == [f"page:{KEY}:{URL}"]
 

@@ -225,11 +225,12 @@ WEIGHTS = {
     "author_attribution": 5,
     "tables": 5,
 }
-# ponytail: hand-picked for gemini-embedding-001 from the slice-4 probe
-# (unrelated ~0.5, paraphrase ~0.8); recalibrate after real pages.
-COS_FLOOR = 0.55
-COS_SPAN = 0.30
-COS_COVERED = 0.70
+# ponytail: from the slice-11 live probe, gemini-embedding-001, one cluster,
+# 8 pages: relevant 0.84-0.95, near-topic 0.79, unrelated 0.67-0.75.
+# Ceiling: one cluster, one model; recalibrate when more clusters are probed.
+COS_FLOOR = 0.75
+COS_SPAN = 0.15
+COS_COVERED = 0.82
 FIRST_SENTENCE_WORDS = 40
 MIN_WORDS = 300
 _OPENERS = re.compile(r"^\s*in this (article|post|guide|page)\b", re.I)
@@ -419,9 +420,9 @@ def score(
             continue
         # A rival's page is one to study, not to link.
         lead = (
-            f"See how {c['url']} covers this"
+            f"See how {c['domain']} covers this"
             if is_owned(c["domain"], t.rival_hosts)
-            else f"Cite {c['url']}"
+            else f"Cite a page on {c['domain']}"
         )
         evidence_to_add.append(
             _suggestion(

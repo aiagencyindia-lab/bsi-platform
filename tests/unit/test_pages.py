@@ -254,6 +254,28 @@ def test_topic_coverage_is_mean_best_cosine_mapped_and_names_uncovered():
         assert s["observation_ids"] == t.observation_ids
 
 
+@pytest.mark.parametrize(
+    ("c", "value", "covered"),
+    [
+        (0.75, 0.0, False),
+        (0.82, None, True),
+        (0.90, 1.0, True),
+        (0.70, 0.0, False),
+    ],
+)
+def test_topic_coverage_maps_cosine_to_value_and_coverage(c, value, covered):
+    # For q = e0, the section [c, sqrt(1-c^2), 0, ...] has cosine c.
+    q = [1.0] + [0.0] * 767
+    sec = [c, math.sqrt(1 - c * c)] + [0.0] * 766
+    p = parse(ARTICLE)
+    t = target(queries=[("p1", "best school shoes for kids")])
+    r = score(p, t, [q], [sec])
+    tc = by_code(r)["topic_coverage"]
+    if value is not None:
+        assert tc["value"] == pytest.approx(value)
+    assert tc["observed"] == f"{int(covered)} of 1 prompts covered"
+
+
 def test_topic_coverage_without_prompt_vectors_is_zero():
     p = parse(ARTICLE)
     t = target()
@@ -322,8 +344,7 @@ def test_evidence_links_to_cited_domains_and_other_third_parties():
     assert ev[0]["observation_ids"] == ["o1", "o4"]
     # a rival's page is one to study, not to link
     assert ev[0]["text"] == (
-        "See how https://bata.in/school covers this: 2 answers in this "
-        "cluster draw on it."
+        "See how bata.in covers this: 2 answers in this cluster draw on it."
     )
 
 
@@ -335,8 +356,10 @@ def test_evidence_to_add_third_party_page_is_one_to_cite():
         ["https://forbes.com/x"],
         ["https://bata.in/school"],
     ]
-    assert ev[0]["text"].startswith("Cite https://forbes.com/x: 3 answers")
-    assert ev[1]["text"].startswith("See how https://bata.in/school")
+    assert ev[0]["text"] == (
+        "Cite a page on forbes.com: 3 answers in this cluster draw on it."
+    )
+    assert ev[1]["text"].startswith("See how bata.in covers this")
 
 
 @pytest.mark.parametrize(

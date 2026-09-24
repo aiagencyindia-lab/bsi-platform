@@ -27,11 +27,32 @@ Suggestions: add an FAQ with FAQPage schema; add a table; name the brand in the 
 Two problems the live check found:
 1. **Topic coverage is miscalibrated.** An unrelated page covers half the cluster, so `COS_FLOOR = 0.55` and `COS_COVERED = 0.70` sit below the similarity `gemini-embedding-001` gives unrelated text. See §3.
 2. **Evidence-to-add shows opaque URLs.** Every stored `citation.url` is a `vertexaisearch.cloud.google.com/grounding-api-redirect/…` link. The domain is real (`citation.domain`), but the URL in the suggestion text tells the operator nothing.
+   Fixed: the evidence-to-add text now names `citation.domain`; the link (shown as "source") still points at the redirect, which resolves to the page.
 
 Smaller: the site's own chrome headings ("TOI", "Photostories", "Featured In lifestyle") count as H2 sections, so `direct_answers` asks for direct answers under them.
 
 ## 3. Calibration notes
-The two pages bracket the problem. The matching article scored a mean mapped value of 0.99 (both best cosines ≈ 0.85 or above). The unrelated page still scored 0.51, with one prompt above the 0.70 "covered" line. The constants were set from the slice-4 probe's rough bands (unrelated ≈ 0.5, paraphrase ≈ 0.8), which were measured on short prompt-to-prompt pairs. Prompt-to-section pairs with `SEMANTIC_SIMILARITY` embeddings sit higher. The per-query cosines were not printed, so the exact floor needs one more probe that prints them for a matching page and a few unrelated ones (≈ $0.003). Until then, topic coverage should be read as an upper bound.
+A second read-only probe printed the best prompt-to-section cosine per prompt (gemini-embedding-001) for the same cluster (2 prompts) on 8 pages. Spend: 4,575 micros.
+
+| Page | best cosines |
+|---|---|
+| relevant: indiatimes article | 0.947, 0.846 |
+| relevant: walkaroo.in | 0.908, 0.889 |
+| relevant: urbanstylefootwear.com | 0.908, 0.878 |
+| relevant: ppt4kids.com | 0.838, 0.841 |
+| near topic: Wikipedia "Sneakers" | 0.788, 0.786 |
+| unrelated: Wikipedia Photosynthesis | 0.718, 0.686 |
+| unrelated: Wikipedia Income tax | 0.737, 0.667 |
+| unrelated: Wikipedia Chocolate chip cookie | 0.750, 0.701 |
+
+New constants (were 0.55 / 0.30 / 0.70, set from the slice-4 prompt-to-prompt bands, which sit lower than prompt-to-section pairs):
+- `COS_FLOOR = 0.75`: the most similar unrelated page maps to 0.
+- `COS_SPAN = 0.15`: full marks from 0.90.
+- `COS_COVERED = 0.82`: between the near-topic page (0.79) and the least similar relevant page (0.84).
+
+`WEIGHTS_VERSION` stays `v1`: no score has been stored yet.
+
+Ceiling: one cluster, one model, 8 pages. Recalibrate when more clusters are probed.
 
 ## 4. Deferred / decisions
 - Competitor pages are cited, not fetched.

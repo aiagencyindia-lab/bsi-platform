@@ -87,14 +87,14 @@ export default async function Pages({
                       {(a.suggestions[key] ?? []).map((s, i) => (
                         <li key={i}>
                           {s.text}{" "}
-                          {s.urls.filter(isWeb).map((u) => (
+                          {s.urls.filter(isWeb).map((u, j, all) => (
                             <a
                               key={u}
                               href={u}
                               rel="noreferrer"
                               style={{ marginRight: 6 }}
                             >
-                              {u}
+                              {all.length > 1 ? `source ${j + 1}` : "source"}
                             </a>
                           ))}
                           {s.observation_ids.slice(0, 5).map((o) => (
