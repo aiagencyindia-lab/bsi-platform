@@ -40,6 +40,10 @@ Embedder = Callable[[list[str]], tuple[list[list[float]], int]]
 
 # Cost previews for the two job kinds (spec §5).
 PROMPT_JOB_MICROS = 30_000
+# Labelling only (count=0): one Flash-Lite label call for up to
+# MAX_BACKFILL prompts plus embeddings for every prompt missing a vector
+# (uncapped); no generation. An estimate: a very large backlog can exceed it.
+LABEL_JOB_MICROS = 10_000
 # Measured live: one competitor job cost 192,981 micros (three grounded
 # answers plus three parses, docs/findings-slice4.md §3). Reserving less
 # lets an org pass the guard and be charged over its cap.

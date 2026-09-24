@@ -139,6 +139,94 @@
         "title": "BrandPatch",
         "type": "object"
       },
+      "BriefEvidenceOut": {
+        "properties": {
+          "observation_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "prompt_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Prompt Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "prompt_ids",
+          "observation_ids"
+        ],
+        "title": "BriefEvidenceOut",
+        "type": "object"
+      },
+      "BriefOut": {
+        "properties": {
+          "competitors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Competitors",
+            "type": "array"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/BriefEvidenceOut"
+          },
+          "internal_links": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Internal Links",
+            "type": "array"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "page_type": {
+            "title": "Page Type",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CitingDomainOut"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "structure": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Structure",
+            "type": "array"
+          },
+          "target_queries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Queries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "target_queries",
+          "page_type",
+          "structure",
+          "competitors",
+          "sources",
+          "internal_links",
+          "evidence",
+          "note"
+        ],
+        "title": "BriefOut",
+        "type": "object"
+      },
       "BulkPatch": {
         "additionalProperties": false,
         "properties": {
@@ -482,6 +570,85 @@
           "paused"
         ],
         "title": "ClusterOut",
+        "type": "object"
+      },
+      "ClusterPromptOut": {
+        "properties": {
+          "absent": {
+            "title": "Absent",
+            "type": "integer"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "prompt_id": {
+            "format": "uuid",
+            "title": "Prompt Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt_id",
+          "text",
+          "n",
+          "absent"
+        ],
+        "title": "ClusterPromptOut",
+        "type": "object"
+      },
+      "ClusterRivalOut": {
+        "properties": {
+          "answers": {
+            "title": "Answers",
+            "type": "integer"
+          },
+          "competitor_id": {
+            "format": "uuid",
+            "title": "Competitor Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "competitor_id",
+          "name",
+          "answers"
+        ],
+        "title": "ClusterRivalOut",
+        "type": "object"
+      },
+      "ClustersOut": {
+        "properties": {
+          "clusters": {
+            "items": {
+              "$ref": "#/components/schemas/GapClusterOut"
+            },
+            "title": "Clusters",
+            "type": "array"
+          },
+          "gaps": {
+            "title": "Gaps",
+            "type": "integer"
+          },
+          "unlabelled": {
+            "title": "Unlabelled",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "unlabelled",
+          "gaps",
+          "clusters"
+        ],
+        "title": "ClustersOut",
         "type": "object"
       },
       "CompetitorIn": {
@@ -1252,6 +1419,143 @@
           "prompt_ids"
         ],
         "title": "FiltersOut",
+        "type": "object"
+      },
+      "GapClusterOut": {
+        "properties": {
+          "absent": {
+            "title": "Absent",
+            "type": "integer"
+          },
+          "brand": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "brand_urls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Brand Urls",
+            "type": "array"
+          },
+          "brief": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BriefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cited": {
+            "$ref": "#/components/schemas/Rate"
+          },
+          "gap": {
+            "title": "Gap",
+            "type": "boolean"
+          },
+          "intent": {
+            "title": "Intent",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "prompts": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterPromptOut"
+            },
+            "title": "Prompts",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Reasons",
+            "type": "object"
+          },
+          "rival_absent": {
+            "title": "Rival Absent",
+            "type": "integer"
+          },
+          "rivals": {
+            "items": {
+              "$ref": "#/components/schemas/ClusterRivalOut"
+            },
+            "title": "Rivals",
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/CitingDomainOut"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "spread": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spread"
+          },
+          "top_rival": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TopRivalOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent",
+          "topic",
+          "key",
+          "prompts",
+          "n",
+          "brand",
+          "absent",
+          "rival_absent",
+          "reasons",
+          "reason",
+          "rivals",
+          "top_rival",
+          "spread",
+          "cited",
+          "sources",
+          "brand_urls",
+          "gap",
+          "brief"
+        ],
+        "title": "GapClusterOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2912,6 +3216,52 @@
         "title": "TaskPatch",
         "type": "object"
       },
+      "TopRivalOut": {
+        "properties": {
+          "ci_high": {
+            "title": "Ci High",
+            "type": "number"
+          },
+          "ci_low": {
+            "title": "Ci Low",
+            "type": "number"
+          },
+          "competitor_id": {
+            "format": "uuid",
+            "title": "Competitor Id",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "n",
+          "ci_low",
+          "ci_high",
+          "competitor_id",
+          "name"
+        ],
+        "title": "TopRivalOut",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -3599,6 +3949,152 @@
         "summary": "List Clusters",
         "tags": [
           "brands"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/clusters/gaps": {
+      "get": {
+        "operationId": "list_gap_clusters_v1_brands__brand_id__clusters_gaps_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "engine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engine"
+            }
+          },
+          {
+            "in": "query",
+            "name": "locale_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Locale Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "prompt_ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Ids"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClustersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Gap Clusters",
+        "tags": [
+          "clusters"
         ]
       }
     },
@@ -5220,6 +5716,68 @@
           }
         },
         "summary": "Create Prompts",
+        "tags": [
+          "prompts"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/prompts/label": {
+      "post": {
+        "description": "Label and embed prompts that lack intent, topic or embedding.",
+        "operationId": "label_v1_brands__brand_id__prompts_label_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Label V1 Brands  Brand Id  Prompts Label Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Label",
         "tags": [
           "prompts"
         ]

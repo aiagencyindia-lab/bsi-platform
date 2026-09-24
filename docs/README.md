@@ -93,6 +93,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-23-slice9-competitor-intelligence.md](superpowers/plans/2026-09-23-slice9-competitor-intelligence.md) | Implementation plan, Tasks 1–5. |
 | [findings-slice9.md](findings-slice9.md) | Results: the Run 1 leaderboard, why the feed is empty on a single-burst run, what the synthetic fixture proves, and what is deferred. |
 
+## Slice 10: content gaps
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-23-slice10-content-gaps-design.md](superpowers/specs/2026-09-23-slice10-content-gaps-design.md) | Design spec: `(intent, topic)` clusters of active prompts, the slice 6 absence rule at cluster level, one `create_content` per gap cluster with a model-free brief, and a budget-gated `label_prompts` job. |
+| [superpowers/plans/2026-09-23-slice10-content-gaps.md](superpowers/plans/2026-09-23-slice10-content-gaps.md) | Implementation plan, Tasks 1–5. |
+| [findings-slice10.md](findings-slice10.md) | Results: Run 1 labelled live ($0.0022), its 15 clusters and 13 gaps with their briefs, where the cluster recommendations rank, what the cluster rule replaced, and label quality. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 

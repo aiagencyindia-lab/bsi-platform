@@ -115,6 +115,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brands/{brand_id}/clusters/gaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Gap Clusters */
+        get: operations["list_gap_clusters_v1_brands__brand_id__clusters_gaps_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/competitors": {
         parameters: {
             query?: never;
@@ -322,6 +339,26 @@ export interface paths {
         head?: never;
         /** Patch Prompts */
         patch: operations["patch_prompts_v1_brands__brand_id__prompts_patch"];
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/prompts/label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Label
+         * @description Label and embed prompts that lack intent, topic or embedding.
+         */
+        post: operations["label_v1_brands__brand_id__prompts_label_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/brands/{brand_id}/prompts/metrics": {
@@ -699,6 +736,31 @@ export interface components {
             /** Name */
             name?: string;
         };
+        /** BriefEvidenceOut */
+        BriefEvidenceOut: {
+            /** Observation Ids */
+            observation_ids: string[];
+            /** Prompt Ids */
+            prompt_ids: string[];
+        };
+        /** BriefOut */
+        BriefOut: {
+            /** Competitors */
+            competitors: string[];
+            evidence: components["schemas"]["BriefEvidenceOut"];
+            /** Internal Links */
+            internal_links: string[];
+            /** Note */
+            note: string;
+            /** Page Type */
+            page_type: string;
+            /** Sources */
+            sources: components["schemas"]["CitingDomainOut"][];
+            /** Structure */
+            structure: string[];
+            /** Target Queries */
+            target_queries: string[];
+        };
         /** BulkPatch */
         BulkPatch: {
             /** Ids */
@@ -830,6 +892,41 @@ export interface components {
             suggested: number;
             /** Topic */
             topic: string | null;
+        };
+        /** ClusterPromptOut */
+        ClusterPromptOut: {
+            /** Absent */
+            absent: number;
+            /** N */
+            n: number;
+            /**
+             * Prompt Id
+             * Format: uuid
+             */
+            prompt_id: string;
+            /** Text */
+            text: string;
+        };
+        /** ClusterRivalOut */
+        ClusterRivalOut: {
+            /** Answers */
+            answers: number;
+            /**
+             * Competitor Id
+             * Format: uuid
+             */
+            competitor_id: string;
+            /** Name */
+            name: string;
+        };
+        /** ClustersOut */
+        ClustersOut: {
+            /** Clusters */
+            clusters: components["schemas"]["GapClusterOut"][];
+            /** Gaps */
+            gaps: number;
+            /** Unlabelled */
+            unlabelled: number;
         };
         /** CompetitorIn */
         CompetitorIn: {
@@ -1099,6 +1196,43 @@ export interface components {
             locale_id: string | null;
             /** Prompt Ids */
             prompt_ids: string[] | null;
+        };
+        /** GapClusterOut */
+        GapClusterOut: {
+            /** Absent */
+            absent: number;
+            brand: components["schemas"]["Rate"];
+            /** Brand Urls */
+            brand_urls: string[];
+            brief: components["schemas"]["BriefOut"] | null;
+            cited: components["schemas"]["Rate"];
+            /** Gap */
+            gap: boolean;
+            /** Intent */
+            intent: string;
+            /** Key */
+            key: string;
+            /** N */
+            n: number;
+            /** Prompts */
+            prompts: components["schemas"]["ClusterPromptOut"][];
+            /** Reason */
+            reason: string | null;
+            /** Reasons */
+            reasons: {
+                [key: string]: number;
+            };
+            /** Rival Absent */
+            rival_absent: number;
+            /** Rivals */
+            rivals: components["schemas"]["ClusterRivalOut"][];
+            /** Sources */
+            sources: components["schemas"]["CitingDomainOut"][];
+            /** Spread */
+            spread: number | null;
+            top_rival: components["schemas"]["TopRivalOut"] | null;
+            /** Topic */
+            topic: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1725,6 +1859,24 @@ export interface components {
             /** Title */
             title?: string;
         };
+        /** TopRivalOut */
+        TopRivalOut: {
+            /** Ci High */
+            ci_high: number;
+            /** Ci Low */
+            ci_low: number;
+            /**
+             * Competitor Id
+             * Format: uuid
+             */
+            competitor_id: string;
+            /** N */
+            n: number;
+            /** Name */
+            name: string;
+            /** Value */
+            value: number | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -2061,6 +2213,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClusterOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_gap_clusters_v1_brands__brand_id__clusters_gaps_get: {
+        parameters: {
+            query?: {
+                engine?: string | null;
+                locale_id?: string | null;
+                date_from?: string | null;
+                date_to?: string | null;
+                prompt_ids?: string[] | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClustersOut"];
                 };
             };
             /** @description Validation Error */
@@ -2676,6 +2867,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    label_v1_brands__brand_id__prompts_label_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

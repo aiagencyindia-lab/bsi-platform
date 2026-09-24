@@ -3,6 +3,7 @@ from bsi_core import entity
 from bsi_core.crawl import SEVERITY
 from bsi_core.recommend import (
     citation_copy,
+    cluster_copy,
     competitor_copy,
     content_copy,
     crawl_copy,
@@ -38,6 +39,41 @@ CASES = [
     sample_copy("Nike", "best shoes", 3, 4, "Adidas"),
     sample_copy("Nike", "best shoes", 3, 7, "Adidas"),
 ]
+
+CASES += [
+    cluster_copy(
+        "Nike",
+        "comparison",
+        "running shoes",
+        "comparison page",
+        ["nike vs adidas", "best running shoe brand"],
+        6,
+        8,
+        ["Adidas", "Puma"],
+    ),
+    cluster_copy(
+        "Nike",
+        "informational",
+        "sizing",
+        "guide",
+        ["shoe size chart"],
+        2,
+        3,
+        [],
+    ),
+]
+
+ALTERNATIVES = cluster_copy(
+    "Nike",
+    "alternative",
+    "running shoes",
+    "alternatives page",
+    ["adidas alternatives"],
+    3,
+    4,
+    ["Adidas"],
+)
+CASES.append(ALTERNATIVES)
 
 # Every crawl family, so the scans below cover each template.
 CRAWL_CODES = [f"{c}:GPTBot" if c.startswith("bot_") else c for c in SEVERITY]
@@ -137,3 +173,16 @@ def test_crawl_copy_names_the_bot_and_the_file():
     )
     assert "ClaudeBot" in title and "nike.com" in title
     assert "HTTP 403" in body and "https://nike.com/" in body
+
+
+def test_cluster_copy_uses_an_before_a_vowel():
+    title, body = ALTERNATIVES
+    assert title.startswith("Publish an alternatives page for ")
+    assert "An alternatives page that answers" in body
+    assert cluster_copy("N", "i", "t", "guide", ["q"], 1, 2, [])[0].startswith(
+        "Publish a guide"
+    )
+
+
+def test_cluster_copy_names_rivals_in_this_cluster():
+    assert "Rivals named in this cluster: Adidas." in ALTERNATIVES[1]

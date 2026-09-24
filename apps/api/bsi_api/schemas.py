@@ -113,6 +113,67 @@ class CitingDomainOut(BaseModel):
     owner: Literal["brand", "rival", "third_party"]
 
 
+class ClusterPromptOut(BaseModel):
+    prompt_id: uuid.UUID
+    text: str
+    n: int
+    absent: int
+
+
+class ClusterRivalOut(BaseModel):
+    competitor_id: uuid.UUID
+    name: str
+    answers: int
+
+
+class TopRivalOut(Rate):
+    competitor_id: uuid.UUID
+    name: str
+
+
+class BriefEvidenceOut(BaseModel):
+    prompt_ids: list[uuid.UUID]
+    observation_ids: list[uuid.UUID]
+
+
+class BriefOut(BaseModel):
+    target_queries: list[str]
+    page_type: str
+    structure: list[str]
+    competitors: list[str]
+    sources: list[CitingDomainOut]
+    internal_links: list[str]
+    evidence: BriefEvidenceOut
+    note: str
+
+
+class GapClusterOut(BaseModel):
+    intent: str
+    topic: str
+    key: str
+    prompts: list[ClusterPromptOut]
+    n: int
+    brand: Rate
+    absent: int
+    rival_absent: int
+    reasons: dict[str, int]
+    reason: str | None
+    rivals: list[ClusterRivalOut]
+    top_rival: TopRivalOut | None
+    spread: float | None
+    cited: Rate
+    sources: list[CitingDomainOut]
+    brand_urls: list[str]
+    gap: bool
+    brief: BriefOut | None
+
+
+class ClustersOut(BaseModel):
+    unlabelled: int
+    gaps: int
+    clusters: list[GapClusterOut]
+
+
 class EntityMetricsOut(BaseModel):
     entity_id: uuid.UUID
     name: str

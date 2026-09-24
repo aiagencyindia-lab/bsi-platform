@@ -25,6 +25,7 @@ from bsi_core.storage import LocalRawStore, RawStore
 from bsi_core.suggest import (
     COMPETITOR_JOB_MICROS,
     EMBED_PRICES,
+    LABEL_JOB_MICROS,
     PROMPT_JOB_MICROS,
     embed,
     suggest_competitors,
@@ -45,6 +46,7 @@ SCHEDULE_CHECK_SECONDS = 60
 JOB_ESTIMATES = {
     "suggest_prompts": PROMPT_JOB_MICROS,
     "suggest_competitors": COMPETITOR_JOB_MICROS,
+    "label_prompts": LABEL_JOB_MICROS,
     "audit_crawl": 0,  # HTTP only: no model, no spend
 }
 
@@ -408,6 +410,9 @@ def process_job(
             int(params.get("count", 0)),
             meter.generate,
             meter.embed,
+        ),
+        "label_prompts": lambda: suggest_prompts(
+            org_id, brand_id, 0, meter.generate, meter.embed
         ),
         "suggest_competitors": lambda: suggest_competitors(
             org_id, brand_id, meter, meter.generate

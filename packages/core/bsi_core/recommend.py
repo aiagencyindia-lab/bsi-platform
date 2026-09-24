@@ -20,6 +20,9 @@ product so the weighting is visible (PRD F12):
   and pressure is the check's severity weight. fix_entity is judged the
   same way.
 - feasibility: how cheaply the operator can act, per type, below.
+
+create_content is keyed per (intent, topic) gap cluster for labelled
+prompts and per prompt for prompts not yet labelled.
 """
 
 import logging
@@ -131,6 +134,30 @@ def content_copy(
         f"Publish content that answers “{prompt}”",
         f"{brand} is absent from {absent} of {n} answers to this prompt; "
         f"{why}. Metric to watch: {brand}'s mention rate on this prompt.",
+    )
+
+
+def cluster_copy(
+    brand: str,
+    intent: str,
+    topic: str,
+    page_type: str,
+    worst: list[str],
+    absent: int,
+    n: int,
+    rivals: list[str],
+) -> tuple[str, str]:
+    asks = " and ".join(f"“{q}”" for q in worst[:2])
+    led = f" Rivals named in this cluster: {names(rivals)}." if rivals else ""
+    # ponytail: first-letter rule; every PAGE_TYPES value reads right by it.
+    art = "an" if page_type[0] in "aeiou" else "a"
+    return (
+        f"Publish {art} {page_type} for {topic} ({intent})",
+        f"{brand} is absent from {absent} of {n} answers in this cluster, "
+        f"led by {asks}.{led} {art.capitalize()} {page_type} that answers "
+        "these prompts directly gives engines something of the brand's "
+        "own to retrieve. "
+        f"Metric to watch: {brand}'s mention rate on the cluster's prompts.",
     )
 
 
@@ -322,6 +349,8 @@ def _citations(
 def _content(
     s: Session, brand_id: uuid.UUID, brand: str, total: int
 ) -> list[Candidate]:
+    """Per-prompt rule for prompts without labels; labelled prompts are
+    handled per cluster by `_content_clusters`."""
     rows = s.execute(
         text(
             "SELECT o.prompt_id, p.text, o.id, "
@@ -334,6 +363,7 @@ def _content(
             "LEFT JOIN extraction e ON e.observation_id = o.id "
             "WHERE o.brand_id = :brand AND o.status = 'done' "
             "AND p.status = 'active' "
+            "AND (p.intent IS NULL OR p.topic IS NULL) "
             "ORDER BY p.text, o.prompt_id, o.requested_at, o.id"
         ),
         {"brand": brand_id},
@@ -370,6 +400,49 @@ def _content(
                 },
                 len(obs) / total,
                 pressure,
+            )
+        )
+    return out
+
+
+def _content_clusters(
+    s: Session, brand_id: uuid.UUID, brand: str, total: int
+) -> list[Candidate]:
+    """One candidate per gap cluster of labelled prompts (PRD F11)."""
+    from .gaps import clusters  # gaps imports CONTENT_REASONS from here
+
+    out = []
+    for c in clusters(s, brand_id, Filters()):
+        if not c["gap"]:
+            continue
+        b = c["brief"]
+        title, body = cluster_copy(
+            brand,
+            c["intent"],
+            c["topic"],
+            b["page_type"],
+            b["target_queries"],
+            c["absent"],
+            c["n"],
+            b["competitors"],
+        )
+        out.append(
+            Candidate(
+                "create_content",
+                c["key"],
+                title,
+                body,
+                {
+                    **b,
+                    "prompt_ids": b["evidence"]["prompt_ids"],
+                    "observation_ids": b["evidence"]["observation_ids"],
+                    "cluster": {"intent": c["intent"], "topic": c["topic"]},
+                    "reason": c["reason"],
+                    "absent": c["absent"],
+                    "n": c["n"],
+                },
+                c["absent"] / total,
+                c["rival_absent"] / c["absent"],
             )
         )
     return out
@@ -564,6 +637,7 @@ def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
         found += [
             *_citations(s, brand_id, brand, total, rival_domains),
             *_content(s, brand_id, brand, total),
+            *_content_clusters(s, brand_id, brand, total),
             *_sampling(s, brand_id, brand, active, total),
         ]
     return sorted(found, key=lambda c: (-c.priority, c.type, c.subject_key))

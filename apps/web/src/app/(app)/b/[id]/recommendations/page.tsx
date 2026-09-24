@@ -5,7 +5,11 @@ import type { Recommendation } from "@/lib/types";
 import { accept, dismiss, generate } from "./actions";
 
 
-type Evidence = { prompt_ids?: string[]; observation_ids?: string[] };
+type Evidence = {
+  prompt_ids?: string[];
+  observation_ids?: string[];
+  page_type?: string;
+};
 
 export default async function Recommendations({
   params,
@@ -57,7 +61,13 @@ function Card({ r, id }: { r: Recommendation; id: string }) {
           {prompts.length === 1 && (
             <Link href={`/b/${id}/prompts/${prompts[0]}`}>the prompt</Link>
           )}
-          {prompts.length > 1 && `${prompts.length} prompts`}
+          {prompts.length > 1 &&
+            prompts.slice(0, 5).map((p) => (
+              <span key={p}>
+                <Link href={`/b/${id}/prompts/${p}`}>{p.slice(0, 8)}</Link>{" "}
+              </span>
+            ))}
+          {prompts.length > 5 && `and ${prompts.length - 5} more`}
           {answers.slice(0, 5).map((o, i) => (
             <span key={o}>
               {" · "}
@@ -67,6 +77,7 @@ function Card({ r, id }: { r: Recommendation; id: string }) {
           {answers.length > 5 && ` and ${answers.length - 5} more`}
         </p>
       )}
+      {ev.page_type && <p className="muted">Brief: {ev.page_type}</p>}
       <div className="row">
         <form action={accept}>
           <input type="hidden" name="brand_id" value={id} />

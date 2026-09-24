@@ -8,6 +8,7 @@ from .routers import (
     audits,
     brands,
     citations,
+    clusters,
     competitors,
     labels,
     metrics,
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
         citations.router,
         audits.router,
         competitors.router,
+        clusters.router,
     ):
         app.include_router(router, prefix="/v1")
     return app
