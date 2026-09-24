@@ -619,3 +619,125 @@ def test_a_repeated_wikidata_row_lists_its_domain_once(owner, world):
     )
     ev = _entity(world)["wikidata:wikidata_missing"].evidence
     assert ev["domains"] == ["nike.com"]
+
+
+def _page_audit(
+    owner,
+    org,
+    bid,
+    url,
+    score,
+    key="cluster:comparison:running shoes",
+    obs=3,
+    prompts=2,
+):
+    """A stored page_audit row; score None is a failed fetch."""
+    with owner() as s, s.begin():
+        a = m.PageAudit(
+            org_id=org.id,
+            brand_id=bid,
+            url=url,
+            cluster_key=key,
+            status=200 if score is not None else 0,
+            error=None if score is not None else "ConnectError",
+            weights_version="v1",
+            score=score,
+            components=[],
+            suggestions={
+                "add": [],
+                "remove": [],
+                "rewrite": [],
+                "evidence_to_add": [],
+            },
+            evidence={
+                "prompt_ids": [f"p{i}" for i in range(prompts)],
+                "observation_ids": [f"o{i}" for i in range(obs)],
+                "cluster": {"intent": "comparison", "topic": "running shoes"},
+            },
+            fetches=1,
+        )
+        s.add(a)
+        s.flush()
+        return a.id
+
+
+def _pages_found(world):
+    with tenant_session(world.org.id) as s:
+        return {
+            c.subject_key: c
+            for c in generate(s, world.brand)
+            if c.type == "optimize_page"
+        }
+
+
+RUN_KEY = "page:cluster:comparison:running shoes:https://nike.com/run"
+
+
+def test_a_low_page_score_is_an_optimize_page_candidate(owner, world):
+    aid = _page_audit(owner, world.org, world.brand, "https://nike.com/run", 62)
+    found = _pages_found(world)
+    assert set(found) == {RUN_KEY}
+    c = found[RUN_KEY]
+    # world: 4 + 4 + 2 + 3 + 3 = 16 done answers on active prompts.
+    assert (c.reach, c.pressure, c.feasibility) == (
+        pytest.approx(3 / 16),
+        pytest.approx(0.38),
+        0.6,
+    )
+    assert c.priority == round(3 / 16 * 0.38 * 0.6, 4)
+    assert c.title == "Improve nike.com/run for running shoes"
+    assert "Metric to watch:" in c.body
+    assert c.evidence["page_audit_id"] == str(aid)
+    assert c.evidence["prompt_ids"] == ["p0", "p1"]
+    assert c.evidence["score"] == 62
+    assert c.evidence["url"] == "https://nike.com/run"
+
+
+def test_a_page_at_the_threshold_or_a_failed_fetch_is_not_raised(owner, world):
+    _page_audit(owner, world.org, world.brand, "https://nike.com/a", 70)
+    _page_audit(owner, world.org, world.brand, "https://nike.com/b", None)
+    assert _pages_found(world) == {}
+
+
+def test_only_the_latest_audit_per_url_counts(owner, world):
+    _page_audit(owner, world.org, world.brand, "https://nike.com/run", 40)
+    _page_audit(owner, world.org, world.brand, "https://nike.com/run", 80)
+    assert _pages_found(world) == {}
+    _page_audit(owner, world.org, world.brand, "https://nike.com/run", 50)
+    assert list(_pages_found(world)) == [RUN_KEY]
+
+
+def test_rescoring_above_the_threshold_drops_the_open_rec(owner, world):
+    _page_audit(owner, world.org, world.brand, "https://nike.com/run", 40)
+    with tenant_session(world.org.id) as s:
+        refresh(s, world.org.id, world.brand)
+    _page_audit(owner, world.org, world.brand, "https://nike.com/run", 90)
+    with tenant_session(world.org.id) as s:
+        refresh(s, world.org.id, world.brand)
+        left = s.scalars(
+            select(m.Recommendation).where(
+                m.Recommendation.type == "optimize_page"
+            )
+        ).all()
+    assert left == []
+
+
+def test_pages_rule_is_one_statement(owner, world):
+    from bsi_core.recommend import _pages
+    from sqlalchemy import event
+
+    for i in range(3):
+        _page_audit(owner, world.org, world.brand, f"https://nike.com/{i}", 30)
+    seen = []
+
+    def count(_conn, _cursor, statement, *_):
+        seen.append(statement)
+
+    with tenant_session(world.org.id) as s:
+        bind = s.get_bind()
+        event.listen(bind, "before_cursor_execute", count)
+        try:
+            assert len(_pages(s, world.brand, "Nike", 16)) == 3
+        finally:
+            event.remove(bind, "before_cursor_execute", count)
+    assert len(seen) == 1

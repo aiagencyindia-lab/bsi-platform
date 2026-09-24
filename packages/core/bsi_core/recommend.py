@@ -34,6 +34,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
+from urllib.parse import urlsplit
 
 from sqlalchemy import delete, func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert
@@ -44,6 +45,7 @@ from . import models as m
 from .crawl import expected, family
 from .matching import is_owned
 from .metrics import Filters, prompt_metrics
+from .pages import WEIGHTS_VERSION
 from .suggest import ANSWERS
 
 log = logging.getLogger("bsi.recommend")
@@ -59,6 +61,8 @@ FEASIBILITY = {
     # Markup is minutes of work; a Wikidata edit needs sources and can
     # be reverted by its editors.
     "fix_entity": 0.7,
+    # Editing a page that exists is less work than writing one.
+    "optimize_page": 0.6,
     "create_content": 0.4,
     "pursue_citation_source": 0.3,
 }
@@ -72,6 +76,8 @@ MIN_COMPETITOR_EVIDENCE = 2
 # More samples than this is a change to sampling, not a task.
 SAMPLE_MORE_WITHIN = 10
 CONTENT_REASONS = ("competitor_dominance", "not_retrieved")
+# Below this AI Citability Score a scored page is worth a task.
+PAGE_SCORE_THRESHOLD = 70
 
 
 @dataclass
@@ -159,6 +165,31 @@ def cluster_copy(
         "these prompts directly gives engines something of the brand's "
         "own to retrieve. "
         f"Metric to watch: {brand}'s mention rate on the cluster's prompts.",
+    )
+
+
+def page_copy(
+    brand: str,
+    url: str,
+    topic: str,
+    n_prompts: int,
+    score: int,
+    suggestions: dict[str, list[dict[str, Any]]],
+) -> tuple[str, str]:
+    u = urlsplit(url)
+    where = f"{u.hostname}{u.path if u.path != '/' else ''}"
+    steps = [
+        s["text"]
+        for key in ("add", "rewrite", "evidence_to_add")
+        for s in suggestions.get(key, [])
+    ][:3]
+    first = f" First steps: {' '.join(steps)}" if steps else ""
+    return (
+        f"Improve {where} for {topic}",
+        f"{url} scores {score}/100 on the AI Citability Score "
+        f"({WEIGHTS_VERSION}) against the {topic} cluster.{first} "
+        f"Metric to watch: {brand}'s mention rate on the cluster's "
+        f"{n_prompts} prompts.",
     )
 
 
@@ -649,6 +680,56 @@ def _crawl(s: Session, brand_id: uuid.UUID, brand: str) -> list[Candidate]:
     return list(out.values())
 
 
+def _pages(
+    s: Session, brand_id: uuid.UUID, brand: str, total: int
+) -> list[Candidate]:
+    """One candidate per (cluster, url) whose latest scored audit is below
+    PAGE_SCORE_THRESHOLD. Failed fetches (score NULL) never count; the
+    Pages tab shows them. Reach and evidence come from the audit row,
+    captured when it was scored: no cluster query here."""
+    rows = s.execute(
+        text(
+            "SELECT DISTINCT ON (a.cluster_key, a.url) a.id, a.url, "
+            "a.cluster_key, a.score, a.suggestions, a.evidence "
+            "FROM page_audit a "
+            "WHERE a.brand_id = :brand AND a.score IS NOT NULL "
+            "ORDER BY a.cluster_key, a.url, a.created_at DESC, a.id DESC"
+        ),
+        {"brand": brand_id},
+    ).all()
+    out = []
+    for r in rows:
+        if r.score >= PAGE_SCORE_THRESHOLD:
+            continue
+        ev = r.evidence or {}
+        prompt_ids = list(ev.get("prompt_ids", []))
+        observation_ids = list(ev.get("observation_ids", []))
+        topic = (ev.get("cluster") or {}).get("topic") or r.cluster_key
+        title, body = page_copy(
+            brand, r.url, topic, len(prompt_ids), r.score, r.suggestions or {}
+        )
+        out.append(
+            Candidate(
+                "optimize_page",
+                f"page:{r.cluster_key}:{r.url}",
+                title,
+                body,
+                {
+                    "page_audit_id": str(r.id),
+                    "url": r.url,
+                    "cluster_key": r.cluster_key,
+                    "score": r.score,
+                    "prompt_ids": prompt_ids,
+                    "observation_ids": observation_ids,
+                    "cluster": ev.get("cluster"),
+                },
+                len(observation_ids) / total,
+                (100 - r.score) / 100,
+            )
+        )
+    return out
+
+
 def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
     """Every recommendation the brand's evidence supports, best first.
 
@@ -681,6 +762,7 @@ def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
             *_citations(s, brand_id, brand, total, rival_domains),
             *_content(s, brand_id, brand, total),
             *_content_clusters(s, brand_id, brand, total),
+            *_pages(s, brand_id, brand, total),
             *_sampling(s, brand_id, brand, active, total),
         ]
     return sorted(found, key=lambda c: (-c.priority, c.type, c.subject_key))
