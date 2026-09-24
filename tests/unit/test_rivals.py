@@ -5,6 +5,8 @@ from bsi_core.crawl import BROWSER_UA, Response
 from bsi_core.rivals import (
     MAX_NEW_PAGES,
     MAX_SITEMAP_FETCHES,
+    MAX_TYPE_CHARS,
+    MAX_URL_CHARS,
     OutOfTime,
     parse_sitemap,
     snapshot_domain,
@@ -283,3 +285,70 @@ def test_soft_404_or_non_sitemap_root_is_incomplete(body):
     snap = snapshot_domain("r.com", fetch, known=set())
     assert snap.complete is False and snap.urls == {}
     assert any("not a sitemap" in e for e in snap.errors)
+
+
+def test_overlong_locs_are_dropped_with_one_error_line():
+    long = "https://r.com/" + "x" * (3_000 - len("https://r.com/"))
+    edge = "https://r.com/" + "y" * (MAX_URL_CHARS - len("https://r.com/"))
+    fetch = site(
+        {
+            "https://r.com/sitemap.xml": urlset(
+                (long, None), (long + "2", None), (edge, None)
+            ),
+            "https://r.com/": HOME,
+        }
+    )
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert set(snap.urls) == {edge}
+    assert snap.errors == [
+        "sitemap https://r.com/sitemap.xml: 2 URLs dropped "
+        "(too long or invalid)"
+    ]
+    assert snap.complete is True
+
+
+def test_nul_locs_are_dropped(monkeypatch):
+    # XML itself cannot carry NUL (expat rejects it), so stub the parser
+    # to prove the guard.
+    import bsi_core.rivals as rivals
+
+    locs = [("https://r.com/a\x00b", None), ("https://r.com/ok", None)]
+    monkeypatch.setattr(
+        rivals, "parse_sitemap", lambda body: ("urlset", locs, True)
+    )
+    fetch = site({"https://r.com/sitemap.xml": "x", "https://r.com/": HOME})
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert set(snap.urls) == {"https://r.com/ok"}
+    assert snap.errors == [
+        "sitemap https://r.com/sitemap.xml: 1 URLs dropped "
+        "(too long or invalid)"
+    ]
+
+
+def test_nul_or_overlong_types_are_dropped():
+    bad = [
+        '{"@type":"Bad\\u0000Type"}',
+        '{"@type":"' + "T" * (MAX_TYPE_CHARS + 1) + '"}',
+        '{"@type":"' + "T" * MAX_TYPE_CHARS + '"}',
+        '{"@type":"Product"}',
+    ]
+    body = "".join(
+        f'<script type="application/ld+json">{b}</script>' for b in bad
+    )
+    fetch = site({"https://r.com/": body})
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert snap.pages[0]["types"] == sorted(["T" * MAX_TYPE_CHARS, "Product"])
+    assert set(snap.domain_types) == {"T" * MAX_TYPE_CHARS, "Product"}
+
+
+def test_robots_disallowed_sitemap_gets_an_error_line():
+    fetch = site(
+        {"https://r.com/sitemap.xml": urlset(("https://r.com/a", None))},
+        robots="User-agent: *\nDisallow: /sitemap\n",
+    )
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert "https://r.com/sitemap.xml" not in fetch.calls
+    assert snap.complete is False
+    assert snap.errors == [
+        "sitemap https://r.com/sitemap.xml: disallowed by robots.txt"
+    ]

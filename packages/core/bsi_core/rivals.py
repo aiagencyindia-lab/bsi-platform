@@ -33,6 +33,8 @@ from .crawl import (
 # The root sitemap plus up to 10 children of an index.
 MAX_SITEMAP_FETCHES = 11
 MAX_NEW_PAGES = 10
+MAX_URL_CHARS = 2_048  # the sitemap protocol's limit
+MAX_TYPE_CHARS = 200
 
 
 class OutOfTime(Exception):
@@ -120,7 +122,9 @@ def _page_types(body: str) -> list[str]:
             found |= _types(json.loads(script))
         except (ValueError, RecursionError):
             continue
-    return sorted(found)
+    return sorted(
+        t for t in found if len(t) <= MAX_TYPE_CHARS and "\x00" not in t
+    )
 
 
 def _newest_first(urls: dict[str, str | None], fresh: list[str]) -> list[str]:
@@ -199,6 +203,7 @@ def snapshot_domain(
         if not allowed(url):
             snap.skipped.append(url)
             snap.complete = False
+            snap.errors.append(f"sitemap {url}: disallowed by robots.txt")
             continue
         read += 1
         r = get(url)
@@ -207,6 +212,17 @@ def snapshot_domain(
             snap.errors.append(f"sitemap {url}: {r.error or r.status}")
             continue
         kind, locs, clean = parse_sitemap(r.body)
+        ok = [
+            (loc, mod)
+            for loc, mod in locs
+            if len(loc) <= MAX_URL_CHARS and "\x00" not in loc
+        ]
+        if len(ok) < len(locs):
+            snap.errors.append(
+                f"sitemap {url}: {len(locs) - len(ok)} URLs dropped "
+                "(too long or invalid)"
+            )
+        locs = ok
         if not clean:
             snap.complete = False
             snap.errors.append(f"sitemap {url}: cut off or not XML")
