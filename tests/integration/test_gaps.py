@@ -652,6 +652,9 @@ def test_a_new_prompt_in_a_decided_cluster_gets_its_own_rec(
     # total = 19 + 1; the new prompt's one absent answer names Adidas.
     assert (c.reach, c.pressure) == (pytest.approx(1 / 20), 1.0)
     assert "absent from 1 of 1 answers" in c.body
+    assert c.title == (
+        "Publish a comparison page for running shoes (comparison) (new prompts)"
+    )
 
 
 def test_a_new_losing_prompt_is_raised_when_the_cluster_is_now_won(
@@ -676,6 +679,24 @@ def test_a_new_losing_prompt_is_raised_when_the_cluster_is_now_won(
     assert recs[("create_content", _plus(new))].evidence["prompt_ids"] == [
         str(new)
     ]
+
+
+def test_a_decided_rec_on_a_lookalike_topic_does_not_cover_the_cluster(
+    scene, owner
+):
+    other = "cluster:comparison:running shoes:+x"
+    scene.add("nike or adidas", "comparison", "running shoes:+x", LOSING)
+    with tenant_session(scene.org.id) as s:
+        refresh(s, scene.org.id, scene.brand)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Recommendation)
+            .where(m.Recommendation.subject_key == other)
+            .values(status="accepted")
+        )
+    keys = {k for t, k in found(scene) if t == "create_content"}
+    assert GAP in keys and other not in keys
+    assert not any(k.startswith(GAP + ":+") and k != other for k in keys)
 
 
 def test_a_decided_cluster_without_new_prompts_is_not_raised(scene, owner):

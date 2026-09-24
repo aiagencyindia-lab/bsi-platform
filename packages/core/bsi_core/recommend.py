@@ -420,6 +420,8 @@ def _cluster_candidate(
         c["n"],
         b["competitors"],
     )
+    if key != c["key"]:
+        title += " (new prompts)"
     return Candidate(
         "create_content",
         key,
@@ -463,7 +465,9 @@ def _content_clusters(
     out = []
     for c in clusters(s, brand_id, Filters()):
         key = c["key"]
-        mine = [ev for k, ev in decided if k == key or k.startswith(key + ":+")]
+        # Exact follow-up keys only: a topic may itself contain ":+".
+        plus = re.compile(re.escape(key) + r":\+[0-9a-f]{8}")
+        mine = [ev for k, ev in decided if k == key or plus.fullmatch(k)]
         if not mine:
             if c["gap"]:
                 out.append(_cluster_candidate(c, key, brand, total))
