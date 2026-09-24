@@ -1,5 +1,6 @@
 """Queue worker: claim an observation, query the engine, store, extract."""
 
+import json
 import logging
 import random
 import time
@@ -43,7 +44,7 @@ from bsi_core.suggest import (
     suggest_competitors,
     suggest_prompts,
 )
-from sqlalchemy import func, select, text, update
+from sqlalchemy import Text, cast, func, select, text, update
 from sqlalchemy.orm import Session
 
 log = logging.getLogger("bsi.worker")
@@ -289,10 +290,11 @@ def audit_page(
         if cluster is None:
             raise ValueError(f"unknown cluster {key!r}")
         pids = [p["prompt_id"] for p in cluster["prompts"]]
+        # The vector as text, parsed here: the ORM never selects it.
         vectors = {
-            pid: None if v is None else [float(x) for x in v]
+            pid: json.loads(v) if v else None
             for pid, v in s.execute(
-                select(m.Prompt.id, m.Prompt.embedding).where(
+                select(m.Prompt.id, cast(m.Prompt.embedding, Text)).where(
                     m.Prompt.id.in_(pids)
                 )
             ).all()
