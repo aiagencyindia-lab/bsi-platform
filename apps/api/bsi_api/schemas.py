@@ -10,6 +10,7 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
+from bsi_core.pages import normalize_url
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -368,3 +369,57 @@ class SiteAuditOut(BaseModel):
     fetches: int
     job_id: uuid.UUID | None
     checks: list[CheckOut]
+
+
+class PageOptimizeIn(BaseModel):
+    url: str = Field(max_length=2048)
+    cluster_key: str = Field(min_length=1, max_length=500)
+
+    @field_validator("url")
+    @classmethod
+    def _http_url(cls, v: str) -> str:
+        # Its ValueError becomes a 422 on body.url.
+        return normalize_url(v)
+
+
+class ComponentOut(BaseModel):
+    code: str
+    weight: int
+    value: float
+    points: float
+    observed: str
+    evidence: list[str]
+
+
+class SuggestionOut(BaseModel):
+    text: str
+    urls: list[str]
+    prompt_ids: list[str]
+    observation_ids: list[str]
+
+
+class SuggestionsOut(BaseModel):
+    # Defaults so a row inserted without suggestions (fixtures, the
+    # server default '{}') still renders; the runner always writes all four.
+    add: list[SuggestionOut] = []
+    remove: list[SuggestionOut] = []
+    rewrite: list[SuggestionOut] = []
+    evidence_to_add: list[SuggestionOut] = []
+
+
+class PageAuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    created_at: datetime
+    job_id: uuid.UUID | None
+    url: str
+    cluster_key: str
+    status: int
+    error: str | None
+    weights_version: str
+    score: int | None
+    components: list[ComponentOut]
+    suggestions: SuggestionsOut
+    evidence: dict[str, Any]
+    fetches: int

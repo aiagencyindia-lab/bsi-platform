@@ -30,12 +30,18 @@ class RunIn(BaseModel):
 
 
 def queue_suggestion(
-    c: Ctx, brand_id: uuid.UUID, kind: str, params: dict[str, Any]
+    c: Ctx,
+    brand_id: uuid.UUID,
+    kind: str,
+    params: dict[str, Any],
+    *,
+    slot: datetime | None = None,
 ) -> dict[str, Any]:
-    """Queue this hour's job for the brand; 409 on an archived brand."""
+    """Queue this hour's job (or the given slot's) for the brand; 409 on
+    an archived brand."""
     if brand_or_404(c, brand_id).status == "archived":
         raise Problem(409, "Brand is archived", "Archived brands are not run.")
-    job = enqueue_job(c.s, c.org_id, brand_id, kind, params)
+    job = enqueue_job(c.s, c.org_id, brand_id, kind, params, slot=slot)
     # status lets a caller tell "queued your work" from "already done
     # this hour", which is the same 202 either way.
     return {

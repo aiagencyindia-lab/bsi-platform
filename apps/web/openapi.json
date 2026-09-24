@@ -773,6 +773,47 @@
         "title": "CompetitorPatch",
         "type": "object"
       },
+      "ComponentOut": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "observed": {
+            "title": "Observed",
+            "type": "string"
+          },
+          "points": {
+            "title": "Points",
+            "type": "number"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "weight",
+          "value",
+          "points",
+          "observed",
+          "evidence"
+        ],
+        "title": "ComponentOut",
+        "type": "object"
+      },
       "Delta": {
         "properties": {
           "ci_high": {
@@ -2150,6 +2191,127 @@
         "title": "OpsOut",
         "type": "object"
       },
+      "PageAuditOut": {
+        "properties": {
+          "cluster_key": {
+            "title": "Cluster Key",
+            "type": "string"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentOut"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "fetches": {
+            "title": "Fetches",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "suggestions": {
+            "$ref": "#/components/schemas/SuggestionsOut"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "weights_version": {
+            "title": "Weights Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "job_id",
+          "url",
+          "cluster_key",
+          "status",
+          "error",
+          "weights_version",
+          "score",
+          "components",
+          "suggestions",
+          "evidence",
+          "fetches"
+        ],
+        "title": "PageAuditOut",
+        "type": "object"
+      },
+      "PageOptimizeIn": {
+        "properties": {
+          "cluster_key": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Cluster Key",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "cluster_key"
+        ],
+        "title": "PageOptimizeIn",
+        "type": "object"
+      },
       "PromptIn": {
         "properties": {
           "text": {
@@ -3024,6 +3186,81 @@
           }
         },
         "title": "SuggestIn",
+        "type": "object"
+      },
+      "SuggestionOut": {
+        "properties": {
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "prompt_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Prompt Ids",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "urls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Urls",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "urls",
+          "prompt_ids",
+          "observation_ids"
+        ],
+        "title": "SuggestionOut",
+        "type": "object"
+      },
+      "SuggestionsOut": {
+        "properties": {
+          "add": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SuggestionOut"
+            },
+            "title": "Add",
+            "type": "array"
+          },
+          "evidence_to_add": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SuggestionOut"
+            },
+            "title": "Evidence To Add",
+            "type": "array"
+          },
+          "remove": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SuggestionOut"
+            },
+            "title": "Remove",
+            "type": "array"
+          },
+          "rewrite": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SuggestionOut"
+            },
+            "title": "Rewrite",
+            "type": "array"
+          }
+        },
+        "title": "SuggestionsOut",
         "type": "object"
       },
       "TaskOut": {
@@ -5471,6 +5708,224 @@
         "summary": "Get Metrics",
         "tags": [
           "metrics"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/pages": {
+      "get": {
+        "description": "The latest audit per (cluster, url), newest first; failed fetches\nincluded.",
+        "operationId": "list_audits_v1_brands__brand_id__pages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cluster_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cluster Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PageAuditOut"
+                  },
+                  "title": "Response List Audits V1 Brands  Brand Id  Pages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Audits",
+        "tags": [
+          "pages"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/pages/optimize": {
+      "post": {
+        "operationId": "optimize_v1_brands__brand_id__pages_optimize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageOptimizeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Optimize",
+        "tags": [
+          "pages"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/pages/{audit_id}": {
+      "get": {
+        "operationId": "get_audit_v1_brands__brand_id__pages__audit_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "audit_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Audit Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageAuditOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Audit",
+        "tags": [
+          "pages"
         ]
       }
     },

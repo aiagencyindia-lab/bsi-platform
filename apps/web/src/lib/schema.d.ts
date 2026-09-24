@@ -322,6 +322,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brands/{brand_id}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Audits
+         * @description The latest audit per (cluster, url), newest first; failed fetches
+         *     included.
+         */
+        get: operations["list_audits_v1_brands__brand_id__pages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/pages/optimize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Optimize */
+        post: operations["optimize_v1_brands__brand_id__pages_optimize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/pages/{audit_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Audit */
+        get: operations["get_audit_v1_brands__brand_id__pages__audit_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/prompts": {
         parameters: {
             query?: never;
@@ -971,6 +1026,21 @@ export interface components {
              */
             status?: "active";
         };
+        /** ComponentOut */
+        ComponentOut: {
+            /** Code */
+            code: string;
+            /** Evidence */
+            evidence: string[];
+            /** Observed */
+            observed: string;
+            /** Points */
+            points: number;
+            /** Value */
+            value: number;
+            /** Weight */
+            weight: number;
+        };
         /** Delta */
         Delta: {
             /** Ci High */
@@ -1450,6 +1520,49 @@ export interface components {
             /** Spent Micros */
             spent_micros: number;
         };
+        /** PageAuditOut */
+        PageAuditOut: {
+            /** Cluster Key */
+            cluster_key: string;
+            /** Components */
+            components: components["schemas"]["ComponentOut"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error: string | null;
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Fetches */
+            fetches: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Job Id */
+            job_id: string | null;
+            /** Score */
+            score: number | null;
+            /** Status */
+            status: number;
+            suggestions: components["schemas"]["SuggestionsOut"];
+            /** Url */
+            url: string;
+            /** Weights Version */
+            weights_version: string;
+        };
+        /** PageOptimizeIn */
+        PageOptimizeIn: {
+            /** Cluster Key */
+            cluster_key: string;
+            /** Url */
+            url: string;
+        };
         /** PromptIn */
         PromptIn: {
             /** Text */
@@ -1800,6 +1913,40 @@ export interface components {
              * @default 50
              */
             count: number;
+        };
+        /** SuggestionOut */
+        SuggestionOut: {
+            /** Observation Ids */
+            observation_ids: string[];
+            /** Prompt Ids */
+            prompt_ids: string[];
+            /** Text */
+            text: string;
+            /** Urls */
+            urls: string[];
+        };
+        /** SuggestionsOut */
+        SuggestionsOut: {
+            /**
+             * Add
+             * @default []
+             */
+            add: components["schemas"]["SuggestionOut"][];
+            /**
+             * Evidence To Add
+             * @default []
+             */
+            evidence_to_add: components["schemas"]["SuggestionOut"][];
+            /**
+             * Remove
+             * @default []
+             */
+            remove: components["schemas"]["SuggestionOut"][];
+            /**
+             * Rewrite
+             * @default []
+             */
+            rewrite: components["schemas"]["SuggestionOut"][];
         };
         /** TaskOut */
         TaskOut: {
@@ -2764,6 +2911,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MetricsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_audits_v1_brands__brand_id__pages_get: {
+        parameters: {
+            query?: {
+                cluster_key?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageAuditOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    optimize_v1_brands__brand_id__pages_optimize_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageOptimizeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueuedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_audit_v1_brands__brand_id__pages__audit_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                audit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageAuditOut"];
                 };
             };
             /** @description Validation Error */

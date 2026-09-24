@@ -14,6 +14,7 @@ from .routers import (
     metrics,
     observations,
     ops,
+    pages,
     prompts,
     recommendations,
     runs,
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
         audits.router,
         competitors.router,
         clusters.router,
+        pages.router,
     ):
         app.include_router(router, prefix="/v1")
     return app
