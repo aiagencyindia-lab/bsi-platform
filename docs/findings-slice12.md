@@ -57,3 +57,29 @@ Adding or deleting a brand domain now recomputes `citation.is_brand_owned` for t
 - Suggested competitors' domains skip `is_public_hostname` (`suggest.py`) and become crawl targets when confirmed; the confirm PATCH does not re-check them.
 - Two overlapping hosts (e.g. `x.com` and `sub.x.com`) deleted by simultaneous requests can leave a citation flagged owned with neither host declared, until the brand's next domain change.
 - Deferred test nits: the two-domain delete test repeats host names instead of using its `hosts` list, and its POSTs do not assert 201.
+
+## 5. First worker pass on dev (2026-09-25)
+
+In order:
+1. Run 1's domains were declared through the API: walkaroo.in as the primary domain of BSOAgentTestBrand, adidas.com on Adidas and skechers.com on Skechers. Run 1's 28 walkaroo.in citations turned owned. This was the first live check of the §4 change; the Overview citation rate moved from 0% to 16.0% (n=100).
+2. The overdue daily schedule of org "Slice3 check" was paused, so the pass had no model spend. The org has an API key, but its plaintext is not recorded anywhere, so the pause was a direct owner-role update of `schedule.status` rather than the schedules route. The route would also have reset `next_run_at`, which still reads 2026-09-22. **Resume it through `PUT /v1/brands/{id}/schedule`**: setting the status back with SQL makes it due at once, with model spend.
+3. The worker was started on dev.
+
+- **Crawl audit of walkaroo.in:** 33 checks, 5 failing.
+  - Failing: the Organization name (high), the brand name in the title (medium), the homepage h1, an About link, and a Wikidata item (low).
+  - The Organization-name and title checks compare against the brand's name, "BSOAgentTestBrand", or a declared alias. The Wikidata check searches by that name and accepts only an item whose official website is a declared domain. These three failures come from pairing a fictional brand name with a real site.
+  - The recommendation refresh after the audit produced 4 `fix_entity` and 1 `fix_crawlability` recommendations for Run 1.
+- **Competitor crawls:** three `crawl_rivals` jobs ran, one per brand with active competitors: BSOAgentTestBrand in Run 1, "Slice2 check" and "Slice3 check". Those brands share the same five competitors, so the same sites were fetched up to three times, in 17 domain crawls: 7 for Run 1 and 5 for each of the other two orgs. Pausing the schedule does not stop these weekly crawls. Run 1's crawls, as observed:
+
+| Domain | Complete | URLs seen | Error |
+|---|---|---|---|
+| campusshoes.com | yes | 3,915 | none |
+| skechers.com | no | 3,015 | the product and image sitemaps cut off or not XML |
+| skechers.in | no | 2,765 | a sitemap cut off or not XML |
+| crocs.in | no | 654 | the product sitemap cut off or not XML |
+| adidas.co.in | no | 0 | sitemap 403 |
+| adidas.com | no | 0 | sitemap 403 |
+| bata.com | no | 0 | robots.txt read timed out |
+
+- **Every first crawl is a baseline.** A domain stays a baseline until a crawl reads URLs. The adidas and bata domains read none, so their next crawl that reads URLs is again a baseline, and new pages can show for them only from the crawl after that. Campus, Skechers and Crocs can show new pages from their next weekly crawl.
+- **Spend** for the pass was 0.
