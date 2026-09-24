@@ -56,6 +56,7 @@ IMPACT_LABELS = (
     # not a shortage of data and must not be reported as one.
     "not_comparable",
 )
+ALERT_TYPES = ("mention_drop", "competitor_shift", "new_source")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -122,6 +123,10 @@ class Brand(Tenant, Base):
     # as due. Stamped by the worker's weekly pass, not by on-demand
     # generation: an operator's click should not defer the next pass.
     recs_refreshed_at: Mapped[datetime | None] = mapped_column(TSZ)
+    # Null = never scanned, which due_alert_scans() treats as due.
+    alerts_scanned_at: Mapped[datetime | None] = mapped_column(TSZ)
+    # One HTTPS URL each new alert is POSTed to; null = no delivery.
+    webhook_url: Mapped[str | None]
 
 
 class Domain(Tenant, Base):
@@ -415,6 +420,46 @@ class Task(Tenant, Base):
             "status IN ('open', 'in_progress') "
             "OR (done_at IS NOT NULL AND window_days IS NOT NULL)",
             name="ck_task_done_has_window",
+        ),
+    )
+
+
+class Alert(Tenant, Base):
+    """A change worth telling the operator about, found by the daily scan
+    over rolling windows. Never raised from a single observation.
+
+    Delivery state lives on the row: attempts, the next attempt time and
+    the last error. next_attempt_at NULL = not for delivery (no webhook at
+    scan time, delivered, or given up).
+    """
+
+    __tablename__ = "alert"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    type: Mapped[str]
+    # mention_rate | <competitor_id>:<up|down> | <domain>
+    subject_key: Mapped[str]
+    title: Mapped[str]
+    detail: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    window_from: Mapped[datetime] = mapped_column(TSZ)
+    window_to: Mapped[datetime] = mapped_column(TSZ)
+    delivered_at: Mapped[datetime | None] = mapped_column(TSZ)
+    delivery_attempts: Mapped[int] = mapped_column(server_default="0")
+    next_attempt_at: Mapped[datetime | None] = mapped_column(TSZ)
+    last_error: Mapped[str | None]
+    __table_args__ = (
+        CheckConstraint(_in("type", ALERT_TYPES), name="ck_alert_type"),
+        # Dedupe looks up (brand, type, subject) and reads window_to.
+        Index(
+            "ix_alert_subject", "brand_id", "type", "subject_key", "window_to"
+        ),
+        # The list reads a brand's alerts by creation time.
+        Index("ix_alert_list", "brand_id", "created_at"),
+        Index(
+            "ix_alert_due",
+            "next_attempt_at",
+            postgresql_where=text(
+                "delivered_at IS NULL AND next_attempt_at IS NOT NULL"
+            ),
         ),
     )
 
