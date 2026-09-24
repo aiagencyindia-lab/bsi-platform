@@ -175,6 +175,7 @@ def test_domain_routes_reflag_brand_owned_citations(
         "walkaroo.in": True,
         "shop.walkaroo.in": True,
         "notwalkaroo.in": False,  # a lookalike: no dot before the host
+        "walkaroo.in.evil.com": False,  # a lookalike: host as a prefix
         "forbes.com": False,
     }
     mine = make_observation(org, bid, status="done")
@@ -223,3 +224,39 @@ def test_domain_routes_reflag_brand_owned_citations(
     assert r.status_code == 204
     assert flags(mine) == dict.fromkeys(cites, False)
     assert flags(theirs) == {"walkaroo.in": False}
+
+
+def test_deleting_one_of_two_domains_keeps_the_other_owned(
+    client, owner, make_org, make_brand, make_observation
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    obs = make_observation(org, bid, status="done")
+    hosts = ["walkaroo.in", "walkaroo.com"]
+    with owner() as s, s.begin():
+        for i, d in enumerate(hosts):
+            s.add(
+                m.Citation(
+                    org_id=org.id,
+                    observation_id=obs,
+                    url=f"https://{d}/",
+                    domain=d,
+                    position=i,
+                )
+            )
+    base = f"/v1/brands/{bid}/domains"
+    ids = [
+        client.post(base, headers=org.headers, json={"host": h}).json()["id"]
+        for h in hosts
+    ]
+    r = client.delete(f"{base}/{ids[0]}", headers=org.headers)
+    assert r.status_code == 204
+    with owner() as s:
+        got = dict(
+            s.execute(
+                select(m.Citation.domain, m.Citation.is_brand_owned).where(
+                    m.Citation.observation_id == obs
+                )
+            ).all()
+        )
+    assert got == {"walkaroo.in": False, "walkaroo.com": True}

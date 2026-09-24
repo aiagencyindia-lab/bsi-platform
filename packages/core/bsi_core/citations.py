@@ -5,9 +5,9 @@ cited page: the stored URL is a Vertex redirect and no title is kept.
 """
 
 import uuid
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select, text
+from sqlalchemy import CursorResult, select, text
 from sqlalchemy.orm import Session
 
 from . import models as m
@@ -151,4 +151,4 @@ def reflag_citations(s: Session, brand_id: uuid.UUID) -> int:
         ),
         {"b": brand_id},
     )
-    return int(res.rowcount)  # type: ignore[attr-defined]
+    return cast(CursorResult[Any], res).rowcount
