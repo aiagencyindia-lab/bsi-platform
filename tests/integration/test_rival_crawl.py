@@ -296,17 +296,152 @@ def test_a_crashing_domain_stores_nothing_and_stays_due(
     assert due() == [bid]
 
 
-def test_out_of_time_domain_is_not_stored(
+def _direct(owner, org, bid, fetch, clock):
+    jid = _job(owner, org, bid, "crawl_rivals", "running")
+    return worker.run_rival_crawl(org.id, bid, jid, fetch, clock=clock)
+
+
+def test_first_domain_out_of_time_is_stored_and_waits(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    cid = _rival(owner, org, bid, domains=("r.com",))
+    ticks = iter([0.0])  # the deadline is set at 0; every later read is late
+    stored = _direct(owner, org, bid, _fake({}), lambda: next(ticks, 1e9))
+    assert stored == 1
+    with owner() as s:
+        [c] = s.scalars(select(m.RivalCrawl)).all()
+    assert (c.domain, c.complete, c.urls_seen, c.baseline) == (
+        "r.com",
+        False,
+        0,
+        True,
+    )
+    assert c.errors == [
+        "out of time: the crawl did not finish within "
+        f"{worker.RIVAL_JOB_SECONDS} s"
+    ]
+    assert _pages(owner, cid) == {}
+    assert due() == []  # waits 7 days like any other crawl
+
+
+def test_a_later_domain_out_of_time_is_not_stored_and_stays_due(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _rival(owner, org, bid, domains=("a.com", "b.com"))
+    now = [0.0]
+    inner = _fake(
+        {
+            "a.com": {
+                "https://a.com/sitemap.xml": urlset(("https://a.com/x", None)),
+                "https://a.com/": HOME,
+            }
+        }
+    )
+
+    def fetch(url, ua):
+        if "b.com" in url:
+            now[0] = 1e9  # b.com's first fetch uses up the budget
+        return inner(url, ua)
+
+    stored = _direct(owner, org, bid, fetch, lambda: now[0])
+    assert stored == 1
+    with owner() as s:
+        [c] = s.scalars(select(m.RivalCrawl)).all()
+    assert (c.domain, c.complete, c.urls_seen, c.errors) == (
+        "a.com",
+        True,
+        1,
+        [],
+    )
+    assert due() == [bid]  # b.com never crawled
+
+
+def test_one_domain_failing_its_write_does_not_lose_the_others(
     owner, make_org, make_brand, monkeypatch
 ):
     org = make_org()
     bid = make_brand(org)
-    _rival(owner, org, bid, domains=("r.com",))
-    monkeypatch.setattr(worker, "RIVAL_JOB_SECONDS", -1)  # already late
-    job = _run(owner, org, bid, _fake({}))
+    cid = _rival(owner, org, bid, domains=("bad.com", "good.com"))
+    real = worker.snapshot_domain
+
+    def snap(host, fetch, known, **kw):
+        out = real(host, fetch, known, **kw)
+        if host == "bad.com":  # NUL cannot be stored in text: insert fails
+            out.urls["https://bad.com/a\x00b"] = None
+        return out
+
+    monkeypatch.setattr(worker, "snapshot_domain", snap)
+    fetch = _fake(
+        {
+            "good.com": {
+                "https://good.com/sitemap.xml": urlset(
+                    ("https://good.com/a", None)
+                ),
+                "https://good.com/": HOME,
+            }
+        }
+    )
+    job = _run(owner, org, bid, fetch)
     assert job.status == "done"
     with owner() as s:
-        assert s.scalar(select(func.count()).select_from(m.RivalCrawl)) == 0
+        assert [c.domain for c in s.scalars(select(m.RivalCrawl))] == [
+            "good.com"
+        ]
+    assert set(_pages(owner, cid)) == {"https://good.com/a"}
+    assert due() == [bid]  # bad.com stays due
+
+
+def test_a_failed_first_crawl_does_not_end_the_baseline(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    cid = _rival(owner, org, bid, domains=("r.com",))
+    blocked = {"https://r.com/sitemap.xml": Response(403, "")}
+
+    def forbidden(url, ua):
+        if url in blocked:
+            return blocked[url]
+        return _fake({"r.com": {"https://r.com/": HOME}})(url, ua)
+
+    _run(owner, org, bid, forbidden)
+    with owner() as s:
+        [c] = s.scalars(select(m.RivalCrawl)).all()
+    assert (c.urls_seen, c.baseline) == (0, True)
+    with owner() as s, s.begin():  # make it due again
+        s.execute(
+            update(m.RivalCrawl).values(
+                created_at=func.now() - func.make_interval(0, 0, 0, 8)
+            )
+        )
+    listed = {
+        "https://r.com/sitemap.xml": urlset(
+            ("https://r.com/a", None), ("https://r.com/b", None)
+        ),
+        "https://r.com/": HOME,
+        "https://r.com/a": (
+            '<script type="application/ld+json">{"@type":"FAQPage"}</script>'
+        ),
+    }
+    _run(owner, org, bid, _fake({"r.com": listed}))
+    pages = _pages(owner, cid)
+    assert set(pages) == {"https://r.com/a", "https://r.com/b"}
+    assert all(p.baseline for p in pages.values())
+    with owner() as s:
+        latest = s.scalars(
+            select(m.RivalCrawl).order_by(m.RivalCrawl.created_at.desc())
+        ).first()
+    assert (latest.baseline, latest.urls_seen) == (True, 2)
+    [ad] = _changes(org, bid)["competitors"]
+    assert (ad["new_pages_total"], ad["new_pages"], ad["new_types"]) == (
+        0,
+        [],
+        [],
+    )
 
 
 def test_writes_are_chunked(owner, make_org, make_brand, monkeypatch):

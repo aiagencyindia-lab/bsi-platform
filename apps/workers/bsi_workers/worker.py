@@ -33,7 +33,12 @@ from bsi_core.pages import WEIGHTS_VERSION, Target, normalize_url, parse, score
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.recommend import refresh
-from bsi_core.rivals import OutOfTime, snapshot_domain, with_deadline
+from bsi_core.rivals import (
+    OutOfTime,
+    Snapshot,
+    snapshot_domain,
+    with_deadline,
+)
 from bsi_core.scheduling import budget_fits, enqueue_job, run_schedule
 from bsi_core.storage import LocalRawStore, RawStore
 from bsi_core.suggest import (
@@ -386,11 +391,13 @@ def run_page_audit(
 def _due_rival_domains(
     s: Session, brand_id: uuid.UUID
 ) -> list[tuple[uuid.UUID, str, bool]]:
-    """(competitor_id, domain, never crawled) for the brand's active
-    competitors' declared domains with no crawl in 7 days, oldest first."""
+    """(competitor_id, domain, still a baseline) for the brand's active
+    competitors' declared domains with no crawl in 7 days, oldest first.
+    A domain stays a baseline until a crawl of it reads URLs."""
     rows = s.execute(
         text(
-            "SELECT c.id, d.domain, max(r.created_at) AS last "
+            "SELECT c.id, d.domain, "
+            "  NOT coalesce(bool_or(r.urls_seen > 0), false) AS never "
             "FROM competitor c "
             "CROSS JOIN LATERAL unnest(c.domains) AS d(domain) "
             "LEFT JOIN rival_crawl r ON r.competitor_id = c.id "
@@ -403,7 +410,7 @@ def _due_rival_domains(
         ),
         {"brand": brand_id},
     ).all()
-    return [(r.id, r.domain, r.last is None) for r in rows]
+    return [(r.id, r.domain, r.never) for r in rows]
 
 
 def run_rival_crawl(
@@ -411,12 +418,16 @@ def run_rival_crawl(
     brand_id: uuid.UUID,
     job_id: uuid.UUID,
     fetch: Fetch = http_fetch,
+    clock: Callable[[], float] = time.monotonic,
 ) -> int:
     """Snapshot each due competitor domain; returns how many were stored.
 
-    Reads, then fetches with no transaction open, then writes. A domain
-    that crashes or runs out of the job's time is not stored and stays
-    due. The first crawl of a domain is its baseline."""
+    Reads, then fetches with no transaction open, then writes, each
+    domain in its own savepoint. A domain that crashes, fails its write,
+    or runs out of time after the job's first domain is not stored and
+    stays due. The first domain running out of time (it had the whole
+    budget) is stored as an incomplete crawl so it is not retried
+    hourly. Crawls stay baselines until one reads URLs."""
     with tenant_session(org_id) as s:
         due = _due_rival_domains(s, brand_id)
         cids = sorted({cid for cid, _, _ in due})
@@ -427,9 +438,9 @@ def run_rival_crawl(
             )
         ).tuples():
             known[cid].add(url)
-    bounded = with_deadline(fetch, RIVAL_JOB_SECONDS)
+    bounded = with_deadline(fetch, RIVAL_JOB_SECONDS, clock)
     done = []
-    for cid, domain, baseline in due:
+    for n, (cid, domain, baseline) in enumerate(due):
         try:
             snap = snapshot_domain(
                 domain, bounded, known[cid], pause=PAUSE_SECONDS
@@ -438,6 +449,13 @@ def run_rival_crawl(
             log.info(
                 "brand %s: rival crawl out of time at %s", brand_id, domain
             )
+            if n == 0:
+                late = Snapshot(complete=False)
+                late.errors.append(
+                    "out of time: the crawl did not finish within "
+                    f"{RIVAL_JOB_SECONDS} s"
+                )
+                done.append((cid, domain, baseline, late))
             break
         except Exception:
             log.exception(
@@ -445,54 +463,63 @@ def run_rival_crawl(
             )
             continue
         done.append((cid, domain, baseline, snap))
+    stored = 0
     with tenant_session(org_id) as s:
         for cid, domain, baseline, snap in done:
-            fresh = [u for u in snap.urls if u not in known[cid]]
-            s.add(
-                m.RivalCrawl(
-                    org_id=org_id,
-                    brand_id=brand_id,
-                    competitor_id=cid,
-                    job_id=job_id,
-                    domain=domain,
-                    baseline=baseline,
-                    complete=snap.complete,
-                    urls_seen=len(snap.urls),
-                    new_urls=len(fresh),
-                    fetches=snap.fetches,
-                    errors=snap.errors,
-                    types=snap.domain_types,
-                )
-            )
-            sampled = {p["url"]: p["types"] for p in snap.pages}
-            rows = [
-                {
-                    "org_id": org_id,
-                    "brand_id": brand_id,
-                    "competitor_id": cid,
-                    "domain": domain,
-                    "url": u,
-                    "baseline": baseline,
-                    "types": sampled.get(u),
-                }
-                for u in snap.urls
-            ]
-            for i in range(0, len(rows), RIVAL_UPSERT_CHUNK):
-                stmt = pg_insert(m.RivalPage).values(
-                    rows[i : i + RIVAL_UPSERT_CHUNK]
-                )
-                s.execute(
-                    stmt.on_conflict_do_update(
-                        index_elements=["competitor_id", "url"],
-                        set_={
-                            "last_seen_at": func.now(),
-                            "types": func.coalesce(
-                                stmt.excluded.types, m.RivalPage.types
-                            ),
-                        },
+            try:
+                with s.begin_nested():
+                    fresh = [u for u in snap.urls if u not in known[cid]]
+                    s.add(
+                        m.RivalCrawl(
+                            org_id=org_id,
+                            brand_id=brand_id,
+                            competitor_id=cid,
+                            job_id=job_id,
+                            domain=domain,
+                            baseline=baseline,
+                            complete=snap.complete,
+                            urls_seen=len(snap.urls),
+                            new_urls=len(fresh),
+                            fetches=snap.fetches,
+                            errors=[e.replace("\x00", "") for e in snap.errors],
+                            types=snap.domain_types,
+                        )
                     )
+                    sampled = {p["url"]: p["types"] for p in snap.pages}
+                    rows = [
+                        {
+                            "org_id": org_id,
+                            "brand_id": brand_id,
+                            "competitor_id": cid,
+                            "domain": domain,
+                            "url": u,
+                            "baseline": baseline,
+                            "types": sampled.get(u),
+                        }
+                        for u in snap.urls
+                    ]
+                    for i in range(0, len(rows), RIVAL_UPSERT_CHUNK):
+                        stmt = pg_insert(m.RivalPage).values(
+                            rows[i : i + RIVAL_UPSERT_CHUNK]
+                        )
+                        s.execute(
+                            stmt.on_conflict_do_update(
+                                index_elements=["competitor_id", "url"],
+                                set_={
+                                    "last_seen_at": func.now(),
+                                    "types": func.coalesce(
+                                        stmt.excluded.types, m.RivalPage.types
+                                    ),
+                                },
+                            )
+                        )
+            except Exception:
+                log.exception(
+                    "brand %s: rival crawl write of %s failed", brand_id, domain
                 )
-    return len(done)
+                continue
+            stored += 1
+    return stored
 
 
 def queue_due_rival_crawls() -> int:
