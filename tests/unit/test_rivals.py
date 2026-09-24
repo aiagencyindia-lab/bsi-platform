@@ -273,3 +273,13 @@ def test_undated_new_pages_come_after_dated_in_url_order():
         "https://r.com/a",
         "https://r.com/z",
     ]
+
+
+@pytest.mark.parametrize(
+    "body", ["<html><body>Not found</body></html>", "<rss><channel/></rss>"]
+)
+def test_soft_404_or_non_sitemap_root_is_incomplete(body):
+    fetch = site({"https://r.com/sitemap.xml": body, "https://r.com/": HOME})
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert snap.complete is False and snap.urls == {}
+    assert any("not a sitemap" in e for e in snap.errors)

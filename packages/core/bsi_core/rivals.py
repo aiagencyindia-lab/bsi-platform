@@ -207,6 +207,10 @@ def snapshot_domain(
             snap.errors.append(f"sitemap {url}: cut off or not XML")
         if kind == "sitemapindex":
             queue += [loc for loc, _ in locs if _owned_sitemap(host, loc)]
+        elif kind != "urlset":  # a soft-404 page, a feed, garbage
+            snap.complete = False
+            if clean:
+                snap.errors.append(f"sitemap {url}: not a sitemap (<{kind}>)")
         else:
             for loc, lastmod in locs:
                 if _owned_sitemap(host, loc):  # any on-host http(s) URL
