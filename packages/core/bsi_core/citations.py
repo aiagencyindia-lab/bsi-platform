@@ -128,3 +128,27 @@ def sources(
             }
         )
     return out
+
+
+def reflag_citations(s: Session, brand_id: uuid.UUID) -> int:
+    """Recompute citation.is_brand_owned for one brand's answers from its
+    declared domains as they are now; returns the rows changed.
+
+    Host match as matching.is_owned: equal, or a dot then the host. No
+    LIKE, so "_" or "%" in a host is not a wildcard.
+    """
+    owned = (
+        "EXISTS (SELECT 1 FROM domain d WHERE d.brand_id = :b "
+        "AND (c.domain = d.host "
+        "OR right(c.domain, length(d.host) + 1) = '.' || d.host))"
+    )
+    res = s.execute(
+        text(
+            f"UPDATE citation c SET is_brand_owned = {owned} "
+            "FROM observation o "
+            "WHERE o.id = c.observation_id AND o.brand_id = :b "
+            f"AND c.is_brand_owned IS DISTINCT FROM {owned}"
+        ),
+        {"b": brand_id},
+    )
+    return int(res.rowcount)  # type: ignore[attr-defined]

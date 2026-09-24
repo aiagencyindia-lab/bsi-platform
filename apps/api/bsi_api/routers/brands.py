@@ -2,6 +2,7 @@ import uuid
 from typing import Annotated, Any, Literal
 
 from bsi_core import models as m
+from bsi_core.citations import reflag_citations
 from bsi_core.matching import is_public_hostname, normalize_domain
 from fastapi import APIRouter, Response
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
@@ -215,6 +216,7 @@ def create_domain(
     )
     c.s.add(row)
     c.s.flush()
+    reflag_citations(c.s, brand_id)
     return row
 
 
@@ -223,6 +225,8 @@ def delete_domain(
     brand_id: uuid.UUID, domain_id: uuid.UUID, c: Ctx = TENANT
 ) -> Response:
     c.s.delete(child_or_404(c, m.Domain, brand_id, domain_id))
+    c.s.flush()
+    reflag_citations(c.s, brand_id)
     return Response(status_code=204)
 
 

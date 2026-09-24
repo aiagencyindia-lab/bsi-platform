@@ -2,7 +2,7 @@
 
 import pytest
 from bsi_core import models as m
-from bsi_core.citations import sources
+from bsi_core.citations import reflag_citations, sources
 from bsi_core.db import tenant_session
 from bsi_core.metrics import Filters
 from sqlalchemy import select, update
@@ -160,3 +160,66 @@ def test_empty_brand_gives_empty_list(make_org, make_brand):
     bid = make_brand(org)
     with tenant_session(org.id) as s:
         assert sources(s, bid, Filters()) == []
+
+
+def test_domain_routes_reflag_brand_owned_citations(
+    client, owner, make_org, make_brand, make_observation
+):
+    """Adding a brand domain flags its citations owned; deleting it
+    clears them. Another brand in the org, citing the same host, keeps
+    its own flag."""
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    other = make_brand(org, "Other")
+    cites = {
+        "walkaroo.in": True,
+        "shop.walkaroo.in": True,
+        "notwalkaroo.in": False,  # a lookalike: no dot before the host
+        "forbes.com": False,
+    }
+    mine = make_observation(org, bid, status="done")
+    theirs = make_observation(org, other, status="done")
+    with owner() as s, s.begin():
+        for i, d in enumerate(cites):
+            s.add(
+                m.Citation(
+                    org_id=org.id,
+                    observation_id=mine,
+                    url=f"https://{d}/",
+                    domain=d,
+                    position=i,
+                )
+            )
+        s.add(
+            m.Citation(
+                org_id=org.id,
+                observation_id=theirs,
+                url="https://walkaroo.in/",
+                domain="walkaroo.in",
+                position=0,
+            )
+        )
+
+    def flags(obs):
+        with owner() as s:
+            return dict(
+                s.execute(
+                    select(m.Citation.domain, m.Citation.is_brand_owned).where(
+                        m.Citation.observation_id == obs
+                    )
+                ).all()
+            )
+
+    base = f"/v1/brands/{bid}/domains"
+    r = client.post(base, headers=org.headers, json={"host": "walkaroo.in"})
+    assert r.status_code == 201
+    assert flags(mine) == cites
+    assert flags(theirs) == {"walkaroo.in": False}
+    with owner() as s, s.begin():
+        # Only rows whose flag changes are written: a re-run is a no-op.
+        assert reflag_citations(s, bid) == 0
+
+    r = client.delete(f"{base}/{r.json()['id']}", headers=org.headers)
+    assert r.status_code == 204
+    assert flags(mine) == dict.fromkeys(cites, False)
+    assert flags(theirs) == {"walkaroo.in": False}
