@@ -67,8 +67,8 @@ In order:
 
 - **Crawl audit of walkaroo.in:** 33 checks, 5 failing.
   - Failing: the Organization name (high), the brand name in the title (medium), the homepage h1, an About link, and a Wikidata item (low).
-  - The Organization-name and title checks compare against the brand's name or a declared alias ("BSOAgentTestBrand"). The Wikidata check searches by that name and accepts only an item whose official website is a declared domain. These three failures come from pairing a fictional brand name with a real site.
-  - The refresh produced 4 `fix_entity` and 1 `fix_crawlability` recommendations for Run 1.
+  - The Organization-name and title checks compare against the brand's name, "BSOAgentTestBrand", or a declared alias. The Wikidata check searches by that name and accepts only an item whose official website is a declared domain. These three failures come from pairing a fictional brand name with a real site.
+  - The recommendation refresh after the audit produced 4 `fix_entity` and 1 `fix_crawlability` recommendations for Run 1.
 - **Competitor crawls:** three `crawl_rivals` jobs ran, one per brand with active competitors: BSOAgentTestBrand in Run 1, "Slice2 check" and "Slice3 check". Those brands share the same five competitors, so the same sites were fetched up to three times, in 17 domain crawls: 7 for Run 1 and 5 for each of the other two orgs. Pausing the schedule does not stop these weekly crawls. Run 1's crawls, as observed:
 
 | Domain | Complete | URLs seen | Error |
