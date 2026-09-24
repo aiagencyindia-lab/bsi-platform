@@ -5,7 +5,7 @@ import pytest
 from bsi_core import models as m
 from bsi_core.crawl import Response
 from bsi_core.db import tenant_session
-from bsi_core.pages import WEIGHTS_VERSION
+from bsi_core.pages import COS_COVERED, WEIGHTS_VERSION, cosine, parse
 from sqlalchemy import select, text, update
 
 from tests.integration.test_gaps import scene  # noqa: F401
@@ -81,6 +81,14 @@ def test_job_stores_a_scored_row_and_refreshes_recs(owner, scene):  # noqa: F811
         "topic_coverage",
         "evidence",
     ]
+    topic = next(c for c in a.components if c["code"] == "topic_coverage")
+    sections = [bow(x.embed_text()) for x in parse(PAGE).sections]
+    covered = sum(
+        max(cosine(bow(q), sv) for sv in sections) >= COS_COVERED
+        for q in ("nike vs adidas", "best running shoe brand")
+    )
+    assert topic["value"] > 0
+    assert topic["observed"] == f"{covered} of 2 prompts covered"
     assert set(a.evidence["prompt_ids"]) == {str(scene.vs), str(scene.best)}
     assert len(a.evidence["observation_ids"]) == 6
     assert a.evidence["cluster"] == {
@@ -99,6 +107,30 @@ def test_job_stores_a_scored_row_and_refreshes_recs(owner, scene):  # noqa: F811
     # The fixture page scores 47: under 70, so the rule fires.
     assert a.score < 70
     assert [r.subject_key for r in recs] == [f"page:{KEY}:{URL}"]
+
+
+def test_accepting_an_optimize_page_rec_tasks_the_cluster(
+    client,
+    owner,
+    scene,  # noqa: F811
+):
+    _embed_prompts(owner, scene)
+    _, [a] = _run(owner, scene, {"url": URL, "cluster_key": KEY})
+    assert a.score < 70  # the rule fires
+    with owner() as s:
+        rid = s.scalars(
+            select(m.Recommendation.id).where(
+                m.Recommendation.type == "optimize_page"
+            )
+        ).one()
+    t = client.post(
+        f"/v1/brands/{scene.brand}/recommendations/{rid}/accept",
+        headers=scene.org.headers,
+    )
+    assert t.is_success, t.text
+    task = t.json()
+    assert set(task["prompt_ids"]) == {str(scene.vs), str(scene.best)}
+    assert task["measures_impact"] is True
 
 
 def test_unknown_cluster_fails_the_job_and_stores_nothing(owner, scene):  # noqa: F811
@@ -142,7 +174,8 @@ def test_a_failed_fetch_is_a_stored_finding(owner, scene, response, error):  # n
 
 def test_budget_gate_refuses_when_the_estimate_does_not_fit(owner, scene):  # noqa: F811
     assert worker.JOB_ESTIMATES["optimize_url"] == worker.PAGE_JOB_MICROS
-    # A $0 cap: the 2,000-micro estimate cannot fit.
+    assert worker.PAGE_JOB_MICROS == 5_000
+    # A $0 cap: the 5,000-micro estimate cannot fit.
     with owner() as s, s.begin():
         s.execute(
             update(m.Organization)

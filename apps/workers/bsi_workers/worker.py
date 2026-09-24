@@ -55,8 +55,9 @@ BACKOFF_SECONDS = (15, 60)
 JITTER = 0.2
 STALE_RESET_SECONDS = 300
 SCHEDULE_CHECK_SECONDS = 60
-# 60 sections x ~250 tokens of gemini-embedding-001 at $0.15/M, rounded up.
-PAGE_JOB_MICROS = 2_000
+# Worst case: 60 sections x 2,000 chars ~= 60 x ~520 tokens ~= 31k tokens
+# of gemini-embedding-001 at $0.15/M ~= 4,700 micros, rounded up.
+PAGE_JOB_MICROS = 5_000
 CITED_URLS_CAP = 10
 # What a suggestion job reserves before it spends (spec §5).
 JOB_ESTIMATES = {

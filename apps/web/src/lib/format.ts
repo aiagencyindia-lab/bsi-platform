@@ -94,6 +94,7 @@ export const KIND: Record<string, string> = {
   sample_more: "Measurement",
   fix_crawlability: "Site fix",
   fix_entity: "Entity fix",
+  optimize_page: "Page fix",
 };
 
 const QUEUED = "Queued; the worker runs it within a minute.";

@@ -372,6 +372,8 @@ class SiteAuditOut(BaseModel):
 
 
 class PageOptimizeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     url: str = Field(max_length=2048)
     cluster_key: str = Field(min_length=1, max_length=500)
 

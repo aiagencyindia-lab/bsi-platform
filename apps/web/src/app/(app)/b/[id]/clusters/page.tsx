@@ -147,6 +147,7 @@ export default async function ClustersPage({
                         <input
                           type="url"
                           name="url"
+                          aria-label="Page URL to score"
                           required
                           placeholder="https://your-site.com/page"
                           style={{ minWidth: 280 }}

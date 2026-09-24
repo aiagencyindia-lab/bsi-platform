@@ -274,6 +274,27 @@ def test_intent_fit_by_page_type():
     assert any("Product" in s["text"] for s in r["suggestions"]["add"])
 
 
+def test_comparison_with_one_rival_needs_only_that_rival_named():
+    body = ARTICLE.replace("<p>Acme has", "<p>Bata and Acme has")
+    p = parse(body)  # a table and Bata named
+    t = target(intent="comparison", rivals=["Bata"])
+    r = score(p, t, *vectors(p, t.queries))
+    assert by_code(r)["intent_fit"]["value"] == 1.0
+
+
+def test_comparison_with_no_rivals_depends_on_the_table_only():
+    t = target(intent="comparison", rivals=[])
+    p = parse(ARTICLE)  # a table
+    r = score(p, t, *vectors(p, t.queries))
+    assert by_code(r)["intent_fit"]["value"] == 1.0
+    p2 = parse("<h1>No table</h1><p>Acme shoes.</p>")
+    r2 = score(p2, t, *vectors(p2, t.queries))
+    assert by_code(r2)["intent_fit"]["value"] == 0.0
+    adds = [s["text"] for s in r2["suggestions"]["add"]]
+    assert any("comparison table" in a for a in adds)
+    assert not any("rival" in a for a in adds)
+
+
 def test_entity_coverage():
     p = parse(ARTICLE)
     t = target()  # Acme in title and body and description -> 1.0
@@ -299,6 +320,23 @@ def test_evidence_links_to_cited_domains_and_other_third_parties():
     # forbes is already linked; the Bata page is a cited competitor page.
     assert [s["urls"] for s in ev] == [["https://bata.in/school"]]
     assert ev[0]["observation_ids"] == ["o1", "o4"]
+    # a rival's page is one to study, not to link
+    assert ev[0]["text"] == (
+        "See how https://bata.in/school covers this: 2 answers in this "
+        "cluster draw on it."
+    )
+
+
+def test_evidence_to_add_third_party_page_is_one_to_cite():
+    p = parse("<h1>t</h1>")  # links nothing
+    t = target()
+    ev = score(p, t, *vectors(p, t.queries))["suggestions"]["evidence_to_add"]
+    assert [s["urls"] for s in ev] == [
+        ["https://forbes.com/x"],
+        ["https://bata.in/school"],
+    ]
+    assert ev[0]["text"].startswith("Cite https://forbes.com/x: 3 answers")
+    assert ev[1]["text"].startswith("See how https://bata.in/school")
 
 
 @pytest.mark.parametrize(

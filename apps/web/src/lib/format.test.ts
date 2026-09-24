@@ -4,6 +4,7 @@ import {
   auditNote,
   ciText,
   highlight,
+  KIND,
   labelNote,
   lastDay,
   pageNote,
@@ -134,3 +135,6 @@ test("pageNote says what the score button actually did", () => {
   expect(pageNote(undefined)).toBeNull();
   expect(pageNote("constructor")).toBeNull();
 });
+
+test("KIND labels the page-fix recommendation", () =>
+  expect(KIND.optimize_page).toBe("Page fix"));

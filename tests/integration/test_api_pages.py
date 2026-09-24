@@ -32,6 +32,16 @@ def test_optimize_rejects_bad_urls_and_unknown_clusters(client, scene):  # noqa:
     assert r.status_code == 422 and "cluster" in r.json()["detail"].lower()
 
 
+def test_optimize_rejects_an_extra_field(client, scene):  # noqa: F811
+    body = {"url": "https://nike.com/", "cluster_key": KEY, "force": True}
+    r = client.post(
+        f"/v1/brands/{scene.brand}/pages/optimize",
+        json=body,
+        headers=scene.org.headers,
+    )
+    assert r.status_code == 422, r.text
+
+
 def test_optimize_on_an_archived_brand_is_409(client, owner, scene):  # noqa: F811
     with owner() as s, s.begin():
         s.execute(

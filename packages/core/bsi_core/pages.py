@@ -295,10 +295,12 @@ def _signals(
     types = {x for n in _ld_nodes(page.ld) for x in _types(n)}
     pt = t.page_type
     if pt == "comparison page":
-        return [
-            ("a comparison table", page.tables >= 1),
-            ("at least two rivals named", rivals_named >= 2),
-        ]
+        out = [("a comparison table", page.tables >= 1)]
+        need = min(2, len(t.rivals))  # no rivals: the table alone
+        if need:
+            what = "at least two rivals" if need == 2 else "the rival"
+            out.append((f"{what} named", rivals_named >= need))
+        return out
     if pt == "best-of round-up":
         return [
             ("a list of at least three picks", page.lists >= 1),
@@ -415,10 +417,15 @@ def score(
             is_owned(h, [c["domain"]]) for h in linked
         ):
             continue
+        # A rival's page is one to study, not to link.
+        lead = (
+            f"See how {c['url']} covers this"
+            if is_owned(c["domain"], t.rival_hosts)
+            else f"Cite {c['url']}"
+        )
         evidence_to_add.append(
             _suggestion(
-                f"Cite {c['url']}: {c['answers']} answers in this cluster "
-                "draw on it.",
+                f"{lead}: {c['answers']} answers in this cluster draw on it.",
                 urls=[c["url"]],
                 observation_ids=list(c["observation_ids"]),
             )
