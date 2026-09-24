@@ -21,6 +21,7 @@ from .metrics import (
     rate,
     window_versions,
 )
+from .rivals import feed_evidence
 
 CITING_DOMAINS = 5
 MIN_PROMPTS = 10
@@ -405,6 +406,11 @@ def visibility_changes(
                     **_evidence(s, brand_id, fa, cid, pids, cited_before),
                 }
             )
+    site = feed_evidence(
+        s, brand_id, sorted({e["competitor_id"] for e in entries}), mid, to
+    )
+    for e in entries:
+        e.update(site[e["competitor_id"]])
     entries.sort(key=lambda e: (-abs(e["delta"]["value"]), e["name"]))
     out["changes"] = entries
     return out

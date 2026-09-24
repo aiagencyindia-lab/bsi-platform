@@ -1,11 +1,14 @@
 """Competitor site crawl (PRD F07): what is due, what the job stores,
 and what counts as a change."""
 
+from datetime import timedelta
+
 import bsi_workers.worker as worker
 import pytest
 from bsi_core import models as m
 from bsi_core.crawl import Response
-from bsi_core.db import system_session
+from bsi_core.db import system_session, tenant_session
+from bsi_core.rivals import NEW_PAGES_CAP, feed_evidence, site_changes
 from sqlalchemy import func, select, text, update
 
 from tests.integration.test_worker import FakeAdapter, _job, _load_job, _spender
@@ -363,3 +366,155 @@ def test_queue_due_rival_crawls_is_idempotent_within_the_hour(
             select(m.Job).where(m.Job.kind == "crawl_rivals")
         ).all()
     assert len(jobs) == 1 and jobs[0].status == "queued"
+
+
+def _page(
+    owner,
+    org,
+    bid,
+    cid,
+    url,
+    days_ago,
+    baseline=False,
+    types=None,
+    domain="r.com",
+):
+    with owner() as s, s.begin():
+        p = m.RivalPage(
+            org_id=org.id,
+            brand_id=bid,
+            competitor_id=cid,
+            domain=domain,
+            url=url,
+            baseline=baseline,
+            types=types,
+        )
+        s.add(p)
+        s.flush()
+        s.execute(
+            update(m.RivalPage)
+            .where(m.RivalPage.id == p.id)
+            .values(
+                first_seen_at=func.now() - func.make_interval(0, 0, 0, days_ago)
+            )
+        )
+
+
+def _changes(org, bid, **kw):
+    with tenant_session(org.id) as s:
+        return site_changes(s, bid, **kw)
+
+
+def test_site_changes_lists_new_pages_types_and_crawl_status(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    a = _rival(owner, org, bid, "Adidas", domains=("r.com",))
+    b = _rival(owner, org, bid, "Bata", domains=("b.com",))
+    _crawl(
+        owner,
+        org,
+        bid,
+        a,
+        "r.com",
+        days_ago=20,
+        baseline=True,
+        types={"Organization": "https://r.com/"},
+    )
+    _crawl(
+        owner,
+        org,
+        bid,
+        a,
+        "r.com",
+        days_ago=2,
+        types={
+            "Organization": "https://r.com/",
+            "FAQPage": "https://r.com/new",
+        },
+    )
+    _page(owner, org, bid, a, "https://r.com/base", 20, baseline=True)
+    _page(owner, org, bid, a, "https://r.com/old", 30)  # before the window
+    _page(owner, org, bid, a, "https://r.com/new", 2, types=["FAQPage"])
+    _page(owner, org, bid, a, "https://r.com/new0", 1)
+    out = _changes(org, bid)
+    assert [c["name"] for c in out["competitors"]] == ["Adidas", "Bata"]
+    ad = out["competitors"][0]
+    assert ad["new_pages_total"] == 2
+    assert [p["url"] for p in ad["new_pages"]] == [
+        "https://r.com/new0",
+        "https://r.com/new",
+    ]
+    assert ad["new_pages"][1]["types"] == ["FAQPage"]
+    assert ad["new_types"] == [{"type": "FAQPage", "url": "https://r.com/new"}]
+    assert [(c["domain"], c["complete"]) for c in ad["crawls"]] == [
+        ("r.com", True)
+    ]
+    bata = out["competitors"][1]
+    assert (bata["new_pages_total"], bata["crawls"]) == (0, [])
+    assert b == bata["competitor_id"]
+
+
+def test_new_pages_are_capped_and_types_first_seen_on_baseline_are_not_new(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    a = _rival(owner, org, bid, domains=("r.com", "s.com"))
+    for i in range(NEW_PAGES_CAP + 3):
+        _page(owner, org, bid, a, f"https://r.com/p{i:02d}", 3)
+    # s.com's baseline crawl lands in the window with a type r.com never
+    # had: still not new (baseline).
+    _crawl(
+        owner,
+        org,
+        bid,
+        a,
+        "s.com",
+        days_ago=1,
+        baseline=True,
+        types={"Product": "https://s.com/"},
+    )
+    ad = _changes(org, bid)["competitors"][0]
+    assert ad["new_pages_total"] == NEW_PAGES_CAP + 3
+    assert len(ad["new_pages"]) == NEW_PAGES_CAP
+    assert ad["new_types"] == []
+
+
+def test_feed_evidence_is_windowed_per_competitor_in_two_statements(
+    owner, make_org, make_brand
+):
+    from sqlalchemy import event
+
+    org = make_org()
+    bid = make_brand(org)
+    a = _rival(owner, org, bid, "A", domains=("r.com",))
+    b = _rival(owner, org, bid, "B", domains=("b.com",))
+    _page(owner, org, bid, a, "https://r.com/in", 2)
+    _page(owner, org, bid, a, "https://r.com/out", 20)
+    _page(owner, org, bid, b, "https://b.com/in", 2, domain="b.com")
+    _crawl(owner, org, bid, a, "r.com", days_ago=20, baseline=True)
+    _crawl(
+        owner,
+        org,
+        bid,
+        a,
+        "r.com",
+        days_ago=2,
+        types={"HowTo": "https://r.com/in"},
+    )
+    seen = []
+    with tenant_session(org.id) as s:
+        end = s.scalar(text("SELECT now()"))
+        bind = s.get_bind()
+        listener = lambda *args: seen.append(args[2])  # noqa: E731
+        event.listen(bind, "before_cursor_execute", listener)
+        try:
+            ev = feed_evidence(s, bid, [a], end - timedelta(days=14), end)
+        finally:
+            event.remove(bind, "before_cursor_execute", listener)
+    assert len(seen) == 2
+    assert ev == {
+        a: {"new_pages": ["https://r.com/in"], "new_types": ["HowTo"]}
+    }

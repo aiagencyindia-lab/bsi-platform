@@ -7,11 +7,16 @@ crawl.http_fetch in production), as crawl.audit_domain does."""
 
 import json
 import time
+import uuid
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlsplit
+
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from .crawl import (
     BROWSER_UA,
@@ -232,3 +237,137 @@ def snapshot_domain(
         for t in types:
             snap.domain_types.setdefault(t, url)
     return snap
+
+
+NEW_PAGES_CAP = 20
+
+# Pages first seen in [start, end), not on a baseline crawl, newest first
+# and capped per competitor; total is the uncapped count.
+_NEW_PAGES = (
+    "SELECT competitor_id, url, first_seen_at, types, total FROM ("
+    "  SELECT competitor_id, url, first_seen_at, types, "
+    "    row_number() OVER (PARTITION BY competitor_id "
+    "      ORDER BY first_seen_at DESC, url) AS n, "
+    "    count(*) OVER (PARTITION BY competitor_id) AS total "
+    "  FROM rival_page WHERE brand_id = :brand "
+    "  AND competitor_id = ANY(:cids) AND NOT baseline "
+    "  AND first_seen_at >= :start AND first_seen_at < :end) x "
+    f"WHERE n <= {NEW_PAGES_CAP} ORDER BY competitor_id, n"
+)
+
+# @types first seen in [start, end) for a competitor, across its domains,
+# on a crawl that is not a baseline. A type any earlier crawl had (or
+# whose earliest crawl was a baseline) is not new. url and base come from
+# the earliest crawl, ties broken by id.
+_NEW_TYPES = (
+    "SELECT competitor_id, type, url FROM ("
+    "  SELECT r.competitor_id, t.key AS type, "
+    "    (array_agg(t.value #>> '{}' ORDER BY r.created_at, r.id))[1] AS url,"
+    "    min(r.created_at) AS first_at, "
+    "    (array_agg(r.baseline ORDER BY r.created_at, r.id))[1] AS base "
+    "  FROM rival_crawl r CROSS JOIN LATERAL jsonb_each(r.types) AS t "
+    "  WHERE r.brand_id = :brand AND r.competitor_id = ANY(:cids) "
+    "  GROUP BY r.competitor_id, t.key) f "
+    "WHERE NOT base AND first_at >= :start AND first_at < :end "
+    "ORDER BY competitor_id, type"
+)
+
+
+def feed_evidence(
+    s: Session,
+    brand_id: uuid.UUID,
+    cids: list[uuid.UUID],
+    start: datetime,
+    end: datetime,
+) -> dict[uuid.UUID, dict[str, list[str]]]:
+    """Per competitor: pages first seen in [start, end) (not baseline,
+    newest first, capped) and @types first seen there. Two statements."""
+    out: dict[uuid.UUID, dict[str, list[str]]] = {
+        c: {"new_pages": [], "new_types": []} for c in cids
+    }
+    if not cids:
+        return out
+    p = {"brand": brand_id, "cids": cids, "start": start, "end": end}
+    for r in s.execute(text(_NEW_PAGES), p):
+        out[r.competitor_id]["new_pages"].append(r.url)
+    for r in s.execute(text(_NEW_TYPES), p):
+        out[r.competitor_id]["new_types"].append(r.type)
+    return out
+
+
+def site_changes(
+    s: Session,
+    brand_id: uuid.UUID,
+    days: int = 14,
+    to: datetime | None = None,
+) -> dict[str, Any]:
+    """Every active competitor with its new pages, new @types and each
+    declared domain's latest crawl, over [to - days, to). Ordered by new
+    pages, then name. Four statements."""
+    to = to or datetime.now(UTC)
+    start = to - timedelta(days=days)
+    out: dict[str, Any] = {
+        "window": {"start": start, "to": to},
+        "competitors": [],
+    }
+    rivals = s.execute(
+        text(
+            "SELECT id, name FROM competitor "
+            "WHERE brand_id = :brand AND status = 'active' "
+            "ORDER BY name, id"
+        ),
+        {"brand": brand_id},
+    ).all()
+    if not rivals:
+        return out
+    cids = [r.id for r in rivals]
+    p = {"brand": brand_id, "cids": cids, "start": start, "end": to}
+    pages: dict[uuid.UUID, list[dict[str, Any]]] = {c: [] for c in cids}
+    totals: dict[uuid.UUID, int] = dict.fromkeys(cids, 0)
+    for r in s.execute(text(_NEW_PAGES), p):
+        totals[r.competitor_id] = int(r.total)
+        pages[r.competitor_id].append(
+            {
+                "url": r.url,
+                "first_seen_at": r.first_seen_at,
+                "types": list(r.types or []),
+            }
+        )
+    types: dict[uuid.UUID, list[dict[str, str]]] = {c: [] for c in cids}
+    for r in s.execute(text(_NEW_TYPES), p):
+        types[r.competitor_id].append({"type": r.type, "url": r.url})
+    crawls: dict[uuid.UUID, list[dict[str, Any]]] = {c: [] for c in cids}
+    for r in s.execute(
+        text(
+            "SELECT DISTINCT ON (r.competitor_id, r.domain) r.competitor_id, "
+            "r.domain, r.created_at, r.complete, r.urls_seen, r.errors "
+            "FROM rival_crawl r JOIN competitor c ON c.id = r.competitor_id "
+            "  AND r.domain = ANY(c.domains) "
+            "WHERE r.brand_id = :brand AND r.competitor_id = ANY(:cids) "
+            "ORDER BY r.competitor_id, r.domain, r.created_at DESC, r.id DESC"
+        ),
+        p,
+    ):
+        crawls[r.competitor_id].append(
+            {
+                "domain": r.domain,
+                "crawled_at": r.created_at,
+                "complete": r.complete,
+                "urls_seen": r.urls_seen,
+                "errors": list(r.errors),
+            }
+        )
+    rows = [
+        {
+            "competitor_id": r.id,
+            "name": r.name,
+            "new_pages_total": totals[r.id],
+            "new_pages": pages[r.id],
+            "new_types": types[r.id],
+            "crawls": crawls[r.id],
+        }
+        for r in rivals
+    ]
+    rows.sort(key=lambda x: (-x["new_pages_total"], x["name"]))
+    out["competitors"] = rows
+    return out

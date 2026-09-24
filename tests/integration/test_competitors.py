@@ -841,3 +841,39 @@ def test_host_with_underscore_is_not_a_wildcard(owner, scene):
         ).first()
         s.add(_cite(org, o3, "www.myXshop.com"))
     assert rows(org, bid)["Puma"]["citation_rate"] == _r(0, 5)
+
+
+def test_feed_entries_carry_the_rivals_site_changes(owner, feed):
+    org, bid, ids = feed
+    with owner() as s, s.begin():
+        s.add_all(
+            [
+                m.RivalPage(
+                    org_id=org.id,
+                    brand_id=bid,
+                    competitor_id=ids["a"],
+                    domain="a.com",
+                    url="https://a.com/new",
+                    first_seen_at=NOW - timedelta(days=3),
+                ),
+                m.RivalPage(
+                    org_id=org.id,
+                    brand_id=bid,
+                    competitor_id=ids["a"],
+                    domain="a.com",
+                    url="https://a.com/older",
+                    first_seen_at=NOW - timedelta(days=20),
+                ),
+                m.RivalPage(
+                    org_id=org.id,
+                    brand_id=bid,
+                    competitor_id=ids["b"],
+                    domain="b.com",
+                    url="https://b.com/new",
+                    first_seen_at=NOW - timedelta(days=3),
+                ),
+            ]
+        )
+    [a] = changes(org, bid)["changes"]
+    assert a["new_pages"] == ["https://a.com/new"]
+    assert a["new_types"] == []
