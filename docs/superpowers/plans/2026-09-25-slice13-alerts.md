@@ -88,18 +88,18 @@ def due_deliveries():
 
 
 def _alert(owner, org, bid, **kw):
+    """One stored alert; keyword arguments override the defaults."""
     now = datetime.now(UTC)
+    row = {
+        "type": "new_source",
+        "subject_key": "x.com",
+        "title": "t",
+        "window_from": now - timedelta(days=7),
+        "window_to": now,
+        **kw,
+    }
     with owner() as s, s.begin():
-        a = m.Alert(
-            org_id=org.id,
-            brand_id=bid,
-            type="new_source",
-            subject_key="x.com",
-            title="t",
-            window_from=now - timedelta(days=7),
-            window_to=now,
-            **kw,
-        )
+        a = m.Alert(org_id=org.id, brand_id=bid, **row)
         s.add(a)
         s.flush()
         return a.id
