@@ -99,9 +99,14 @@ export default async function ClustersPage({
                       </p>
                       <p>
                         Sources:{" "}
-                        {c.brief.sources
-                          .map((s) => `${s.domain} (${s.answers}, ${s.owner})`)
-                          .join(", ") || "—"}
+                        {c.brief.sources.length
+                          ? c.brief.sources.map((s) => (
+                              <span key={s.domain} style={{ marginRight: 6 }}>
+                                {s.domain} ({s.answers}){" "}
+                                <span className="tag">{s.owner}</span>
+                              </span>
+                            ))
+                          : "—"}
                       </p>
                       <p>
                         Internal links:{" "}
