@@ -282,6 +282,9 @@ def test_new_source_needs_a_baseline_before_the_window(
         s.add_all(_cite(org, o, "forbes.com") for o in recent)
     with tenant_session(org.id) as s:
         assert detect_new_source(s, bid, NOW) == []  # no history yet
+    _answers(owner, org, bid, p, NOW - timedelta(days=10), 1)
+    with tenant_session(org.id) as s:
+        assert detect_new_source(s, bid, NOW) == []  # not a full window back
     _answers(owner, org, bid, p, NOW - timedelta(days=30), 1)
     with tenant_session(org.id) as s:
         found = detect_new_source(s, bid, NOW)

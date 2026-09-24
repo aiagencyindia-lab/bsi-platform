@@ -146,14 +146,15 @@ def detect_new_source(
     s: Session, brand_id: uuid.UUID, to: datetime
 ) -> list[Candidate]:
     start = to - timedelta(days=SOURCE_DAYS)
-    # Without answers from before the window every cited domain looks new
-    # (Run 1: 54 "new" sources), so wait for a baseline.
+    # Without a full window of history before this one every cited domain
+    # looks new (Run 1: 54 "new" sources); a few older answers only delay
+    # the flood. So the earliest answer must be two windows back.
     if not s.scalar(
         text(
             "SELECT EXISTS (SELECT 1 FROM observation WHERE brand_id = :brand "
-            "AND status = 'done' AND requested_at < :from)"
+            "AND status = 'done' AND requested_at <= :baseline)"
         ),
-        {"brand": brand_id, "from": start},
+        {"brand": brand_id, "baseline": to - timedelta(days=2 * SOURCE_DAYS)},
     ):
         return []
     hosts = list(

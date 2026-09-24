@@ -4,7 +4,7 @@
 
 **Schema.** Migration 0016 adds the tenant table `alert` (type, subject, title, JSON detail, the window, and delivery state: `delivered_at`, `delivery_attempts`, `next_attempt_at`, `last_error`) with row-level security, a dedupe index, a list index and a partial delivery index. `brand` gains `alerts_scanned_at` and `webhook_url`. Two SECURITY DEFINER functions list the work: `due_alert_scans()` (active brands not scanned for a day, never-scanned first) and `due_alert_deliveries()` (up to 100 undelivered alerts that are due, on active brands with a webhook).
 
-**Detectors.** `packages/core/bsi_core/alerts.py` has three detectors over rolling windows. `mention_drop` fires when the 7-day mention-rate delta is labelled "decrease" and is at least 15 points. `competitor_shift` turns each entry of the 14-day visibility change feed into an alert. `new_source` fires for a third-party domain first cited in the last 7 days in at least 5 answers, and only when the brand has done answers from before those 7 days (see §2). A subject alerts once per window. `scan` inserts the new alerts and marks them for delivery only when the brand has a webhook; `payload` builds the JSON body, with `text` equal to the title for Slack.
+**Detectors.** `packages/core/bsi_core/alerts.py` has three detectors over rolling windows. `mention_drop` fires when the 7-day mention-rate delta is labelled "decrease" and is at least 15 points. `competitor_shift` turns each entry of the 14-day visibility change feed into an alert. `new_source` fires for a third-party domain first cited in the last 7 days in at least 5 answers, and only when the brand's earliest done answer is at least 14 days old, a full window before the current one (see §2). A subject alerts once per window. `scan` inserts the new alerts and marks them for delivery only when the brand has a webhook; `payload` builds the JSON body, with `text` equal to the title for Slack.
 
 **Fetch POST.** `crawl.http_fetch` takes `method`, `body` and `content_type`. Redirects are followed for GET only; a 3xx to a POST is returned as is. The SSRF guard, the pinned connection, the 30 s deadline and the 512 KiB cap are unchanged.
 
@@ -16,17 +16,17 @@
 
 ## 2. Live check
 
-Run on 2026-09-25, read-only on dev: the detectors ran in a tenant session that was rolled back, so nothing was written. Dev was still at migration 0015. No webhook was set, the scan route was not called, and the worker was not started.
+Run at 2026-09-24 20:58 UTC (the detectors' `to`), read-only on dev: the detectors ran in a tenant session that was rolled back, so nothing was written. Dev was still at migration 0015. No webhook was set, the scan route was not called, and the worker was not started.
 
 | Detector | Result on Run 1 |
 |---|---|
-| `new_source` (before the baseline guard) | 54 candidates. Top: youtube.com (41 answers), forbes.com (29), wearetto.com (23), starkidz.co.in (22). |
+| `new_source` (before the baseline guard) | `detect_new_source` returned 54 candidates. Top: youtube.com (41 answers), forbes.com (29), wearetto.com (23), starkidz.co.in (22). |
 | `competitor_shift` | 0 |
 | `mention_drop` | Could not run on dev (see below). |
 
 **What this shows:**
-- **Every cited domain looked "new".** Run 1's 100 answers all fall between 2026-09-19 and 2026-09-22, inside the 7-day window, so every domain's first citation was inside it too. A first scan with a webhook would have posted 54 alerts.
-- **Fix: `new_source` now needs a baseline.** It returns nothing unless the brand has at least one done answer from before the window. On Run 1, which has no older answers, it now gives 0. A brand under 7 days old gets no new-source alerts until it has older answers.
+- **Every cited domain looked "new".** Run 1's 100 answers all fall between 2026-09-19 and 2026-09-22, inside the 7-day window, so every domain's first citation was inside it too. The scan route was not called, so no alerts were stored or posted; a first scan with a webhook would have queued all 54.
+- **Fix: `new_source` now needs a full window of history.** It returns nothing unless the brand's earliest done answer is at or before `to` minus 14 days. One older answer is not enough: it would only delay the flood. This was not re-run on dev; as a consequence of the code, Run 1's earliest answer is 2026-09-19 09:17 UTC, so new-source alerts stay off for it until 2026-10-03 09:17 UTC, and by then the 7-day window holds no Run 1 answers unless new runs happen.
 - **`mention_drop` needs migration 0016 to run.** The ORM loads the brand with its new columns, and `brand_deltas` reads the brand, so the query fails on a database at 0015. Run 1 has 0 answers before the 7-day window, so the result would be "insufficient data" and no alert.
 - **Dev must be upgraded to 0016 before the merged code runs there**, as with every migration.
 
@@ -45,7 +45,7 @@ From the spec:
 Rulings during the build:
 - Ruling 1: the list index on `(brand_id, created_at)` was added; the plan had dropped it. Cost if wrong: one unused index.
 - Ruling 2: there is no alembic drift test; the reviewer checked the model against the migration by reading. Cost if wrong: drift shows up only on a future autogenerate.
-- Ruling 3: a scan test was renamed so its name no longer promises a re-fire it does not test; the re-fire rule is tested by the dedupe test. Cost if wrong: none.
+- Ruling 3: a scan test was renamed so its name no longer promises a re-fire it does not test; the re-fire rule is tested by `test_is_duplicate_matches_only_a_younger_alert_of_the_same_subject`. Cost if wrong: none.
 - Ruling 4: indexes are ascending, not `DESC` as the spec wrote; a btree scans backwards. Cost if wrong: none measurable.
 - Ruling 5: the isolation tests do not count org B's alerts after cross-tenant requests. Cost if wrong: a write leak on the alert routes would go unasserted.
 - Ruling 6: an exception inside `deliver_due_alerts` is not counted as an attempt, so that alert retries every minute. Cost if wrong: a poisoned alert retries forever and takes one of the 100 slots.
@@ -53,7 +53,7 @@ Rulings during the build:
 - Ruling 8: a 422 from the webhook PATCH shows the generic error page, not a field message. Cost if wrong: an operator sees an error page for a private host.
 - Ruling 9: the live check ran the detectors in a rolled-back session instead of calling the scan route, which writes and needs 0016. Cost if wrong: the route and dedupe were not exercised on real data; the tests cover them.
 - Ruling 10: alert copy is plain strings, checked by a separate forbidden-word test. Cost if wrong: alert titles have no "Metric to watch" line (the spec does not require one).
-- Ruling 11: `new_source` needs a done answer from before the window (§2). Cost if wrong: brands under 7 days old get no new-source alerts.
+- Ruling 11 (amended after the review): the baseline is a full window of history. `new_source` returns nothing unless the brand's earliest done answer is at or before `to` minus 14 days; one old answer only delayed the flood (Run 1 would have flooded again from about 2026-09-26 09:17 UTC). Cost if wrong: a new brand gets no new-source alerts for its first 14 days of history.
 
 Minor items deferred from the task reviews:
 - No test that `due_alert_deliveries()` skips archived brands.
