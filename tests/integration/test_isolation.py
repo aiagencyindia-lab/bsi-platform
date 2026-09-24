@@ -113,6 +113,8 @@ CASES = [
     ("GET", "/v1/brands/{b}/competitors/metrics", None),
     ("GET", "/v1/brands/{b}/competitors/deltas", None),
     ("GET", "/v1/brands/{b}/competitors/changes", None),
+    ("POST", "/v1/brands/{b}/competitors/crawl", None),
+    ("GET", "/v1/brands/{b}/competitors/site-changes", None),
     ("PATCH", "/v1/brands/{b}/competitors/{c}", {"name": "x"}),
     ("DELETE", "/v1/brands/{b}/competitors/{c}", None),
     ("GET", "/v1/brands/{b}/domains", None),

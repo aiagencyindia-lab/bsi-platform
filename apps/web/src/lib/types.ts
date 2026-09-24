@@ -21,5 +21,6 @@ export type Queued = S["QueuedOut"];
 export type EntityMetrics = S["EntityMetricsOut"];
 export type EntityDeltas = S["EntityDeltasOut"];
 export type Changes = S["ChangesOut"];
+export type SiteChanges = S["SiteChangesOut"];
 export type Clusters = S["ClustersOut"];
 export type PageAudit = S["PageAuditOut"];

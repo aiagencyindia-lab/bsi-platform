@@ -1,4 +1,5 @@
-"""Competitor intelligence: per-entity metrics, deltas, change feed."""
+"""Competitor intelligence: per-entity metrics, deltas, change feed,
+rival site crawls."""
 
 import uuid
 from typing import Any
@@ -9,11 +10,19 @@ from bsi_core.competitors import (
     visibility_changes,
 )
 from bsi_core.metrics import Filters
+from bsi_core.rivals import site_changes
 from fastapi import APIRouter, Depends, Query
 
 from ..deps import TENANT, Ctx, brand_or_404
-from ..schemas import ChangesOut, EntityDeltasOut, EntityMetricsOut
+from ..schemas import (
+    ChangesOut,
+    EntityDeltasOut,
+    EntityMetricsOut,
+    QueuedOut,
+    SiteChangesOut,
+)
 from .metrics import _flag, filters, window_end
+from .runs import queue_suggestion
 
 router = APIRouter(prefix="/brands/{brand_id}", tags=["competitors"])
 
@@ -49,3 +58,19 @@ def get_changes(
 ) -> dict[str, Any]:
     brand_or_404(c, brand_id)
     return visibility_changes(c.s, brand_id, f, days, window_end(f))
+
+
+@router.post("/competitors/crawl", status_code=202, response_model=QueuedOut)
+def queue_rival_crawl(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
+    return queue_suggestion(c, brand_id, "crawl_rivals", {})
+
+
+@router.get("/competitors/site-changes", response_model=SiteChangesOut)
+def get_site_changes(
+    brand_id: uuid.UUID,
+    days: int = Query(14, ge=1, le=90),
+    f: Filters = Depends(filters),
+    c: Ctx = TENANT,
+) -> dict[str, Any]:
+    brand_or_404(c, brand_id)
+    return site_changes(c.s, brand_id, days, window_end(f))
