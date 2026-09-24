@@ -2,8 +2,18 @@ import Link from "next/link";
 import { Filters } from "@/components/Filters";
 import { CiBar } from "@/components/Tile";
 import { api } from "@/lib/api";
-import { apiQuery, ciText, lastDay, pct, pts, validDays, type Params } from "@/lib/format";
-import type { Changes, EntityDeltas, EntityMetrics } from "@/lib/types";
+import {
+  apiQuery,
+  ciText,
+  crawlNote,
+  lastDay,
+  pct,
+  pts,
+  validDays,
+  type Params,
+} from "@/lib/format";
+import type { Changes, EntityDeltas, EntityMetrics, SiteChanges } from "@/lib/types";
+import { crawlRivals } from "./actions";
 
 // The change feed always reads a fixed window; the days filter sets only
 // the leaderboard deltas.
@@ -12,6 +22,8 @@ const FEED_DAYS = 14;
 // Formatting only: the API sets the window. Starts are inclusive; ends
 // are exclusive, so a range prints lastDay(end).
 const date = (v: string) => new Date(v).toISOString().slice(0, 10);
+
+const isWeb = (u: string) => u.startsWith("https://") || u.startsWith("http://");
 
 const num = (v: number | null | undefined, digits = 1) =>
   v == null ? "—" : v.toFixed(digits);
@@ -33,10 +45,11 @@ export default async function Competitors({
   const wq = apiQuery(sp, ["days"], valid ? ["date_from"] : ["date_from", "days"]);
   const fq = apiQuery(sp, [], ["date_from"]);
   const feedQuery = `${fq}${fq ? "&" : "?"}days=${FEED_DAYS}`;
-  const [rows, d, feed] = await Promise.all([
+  const [rows, d, feed, site] = await Promise.all([
     api<EntityMetrics[]>(`/brands/${id}/competitors/metrics${q}`),
     api<EntityDeltas>(`/brands/${id}/competitors/deltas${wq}`),
     api<Changes>(`/brands/${id}/competitors/changes${feedQuery}`),
+    api<SiteChanges>(`/brands/${id}/competitors/site-changes?days=${FEED_DAYS}`),
   ]);
   const deltaText = (eid: string, key: "mention_rate" | "sov") => {
     const x = d.deltas?.[eid]?.[key];
@@ -129,6 +142,21 @@ export default async function Competitors({
           {c.new_citing_domains.length > 0 && (
             <p className="muted">New citing domains: {c.new_citing_domains.join(", ")}</p>
           )}
+          {c.new_pages.length > 0 && (
+            <p className="muted">
+              New pages on their site: {c.new_pages.length}{" "}
+              {c.new_pages.slice(0, 5).map((u) =>
+                isWeb(u) ? (
+                  <a key={u} href={u} rel="noreferrer" style={{ marginRight: 6 }}>
+                    {u}
+                  </a>
+                ) : null,
+              )}
+            </p>
+          )}
+          {c.new_types.length > 0 && (
+            <p className="muted">New structured data: {c.new_types.join(", ")}</p>
+          )}
           <ul>
             {c.prompts.map((p) => (
               <li key={p.prompt_id}>
@@ -145,6 +173,67 @@ export default async function Competitors({
               </Link>
             ))}
           </p>
+        </div>
+      ))}
+      <h2 id="site">Competitor site changes</h2>
+      <form action={crawlRivals} className="row">
+        <input type="hidden" name="brand_id" value={id} />
+        <button className="primary">Crawl competitor sites now</button>
+        {crawlNote(sp.queued) && <span className="muted">{crawlNote(sp.queued)}</span>}
+      </form>
+      <p className="muted">
+        Pages first listed in a competitor&apos;s sitemap and structured data
+        first seen between {date(site.window.start)} and {lastDay(site.window.to)}.
+        A domain&apos;s first crawl is its baseline and never counts as new.
+      </p>
+      {site.competitors.every((r) => r.crawls.length === 0) && (
+        <p className="muted">
+          No crawl yet. Competitor domains are crawled weekly; declare domains
+          on each competitor to include them.
+        </p>
+      )}
+      {site.competitors.map((r) => (
+        <div className="card" key={r.competitor_id}>
+          <h3>{r.name}</h3>
+          {r.crawls.length === 0 && <p className="muted">No domain crawled yet.</p>}
+          {r.crawls.map((c) => (
+            <p key={c.domain} className="muted">
+              {c.domain}: crawled {date(c.crawled_at)} · {c.urls_seen} URLs ·{" "}
+              {c.complete ? "complete" : "incomplete"}
+              {c.errors.length > 0 && ` · ${c.errors.join("; ")}`}
+            </p>
+          ))}
+          <p>{r.new_pages_total} new pages</p>
+          {r.new_pages.length > 0 && (
+            <ul>
+              {r.new_pages.map((p) => (
+                <li key={p.url}>
+                  {isWeb(p.url) ? (
+                    <a href={p.url} rel="noreferrer">{p.url}</a>
+                  ) : (
+                    p.url
+                  )}{" "}
+                  {p.types.map((t) => (
+                    <span key={t} className="tag">{t}</span>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          )}
+          {r.new_types.length > 0 && (
+            <p>
+              New structured data:{" "}
+              {r.new_types.map((t) =>
+                isWeb(t.url) ? (
+                  <a key={t.type} href={t.url} rel="noreferrer" className="tag">
+                    {t.type}
+                  </a>
+                ) : (
+                  <span key={t.type} className="tag">{t.type}</span>
+                ),
+              )}
+            </p>
+          )}
         </div>
       ))}
     </>

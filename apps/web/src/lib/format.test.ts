@@ -3,6 +3,7 @@ import {
   apiQuery,
   auditNote,
   ciText,
+  crawlNote,
   highlight,
   KIND,
   labelNote,
@@ -138,3 +139,13 @@ test("pageNote says what the score button actually did", () => {
 
 test("KIND labels the page-fix recommendation", () =>
   expect(KIND.optimize_page).toBe("Page fix"));
+
+test("crawlNote says what the crawl button actually did", () => {
+  const queued = "Queued; the worker crawls competitor sites within a few minutes.";
+  expect(crawlNote("queued")).toBe(queued);
+  expect(crawlNote("running")).toBe(queued);
+  expect(crawlNote("done")).toBe("Already crawled this hour; a new crawl can start from the next hour.");
+  expect(crawlNote("failed")).toBe("Queued again after a failed run.");
+  expect(crawlNote(undefined)).toBeNull();
+  expect(crawlNote("constructor")).toBeNull();
+});
