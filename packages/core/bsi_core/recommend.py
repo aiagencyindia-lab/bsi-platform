@@ -25,6 +25,7 @@ create_content is keyed per (intent, topic) gap cluster for labelled
 prompts and per prompt for prompts not yet labelled.
 """
 
+import hashlib
 import logging
 import re
 import uuid
@@ -405,46 +406,81 @@ def _content(
     return out
 
 
+def _cluster_candidate(
+    c: dict[str, Any], key: str, brand: str, total: int
+) -> Candidate:
+    b = c["brief"]
+    title, body = cluster_copy(
+        brand,
+        c["intent"],
+        c["topic"],
+        b["page_type"],
+        b["target_queries"],
+        c["absent"],
+        c["n"],
+        b["competitors"],
+    )
+    return Candidate(
+        "create_content",
+        key,
+        title,
+        body,
+        {
+            **b,
+            "prompt_ids": b["evidence"]["prompt_ids"],
+            "observation_ids": b["evidence"]["observation_ids"],
+            "cluster": {"intent": c["intent"], "topic": c["topic"]},
+            "reason": c["reason"],
+            "absent": c["absent"],
+            "n": c["n"],
+        },
+        c["absent"] / total,
+        c["rival_absent"] / c["absent"],
+    )
+
+
 def _content_clusters(
     s: Session, brand_id: uuid.UUID, brand: str, total: int
 ) -> list[Candidate]:
-    """One candidate per gap cluster of labelled prompts (PRD F11)."""
+    """One candidate per gap cluster of labelled prompts (PRD F11).
+
+    A decided (accepted or dismissed) cluster is never raised again. Its
+    prompts that no decided rec covers yet get their own candidate, keyed
+    `<cluster key>:+<hash of those prompts>`, when they alone are a gap.
+    """
     from .gaps import clusters  # gaps imports CONTENT_REASONS from here
 
+    decided = s.execute(
+        select(m.Recommendation.subject_key, m.Recommendation.evidence).where(
+            m.Recommendation.brand_id == brand_id,
+            m.Recommendation.type == "create_content",
+            m.Recommendation.status.in_(("accepted", "dismissed")),
+            m.Recommendation.subject_key.startswith("cluster:"),
+        )
+    ).all()
     out = []
     for c in clusters(s, brand_id, Filters()):
         if not c["gap"]:
             continue
-        b = c["brief"]
-        title, body = cluster_copy(
-            brand,
-            c["intent"],
-            c["topic"],
-            b["page_type"],
-            b["target_queries"],
-            c["absent"],
-            c["n"],
-            b["competitors"],
-        )
-        out.append(
-            Candidate(
-                "create_content",
-                c["key"],
-                title,
-                body,
-                {
-                    **b,
-                    "prompt_ids": b["evidence"]["prompt_ids"],
-                    "observation_ids": b["evidence"]["observation_ids"],
-                    "cluster": {"intent": c["intent"], "topic": c["topic"]},
-                    "reason": c["reason"],
-                    "absent": c["absent"],
-                    "n": c["n"],
-                },
-                c["absent"] / total,
-                c["rival_absent"] / c["absent"],
+        key = c["key"]
+        mine = [ev for k, ev in decided if k == key or k.startswith(key + ":+")]
+        if not mine:
+            out.append(_cluster_candidate(c, key, brand, total))
+            continue
+        covered = {p for ev in mine for p in ev.get("prompt_ids", [])}
+        new = sorted({str(p["prompt_id"]) for p in c["prompts"]} - covered)
+        if not new:
+            continue
+        sub = next(
+            r
+            for r in clusters(
+                s, brand_id, Filters(prompt_ids=[uuid.UUID(p) for p in new])
             )
+            if r["key"] == key
         )
+        if sub["gap"]:
+            h = hashlib.sha1(",".join(new).encode()).hexdigest()[:8]
+            out.append(_cluster_candidate(sub, f"{key}:+{h}", brand, total))
     return out
 
 

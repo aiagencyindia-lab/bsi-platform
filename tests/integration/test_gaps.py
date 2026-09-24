@@ -1,5 +1,6 @@
 """Content-gap clusters (PRD F11): clusters, the gap rule, the brief."""
 
+import hashlib
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -156,6 +157,7 @@ def scene(owner, make_org, make_brand, make_observation):
     ids.old, _ = prompt(
         "old prompt", None, None, [(False, [A], "competitor_dominance", [])] * 3
     )
+    ids.add = prompt  # tests add prompts to the same brand
     return ids
 
 
@@ -571,3 +573,100 @@ def test_a_half_labelled_prompt_stays_per_prompt(scene, owner):
         if c["brief"]
     )
     assert all(c["topic"] is not None for c in got.values())
+
+
+GAP = "cluster:comparison:running shoes"
+LOSING = [(False, [], "competitor_dominance", [])] * 2
+
+
+def _decide(scene, owner, status="accepted"):
+    with tenant_session(scene.org.id) as s:
+        refresh(s, scene.org.id, scene.brand)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Recommendation)
+            .where(m.Recommendation.subject_key == GAP)
+            .values(status=status)
+        )
+
+
+def _plus(*pids):
+    h = hashlib.sha1(",".join(sorted(map(str, pids))).encode()).hexdigest()
+    return f"{GAP}:+{h[:8]}"
+
+
+def _cluster_recs(scene):
+    return {k: c for k, c in found(scene).items() if k[1].startswith(GAP)}
+
+
+@pytest.mark.parametrize("decision", ["accepted", "dismissed"])
+def test_a_new_prompt_in_a_decided_cluster_gets_its_own_rec(
+    scene, owner, decision
+):
+    _decide(scene, owner, decision)
+    rivals = [(False, [scene.adidas], "competitor_dominance", [])]
+    new, _ = scene.add("nike or adidas", "comparison", "running shoes", rivals)
+    recs = _cluster_recs(scene)
+    assert list(recs) == [("create_content", _plus(new))]
+    c = recs[("create_content", _plus(new))]
+    assert c.evidence["prompt_ids"] == [str(new)]
+    assert (c.evidence["absent"], c.evidence["n"]) == (1, 1)
+    assert c.evidence["target_queries"] == ["nike or adidas"]
+    # total = 19 + 1; the new prompt's one absent answer names Adidas.
+    assert (c.reach, c.pressure) == (pytest.approx(1 / 20), 1.0)
+    assert "absent from 1 of 1 answers" in c.body
+
+
+def test_a_decided_cluster_without_new_prompts_is_not_raised(scene, owner):
+    _decide(scene, owner)
+    assert _cluster_recs(scene) == {}
+
+
+def test_a_new_prompt_the_brand_wins_is_not_raised(scene, owner):
+    _decide(scene, owner)
+    scene.add(
+        "nike running", "comparison", "running shoes", [(True, [], None, [])]
+    )
+    assert _cluster_recs(scene) == {}
+
+
+def test_accepting_the_new_prompt_rec_tasks_only_the_new_prompt(
+    client, scene, owner
+):
+    _decide(scene, owner)
+    new, _ = scene.add("nike or adidas", "comparison", "running shoes", LOSING)
+    base = f"/v1/brands/{scene.brand}/recommendations"
+    r = client.post(f"{base}/generate", headers=scene.org.headers)
+    rec = next(x for x in r.json() if x["subject_key"] == _plus(new))
+    t = client.post(f"{base}/{rec['id']}/accept", headers=scene.org.headers)
+    assert t.status_code == 201, t.text
+    assert t.json()["prompt_ids"] == [str(new)]
+    # Its prompt is now decided too: nothing is raised for the cluster.
+    assert _cluster_recs(scene) == {}
+
+
+def test_a_second_new_prompt_replaces_the_open_rec(scene, owner):
+    _decide(scene, owner)
+    one, _ = scene.add("nike or adidas", "comparison", "running shoes", LOSING)
+
+    def stored():
+        with tenant_session(scene.org.id) as s:
+            refresh(s, scene.org.id, scene.brand)
+            return {
+                r.subject_key: (r.status, r.evidence["prompt_ids"])
+                for r in s.scalars(
+                    select(m.Recommendation).where(
+                        m.Recommendation.subject_key.startswith(GAP)
+                    )
+                )
+            }
+
+    first = stored()
+    assert first[_plus(one)] == ("open", [str(one)])
+    two, _ = scene.add("adidas or nike", "comparison", "running shoes", LOSING)
+    assert _plus(one) != _plus(one, two)
+    second = stored()
+    assert set(second) == {GAP, _plus(one, two)}
+    assert second[GAP] == first[GAP]  # the decided row is untouched
+    assert second[GAP][0] == "accepted"
+    assert sorted(second[_plus(one, two)][1]) == sorted([str(one), str(two)])
