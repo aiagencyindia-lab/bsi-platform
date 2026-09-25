@@ -13,7 +13,7 @@
 ## Changes made during execution
 
 This plan records what was planned; the fixes from the docs review before Task 1 (commits c905dd1 and 34d55ce) are already in the task text. These changes were made while it ran, and the spec is updated to match:
-- Final review (commit 9af3803): `SITEMAP_FETCH` is defined once in `packages/core/bsi_core/rivals.py`; the worker and the script import it instead of building their own (Task 3 below still shows the worker defining it). The worst case in the `RIVAL_JOB_SECONDS` comment is about 570 s, not the 510 s Task 3's text gives.
+- Final review (commit 9af3803): `SITEMAP_FETCH` is defined once in `packages/core/bsi_core/rivals.py`; the worker and the script import it instead of building their own (Task 3 below still shows the worker and the script each defining it). The worst case in the `RIVAL_JOB_SECONDS` comment is about 570 s, not the 510 s Task 3's text gives.
 - The ledger's rulings 1 to 6 and every deferred minor are in `docs/findings-slice14.md` §3.
 
 ## Global Constraints

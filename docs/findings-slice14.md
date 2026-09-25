@@ -34,7 +34,7 @@ Error lines:
 
 ## 3. Deferred / decisions
 
-From the spec (approved by the user through the design sections, as built, on 2026-09-25):
+From the spec (the first three approved by the user through the design sections, as built, on 2026-09-25; the fourth follows from the approach the user chose):
 - The 30 s deadline per fetch stays for sitemap files. Cost: a file that cannot download in 30 s stays incomplete; the fix is a `deadline` keyword shaped like `cap`.
 - The URL ceiling cuts in sitemap order, not newest first. Cost: on a site over 50,000 URLs the newest products may be dropped.
 - The job budget is split equally with a 60 s floor. Cost: one slow site gets less time when many domains are due, and an out-of-time domain keeps none of the URLs it read.
