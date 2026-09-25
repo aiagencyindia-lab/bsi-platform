@@ -69,6 +69,7 @@ Minor items deferred from the task reviews:
 - `http_fetch`'s `method` is a plain string, not limited to GET and POST.
 - No test that Content-Type is absent when none is given.
 - No worker test that the daily scan marks alerts for delivery only when the brand has a webhook.
+- `test_clearing_the_webhook_stops_pending_deliveries` has no already-delivered alert, so the "undelivered only" filter of the clear is not asserted (a delivered alert already has no next attempt, so the gap is harmless).
 - No test that one brand's failed scan leaves the others scanned and itself unstamped.
 - The worker's `Poster` protocol sits among the constants (cosmetic).
 - The webhook validator lets empty user info through (`https://@host/`); the host is still checked, and `http_fetch` checks it again at send time.
