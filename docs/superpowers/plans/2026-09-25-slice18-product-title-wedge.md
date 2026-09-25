@@ -3004,7 +3004,7 @@ Task 2 (0f55f44)
 Task 3 (78fb225, fix 6411ede)
 - Reflow for ruff E501: the long titles in the `missing` fixture are split by implicit concatenation, two `rule_check` asserts are wrapped, `keep_present` puts the domain expression in a local `domain`, and the prompts' JSON-shape lines use single-quoted Python literals instead of `\"` escapes (the strings are identical).
 - Fix round (review finding): `drop_brand_terms` also drops keywords with no tokens (`""`, `"!!!"`); `test_drop_brand_terms_matches_tokens` gained that case.
-- R7: `rule_check` works at the token level: brand prepended first, then any word that shares a token with an earlier kept word is dropped, punctuation-only words kept, then the trim. Three cases added: `Kids-Sandal Sandal` and `Red Tape Tape Shoes` (in `test_rule_check_drops_a_word_that_repeats_an_earlier_token`) and `Walkaroo - Sandal | Kids` (`test_rule_check_keeps_punctuation_only_words`, `pass`). The four planned `rule_check` tests are unchanged.
+- R7: `rule_check` works at the token level: brand prepended first, then any word that shares a token with an earlier kept word is dropped, punctuation-only words kept, then the trim. Three cases added: `Kids-Sandal Sandal` and `Tape Shoes` with brand `Red Tape` → `Red Tape Shoes` (in `test_rule_check_drops_a_word_that_repeats_an_earlier_token`) and `Walkaroo - Sandal | Kids` (`test_rule_check_keeps_punctuation_only_words`, `pass`). The four planned `rule_check` tests are unchanged.
 
 Task 4 (f7747f7)
 - R6: `FORMULA_START` and the apostrophe in `export_rows`, with `test_export_rows_neutralises_formula_cells`.
