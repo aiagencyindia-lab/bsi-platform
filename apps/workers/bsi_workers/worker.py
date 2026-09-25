@@ -8,7 +8,6 @@ import uuid
 from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
-from functools import partial
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
@@ -20,7 +19,6 @@ from bsi_core.config import get_settings
 from bsi_core.crawl import (
     BROWSER_UA,
     PAUSE_SECONDS,
-    SITEMAP_CAP_BYTES,
     Audit,
     Fetch,
     Response,
@@ -39,6 +37,7 @@ from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.recommend import refresh
 from bsi_core.rivals import (
+    SITEMAP_FETCH,
     OutOfTime,
     Snapshot,
     snapshot_domain,
@@ -71,17 +70,17 @@ SCHEDULE_CHECK_SECONDS = 60
 # of gemini-embedding-001 at $0.15/M ~= 4,700 micros, rounded up.
 PAGE_JOB_MICROS = 5_000
 # The job's budget, shared equally by the due domains (floor
-# RIVAL_DOMAIN_FLOOR_SECONDS). Worst case about 510 s of fetching (the
-# budget, plus one domain's 60 s floor, plus one 30 s fetch already under
-# way), then the write, under claim_job's 10-minute stale cutoff. A domain
+# RIVAL_DOMAIN_FLOOR_SECONDS). Worst case, four due domains: about 570 s of
+# fetching (the last domain starts by 420 s and runs its 105 s share plus
+# one fetch of up to ~45 s: each read may wait 15 s and the 30 s deadline
+# is checked after a chunk), then parsing and the write, against
+# claim_job's 10-minute stale cutoff. A domain
 # that runs out of time is stored incomplete and waits its week; one the
 # job never reaches stays due.
 RIVAL_JOB_SECONDS = 420
 RIVAL_UPSERT_CHUNK = 2_000  # 8 binds a row: far under the 65,535 limit
 # Each due domain gets RIVAL_JOB_SECONDS / len(due), never less than this.
 RIVAL_DOMAIN_FLOOR_SECONDS = 60
-# Sitemap files may be 50 MB; raw=True keeps the bytes for gzip detection.
-SITEMAP_FETCH: Fetch = partial(http_fetch, cap=SITEMAP_CAP_BYTES, raw=True)
 CITED_URLS_CAP = 10
 # Waits before delivery attempts 2..5; after the fifth failure the alert
 # is given up and keeps its last error.

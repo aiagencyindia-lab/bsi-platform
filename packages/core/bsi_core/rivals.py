@@ -13,6 +13,7 @@ import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -29,9 +30,12 @@ from .crawl import (
     _robots_groups,
     _robots_lines,
     _types,
+    http_fetch,
     robots_allows,
 )
 
+# Sitemap files may be 50 MB; raw=True keeps the bytes for gzip detection.
+SITEMAP_FETCH: Fetch = partial(http_fetch, cap=SITEMAP_CAP_BYTES, raw=True)
 # The root sitemap plus children of an index, 50 files in all.
 MAX_SITEMAP_FETCHES = 50
 MAX_URLS = 50_000  # URLs kept per domain per crawl

@@ -29,7 +29,7 @@ Error lines:
 **What this shows:**
 - **All three domains are now complete**, with more URLs than slice 12: +252 on skechers.in, +2,463 on skechers.com, +1,447 on crocs.in.
 - **Every host finished inside 60 s.** Run 1 has seven due domains, so each gets `max(60, 420 // 7)` = 60 s. The slowest, skechers.com, took 24.9 s. A host over its budget would be stored as "out of time" with none of its URLs kept.
-- The file cap (50) and the URL ceiling (50,000) were not reached. Fetches include robots.txt and the 11 sampled pages, so skechers.com's 21 fetches read at most 9 sitemap files, well under 50; the most URLs was 5,478.
+- The file cap (50) and the URL ceiling (50,000) were not reached. Fetches include robots.txt and the 11 sampled pages, so skechers.com's 21 fetches read 9 sitemap files (21 − robots.txt − 11 pages), well under 50; the most URLs was 5,478.
 - These are one run's timings from one machine; the worker's timings on dev were not measured.
 
 ## 3. Deferred / decisions
@@ -51,14 +51,14 @@ Rulings during the build:
 Minor items deferred from the task reviews ("final triage" marks those the ledger flags for final triage):
 - Final triage: after an exact-fit body, the extra read can time out and turn a good capped body into a status-0 error (`crawl.py`). Cost: a rare lost sitemap at exactly the cap.
 - `cap` is not validated; `cap=0` makes zlib's `max_length` unlimited. Cost: an unbounded inflate for a caller passing 0 (none does).
-- Final triage: the fetcher's gzip cut check can report a cut wrongly (trailer in a later chunk) or miss one (stream cut mid-match); `not z.eof` would be exact. Cost: a wrong "cut off" line, or a missed one.
+- Final triage: the fetcher's gzip cut check can report a cut wrongly (trailer in a later chunk) or miss one (stream cut mid-match). `not z.eof` would fix the missed cut but not the false one: an exact-fit gzip body whose trailer arrives in a later chunk can be reported as cut either way. The item stays deferred. Cost: a wrong "cut off" line, or a missed one.
 - No multi-chunk test (exact fit then a later non-empty chunk; exact-fit gzip). Cost: those paths are checked by reading only.
 - The raw-mode test's second assertion should assert "�" in the body. Cost: a weaker assertion.
 - Final triage: the Latin-1 re-encode corrupts non-raw bodies ("é" becomes "not well-formed XML"; characters above U+00FF become "?"). Ruling 3's cost made concrete. Cost: only a non-raw caller is affected.
 - Final triage: `parser.feed` gets the whole body at once, so the full tree is built before any `clear()`; peak memory is not bounded by clearing. Cost: higher peak memory on a 50 MB file than clearing suggests.
 - A duplicate `import gzip as gz` inside a test (plan-mandated). Cost: cosmetic.
 - A multi-member gzip body reads only the first member and reports "not well-formed XML". Cost: such a sitemap stays incomplete.
-- Final triage: the worst-case comment says about 510 s; overruns add per domain (about 540 s with 4 due), still under the 600 s stale cutoff. Cost: a comment that understates the worst case.
+- Final triage (fixed in the final review): the worst case is about 570 s of fetching with four due domains (the 420 s budget, the last domain's 105 s share, and one fetch of up to ~45 s, since each read may wait 15 s and the 30 s deadline is checked after a chunk), then parsing and the write, against claim_job's 600 s stale cutoff. Cost: going past 600 s lets another worker's claim_job mark the job failed while its crawls are still written.
 - The 50 MiB cap in production depends on `fetch is http_fetch`; untested, and a wrapped `http_fetch` would fall back to 512 KiB silently. Cost: big sitemaps cut again after such a refactor.
 - `test_domains_the_job_never_reaches_stay_due` does not assert how the first domain ended. Cost: a weaker test.
 - `iter([0.0] * 4)` ties a test to the exact number of clock reads. Cost: a brittle test.

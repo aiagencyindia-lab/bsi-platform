@@ -6,12 +6,9 @@ No model spend; real HTTP fetches to the named hosts."""
 import json
 import sys
 import time
-from functools import partial
 
-from bsi_core.crawl import PAUSE_SECONDS, SITEMAP_CAP_BYTES, http_fetch
-from bsi_core.rivals import snapshot_domain
-
-SITEMAP_FETCH = partial(http_fetch, cap=SITEMAP_CAP_BYTES, raw=True)
+from bsi_core.crawl import PAUSE_SECONDS, http_fetch
+from bsi_core.rivals import SITEMAP_FETCH, snapshot_domain
 
 if len(sys.argv) < 2:
     sys.exit(__doc__)
