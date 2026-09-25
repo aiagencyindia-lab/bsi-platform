@@ -17,16 +17,22 @@ import xml.etree.ElementTree as ET
 import zlib
 from collections import Counter
 from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from . import models as m
 from .crawl import Fetch, http_fetch
+from .db import tenant_session
+from .judge import JudgeFailed
+from .providers.base import EngineAdapter
+from .scheduling import budget_fits
+from .suggest import Generator
 
 MAX_PRODUCTS = 1_000  # per brand, the PRD's run ceiling
 CSV_MAX_BYTES = 4 * 1024 * 1024
@@ -512,3 +518,208 @@ def rewrite_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
             products, "keyword", "missing", "description", "attributes"
         )
     )
+
+
+class OverBudget(RuntimeError):
+    """The search phase does not fit the org's budget; the keywords
+    already written stay. The worker records error "budget"."""
+
+    def __init__(self, cost_micros: int) -> None:
+        super().__init__("budget")
+        self.cost_micros = cost_micros
+
+
+def _batches[T](items: Sequence[T]) -> list[list[T]]:
+    return [list(items[i : i + BATCH]) for i in range(0, len(items), BATCH)]
+
+
+def _clean(keyword: str) -> str:
+    return " ".join(keyword.casefold().split())
+
+
+def run_products(
+    org_id: uuid.UUID,
+    job_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    params: dict[str, Any],
+    generator: Generator,
+    adapter: EngineAdapter,
+    now: datetime | None = None,
+) -> str:
+    """The product_run job (spec §3): keywords per batch, one grounded
+    search per distinct keyword, missing keywords, rewrite, rule check.
+    Reads and writes in short tenant sessions; no transaction is open
+    during a model call. Raises OverBudget before the search phase when
+    it does not fit, and JudgeFailed (with the spend) on any other
+    failure, so the money is recorded either way."""
+    now = now or datetime.now(UTC)
+    locale = params.get("locale") or {}
+    country = str(locale.get("country") or "IN")
+    language = str(locale.get("language") or "en")
+    spent = 0
+    try:
+        with tenant_session(org_id) as s:
+            brand = s.get_one(m.Brand, brand_id)
+            names = [brand.name, *brand.aliases]
+            products: list[dict[str, Any]] = [
+                {
+                    "id": p.id,
+                    "title": p.title,
+                    "description": p.description,
+                    "attributes": p.attributes,
+                    "category": p.category,
+                }
+                for p in s.scalars(
+                    select(m.Product)
+                    .where(m.Product.brand_id == brand_id)
+                    .order_by(m.Product.title, m.Product.id)
+                )
+            ]
+        # 1. Keywords, written per batch: the progress signal.
+        for batch in _batches(products):
+            for i, p in enumerate(batch):
+                p["index"] = i
+            samples: list[dict[int, list[str]]] = []
+            for _ in range(SAMPLES):
+                raw, cost, _model = generator(
+                    keyword_prompt(brand.name, batch),
+                    KeywordSet,
+                    KEYWORD_TEMPERATURE,
+                )
+                spent += cost
+                got = KeywordSet.model_validate_json(raw)
+                samples.append(
+                    {
+                        item.index: [
+                            _clean(k) for k in item.keywords if k.strip()
+                        ]
+                        for item in got.products
+                    }
+                )
+            for i, p in enumerate(batch):
+                ranked = vote([sm.get(i, []) for sm in samples])
+                p["keywords"] = drop_brand_terms(ranked, names)
+                p["keyword"] = p["keywords"][0] if p["keywords"] else None
+            with tenant_session(org_id) as s:
+                for p in batch:
+                    s.execute(
+                        update(m.Product)
+                        .where(m.Product.id == p["id"])
+                        .values(keyword=p["keyword"], keywords=p["keywords"])
+                    )
+        # 2. One grounded search per distinct keyword, cached 7 days.
+        counts = Counter(p["keyword"] for p in products if p["keyword"])
+        ordered = sorted(counts, key=lambda k: (-counts[k], k))[:KEYWORD_CAP]
+        fresh_after = now - timedelta(days=SEARCH_TTL_DAYS)
+        with tenant_session(org_id) as s:
+            titles_by_kw: dict[str, list[dict[str, Any]]] = {
+                row.keyword: list(row.titles)
+                for row in s.scalars(
+                    select(m.KeywordSearch).where(
+                        m.KeywordSearch.brand_id == brand_id,
+                        m.KeywordSearch.keyword.in_(ordered),
+                        m.KeywordSearch.searched_at > fresh_after,
+                    )
+                )
+            }
+            new = [k for k in ordered if k not in titles_by_kw]
+            fits = not new or budget_fits(
+                s, org_id, 0, extra_micros=len(new) * SEARCH_MICROS
+            )
+        if not fits:
+            raise OverBudget(spent)
+        for keyword in new:
+            query = f"{keyword} buy online"
+            result = adapter.query(query, country, language)
+            spent += result.cost_micros
+            row: dict[str, Any] = {
+                "query": query,
+                "titles": [],
+                "model": result.model,
+                "cost_micros": result.cost_micros,
+                "error": None,
+            }
+            if result.kind != "ok" or result.raw is None:
+                row["error"] = result.error or "no answer"
+            else:
+                parsed = adapter.parse(result.raw)
+                domains = sorted({d for _, d in parsed.citations if d})
+                raw, cost, _model = generator(
+                    titles_prompt(keyword, parsed.text, domains), TitleSet, 0.0
+                )
+                spent += cost
+                row["cost_micros"] += cost
+                row["titles"] = keep_present(
+                    [
+                        t.model_dump()
+                        for t in TitleSet.model_validate_json(raw).titles
+                    ],
+                    parsed.text,
+                )
+            with tenant_session(org_id) as s:
+                stmt = pg_insert(m.KeywordSearch).values(
+                    org_id=org_id,
+                    brand_id=brand_id,
+                    keyword=keyword,
+                    searched_at=now,
+                    **row,
+                )
+                s.execute(
+                    stmt.on_conflict_do_update(
+                        constraint="uq_keyword_search_brand_keyword",
+                        set_={
+                            c: getattr(stmt.excluded, c)
+                            for c in (*row, "searched_at")
+                        },
+                    )
+                )
+            titles_by_kw[keyword] = row["titles"]
+        # 3-6. Missing keywords, rewrite, rule check, write, per batch.
+        for batch in _batches([p for p in products if p["keyword"]]):
+            for i, p in enumerate(batch):
+                p["index"] = i
+                p["missing"] = missing(
+                    p["title"],
+                    [t["title"] for t in titles_by_kw.get(p["keyword"], [])],
+                    names,
+                )
+            raw, cost, _model = generator(
+                rewrite_prompt(brand.name, batch), RewriteSet, 0.0
+            )
+            spent += cost
+            rewrites = {
+                item.index: item
+                for item in RewriteSet.model_validate_json(raw).products
+            }
+            with tenant_session(org_id) as s:
+                for i, p in enumerate(batch):
+                    item = rewrites.get(i)
+                    suggestion = (item.title.strip() if item else "") or p[
+                        "title"
+                    ]
+                    title, status = rule_check(p["title"], suggestion, names)
+                    bullets = [
+                        b.strip()[:MAX_BULLET_CHARS]
+                        for b in (item.bullets if item else [])
+                        if b.strip()
+                    ][:MAX_BULLETS]
+                    s.execute(
+                        update(m.Product)
+                        .where(m.Product.id == p["id"])
+                        .values(
+                            missing_keywords=p["missing"],
+                            suggested_title=title,
+                            suggested_bullets=bullets,
+                            rule_check=status,
+                            job_id=job_id,
+                            result_at=now,
+                        )
+                    )
+        return (
+            f"products:{len(products)} keywords:{len(ordered)} "
+            f"searched:{len(new)}"
+        )
+    except OverBudget:
+        raise
+    except Exception as e:
+        raise JudgeFailed(e, spent) from e
