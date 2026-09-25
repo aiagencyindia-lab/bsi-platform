@@ -53,6 +53,7 @@ REC_LABEL = {
     "fix_crawlability": "Site fix",
     "fix_entity": "Entity fix",
     "optimize_page": "Page fix",
+    "respond_to_rival_content": "Rival content",
 }
 ALERT_LABEL = {
     "mention_drop": "Mention drop",
@@ -448,8 +449,13 @@ SEO_REC_TYPES = (
     "fix_crawlability",
     "fix_entity",
     "optimize_page",
+    "respond_to_rival_content",
 )
-CONTENT_REC_TYPES = ("create_content", "optimize_page")
+CONTENT_REC_TYPES = (
+    "create_content",
+    "optimize_page",
+    "respond_to_rival_content",
+)
 
 
 def _latest_site_audits(s: Session, brand_id: uuid.UUID) -> list[m.SiteAudit]:

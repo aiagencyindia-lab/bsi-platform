@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { RivalPages } from "@/components/RivalPages";
 import { KIND } from "@/lib/format";
 import type { Recommendation } from "@/lib/types";
 import { accept, dismiss, generate } from "./actions";
@@ -9,6 +10,8 @@ type Evidence = {
   prompt_ids?: string[];
   observation_ids?: string[];
   page_type?: string;
+  pages?: unknown;
+  pages_total?: unknown;
 };
 
 export default async function Recommendations({
@@ -78,6 +81,7 @@ function Card({ r, id }: { r: Recommendation; id: string }) {
         </p>
       )}
       {ev.page_type && <p className="muted">Brief: {ev.page_type}</p>}
+      <RivalPages pages={ev.pages} total={ev.pages_total} />
       <div className="row">
         <form action={accept}>
           <input type="hidden" name="brand_id" value={id} />
