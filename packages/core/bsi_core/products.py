@@ -12,11 +12,12 @@ import hashlib
 import io
 import json
 import re
+import time
 import uuid
 import xml.etree.ElementTree as ET
 import zlib
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any
@@ -296,6 +297,12 @@ SEARCH_TTL_DAYS = 7
 SEARCH_MICROS = 45_000
 # The keyword phase: 150 flash-lite calls for 1,000 products.
 PRODUCT_JOB_MICROS = 20_000
+# R12: no batch starts after this, which leaves two minutes of
+# claim_job's 10-minute stale cutoff for the last batch (3 keyword calls,
+# its new keywords' grounded searches, one rewrite), like the worker's
+# RIVAL_JOB_SECONDS. A batch of 20 new keywords can take longer. The
+# next run continues with the products whose results are oldest.
+PRODUCT_JOB_SECONDS = 480
 TOP_TITLES = 5
 MIN_TITLES = 2
 MAX_MISSING = 8
@@ -521,8 +528,9 @@ def rewrite_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
 
 
 class OverBudget(RuntimeError):
-    """The search phase does not fit the org's budget; the keywords
-    already written stay. The worker records error "budget"."""
+    """A batch's searches do not fit the org's budget; the batches
+    already written, and this batch's keywords, stay. The worker
+    records error "budget"."""
 
     def __init__(self, cost_micros: int) -> None:
         super().__init__("budget")
@@ -545,18 +553,27 @@ def run_products(
     generator: Generator,
     adapter: EngineAdapter,
     now: datetime | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> str:
-    """The product_run job (spec §3): keywords per batch, one grounded
-    search per distinct keyword, missing keywords, rewrite, rule check.
+    """The product_run job (spec §3), one batch at a time, oldest
+    results first (R12): keywords, one grounded search per new distinct
+    keyword, missing keywords, rewrite, rule check, write. Stops before a
+    batch once PRODUCT_JOB_SECONDS have passed; the next run continues.
     Reads and writes in short tenant sessions; no transaction is open
-    during a model call. Raises OverBudget before the search phase when
-    it does not fit, and JudgeFailed (with the spend) on any other
-    failure, so the money is recorded either way."""
+    during a model call. Raises OverBudget before a batch's searches when
+    they do not fit, and JudgeFailed (with the spend) on any other
+    failure, so the money is recorded either way; finished batches stay."""
     now = now or datetime.now(UTC)
+    start = clock()
     locale = params.get("locale") or {}
     country = str(locale.get("country") or "IN")
     language = str(locale.get("language") or "en")
+    fresh_after = now - timedelta(days=SEARCH_TTL_DAYS)
     spent = 0
+    searched = 0
+    done = 0
+    titles_by_kw: dict[str, list[dict[str, Any]]] = {}
+    seen: set[str] = set()  # distinct keywords, for the summary
     try:
         with tenant_session(org_id) as s:
             brand = s.get_one(m.Brand, brand_id)
@@ -572,11 +589,21 @@ def run_products(
                 for p in s.scalars(
                     select(m.Product)
                     .where(m.Product.brand_id == brand_id)
-                    .order_by(m.Product.title, m.Product.id)
+                    .order_by(
+                        m.Product.result_at.asc().nulls_first(),
+                        m.Product.title,
+                        m.Product.id,
+                    )
                 )
             ]
-        # 1. Keywords, written per batch: the progress signal.
         for batch in _batches(products):
+            # R12: at least one batch, so every run makes progress.
+            if done and clock() - start > PRODUCT_JOB_SECONDS:
+                return (
+                    f"out of time after {done} of {len(products)} products; "
+                    f"keywords:{len(seen)} searched:{searched}"
+                )
+            # 1. Keywords, written per batch.
             for i, p in enumerate(batch):
                 p["index"] = i
             samples: list[dict[int, list[str]]] = []
@@ -602,85 +629,117 @@ def run_products(
                 p["keyword"] = p["keywords"][0] if p["keywords"] else None
             with tenant_session(org_id) as s:
                 for p in batch:
+                    # R13: no keyword, no stale suggestion from a past run.
+                    cleared: dict[str, Any] = (
+                        {}
+                        if p["keyword"]
+                        else {
+                            "missing_keywords": None,
+                            "suggested_title": None,
+                            "suggested_bullets": None,
+                            "rule_check": None,
+                            "job_id": job_id,
+                            "result_at": now,
+                        }
+                    )
                     s.execute(
                         update(m.Product)
                         .where(m.Product.id == p["id"])
-                        .values(keyword=p["keyword"], keywords=p["keywords"])
+                        .values(
+                            keyword=p["keyword"],
+                            keywords=p["keywords"],
+                            **cleared,
+                        )
                     )
-        # 2. One grounded search per distinct keyword, cached 7 days.
-        counts = Counter(p["keyword"] for p in products if p["keyword"])
-        ordered = sorted(counts, key=lambda k: (-counts[k], k))[:KEYWORD_CAP]
-        fresh_after = now - timedelta(days=SEARCH_TTL_DAYS)
-        with tenant_session(org_id) as s:
-            titles_by_kw: dict[str, list[dict[str, Any]]] = {
-                row.keyword: list(row.titles)
-                for row in s.scalars(
-                    select(m.KeywordSearch).where(
-                        m.KeywordSearch.brand_id == brand_id,
-                        m.KeywordSearch.keyword.in_(ordered),
-                        m.KeywordSearch.searched_at > fresh_after,
-                        # R9: an error row is searched again
-                        m.KeywordSearch.error.is_(None),
-                    )
-                )
-            }
-            new = [k for k in ordered if k not in titles_by_kw]
-            # R10: job.cost_micros is written only at the end, so this
-            # job's keyword spend is added here.
-            fits = not new or budget_fits(
-                s, org_id, 0, extra_micros=spent + len(new) * SEARCH_MICROS
+            # 2. One grounded search per new distinct keyword, cached 7
+            # days, KEYWORD_CAP per run.
+            kept = [p for p in batch if p["keyword"]]
+            counts = Counter(p["keyword"] for p in kept)
+            seen.update(counts)
+            ordered = sorted(
+                (k for k in counts if k not in titles_by_kw),
+                key=lambda k: (-counts[k], k),
             )
-        if not fits:
-            raise OverBudget(spent)
-        for keyword in new:
-            query = f"{keyword} buy online"
-            result = adapter.query(query, country, language)
-            spent += result.cost_micros
-            row: dict[str, Any] = {
-                "query": query,
-                "titles": [],
-                "model": result.model,
-                "cost_micros": result.cost_micros,
-                "error": None,
-            }
-            if result.kind != "ok" or result.raw is None:
-                row["error"] = result.error or "no answer"
-            else:
-                parsed = adapter.parse(result.raw)
-                domains = sorted({d for _, d in parsed.citations if d})
-                raw, cost, _model = generator(
-                    titles_prompt(keyword, parsed.text, domains), TitleSet, 0.0
-                )
-                spent += cost
-                row["cost_micros"] += cost
-                row["titles"] = keep_present(
-                    [
-                        t.model_dump()
-                        for t in TitleSet.model_validate_json(raw).titles
-                    ],
-                    parsed.text,
-                )
             with tenant_session(org_id) as s:
-                stmt = pg_insert(m.KeywordSearch).values(
-                    org_id=org_id,
-                    brand_id=brand_id,
-                    keyword=keyword,
-                    searched_at=now,
-                    **row,
-                )
-                s.execute(
-                    stmt.on_conflict_do_update(
-                        constraint="uq_keyword_search_brand_keyword",
-                        set_={
-                            c: getattr(stmt.excluded, c)
-                            for c in (*row, "searched_at")
-                        },
+                titles_by_kw.update(
+                    (row.keyword, list(row.titles))
+                    for row in s.scalars(
+                        select(m.KeywordSearch).where(
+                            m.KeywordSearch.brand_id == brand_id,
+                            m.KeywordSearch.keyword.in_(ordered),
+                            m.KeywordSearch.searched_at > fresh_after,
+                            # R9: an error row is searched again
+                            m.KeywordSearch.error.is_(None),
+                        )
                     )
                 )
-            titles_by_kw[keyword] = row["titles"]
-        # 3-6. Missing keywords, rewrite, rule check, write, per batch.
-        for batch in _batches([p for p in products if p["keyword"]]):
-            for i, p in enumerate(batch):
+                new = [k for k in ordered if k not in titles_by_kw]
+                new = new[: max(KEYWORD_CAP - searched, 0)]
+                # R10: job.cost_micros is written only at the end, so
+                # this job's spend so far is added here.
+                fits = not new or budget_fits(
+                    s,
+                    org_id,
+                    0,
+                    extra_micros=spent + len(new) * SEARCH_MICROS,
+                )
+            if not fits:
+                raise OverBudget(spent)
+            for keyword in new:
+                query = f"{keyword} buy online"
+                result = adapter.query(query, country, language)
+                spent += result.cost_micros
+                row: dict[str, Any] = {
+                    "query": query,
+                    "titles": [],
+                    "model": result.model,
+                    "cost_micros": result.cost_micros,
+                    "error": None,
+                }
+                if result.kind != "ok" or result.raw is None:
+                    row["error"] = result.error or "no answer"
+                else:
+                    parsed = adapter.parse(result.raw)
+                    domains = sorted({d for _, d in parsed.citations if d})
+                    raw, cost, _model = generator(
+                        titles_prompt(keyword, parsed.text, domains),
+                        TitleSet,
+                        0.0,
+                    )
+                    spent += cost
+                    row["cost_micros"] += cost
+                    row["titles"] = keep_present(
+                        [
+                            t.model_dump()
+                            for t in TitleSet.model_validate_json(raw).titles
+                        ],
+                        parsed.text,
+                    )
+                with tenant_session(org_id) as s:
+                    stmt = pg_insert(m.KeywordSearch).values(
+                        org_id=org_id,
+                        brand_id=brand_id,
+                        keyword=keyword,
+                        searched_at=now,
+                        **row,
+                    )
+                    s.execute(
+                        stmt.on_conflict_do_update(
+                            constraint="uq_keyword_search_brand_keyword",
+                            set_={
+                                c: getattr(stmt.excluded, c)
+                                for c in (*row, "searched_at")
+                            },
+                        )
+                    )
+                titles_by_kw[keyword] = row["titles"]
+                searched += 1
+            done += len(batch)
+            if not kept:
+                continue
+            # 3-6. Missing keywords, rewrite, rule check, write. A keyword
+            # past KEYWORD_CAP has no titles, so its missing list is [].
+            for i, p in enumerate(kept):
                 p["index"] = i
                 p["missing"] = missing(
                     p["title"],
@@ -688,7 +747,7 @@ def run_products(
                     names,
                 )
             raw, cost, _model = generator(
-                rewrite_prompt(brand.name, batch), RewriteSet, 0.0
+                rewrite_prompt(brand.name, kept), RewriteSet, 0.0
             )
             spent += cost
             rewrites = {
@@ -696,7 +755,7 @@ def run_products(
                 for item in RewriteSet.model_validate_json(raw).products
             }
             with tenant_session(org_id) as s:
-                for i, p in enumerate(batch):
+                for i, p in enumerate(kept):
                     item = rewrites.get(i)
                     suggestion = (item.title.strip() if item else "") or p[
                         "title"
@@ -720,8 +779,7 @@ def run_products(
                         )
                     )
         return (
-            f"products:{len(products)} keywords:{len(ordered)} "
-            f"searched:{len(new)}"
+            f"products:{len(products)} keywords:{len(seen)} searched:{searched}"
         )
     except OverBudget:
         raise

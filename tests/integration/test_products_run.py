@@ -1,5 +1,6 @@
 """The product_run and import_feed jobs (slice 18)."""
 
+import itertools
 import json
 from datetime import UTC, datetime, timedelta
 
@@ -48,7 +49,7 @@ class FakeEngine:
         return 60
 
 
-def _generator(owner=None, fail_on=None):
+def _generator(owner=None, fail_on=None, keywords=None):
     """Answers each schema with fixed JSON; records the call kinds and,
     when `owner` is given, how many products had a keyword at call time."""
     calls = []
@@ -79,7 +80,11 @@ def _generator(owner=None, fail_on=None):
         if kind == "keywords":
             body = {
                 "products": [
-                    {"index": i, "keywords": ["kids sandals", "walkaroo kids"]}
+                    {
+                        "index": i,
+                        "keywords": keywords
+                        or ["kids sandals", "walkaroo kids"],
+                    }
                     for i in indexes
                 ]
             }
@@ -316,12 +321,107 @@ def test_a_model_failure_in_batch_two_keeps_batch_one(
     org = make_org()
     bid = make_brand(org, "Walkaroo")
     _seed(owner, org, bid, 21)
-    gen = _generator(fail_on=4)  # first call of the second batch
+    # R12: batch 1 is finished (3 keyword calls, titles parse, rewrite)
+    # before batch 2 starts, so call 6 is batch 2's first keyword call.
+    gen = _generator(fail_on=6)
     job, rows, _searches = _run(owner, org, bid, gen)
     assert job.status == "failed" and "model down" in (job.error or "")
-    assert job.cost_micros == 3 * 700
-    assert sum(1 for p in rows if p.keyword) == 20
-    assert all(p.suggested_title is None for p in rows)
+    # batch 1's keywords, one search, one titles parse, one rewrite
+    assert job.cost_micros == 3 * 700 + 35_000 + 700 + 700
+    done = [p for p in rows if p.keyword and p.suggested_title]
+    assert len(done) == 20
+    rest = [p for p in rows if p not in done]
+    assert len(rest) == 1
+    assert rest[0].keyword is None and rest[0].suggested_title is None
+
+
+def _stops_after_one_batch():
+    """0 on the first read, then past PRODUCT_JOB_SECONDS."""
+    reads = itertools.chain([0.0], itertools.repeat(481.0))
+    return lambda: next(reads)
+
+
+def _direct(owner, org, bid, generator, clock=None):
+    """run_products called directly, for its summary and a fake clock."""
+    jid = _job(owner, org, bid, "product_run", "running")
+    kw = {"clock": clock} if clock else {}
+    summary = products.run_products(
+        org.id,
+        jid,
+        bid,
+        {"locale": {"country": "IN", "language": "en"}},
+        generator,
+        FakeEngine(),
+        **kw,
+    )
+    with owner() as s:
+        rows = s.scalars(select(m.Product)).all()
+    return jid, summary, rows
+
+
+def test_a_run_stops_at_the_time_budget(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 41)
+    _jid, summary, rows = _direct(
+        owner, org, bid, _generator(), _stops_after_one_batch()
+    )
+    assert "out of time after 20 of 41 products" in summary
+    assert sum(1 for p in rows if p.suggested_title) == 20
+    assert sum(1 for p in rows if p.suggested_title is None) == 21
+
+
+def test_a_second_run_continues_with_the_oldest_results(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 25)
+    _jid, _summary, rows = _direct(
+        owner, org, bid, _generator(), _stops_after_one_batch()
+    )
+    unrun = sorted(p.title for p in rows if p.result_at is None)
+    assert len(unrun) == 5
+    inner = _generator()
+    rewritten: list[str] = []
+
+    def generator(prompt, schema, temperature):
+        if schema is products.RewriteSet:
+            body = json.loads(prompt.split("Products:\n", 1)[1])
+            rewritten.extend(p["title"] for p in body)
+        return inner(prompt, schema, temperature)
+
+    jid2, _summary, rows = _direct(owner, org, bid, generator)
+    assert rewritten[:5] == unrun
+    assert all(p.suggested_title for p in rows)
+    assert {p.job_id for p in rows if p.title in unrun} == {jid2}
+
+
+def test_a_product_whose_keyword_drops_loses_its_old_suggestion(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    with owner() as s, s.begin():
+        s.add(
+            m.Product(
+                org_id=org.id,
+                brand_id=bid,
+                external_id="W-0",
+                title="Walkaroo Boys Sandal",
+                source="csv",
+                keyword="kids sandals",
+                missing_keywords=["x"],
+                suggested_title="Old",
+                rule_check="pass",
+            )
+        )
+    gen = _generator(keywords=["walkaroo sandals"])
+    job, rows, _searches = _run(owner, org, bid, gen)
+    assert job.status == "done"
+    p = rows[0]
+    assert (p.keyword, p.suggested_title, p.rule_check) == (None, None, None)
+    assert p.missing_keywords is None and p.job_id == job.id
 
 
 def test_no_transaction_is_open_during_model_calls(owner, make_org, make_brand):
