@@ -904,3 +904,36 @@ def test_rival_rule_adds_one_statement(owner, scene):  # noqa: F811
             event.remove(bind, "before_cursor_execute", count)
     assert [c.subject_key for c in out] == [KEY]
     assert len(seen) == 1
+
+
+def test_rival_rule_scans_only_the_newest_pages(owner, scene, monkeypatch):  # noqa: F811
+    from bsi_core import recommend
+
+    monkeypatch.setattr(recommend, "RIVAL_PAGES_SCAN", 3)
+    url = "https://adidas.co.in/running-shoes/{}"
+    for i in range(1, 6):
+        _page(owner, scene.org, scene.brand, scene.adidas, url.format(i), i)
+    ev = _rival_found(scene)[KEY].evidence
+    assert ev["pages_total"] == 3
+    assert [p["url"] for p in ev["pages"]] == [url.format(i) for i in (1, 2, 3)]
+
+
+def test_rival_rule_skips_a_topic_with_no_words(owner, scene):  # noqa: F811
+    A = scene.adidas
+    # Brand behind (1/2 vs Adidas 2/2) on a topic that yields no words:
+    # the empty set is a subset of every slug, so the guard must skip it.
+    scene.add(
+        "shoes?",
+        "commercial",
+        "-- ??",
+        [(True, [A], None, []), (False, [A], None, [])],
+    )
+    _page(
+        owner,
+        scene.org,
+        scene.brand,
+        A,
+        "https://adidas.co.in/running-shoes/new",
+        1,
+    )
+    assert set(_rival_found(scene)) == {KEY}

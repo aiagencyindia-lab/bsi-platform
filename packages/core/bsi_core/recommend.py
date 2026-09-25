@@ -87,6 +87,11 @@ RIVAL_DAYS = 14
 # Five or more new rival pages on a topic is a full-pressure signal.
 RIVAL_PAGES_SATURATION = 5
 RIVAL_PAGES_CAP = 10
+# ponytail: _rival_pages reads at most this many newest pages. A full-site
+# re-slug makes every URL new for RIVAL_DAYS; past 5,000 the older pages
+# are ignored and pages_total is capped. Upgrade: match in SQL, or store
+# slug words at crawl time.
+RIVAL_PAGES_SCAN = 5_000
 
 
 @dataclass
@@ -589,7 +594,8 @@ def _content_clusters(
 
 def _rival_pages(s: Session, brand_id: uuid.UUID) -> Sequence[Row[Any]]:
     """New (non-baseline) pages of active competitors seen in the last
-    RIVAL_DAYS, newest first. One statement; values bound."""
+    RIVAL_DAYS, newest first, at most RIVAL_PAGES_SCAN. One statement;
+    values bound."""
     return s.execute(
         text(
             "SELECT p.competitor_id, c.name, p.url, p.first_seen_at "
@@ -597,9 +603,9 @@ def _rival_pages(s: Session, brand_id: uuid.UUID) -> Sequence[Row[Any]]:
             "WHERE p.brand_id = :b AND c.status = 'active' "
             "  AND NOT p.baseline "
             "  AND p.first_seen_at >= now() - make_interval(days => :days) "
-            "ORDER BY p.first_seen_at DESC, p.url"
+            "ORDER BY p.first_seen_at DESC, p.url LIMIT :cap"
         ),
-        {"b": brand_id, "days": RIVAL_DAYS},
+        {"b": brand_id, "days": RIVAL_DAYS, "cap": RIVAL_PAGES_SCAN},
     ).all()
 
 
