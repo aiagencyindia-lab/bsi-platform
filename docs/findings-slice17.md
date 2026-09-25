@@ -32,10 +32,21 @@
 
 ## 2. Live check
 
-Run by the controller on dev before the finishing menu; filled in below.
+Run by the controller on dev at 2026-09-25 14:42 UTC on the branch (HEAD 72c6feb). Read-only: no migration (none in this slice) and no new report run (`report_run` count below). No worker process was running (checked with `pgrep` after the check); the routes the check called (the PDF routes, the public report route and the archive page's tenant routes) make no model call, by the code, so no model spend. The API ran on :8000 and a production build of the web app (`next build` + `next start`) on :3001; the build lists `/r/[token]/pdf` as a dynamic route.
 
 | Check | Result |
 |---|---|
+| `report_run` rows on dev before / after | 5 / 5 |
+| `GET /r/{token}/pdf` for the five stored runs (cmo, seo, content, pr, agency) | 200 each; bodies start `%PDF-`; 4,960 / 7,314 / 6,222 / 4,736 / 4,963 bytes |
+| `Content-Disposition` | `attachment; filename="bsoagenttestbrand-<type>-2026-09-25.pdf"` on each |
+| `Cache-Control` | `no-store` on each |
+| API headers passed through (`x-request-id`, `server: uvicorn`) | none on any of the five |
+| "Download PDF" href on each public page `/r/{token}` | `/r/{token}/pdf` |
+| API host on the agency public page (`localhost:8000` or `/v1/r/`) | 0 matches |
+| Archive page `/b/{Run 1}/reports`, signed in with Run 1's key cookie | 5 matches of `href="/r/…/pdf"`; 0 matches for `localhost:8000` (`/v1/r/` was not grepped on this page) |
+| `GET /r/short/pdf` and `/r/unknown-token-unknown-token-xyz/pdf` | 404, body `Not found` |
+
+Timings are curl's `time_total`, one fetch each: 0.37 s for the first (cmo; likely first-request warm-up, inferred) and about 0.03 s (0.026–0.031 s) for the other four. The byte sizes equal those the API served directly in slice 15's live check; inferred, not compared byte for byte: the route passes the PDFs through unchanged. Observed: every check above. Not checked live: the new labels, the Intent column, the Cluster cell and `Methodology v2`, because they appear only in a newly generated run and generating one is a write; they are covered by tests (§4). The 30 s upstream timeout was not exercised.
 
 ## 3. Deferred / decisions
 
@@ -65,8 +76,11 @@ Task 3
 - The plan's "Changes made during execution" lists the integration label examples (`Third party`, `Llms txt`), which deviate from the spec's §2 examples, not from the plan. Cost: none.
 - Fixed in the final review: the plan's line saying the `API_URL` Global Constraint "holds with the route added" now says the constraint was amended to include the route, and this section's commit table now quotes the real subjects.
 
+Final review
+- The upstream timeout (`AbortSignal.timeout(30_000)`) covers the whole response, including the streamed body, so a body slower than 30 s would arrive truncated with status 200 rather than as a 502. Theoretical here: the API builds the whole PDF in memory and returns about 5–7 KB. Cost: a very slow body could arrive cut off instead of as a 502.
+
 ## 4. Not covered by tests
 
-- The new labels, the Intent column and `Methodology v2` on real dev data: the live check generates no new run, so they are covered only by the unit and integration tests.
+- The new labels, the Intent column, the Cluster cell and `Methodology v2` on real dev data: the live check generates no new run, so they are covered only by the unit and integration tests.
 - The pages' relative PDF links: checked only by grep and the live check; `ReportBody`'s test covers rendering `pdfHref` as given.
 - The Route Handler under a real Next server: the vitest tests call `GET` directly with `fetch` stubbed; it runs under Next only in the live check.
