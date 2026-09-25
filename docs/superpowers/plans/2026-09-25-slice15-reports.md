@@ -3416,3 +3416,6 @@ Deviations from the text above, as recorded in the execution ledger (`.superpowe
 - Task 10: files added beyond the Files list: `app/r/layout.tsx` (title "Report"), `app/r/not-found.tsx`, `app/r/error.tsx` (fix round) and `src/lib/api.test.ts`; the page also sets the tab title with `generateMetadata`.
 - Task 10: `publicApi` maps 422 (a malformed token) to `notFound()` as well as 404 (the plan mapped 404 only), so a truncated link shows the not-found page rather than the root error page.
 - Task 11: the brief's commit trailer was replaced by the session's (`Claude Opus 5.5`), and this section was added.
+- Final review: the CMO/agency Competitors share-of-voice cell and the PR Sentiment mix share print `value [low, high] n=N` (`fmt_rate`), not `fmt_pct`; `METHODOLOGY_VERSION` stays "1".
+- Final review: headings "Alerts in period", "Content gaps with briefs" and "Page citability with next step" (content report), "New sources in period", and the site-audit column "Detail", as spec §2 names them (the plan had shorter names).
+- Final review: `public._run` 404s when the run's token no longer matches; the PDF filename comes from `run.document["brand"]` (no `Brand` read); `list_runs` defers `document` with `raiseload`; `ReportBody` sets `--accent` only for `#rrggbb`, with a vitest case.

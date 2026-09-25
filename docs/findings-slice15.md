@@ -10,7 +10,7 @@
 
 **Worker.** `generate_due_reports()` in `worker.py`: reads `due_report_runs()` in `system_session()`, then per row a `tenant_session(org_id)` that calls `generate(source="scheduled")` with 7 or 30 days ending now and sets `report.generated_at = func.now()` in the same transaction; each row has its own `try/log.exception`. `main()` calls it after `deliver_due_alerts`.
 
-**API.** `routers/reports.py`, prefix `/brands/{brand_id}/reports`, every route `TENANT`: `GET ""` (five `ReportOut`, `off` synthesised), `GET /runs?limit=` (1–200, default 50, newest first), `GET /runs/{run_id}`, `POST /runs/{run_id}/share` (new token), `DELETE /runs/{run_id}/share` (204), `PUT /{type}` (cadence; off→on nulls the stamp), `POST /{type}/runs` (manual run, 201). The `/runs` routes are declared before `/{type}`. `routers/public.py`, prefix `/r`, no key: `GET /r/{token}` (`ReportRunOut`) and `GET /r/{token}.pdf` (attachment named `{brand-slug}-{type}-{period_to date}.pdf`); the token must match `^[A-Za-z0-9_-]{20,64}$` (else 422), an unknown or revoked token is a 404 with a generic body, both send `Cache-Control: no-store`, and the PDF is rendered after the session closes. `BrandPatch` and `BrandOut` gain the three branding fields (logo URL through the shared https/public-host validator, accent `#rrggbb`, prepared-by up to 80 characters). Schemas `ReportOut`, `CadenceIn`, `ReportRunListOut`, `ReportRunOut` (with `document: Document`).
+**API.** `routers/reports.py`, prefix `/brands/{brand_id}/reports`, every route `TENANT`: `GET ""` (five `ReportOut`, `off` synthesised), `GET /runs?limit=` (1–200, default 50, newest first), `GET /runs/{run_id}`, `POST /runs/{run_id}/share` (new token), `DELETE /runs/{run_id}/share` (204), `PUT /{type}` (cadence; off→on nulls the stamp), `POST /{type}/runs` (manual run, 201). The `/runs` routes are declared before `/{type}`. `routers/public.py`, prefix `/r`, no key: `GET /r/{token}` (`ReportRunOut`) and `GET /r/{token}.pdf` (attachment named `{brand-slug}-{type}-{period_to date}.pdf`, the slug from the stored document's brand name); the token must match `^[A-Za-z0-9_-]{20,64}$` (else 422), an unknown or revoked token is a 404 with a generic body (the run's token is re-checked after the tenant read), both send `Cache-Control: no-store`, and the PDF is rendered after the session closes. `BrandPatch` and `BrandOut` gain the three branding fields (logo URL through the shared https/public-host validator, accent `#rrggbb`, prepared-by up to 80 characters). Schemas `ReportOut`, `CadenceIn`, `ReportRunListOut`, `ReportRunOut` (with `document: Document`).
 
 **Web.** A Reports tab (`b/[id]/reports/page.tsx` and `actions.ts`): Schedules (type, cadence select, last scheduled run), Generate now, Agency branding form, and the Archive (type, period, source, created, View link to `/r/{token}` or "not shared", PDF link, Share/Re-share, Revoke). `format.ts` gains `REPORT_TYPE` and `reportNote`; `types.ts` gains `Report`, `ReportRun`, `ReportRunDetail`, `ReportDocument`; `openapi.json` and `schema.d.ts` regenerated. Public page `app/r/[token]/page.tsx` renders `components/ReportBody.tsx` (title, period, sections, footer, a Download PDF link built from the server-side `API_URL`, the logo only when https, the accent as a CSS variable on headings, print CSS) and sets the tab title to the document's title with `generateMetadata`. `lib/api.ts` gains `publicApi` (no cookie, no key; 404 and 422 go to `notFound()`, anything else not ok throws). `app/r/layout.tsx` gives every `/r` page the neutral title "Report", `app/r/not-found.tsx` keeps the 404 under it, and `app/r/error.tsx` shows neutral copy for a failed load. `vitest.config.ts` sets the automatic JSX runtime so TSX tests compile.
 
@@ -30,6 +30,9 @@
 | 6f97b6a, d093374 | Task 8: public routes; a dead token's 404 body names nothing |
 | 0170fc7 | Task 9: Reports tab |
 | 819f461, bdbc4e0 | Task 10: public report page; malformed token is a 404 page and `/r` errors stay white-label |
+| 3f7bbec | Final review fixes (below) |
+
+**Final review fixes.** Fixed in the final review, so no longer deferred: the Competitors share-of-voice cell and the PR Sentiment mix share now print `value [low, high] n=N`; the headings and the site-audit column take the spec §2 names ("Alerts in period", "Content gaps with briefs", "Page citability with next step", "New sources in period", "Detail"); the public route re-checks the token after the tenant read (the revoke race); `list_runs` defers the document; the PDF filename comes from the stored document, not the brand row; the HTML page emits the accent only when it is `#rrggbb`.
 
 ## 2. Live check
 
@@ -42,7 +45,7 @@ Run by the controller on dev before the finishing menu; filled in below.
 
 From the spec and the build:
 - No logo in the PDF (spec §5 and Out of scope): fetching an image inside a request is out. Cost: agency PDFs carry only the accent colour and the prepared-by line; the logo appears on the HTML page only.
-- The PDF link (on the public page and in the Archive) is built from the server-side `API_URL`. Cost: it works only where the reader's browser can reach that host; on a deployment where the API is internal the link is dead.
+- The PDF link (on the public page and in the Archive) is built from the server-side `API_URL`. Cost: it works only where the reader's browser can reach that host; on a deployment where the API is internal the link is dead. It also puts the API's hostname on the client-facing page: if that host carries the platform name, the white-label acceptance fails. This must be solved before any real client share, by a public API base URL setting or by same-origin proxying (which would need a ruling under the "Server Components and server actions only" rule).
 - Periods are rolling 7 or 30 days ending at generation time, not calendar months (spec Out of scope). Cost: a "monthly" report does not line up with a calendar month.
 - The public routes are not rate-limited; the tokens are 256-bit (`token_urlsafe(32)`). Cost: nothing stops a client hammering the PDF route, which renders on every request.
 - Prompts with no topic are grouped as "untopiced" in the content report. Cost: a label a client may not understand.
@@ -64,7 +67,6 @@ Task 2
 - `Document.type` is `str`, not a `Literal`. Cost: the schema does not constrain the type.
 
 Task 3
-- The CMO section is headed "Alerts", not the spec's "Alerts in period" (brief-mandated). Cost: a heading that differs from the spec.
 - The tasks filter has no `done_at < period.to` bound. Cost: none while `to` is always now; a back-dated run would include later tasks.
 - The Tasks status cell prints the raw enum (`impact_measured`) in a client-facing report. Cost: an internal word in front of a client.
 - Untested paths: an open task row with owner or impact None, an agency report without prepared-by, the not-comparable branch, the alert window cell, a non-empty SOV table. Cost: those cells are checked by reading only.
@@ -72,9 +74,6 @@ Task 3
 
 Task 4
 - `_latest_page_audits` filters on score after `DISTINCT ON`, so a URL whose newest fetch failed drops out even with an older scored audit (`recommend.py` filters before); its docstring says "latest scored". Cost: a page can vanish from the citability tables.
-- The headings "Content gaps", "Page citability" and "New sources" are shorter than the spec §2 names (brief-mandated). Cost: headings that differ from the spec.
-- The Site audit column is "Observed", not the spec's "detail". Cost: a column name that differs from the spec.
-- The Sentiment mix share prints without an interval or n (plan-mandated `75.0%`), against the constraint that every rate cell carries its interval. Cost: one table breaks the interval rule.
 - Untested: gap-table rows, PR competitor sentiment rows, SEO cited-source rows. Cost: those cells are checked by reading only.
 - Owner cells print the raw enum (`third_party`). Cost: an internal word in front of a client.
 - The negatives query repeats the `_MENTIONS` fragment inline. Cost: two copies to keep in step.
@@ -92,15 +91,13 @@ Task 6
 Task 7
 - The `ReportType` Literal duplicates `models.REPORT_TYPES`, and no test ties them. Cost: a new type could be added to one and not the other.
 - `LogoUrl` is a copy of the `WebhookUrl` alias. Cost: two definitions to keep in step.
-- `list_runs` loads the JSONB document for up to 200 rows and discards it (no `defer()`). Cost: wasted reads on a long archive.
 - No tests for the runs `limit` bounds or a run id from another brand of the same org. Cost: those paths are checked by reading only.
 - Stored documents are re-validated against `Document` on read, so a future `Document` change could make old runs 500. Cost: the archive breaks unless document changes stay backward-compatible or are versioned.
 
 Task 8
 - The idle-in-transaction probe runs after the PDF response, so it cannot see a transaction held during `render_pdf`. Cost: a regression that renders inside the session would pass (fix: probe from inside a monkeypatched `render_pdf`).
-- The token lookup and the tenant read are separate transactions; a revoke between them serves one more response. Cost: one response after revoke in a narrow race (fix: re-check `run.share_token == token`); flagged for the final review to triage.
 - The public JSON exposes `id`, `brand_id` and `share_token` (the spec mandates `ReportRunOut`). Cost: internal ids reach the reader.
-- No rate limiting on the public routes (see above).
+- No rate limiting on the public routes. Cost: a client can request the PDF route without limit, and each request renders a PDF.
 
 Task 9
 - The Schedules table puts the select, timestamp and Save in one `colSpan=3` cell under a four-column header. Cost: a misaligned table.
