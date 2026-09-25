@@ -3,8 +3,27 @@
 from datetime import UTC, datetime, timedelta
 
 from bsi_core import models as m
-from bsi_core.db import system_session
+from bsi_core.citations import sources
+from bsi_core.competitors import entity_metrics
+from bsi_core.db import system_session, tenant_session
+from bsi_core.metrics import DELTA_METRICS, Filters, brand_deltas
+from bsi_core.reports import (
+    METRIC_LABEL,
+    Document,
+    build_agency,
+    build_cmo,
+    fmt_delta,
+    fmt_rate,
+)
 from sqlalchemy import text, update
+
+from tests.integration.test_competitors import (
+    NOW,
+    _answers,
+    _cite,
+    _mention,
+    _prompt,
+)
 
 
 def due_runs():
@@ -91,3 +110,209 @@ def test_token_lookup_crosses_tenants_only_by_exact_token(
         none = s.execute(q, {"t": ""}).first()
     assert hit is not None and (hit.run_id, hit.org_id) == (run_id, org.id)
     assert miss is None and none is None
+
+
+def _scene(owner, make_org, make_brand):
+    """Nike (nike.com) v Adidas (adidas.com). One prompt; 6 answers in the
+    last 7 days, 6 in the 7 before. This period: Nike named 4/6 (one
+    negative), Adidas 3/6; forbes.com cited on every answer, nike.com on
+    2. Prior period: Nike 1/6. One open recommendation, one done task
+    with a measured impact, one alert inside the period."""
+    org = make_org()
+    bid = make_brand(org, "Nike")
+    with owner() as s, s.begin():
+        s.add(m.Domain(org_id=org.id, brand_id=bid, host="nike.com"))
+        comp = m.Competitor(
+            org_id=org.id, brand_id=bid, name="Adidas", domains=["adidas.com"]
+        )
+        s.add(comp)
+        s.flush()
+        cid = comp.id
+    p = _prompt(owner, org, bid, "best shoes")
+    before = _answers(owner, org, bid, p, NOW - timedelta(days=10), 6)
+    after = _answers(owner, org, bid, p, NOW - timedelta(days=2), 6)
+    rows = [_mention(org, before[0], "brand", bid)]
+    rows += [_mention(org, o, "brand", bid) for o in after[:3]]
+    rows.append(
+        _mention(org, after[3], "brand", bid, rec="negative", sent="negative")
+    )
+    rows += [_mention(org, o, "competitor", cid) for o in after[:3]]
+    rows += [_cite(org, o, "forbes.com") for o in after]
+    rows += [_cite(org, o, "nike.com", owned=True) for o in after[:2]]
+    with owner() as s, s.begin():
+        s.add_all(rows)
+        rec = m.Recommendation(
+            org_id=org.id,
+            brand_id=bid,
+            type="pursue_citation_source",
+            subject_key="forbes.com",
+            title="Pitch forbes.com",
+            body="b",
+            reach=0.5,
+            pressure=0.5,
+            feasibility=0.5,
+            priority=0.125,
+        )
+        s.add(rec)
+        s.flush()
+        s.add(
+            m.Task(
+                org_id=org.id,
+                brand_id=bid,
+                recommendation_id=rec.id,
+                title="Pitch forbes.com",
+                owner="Priya",
+                status="impact_measured",
+                done_at=NOW - timedelta(days=3),
+                window_days=14,
+                impact_label="improved",
+                impact={
+                    "delta": {
+                        "value": 0.2,
+                        "ci_low": 0.1,
+                        "ci_high": 0.3,
+                        "label": "increase",
+                    }
+                },
+            )
+        )
+        s.add(
+            m.Alert(
+                org_id=org.id,
+                brand_id=bid,
+                type="new_source",
+                subject_key="forbes.com",
+                title="forbes.com is a new source",
+                detail={"domain": "forbes.com", "answers": 6},
+                window_from=NOW - timedelta(days=7),
+                window_to=NOW,
+                created_at=NOW - timedelta(days=1),
+            )
+        )
+    return org, bid
+
+
+def _section(doc: Document, heading: str):
+    return next(sec for sec in doc.sections if sec.heading == heading)
+
+
+def _table(doc: Document, heading: str):
+    block = _section(doc, heading).blocks[0]
+    assert block.kind == "table", (heading, block)
+    return block
+
+
+def test_cmo_opening_agrees_with_brand_deltas(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    with tenant_session(org.id) as s:
+        brand = s.get_one(m.Brand, bid)
+        doc = build_cmo(s, brand, 7, NOW)
+        out = brand_deltas(s, bid, Filters(), 7, NOW)
+    assert doc.type == "cmo" and doc.brand == "Nike"
+    assert doc.period.from_ == out["after"]["from"]
+    assert doc.period.compare_from == out["before"]["from"]
+    assert doc.sections[0].heading == "Period"
+    vis = _table(doc, "Visibility")
+    assert vis.columns == ["Metric", "This period", "Prior period", "Change"]
+    assert vis.rows == [
+        [
+            METRIC_LABEL[k],
+            fmt_rate(out["after"][k]),
+            fmt_rate(out["before"][k]),
+            fmt_delta(out["deltas"][k]),
+        ]
+        for k in DELTA_METRICS
+    ]
+    assert vis.rows[0][1] == "0.67 [0.30, 0.90] n=6"
+    assert doc.footer.startswith("Methodology v1 · pipeline v")
+
+
+def test_cmo_sections_agree_with_the_dashboard_functions(
+    owner, make_org, make_brand
+):
+    org, bid = _scene(owner, make_org, make_brand)
+    f = Filters(date_from=NOW - timedelta(days=7), date_to=NOW)
+    with tenant_session(org.id) as s:
+        brand = s.get_one(m.Brand, bid)
+        doc = build_cmo(s, brand, 7, NOW)
+        ents = entity_metrics(s, bid, f)
+        srcs = sources(s, bid, f)
+    assert [sec.heading for sec in doc.sections] == [
+        "Period",
+        "Visibility",
+        "Share of voice",
+        "Competitors",
+        "Top cited sources",
+        "Recommendations",
+        "Tasks",
+        "Alerts",
+    ]
+    comp = _table(doc, "Competitors")
+    assert [r[0] for r in comp.rows] == [e["name"] for e in ents]
+    assert comp.rows[0][1] == fmt_rate(ents[0]["mention_rate"])
+    src = _table(doc, "Top cited sources")
+    assert src.rows == [
+        [x["domain"], x["owner"], str(x["answers"]), str(x["prompts"])]
+        for x in srcs[:10]
+    ]
+    assert _table(doc, "Recommendations").rows == [
+        ["Citation source", "Pitch forbes.com", "0.12"]
+    ]
+    assert _table(doc, "Tasks").columns == [
+        "Task",
+        "Owner",
+        "Status",
+        "Impact",
+        "Change",
+    ]
+    assert _table(doc, "Tasks").rows == [
+        [
+            "Pitch forbes.com",
+            "Priya",
+            "impact_measured",
+            "improved",
+            "+0.20 [+0.10, +0.30] increase",
+        ]
+    ]
+    alerts = _table(doc, "Alerts")
+    assert alerts.rows[0][:2] == ["New source", "forbes.com is a new source"]
+
+
+def test_empty_brand_gets_a_complete_report(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Fresh")
+    with tenant_session(org.id) as s:
+        doc = build_cmo(s, s.get_one(m.Brand, bid), 7, NOW)
+    assert len(doc.sections) == 8
+    vis = _table(doc, "Visibility")
+    assert vis.rows[0][1] == "— (n=0)"
+    assert vis.rows[0][3] == "insufficient data"
+    assert _section(doc, "Competitors").blocks[0].kind == "p"
+    assert _section(doc, "Tasks").blocks[0].text == "No tasks in this period."
+
+
+def test_agency_is_client_facing_cmo(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Brand)
+            .where(m.Brand.id == bid)
+            .values(
+                report_logo_url="https://nike.com/logo.png",
+                report_accent="#112233",
+                report_prepared_by="Acme Agency",
+            )
+        )
+    with tenant_session(org.id) as s:
+        doc = build_agency(s, s.get_one(m.Brand, bid), 7, NOW)
+    assert doc.type == "agency" and doc.title == "Nike visibility report"
+    assert doc.branding is not None
+    assert doc.branding.model_dump() == {
+        "logo_url": "https://nike.com/logo.png",
+        "accent": "#112233",
+        "prepared_by": "Acme Agency",
+    }
+    assert doc.sections[0].blocks[-1].text == "Prepared by Acme Agency."
+    tasks = _table(doc, "Tasks")
+    assert tasks.columns == ["Task", "Status", "Impact", "Change"]
+    assert "Priya" not in str(doc.model_dump())
