@@ -1,7 +1,8 @@
 import { API_URL } from "@/lib/api";
 
-// The only Route Handler in the app: it proxies the API's public PDF so
-// the client never sees the API host and the API can stay internal.
+// One of the app's two Route Handlers (the other is
+// /b/[id]/products/export.csv): it proxies the API's public PDF so the
+// client never sees the API host and the API can stay internal.
 // Same token rule as the API; a bad token never reaches it.
 const TOKEN = /^[A-Za-z0-9_-]{20,64}$/;
 // A hung API would otherwise hold the client for minutes; the PRD target
