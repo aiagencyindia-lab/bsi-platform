@@ -1,5 +1,6 @@
 import pytest
 from bsi_core import entity
+from bsi_core.alerts import drop_copy, shift_copy, source_copy
 from bsi_core.crawl import SEVERITY
 from bsi_core.recommend import (
     citation_copy,
@@ -173,6 +174,22 @@ CASES += [
         {"add": [], "remove": [], "rewrite": [], "evidence_to_add": []},
     ),
 ]
+
+
+# Alert titles are single strings with no metric line.
+ALERT_CASES = [
+    drop_copy(0.18, 0.52, 0.34),
+    shift_copy("Adidas", "up", 11),
+    shift_copy("Adidas", "down", 10),
+    source_copy("forbes.com", 6),
+]
+
+
+@pytest.mark.parametrize("copy", ALERT_CASES)
+def test_alert_copy_never_promises_an_outcome(copy):
+    text = copy.lower()
+    for word in FORBIDDEN:
+        assert word not in text, word
 
 
 @pytest.mark.parametrize("copy", CASES)

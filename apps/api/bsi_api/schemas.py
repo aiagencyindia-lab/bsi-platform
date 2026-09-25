@@ -465,3 +465,24 @@ class PageAuditOut(BaseModel):
     suggestions: SuggestionsOut
     evidence: dict[str, Any]
     fetches: int
+
+
+class AlertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    brand_id: uuid.UUID
+    type: str
+    subject_key: str
+    title: str
+    detail: dict[str, Any]
+    window_from: datetime
+    window_to: datetime
+    created_at: datetime
+    delivered_at: datetime | None
+    delivery_attempts: int
+    next_attempt_at: datetime | None
+    last_error: str | None
+
+
+class ScanOut(BaseModel):
+    created: int

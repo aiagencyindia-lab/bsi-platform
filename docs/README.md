@@ -125,6 +125,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-24-domains-reflag-citations.md](superpowers/plans/2026-09-24-domains-reflag-citations.md) | Plan, Tasks 1–2 and the post-merge data step. |
 | [findings-slice12.md](findings-slice12.md) §4 | The change's limits and deferred items. |
 
+## Slice 13: alerts
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-25-slice13-alerts-design.md](superpowers/specs/2026-09-25-slice13-alerts-design.md) | Design spec: three rolling-window alert types, an Alerts tab, and one webhook per brand with bounded retries. |
+| [superpowers/plans/2026-09-25-slice13-alerts.md](superpowers/plans/2026-09-25-slice13-alerts.md) | Implementation plan, Tasks 1–7. |
+| [findings-slice13.md](findings-slice13.md) | Results: what was built, the read-only scan on Run 1, and what is deferred. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 

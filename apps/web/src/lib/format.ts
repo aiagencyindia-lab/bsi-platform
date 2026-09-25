@@ -147,3 +147,20 @@ export const pageNote = (status: Params[string]) => note(PAGE_NOTES, status);
 
 /** What "Crawl competitor sites now" did, from the job status. */
 export const crawlNote = (status: Params[string]) => note(CRAWL_NOTES, status);
+
+// Display names for alert types.
+export const ALERT_KIND: Record<string, string> = {
+  mention_drop: "Mention drop",
+  competitor_shift: "Competitor shift",
+  new_source: "New source",
+};
+
+const ALERT_NOTES: Record<string, string> = {
+  saved: "Webhook saved; new alerts are posted to it.",
+  cleared: "Webhook cleared.",
+  new: "Scan done; new alerts are listed below.",
+  none: "Scan done; nothing new.",
+};
+
+/** What the webhook or scan form did. */
+export const alertNote = (status: Params[string]) => note(ALERT_NOTES, status);

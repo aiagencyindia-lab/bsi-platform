@@ -1,12 +1,13 @@
 import uuid
 from typing import Annotated, Any, Literal
+from urllib.parse import urlsplit
 
 from bsi_core import models as m
 from bsi_core.citations import reflag_citations
 from bsi_core.matching import is_public_hostname, normalize_domain
 from fastapi import APIRouter, Response
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from ..deps import TENANT, Ctx, brand_or_404, child_or_404
 from ..problems import Problem
@@ -29,6 +30,26 @@ def _public_host(value: str) -> str:
 Host = Annotated[Short, AfterValidator(_public_host)]
 
 
+def _webhook_url(value: str) -> str:
+    """An HTTPS URL on a public host, default port, no userinfo."""
+    parts = urlsplit(value)
+    ok = (
+        parts.scheme == "https"
+        and bool(parts.hostname)
+        and is_public_hostname(parts.hostname or "")
+        and parts.port in (None, 443)
+        and parts.username is None
+    )
+    if not ok:
+        raise ValueError("webhook_url must be https on a public host")
+    return value
+
+
+WebhookUrl = Annotated[
+    str, Field(max_length=2000), AfterValidator(_webhook_url)
+]
+
+
 class Out(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -46,6 +67,7 @@ class BrandPatch(BaseModel):
     name: str = Field(None, min_length=1, max_length=200)
     aliases: list[Short] = Field(None, max_length=20)
     category: Short | None = None
+    webhook_url: WebhookUrl | None = None
 
 
 class BrandOut(Out):
@@ -53,6 +75,7 @@ class BrandOut(Out):
     aliases: list[str]
     category: str | None
     status: str
+    webhook_url: str | None
 
 
 class CompetitorIn(BaseModel):
@@ -134,6 +157,13 @@ def patch_brand(
 ) -> m.Brand:
     brand = brand_or_404(c, brand_id)
     _patch(brand, body)
+    if "webhook_url" in body.model_fields_set and body.webhook_url is None:
+        # Pending alerts must not go to whatever URL is set next.
+        c.s.execute(
+            update(m.Alert)
+            .where(m.Alert.brand_id == brand_id, m.Alert.delivered_at.is_(None))
+            .values(next_attempt_at=None)
+        )
     return brand
 
 

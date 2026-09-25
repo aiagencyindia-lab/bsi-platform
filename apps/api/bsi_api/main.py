@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, Response
 
 from . import problems
 from .routers import (
+    alerts,
     audits,
     brands,
     citations,
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
         competitors.router,
         clusters.router,
         pages.router,
+        alerts.router,
     ):
         app.include_router(router, prefix="/v1")
     return app
