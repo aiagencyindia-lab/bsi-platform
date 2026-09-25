@@ -10,6 +10,15 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-25-slice13-alerts-design.md`
 
+## Changes made during execution
+
+This plan is the record of what was planned. These changes were made while it ran; the spec is updated to match, and `docs/findings-slice13.md` §3 lists every ruling with its cost.
+- Docs review fixes (commit 8194de4): no `s.begin()` on `tenant_session`; `http_fetch`'s response buffer renamed to `buf`; the 15-point floor rounds to 9 places and gets floor-only, label-only and exact-15-point tests; a delivery-marking test; the live check runs the detectors in a rolled-back session.
+- Task 1: added the list index `ix_alert_list` (Ruling 1); ascending index columns (Ruling 4).
+- Task 2: the scan test is named `test_scan_inserts_and_dedupes_within_the_window` (Ruling 3); alert copy is tested by a separate `ALERT_CASES` list (Ruling 10).
+- Task 7: new-source alerts need a full window of history before the current window (Ruling 11, commits 4717c95 and 20b1387).
+- Final review (commit 7e22c45): clearing the webhook stops pending deliveries; `scan` takes a per-brand advisory lock; webhook posts send `WEBHOOK_UA`.
+
 ## Global Constraints
 
 - Every tenant table has `org_id`, RLS with `ENABLE` + `FORCE` via `_protect()` copied into the migration, a row in `TENANT_TABLES` and in the `org_b` fixture of `tests/integration/test_rls.py`.

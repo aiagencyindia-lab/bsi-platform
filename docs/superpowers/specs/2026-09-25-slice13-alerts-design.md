@@ -32,7 +32,7 @@ Planning ran on Fable 5.1 with the user's approval. Implementers and reviewers r
 Migration `0016_alerts.py`:
 
 - Table `alert`. Columns: `id`, `created_at`, `org_id` (as in earlier migrations), `brand_id` (FK brand), `type` (CHECK over `mention_drop`, `competitor_shift`, `new_source`), `subject_key`, `title`, `detail` jsonb default `{}`, `window_from` and `window_to` (timestamptz, not null), `delivered_at` (nullable), `delivery_attempts` (int, default 0), `next_attempt_at` (nullable; NULL means not for delivery), `last_error` (nullable text).
-- Indexes: `(brand_id, type, subject_key, window_to DESC)` for dedupe; `(brand_id, created_at DESC)` for the list; a partial index on `next_attempt_at` where `delivered_at IS NULL AND next_attempt_at IS NOT NULL` for delivery.
+- Indexes: `(brand_id, type, subject_key, window_to)` for dedupe; `(brand_id, created_at)` for the list (ascending: a btree scans backwards for newest-first); a partial index on `next_attempt_at` where `delivered_at IS NULL AND next_attempt_at IS NOT NULL` for delivery.
 - Row-level security with the `_protect()` helper copied into the migration, as every tenant table has.
 - `brand.alerts_scanned_at` (timestamptz, nullable) and `brand.webhook_url` (text, nullable).
 - `due_alert_scans()`: active brands whose stamp is NULL or older than one day, NULLS FIRST. `due_alert_deliveries()`: undelivered alerts with `next_attempt_at <= now()` whose brand is active and has a webhook, limit 100. Both SECURITY DEFINER with the same grants as `due_recommendation_refreshes()`.
@@ -49,12 +49,13 @@ Each detector is `(s, brand_id, to) -> list[Candidate]`, where `Candidate` is a 
 - **mention_drop.** From `brand_deltas(days=7)`: fire only when the windows are comparable, the mention-rate label is "decrease", and the delta value is at most −0.15. Subject `mention_rate`. Detail holds the before and after rates and the delta. The window is the after window.
 - **competitor_shift.** One candidate per feed entry from `visibility_changes(days=14)`. Subject `<competitor_id>:<direction>`. Detail holds competitor id and name, direction, before and after rates, delta, prompt ids and observation ids. The window is split to `to`.
 - **new_source.** One SQL statement with bound `brand`, `from`, `to` and `min`. A domain's first citation is the earliest `requested_at` over all done answers before `to`, so a domain seen a year ago is never new. The domain qualifies when that first citation falls in `[from, to)` and at least `min` distinct answers cite it inside the window. Observation and prompt id arrays are capped at 20. Brand-owned and rival domains are dropped afterwards with `matching.is_owned` against the brand's hosts and the active competitors' domains. Subject is the domain.
+  - **Baseline (added during the build, Ruling 11).** The detector returns nothing unless the brand's earliest done answer is at or before `to` minus 14 days, so its history reaches a full window before the current one. Without it, a brand whose answers all fall inside the window reports every cited domain as new: the read-only check on Run 1 found 54.
 
 **Dedupe.** A candidate is skipped when an alert exists with the same brand, type and subject whose `window_to` is later than the candidate's `window_from`. Windows of one type have one length, so this is exactly "the previous alert is younger than the window".
 
-**Copy.** Three templates, for example "Mention rate fell 18.0 points over the last 7 days (52.0% to 34.0%)", "Adidas was named more often on 11 prompts over the last 14 days", "forbes.com was cited in 6 answers, the first time in the last 7 days". The cases join `tests/unit/test_recommend_copy.py`, so the forbidden-word rule applies to alert titles too.
+**Copy.** Three templates, for example "Mention rate fell 18.0 points over the last 7 days (52.0% to 34.0%)", "Adidas was named more often on 11 prompts over the last 14 days", "forbes.com was cited in 6 answers, the first time in the last 7 days". The cases sit in their own `ALERT_CASES` list in `tests/unit/test_recommend_copy.py`, with their own forbidden-word test: alert titles have no "Metric to watch" body, so they do not fit the existing `(title, body)` cases.
 
-**`scan(s, org_id, brand_id, to, *, deliver)`** runs the detectors, drops deduped candidates, inserts the rest with `next_attempt_at = now()` when `deliver` is true and NULL otherwise, flushes and returns the new rows. An alert created while the brand has no webhook is never delivered later, even if a webhook is set afterwards.
+**`scan(s, org_id, brand_id, to, *, deliver)`** first takes a transaction-scoped advisory lock on the brand (`pg_advisory_xact_lock(hashtext('alert-scan:<brand_id>'))`, added after the final review), so a manual scan and the daily scan cannot both pass the dedupe and store the same alert. It then runs the detectors, drops deduped candidates, inserts the rest with `next_attempt_at = now()` when `deliver` is true and NULL otherwise, flushes and returns the new rows. An alert created while the brand has no webhook is never delivered later, even if a webhook is set afterwards.
 
 **`payload(alert, brand_name)`** returns id, type, brand_id, brand, title, `text` (equal to the title, which is what a Slack incoming webhook renders), subject_key, window_from, window_to, created_at and detail. It is serialised with `json.dumps(default=str)`.
 
@@ -65,7 +66,7 @@ Each detector is `(s, brand_id, to) -> list[Candidate]`, where `Candidate` is a 
 ### 4. Worker
 
 - **`scan_due_alerts()`** sits beside `refresh_due_recommendations`. It reads the due brands through `due_alert_scans()`, and for each one, inside `tenant_session(org_id)`, reads `webhook_url`, calls `scan` with `to = now`, and stamps `alerts_scanned_at` from the database clock. One brand's failure never stops the others. It runs inline rather than as a job because it is SQL-only, costs nothing and takes well under a second per brand.
-- **`deliver_due_alerts(fetch=http_fetch)`** reads due alert ids through `due_alert_deliveries()`. For each alert: a tenant session reads the alert and the brand's name and webhook URL, builds the payload, and closes. The POST runs with no session open. A second tenant session then increments `delivery_attempts` and records either success (`delivered_at`, `next_attempt_at` NULL, `last_error` NULL) or failure (`last_error` from the response's error or "HTTP <status>", cut to 2,000 characters). After a failure, `next_attempt_at` is now plus the backoff for that attempt: 1 minute, 5 minutes, 30 minutes, 2 hours. After the fifth failed attempt `next_attempt_at` becomes NULL and the alert is given up, with `last_error` kept. A refused URL, for example one whose host resolves to a private address, walks the same schedule; five attempts bound it. One alert's failure never stops the others, and the function never raises.
+- **`deliver_due_alerts(fetch=http_fetch)`** reads due alert ids through `due_alert_deliveries()`. For each alert: a tenant session reads the alert and the brand's name and webhook URL, builds the payload, and closes. The POST runs with no session open and sends the user agent `bsi-platform-alerts/1.0` (`WEBHOOK_UA`), not a browser's. A second tenant session then increments `delivery_attempts` and records either success (`delivered_at`, `next_attempt_at` NULL, `last_error` NULL) or failure (`last_error` from the response's error or "HTTP <status>", cut to 2,000 characters). After a failure, `next_attempt_at` is now plus the backoff for that attempt: 1 minute, 5 minutes, 30 minutes, 2 hours. After the fifth failed attempt `next_attempt_at` becomes NULL and the alert is given up, with `last_error` kept. A refused URL, for example one whose host resolves to a private address, walks the same schedule; five attempts bound it. One alert's failure never stops the others, and the function never raises.
 - `main()` calls `scan_due_alerts()` and then `deliver_due_alerts()` in the minute block after `queue_due_rival_crawls()`, each in its own try block.
 
 ### 5. API
@@ -74,7 +75,7 @@ Each detector is `(s, brand_id, to) -> list[Candidate]`, where `Candidate` is a 
   - `GET /alerts?limit=50` (1 to 200) returns alerts newest first, then by id. A foreign brand returns 404.
   - `POST /alerts/scan` runs `scan` inline with `to = now` and returns `{created: n}`. It does not stamp `alerts_scanned_at`, so the daily scan still runs.
 - `AlertOut` exposes every alert column; `ScanOut` has `created`.
-- `BrandPatch.webhook_url` is optional and nullable, so an explicit null clears it. The validator accepts only `https`, a hostname that passes `is_public_hostname`, port 443 or none, no userinfo, and at most 2,000 characters. `BrandOut` returns it.
+- `BrandPatch.webhook_url` is optional and nullable, so an explicit null clears it. The validator accepts only `https`, a hostname that passes `is_public_hostname`, port 443 or none, no userinfo, and at most 2,000 characters. `BrandOut` returns it. Setting it to null also clears `next_attempt_at` on the brand's undelivered alerts, so an alert pending when the webhook is cleared is never posted to a webhook set later (added after the final review).
 - Isolation tests get rows for both alert routes with a foreign alert in the fixture.
 
 ### 6. Web
@@ -93,7 +94,9 @@ Each detector is `(s, brand_id, to) -> list[Candidate]`, where `Candidate` is a 
 
 ### 8. Live check
 
-Read-only for dev: with the API running the branch, `POST /alerts/scan` on Run 1, then `GET /alerts`. Run 1's 100 answers fall inside 4 days, so the feed is empty and `competitor_shift` stays quiet; `mention_drop` and `new_source` are reported as observed. The worker is not started.
+Read-only for dev. As built (Ruling 9): the detectors run on Run 1 in a tenant session that is rolled back; the scan route is not called, dev is not migrated, no webhook is set and the worker is not started. The POST-then-GET check first written here would have stored rows and needed migration 0016 on dev.
+
+What happened is in `docs/findings-slice13.md` §2. The mention-rate detector could not run on dev at migration 0015, because the ORM loads the brand's two new columns.
 
 ## Rulings
 
@@ -107,6 +110,8 @@ Each is listed to the user with its cost if wrong.
 - **No webhook signing.** Cost: a consumer cannot authenticate the sender; add an HMAC header later.
 - **`http_fetch` gains method and body.** Cost: a guard regression would affect crawling; the existing fetch tests cover the guard.
 - **Slack renders only `text`.** The rest of the JSON is for other consumers.
+
+Rulings made during the build (1 to 12, including Rulings 9 and 11 above) are listed with their costs in `docs/findings-slice13.md` §3.
 
 ## Out of scope
 
