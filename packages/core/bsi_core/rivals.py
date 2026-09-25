@@ -6,6 +6,7 @@ snapshot_domain is pure: the caller passes the fetch (the SSRF-guarded
 crawl.http_fetch in production), as crawl.audit_domain does."""
 
 import json
+import re
 import time
 import uuid
 import xml.etree.ElementTree as ET
@@ -15,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -42,6 +43,32 @@ MAX_URLS = 50_000  # URLs kept per domain per crawl
 MAX_NEW_PAGES = 10
 MAX_URL_CHARS = 2_048  # the sitemap protocol's limit
 MAX_TYPE_CHARS = 200
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _stem(word: str) -> str:
+    """Drop one trailing s on words longer than three characters, so
+    sneakers/sneaker and kids/kid meet. ponytail: crude on purpose (glass
+    -> glas on both sides, which still matches); a real stemmer is the
+    upgrade path if topic words start missing slugs."""
+    return word[:-1] if len(word) > 3 and word.endswith("s") else word
+
+
+def _words(text: str) -> frozenset[str]:
+    return frozenset(_stem(w) for w in _WORD.findall(text.casefold()))
+
+
+def slug_words(url: str) -> frozenset[str]:
+    """The stemmed words of a URL's path; query and fragment are ignored.
+    A bare host gives the empty set."""
+    return _words(unquote(urlsplit(url).path))
+
+
+def topic_words(topic: str) -> frozenset[str]:
+    """The stemmed words of a cluster topic (one to three words from the
+    labeller). A page matches a topic when topic_words <= slug_words."""
+    return _words(topic)
 
 
 class OutOfTime(Exception):

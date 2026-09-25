@@ -95,6 +95,7 @@ export const KIND: Record<string, string> = {
   fix_crawlability: "Site fix",
   fix_entity: "Entity fix",
   optimize_page: "Page fix",
+  respond_to_rival_content: "Rival content",
 };
 
 const QUEUED = "Queued; the worker runs it within a minute.";

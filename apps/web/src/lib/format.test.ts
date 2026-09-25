@@ -144,6 +144,9 @@ test("pageNote says what the score button actually did", () => {
 test("KIND labels the page-fix recommendation", () =>
   expect(KIND.optimize_page).toBe("Page fix"));
 
+test("KIND labels the rival-content recommendation", () =>
+  expect(KIND.respond_to_rival_content).toBe("Rival content"));
+
 test("crawlNote says what the crawl button actually did", () => {
   const queued = "Queued; the worker crawls competitor domains not crawled in the last 7 days, within a few minutes.";
   expect(crawlNote("queued")).toBe(queued);

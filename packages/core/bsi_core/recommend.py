@@ -38,6 +38,7 @@ from urllib.parse import urlsplit
 
 from sqlalchemy import delete, func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from . import entity
@@ -46,6 +47,7 @@ from .crawl import expected, family
 from .matching import is_owned
 from .metrics import Filters, prompt_metrics
 from .pages import WEIGHTS_VERSION
+from .rivals import slug_words, topic_words
 from .suggest import ANSWERS
 
 log = logging.getLogger("bsi.recommend")
@@ -64,6 +66,8 @@ FEASIBILITY = {
     # Editing a page that exists is less work than writing one.
     "optimize_page": 0.6,
     "create_content": 0.4,
+    # Writing content, as create_content; the rival's move is the prompt.
+    "respond_to_rival_content": 0.4,
     "pursue_citation_source": 0.3,
 }
 # Nothing measures a site check against answers, so pressure is the
@@ -78,6 +82,16 @@ SAMPLE_MORE_WITHIN = 10
 CONTENT_REASONS = ("competitor_dominance", "not_retrieved")
 # Below this AI Citability Score a scored page is worth a task.
 PAGE_SCORE_THRESHOLD = 70
+# Rival pages count as new for this long after first_seen_at.
+RIVAL_DAYS = 14
+# Five or more new rival pages on a topic is a full-pressure signal.
+RIVAL_PAGES_SATURATION = 5
+RIVAL_PAGES_CAP = 10
+# ponytail: _rival_pages reads at most this many newest pages. A full-site
+# re-slug makes every URL new for RIVAL_DAYS; past 5,000 the older pages
+# are ignored and pages_total is capped. Upgrade: match in SQL, or store
+# slug words at crawl time.
+RIVAL_PAGES_SCAN = 5_000
 
 
 @dataclass
@@ -165,6 +179,58 @@ def cluster_copy(
         "these prompts directly gives engines something of the brand's "
         "own to retrieve. "
         f"Metric to watch: {brand}'s mention rate on the cluster's prompts.",
+    )
+
+
+def _last_segment(url: str) -> str:
+    u = urlsplit(url)
+    segs = [p for p in u.path.split("/") if p]
+    return segs[-1] if segs else (u.hostname or url)
+
+
+def rival_content_copy(
+    brand: str,
+    topic: str,
+    intent: str,
+    page_type: str,
+    pages_by_rival: list[tuple[str, list[str]]],
+    n: int,
+    brand_rate: float | None,
+    top_rival: tuple[str, float | None] | None,
+    gap: bool,
+) -> tuple[str, str]:
+    """A competitor published on a topic where the brand is behind."""
+    k = sum(len(urls) for _, urls in pages_by_rival)
+    rivals = [name for name, _ in pages_by_rival]
+    if len(rivals) == 1:
+        plural = "s" if k != 1 else ""
+        title = f"{rivals[0]} published {k} new {topic} page{plural}"
+    else:
+        title = f"{k} new {topic} pages from {names(rivals)}"
+    moves = " ".join(
+        f"{name} published {len(urls)} "
+        f"new page{'s' if len(urls) != 1 else ''}: "
+        + ", ".join(_last_segment(u) for u in urls[:3])
+        + "."
+        for name, urls in pages_by_rival
+    )
+    if gap or brand_rate is None or top_rival is None:
+        standing = f"This cluster is a content gap for {brand}."
+    else:
+        name, rate_ = top_rival
+        theirs = f"{rate_:.0%}" if rate_ is not None else "—"
+        standing = (
+            f"{brand} is named in {brand_rate:.0%} of {n} answers; "
+            f"{name} in {theirs}."
+        )
+    # ponytail: first-letter rule; every PAGE_TYPES value reads right by it.
+    art = "an" if page_type[0] in "aeiou" else "a"
+    return (
+        title,
+        f"{moves} {standing} Publish {art} {page_type} on {topic} that "
+        "answers these prompts directly, so engines have something of the "
+        "brand's own to retrieve alongside the rival's. "
+        f"Metric to watch: {brand}'s mention rate on the {topic} cluster.",
     )
 
 
@@ -474,7 +540,11 @@ def _cluster_candidate(
 
 
 def _content_clusters(
-    s: Session, brand_id: uuid.UUID, brand: str, total: int
+    s: Session,
+    brand_id: uuid.UUID,
+    brand: str,
+    total: int,
+    rows: list[dict[str, Any]],
 ) -> list[Candidate]:
     """One candidate per gap cluster of labelled prompts (PRD F11).
 
@@ -494,7 +564,7 @@ def _content_clusters(
         )
     ).all()
     out = []
-    for c in clusters(s, brand_id, Filters()):
+    for c in rows:
         key = c["key"]
         # Exact follow-up keys only: a topic may itself contain ":+".
         plus = re.compile(re.escape(key) + r":\+[0-9a-f]{8}")
@@ -519,6 +589,93 @@ def _content_clusters(
         if sub["gap"]:
             h = hashlib.sha1(",".join(new).encode()).hexdigest()[:8]
             out.append(_cluster_candidate(sub, f"{key}:+{h}", brand, total))
+    return out
+
+
+def _rival_pages(s: Session, brand_id: uuid.UUID) -> Sequence[Row[Any]]:
+    """New (non-baseline) pages of active competitors seen in the last
+    RIVAL_DAYS, newest first, at most RIVAL_PAGES_SCAN. One statement;
+    values bound."""
+    return s.execute(
+        text(
+            "SELECT p.competitor_id, c.name, p.url, p.first_seen_at "
+            "FROM rival_page p JOIN competitor c ON c.id = p.competitor_id "
+            "WHERE p.brand_id = :b AND c.status = 'active' "
+            "  AND NOT p.baseline "
+            "  AND p.first_seen_at >= now() - make_interval(days => :days) "
+            "ORDER BY p.first_seen_at DESC, p.url LIMIT :cap"
+        ),
+        {"b": brand_id, "days": RIVAL_DAYS, "cap": RIVAL_PAGES_SCAN},
+    ).all()
+
+
+def _rival_content(
+    s: Session,
+    brand_id: uuid.UUID,
+    brand: str,
+    total: int,
+    rows: list[dict[str, Any]],
+) -> list[Candidate]:
+    """One candidate per cluster where the brand is behind and a rival
+    published matching pages in the last RIVAL_DAYS (spec slice 16)."""
+    from .gaps import PAGE_TYPES  # gaps imports CONTENT_REASONS from here
+
+    pages = [(r, slug_words(r.url)) for r in _rival_pages(s, brand_id)]
+    if not pages:
+        return []
+    out = []
+    for c in rows:
+        behind = c["gap"] or (c["spread"] is not None and c["spread"] < 0)
+        words = topic_words(c["topic"])
+        if not behind or not words:
+            continue
+        matched = [r for r, slug in pages if words <= slug]
+        if not matched:
+            continue
+        by_rival: dict[str, list[str]] = {}
+        for r in matched:
+            by_rival.setdefault(r.name, []).append(r.url)
+        top = c["top_rival"]
+        title, body = rival_content_copy(
+            brand,
+            c["topic"],
+            c["intent"],
+            PAGE_TYPES[c["intent"]],
+            list(by_rival.items()),
+            c["n"],
+            c["brand"]["value"],
+            (top["name"], top["value"]) if top else None,
+            c["gap"],
+        )
+        out.append(
+            Candidate(
+                "respond_to_rival_content",
+                f"rival:{c['key']}",
+                title,
+                body,
+                {
+                    "prompt_ids": [str(p["prompt_id"]) for p in c["prompts"]],
+                    "observation_ids": [str(o) for o in c["absent_obs"]],
+                    "cluster": {"intent": c["intent"], "topic": c["topic"]},
+                    "cluster_key": c["key"],
+                    "n": c["n"],
+                    "spread": c["spread"],
+                    "gap": c["gap"],
+                    "pages": [
+                        {
+                            "competitor_id": str(r.competitor_id),
+                            "name": r.name,
+                            "url": r.url,
+                            "first_seen_at": r.first_seen_at.isoformat(),
+                        }
+                        for r in matched[:RIVAL_PAGES_CAP]
+                    ],
+                    "pages_total": len(matched),
+                },
+                c["n"] / total,
+                min(len(matched) / RIVAL_PAGES_SATURATION, 1.0),
+            )
+        )
     return out
 
 
@@ -757,11 +914,15 @@ def generate(s: Session, brand_id: uuid.UUID) -> list[Candidate]:
     )
     found = _competitors(s, brand_id) + _crawl(s, brand_id, brand)
     if total:
+        from .gaps import clusters  # gaps imports CONTENT_REASONS from here
+
+        rows = clusters(s, brand_id, Filters())
         rival_domains = _rival_domains(s, brand_id)
         found += [
             *_citations(s, brand_id, brand, total, rival_domains),
             *_content(s, brand_id, brand, total),
-            *_content_clusters(s, brand_id, brand, total),
+            *_content_clusters(s, brand_id, brand, total, rows),
+            *_rival_content(s, brand_id, brand, total, rows),
             *_pages(s, brand_id, brand, total),
             *_sampling(s, brand_id, brand, active, total),
         ]

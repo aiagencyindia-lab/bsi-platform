@@ -11,6 +11,7 @@ from bsi_core.db import system_session, tenant_session
 from bsi_core.rivals import NEW_PAGES_CAP, feed_evidence, site_changes
 from sqlalchemy import func, select, text, update
 
+from tests.integration.test_gaps import scene  # noqa: F401
 from tests.integration.test_worker import FakeAdapter, _job, _load_job, _spender
 from tests.unit.test_rivals import HOME, urlset
 
@@ -821,3 +822,75 @@ def test_the_default_sitemap_fetch_is_http_fetch_bound_to_the_sitemap_cap():
     f = worker.SITEMAP_FETCH
     assert f.func is http_fetch
     assert f.keywords == {"cap": SITEMAP_CAP_BYTES, "raw": True}
+
+
+def test_crawl_refreshes_recommendations(owner, scene):  # noqa: F811
+    org, bid = scene.org, scene.brand
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Competitor)
+            .where(m.Competitor.id == scene.adidas)
+            .values(domains=["adidas.co.in"])
+        )
+    one = {
+        "https://adidas.co.in/sitemap.xml": urlset(
+            ("https://adidas.co.in/a", None)
+        ),
+        "https://adidas.co.in/": HOME,
+    }
+    _run(owner, org, bid, _fake({"adidas.co.in": one}))
+    with owner() as s, s.begin():  # make it due again
+        s.execute(
+            update(m.RivalCrawl).values(
+                created_at=func.now() - func.make_interval(0, 0, 0, 8)
+            )
+        )
+    two = {
+        **one,
+        "https://adidas.co.in/sitemap.xml": urlset(
+            ("https://adidas.co.in/a", None),
+            ("https://adidas.co.in/running-shoes/ultra", "2026-09-20"),
+        ),
+        "https://adidas.co.in/running-shoes/ultra": HOME,
+    }
+    job = _run(owner, org, bid, _fake({"adidas.co.in": two}))
+    assert job.status == "done"
+    with owner() as s:
+        recs = s.scalars(
+            select(m.Recommendation).where(
+                m.Recommendation.type == "respond_to_rival_content"
+            )
+        ).all()
+    assert [r.subject_key for r in recs] == [
+        "rival:cluster:comparison:running shoes"
+    ]
+    assert recs[0].status == "open"
+
+
+def test_a_failing_refresh_does_not_fail_the_crawl(
+    owner,
+    scene,  # noqa: F811
+    monkeypatch,
+):
+    org, bid = scene.org, scene.brand
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Competitor)
+            .where(m.Competitor.id == scene.adidas)
+            .values(domains=["adidas.co.in"])
+        )
+
+    def boom(*_a, **_k):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(worker, "refresh", boom)
+    site = {
+        "https://adidas.co.in/sitemap.xml": urlset(
+            ("https://adidas.co.in/a", None)
+        ),
+        "https://adidas.co.in/": HOME,
+    }
+    job = _run(owner, org, bid, _fake({"adidas.co.in": site}))
+    assert job.status == "done"
+    with owner() as s:
+        assert s.scalar(select(func.count()).select_from(m.RivalCrawl)) == 1

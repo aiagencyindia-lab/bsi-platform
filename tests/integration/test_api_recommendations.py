@@ -108,7 +108,11 @@ def test_a_site_task_measures_no_impact(
 
 @pytest.mark.parametrize(
     ("rtype", "measures"),
-    [("sample_more", False), ("create_content", True)],
+    [
+        ("sample_more", False),
+        ("create_content", True),
+        ("respond_to_rival_content", True),
+    ],
 )
 def test_accept_carries_the_evidence_prompts(
     client, owner, make_observation, scene, rtype, measures

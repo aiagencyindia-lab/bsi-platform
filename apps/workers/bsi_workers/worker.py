@@ -688,6 +688,18 @@ def run_rival_crawl(
                 )
                 continue
             stored += 1
+    if stored:
+        # New pages may raise respond_to_rival_content recommendations at
+        # once rather than at the weekly refresh. A failure here must not
+        # fail the crawl job: the pages are stored either way. No
+        # recs_refreshed_at stamp: the weekly pass keeps its cadence.
+        try:
+            with tenant_session(org_id) as s:
+                refresh(s, org_id, brand_id)
+        except Exception:
+            log.exception(
+                "brand %s: refresh after rival crawl failed", brand_id
+            )
     return stored
 
 

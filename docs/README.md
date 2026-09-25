@@ -149,6 +149,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-25-slice15-reports.md](superpowers/plans/2026-09-25-slice15-reports.md) | Implementation plan, Tasks 1–11, with the changes made during execution. |
 | [findings-slice15.md](findings-slice15.md) | Results: what was built, a section for the live check on dev (pages, bytes and seconds per type), and what is deferred or untested. |
 
+## Slice 16: recommendations from competitor site changes
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-25-slice16-rival-content-recs-design.md](superpowers/specs/2026-09-25-slice16-rival-content-recs-design.md) | Design spec: a `respond_to_rival_content` recommendation when a competitor's new pages match, by URL words, a cluster where the brand is behind; with the rulings made during the build. |
+| [superpowers/plans/2026-09-25-slice16-rival-content-recs.md](superpowers/plans/2026-09-25-slice16-rival-content-recs.md) | Implementation plan, Tasks 1–6, with the changes made during execution. |
+| [findings-slice16.md](findings-slice16.md) | Results: what was built, a section for the live check on dev, and what is deferred or untested. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 
