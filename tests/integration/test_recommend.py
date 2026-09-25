@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from bsi_core import models as m
 from bsi_core.db import tenant_session
-from bsi_core.recommend import _rival_pages, generate, refresh
+from bsi_core.recommend import _rival_content, generate, refresh
 from sqlalchemy import delete, func, select, update
 
 from tests.integration.test_api_recommendations import _wait_until_blocked
@@ -876,11 +876,18 @@ def test_rival_rule_refresh_upserts_deletes_and_keeps_decisions(owner, scene):  
     assert rows() == []  # open rows without evidence are removed
 
 
-def test_rival_pages_is_one_statement(owner, scene):  # noqa: F811
+def test_rival_rule_adds_one_statement(owner, scene):  # noqa: F811
+    from bsi_core.gaps import clusters
+    from bsi_core.metrics import Filters
     from sqlalchemy import event
 
     _page(
-        owner, scene.org, scene.brand, scene.adidas, "https://adidas.co.in/a", 1
+        owner,
+        scene.org,
+        scene.brand,
+        scene.adidas,
+        "https://adidas.co.in/running-shoes/new",
+        1,
     )
     seen = []
 
@@ -888,10 +895,12 @@ def test_rival_pages_is_one_statement(owner, scene):  # noqa: F811
         seen.append(statement)
 
     with tenant_session(scene.org.id) as s:
+        rows = clusters(s, scene.brand, Filters())  # before the listener
         bind = s.get_bind()
         event.listen(bind, "before_cursor_execute", count)
         try:
-            assert len(_rival_pages(s, scene.brand)) == 1
+            out = _rival_content(s, scene.brand, "Nike", 19, rows)
         finally:
             event.remove(bind, "before_cursor_execute", count)
+    assert [c.subject_key for c in out] == [KEY]
     assert len(seen) == 1
