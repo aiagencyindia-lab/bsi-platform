@@ -192,6 +192,8 @@ def test_drop_brand_terms_matches_tokens():
         ["walkaroo sandals", "kids sandals", "wkr shoes"], BRAND
     ) == ["kids sandals"]
     assert drop_brand_terms(["walkaroo sandals"], BRAND) == []
+    # A keyword with no tokens is dropped too: it would be stored as "".
+    assert drop_brand_terms(["", "!!!", "kids shoes"], BRAND) == ["kids shoes"]
 
 
 TITLES = [
@@ -298,4 +300,22 @@ def test_prompts_carry_the_inputs_and_parse_with_their_schemas():
     assert "summer" in rp and "150" in rp
     RewriteSet.model_validate_json(
         '{"products": [{"index": 0, "title": "t", "bullets": ["b"]}]}'
+    )
+
+
+def test_rule_check_drops_a_word_that_repeats_an_earlier_token():
+    assert rule_check(
+        "Walkaroo Kids-Sandal", "Walkaroo Kids-Sandal Sandal", BRAND
+    ) == ("Walkaroo Kids-Sandal", "adjusted")
+    # The brand is prepended first, then the repeated token is dropped.
+    assert rule_check("Red Tape Boots", "Tape Shoes", ("Red Tape",)) == (
+        "Red Tape Shoes",
+        "adjusted",
+    )
+
+
+def test_rule_check_keeps_punctuation_only_words():
+    assert rule_check("Walkaroo Sandal", "Walkaroo - Sandal | Kids", BRAND) == (
+        "Walkaroo - Sandal | Kids",
+        "pass",
     )

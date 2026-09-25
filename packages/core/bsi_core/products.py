@@ -267,9 +267,10 @@ def vote(samples: Sequence[Sequence[str]]) -> list[str]:
 def drop_brand_terms(
     keywords: Sequence[str], brand_names: Sequence[str]
 ) -> list[str]:
-    """Drop any keyword sharing a token with the brand name or an alias."""
+    """Keep a keyword only if it has a token and shares none with the
+    brand name or an alias."""
     bt = brand_tokens(brand_names)
-    return [k for k in keywords if not (set(tokens(k)) & bt)]
+    return [k for k in keywords if (t := set(tokens(k))) and not t & bt]
 
 
 def missing(
@@ -309,22 +310,24 @@ def _brand_in(text: str, brand_names: Sequence[str]) -> str | None:
 def rule_check(
     original: str, suggestion: str, brand_names: Sequence[str]
 ) -> tuple[str, str]:
-    """(title, "pass" | "adjusted"). Fixes rather than retries: repeated
-    tokens are dropped (first occurrence kept), the brand is prepended
-    if the original had it and the suggestion lost it, and the title is
+    """(title, "pass" | "adjusted"). Fixes rather than retries: the brand
+    is prepended if the original had it and the suggestion lost it; then
+    repeated tokens are removed: a word that repeats an earlier token is
+    dropped whole (punctuation-only words are kept); then the title is
     trimmed to MAX_TITLE_CHARS at a word boundary."""
-    seen: set[str] = set()
-    kept: list[str] = []
-    for word in suggestion.split():
-        key = "".join(tokens(word))
-        if key and key in seen:
-            continue
-        seen.add(key)
-        kept.append(word)
-    title = " ".join(kept)
+    title = suggestion
     brand = _brand_in(original, brand_names)
     if brand and _brand_in(title, [brand]) is None:
         title = f"{brand} {title}".strip()
+    seen: set[str] = set()
+    kept: list[str] = []
+    for word in title.split():
+        toks = set(tokens(word))
+        if toks & seen:
+            continue
+        seen |= toks
+        kept.append(word)
+    title = " ".join(kept)
     if len(title) > MAX_TITLE_CHARS:
         cut = title[: MAX_TITLE_CHARS + 1]
         space = cut.rfind(" ")
