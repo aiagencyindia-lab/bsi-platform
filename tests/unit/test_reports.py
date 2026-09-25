@@ -7,11 +7,13 @@ from bsi_core.reports import (
     Period,
     Section,
     Table,
+    cluster_label,
     fmt_delta,
     fmt_pct,
     fmt_rate,
     fmt_signed,
     footer,
+    label,
     table_or_empty,
 )
 
@@ -70,3 +72,32 @@ def test_document_round_trips_through_json_with_from_alias():
     assert data["period"]["from"] == "2026-09-25T09:00:00Z"
     assert data["sections"][0]["blocks"][0] == {"kind": "p", "text": "p"}
     assert Document.model_validate(data) == doc
+
+
+def test_label_reads_codes_as_words():
+    assert label("third_party") == "Third party"
+    assert label("brand") == "Own site"
+    assert label("rival") == "Competitor"
+    assert label("impact_measured") == "Impact measured"
+    assert label("insufficient_data") == "Insufficient data"
+    assert label("h1_missing") == "H1 missing"
+    assert label("problem-based") == "Problem-based"
+    assert label("high") == "High"
+    assert label("") == ""
+
+
+def test_cluster_label_reads_the_cluster_key():
+    assert cluster_label("cluster:commercial:shoes") == "Commercial · shoes"
+    assert cluster_label("cluster:problem-based:flat feet") == (
+        "Problem-based · flat feet"
+    )
+    assert cluster_label("cluster:commercial:shoes: 2026") == (
+        "Commercial · shoes: 2026"
+    )
+    assert cluster_label("cluster:commercial") == "cluster:commercial"
+    assert cluster_label("cluster::shoes") == "cluster::shoes"
+    assert cluster_label("topic:commercial:shoes") == "topic:commercial:shoes"
+
+
+def test_methodology_is_v2():
+    assert METHODOLOGY_VERSION == "2"

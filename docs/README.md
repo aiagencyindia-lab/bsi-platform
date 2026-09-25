@@ -157,6 +157,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-25-slice16-rival-content-recs.md](superpowers/plans/2026-09-25-slice16-rival-content-recs.md) | Implementation plan, Tasks 1–6, with the changes made during execution. |
 | [findings-slice16.md](findings-slice16.md) | Results: what was built, a section for the live check on dev, and what is deferred or untested. |
 
+## Slice 17: report polish
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-25-slice17-report-polish-design.md](superpowers/specs/2026-09-25-slice17-report-polish-design.md) | Design spec: the report PDF served from the web app's own domain through one Route Handler, readable labels for coded cells in new report runs, an Intent column in the SEO content-gap table, and methodology v2; with the rulings made during the build. |
+| [superpowers/plans/2026-09-25-slice17-report-polish.md](superpowers/plans/2026-09-25-slice17-report-polish.md) | Implementation plan, Tasks 1–3, with the changes made during execution. |
+| [findings-slice17.md](findings-slice17.md) | Results: what was built, a section for the live check on dev, and what is deferred or untested. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 

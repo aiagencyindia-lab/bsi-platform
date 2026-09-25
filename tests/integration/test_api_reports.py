@@ -78,7 +78,7 @@ def test_manual_run_returns_document_and_leaves_the_stamp(
     run = r.json()
     assert run["type"] == "pr" and run["source"] == "manual"
     assert run["document"]["title"] == "Nike: PR report"
-    assert run["share_token"] and run["methodology_version"] == "1"
+    assert run["share_token"] and run["methodology_version"] == "2"
     with owner() as s:
         assert s.scalars(select(m.Report)).one().generated_at is None
     assert (

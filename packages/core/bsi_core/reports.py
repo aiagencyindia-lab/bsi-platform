@@ -36,7 +36,8 @@ from .recommend import top_by_type
 
 # Bump whenever a builder changes what it computes or how a cell is
 # formatted: a reader comparing two runs must know they are comparable.
-METHODOLOGY_VERSION = "1"
+# v2 = readable labels and the SEO Intent column.
+METHODOLOGY_VERSION = "2"
 
 METRIC_LABEL = {
     "mention_rate": "Mention rate",
@@ -60,6 +61,32 @@ ALERT_LABEL = {
     "competitor_shift": "Competitor shift",
     "new_source": "New source",
 }
+# Client-facing wording for source owners; every other code reads as
+# words by the rule in label().
+OWNER_LABEL = {
+    "brand": "Own site",
+    "rival": "Competitor",
+    "third_party": "Third party",
+}
+
+
+def label(code: str) -> str:
+    """A stored code as words: underscores become spaces and the first
+    letter is capitalised, so no per-code table goes stale."""
+    if code in OWNER_LABEL:
+        return OWNER_LABEL[code]
+    words = code.replace("_", " ")
+    return words[:1].upper() + words[1:]
+
+
+def cluster_label(key: str) -> str:
+    """A cluster key "cluster:{intent}:{topic}" as "Intent · topic"; the
+    topic may hold colons. Anything else is shown as stored."""
+    prefix, _, rest = key.partition(":")
+    intent, _, topic = rest.partition(":")
+    if prefix != "cluster" or not intent or not topic:
+        return key
+    return f"{label(intent)} · {topic}"
 
 
 class Period(BaseModel):
@@ -306,8 +333,8 @@ def _task_rows(
         row = [
             t.title,
             t.owner or "—",
-            t.status,
-            t.impact_label or "—",
+            label(t.status),
+            label(t.impact_label) if t.impact_label else "—",
             fmt_delta(impact.get("delta")),
         ]
         if client_facing:
@@ -347,7 +374,12 @@ def build_cmo(
         if e["mention_rate"]["n"]
     ]
     src_rows = [
-        [x["domain"], x["owner"], str(x["answers"]), str(x["prompts"])]
+        [
+            x["domain"],
+            label(x["owner"]),
+            str(x["answers"]),
+            str(x["prompts"]),
+        ]
         for x in sources(s, brand.id, f)[:SOURCE_ROWS]
     ]
     task_columns = ["Task", "Owner", "Status", "Impact", "Change"]
@@ -509,7 +541,7 @@ def build_seo(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
     src_rows = [
         [
             x["domain"],
-            x["owner"],
+            label(x["owner"]),
             str(x["answers"]),
             str(x["prompts"]),
             "yes" if x["gap"] else "no",
@@ -519,8 +551,8 @@ def build_seo(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
     audit_rows = [
         [
             a.domain,
-            str(c.get("code", "")),
-            str(c.get("severity", "")),
+            label(str(c.get("code", ""))),
+            label(str(c.get("severity", ""))),
             f"{c.get('observed', '')} (expected {c.get('expected', '')})",
         ]
         for a in _latest_site_audits(s, brand.id)
@@ -528,11 +560,12 @@ def build_seo(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
         if not c.get("ok", True)
     ]
     page_rows = [
-        [a.url, a.cluster_key, str(a.score)]
+        [a.url, cluster_label(a.cluster_key), str(a.score)]
         for a in _latest_page_audits(s, brand.id)
     ]
     gap_rows = [
         [
+            label(c["intent"]),
             c["topic"],
             str(len(c["prompts"])),
             fmt_rate(c["brand"]),
@@ -577,7 +610,13 @@ def build_seo(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
             heading="Content gaps",
             blocks=[
                 table_or_empty(
-                    ["Topic", "Prompts", "Brand mention rate", "Top rival"],
+                    [
+                        "Intent",
+                        "Topic",
+                        "Prompts",
+                        "Brand mention rate",
+                        "Top rival",
+                    ],
                     gap_rows,
                     "content gaps",
                 )
@@ -713,7 +752,7 @@ def build_pr(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
     ).all()
     total = sum(r.k for r in mix)
     mix_rows = [
-        [r.sentiment, str(r.k), fmt_rate(rate(r.k, total))] for r in mix
+        [label(r.sentiment), str(r.k), fmt_rate(rate(r.k, total))] for r in mix
     ]
     negatives = s.execute(
         text(
