@@ -102,9 +102,9 @@ The run and its pure steps:
 - The local `products` list in `run_products` shadows the module name.
 - `keep_present`'s test does not check case-insensitivity.
 - `PRODUCT_CASES` (the banned-word test) omits the Problem detail "Import products first.", the route bodies "Not found" and "Export unavailable", and the " products in the catalogue." suffix. None contains a banned word.
-- The spec's Testing section asks for a test that `process_job` dispatches `product_run` and `import_feed`; `test_worker.py` checks only `JOB_ESTIMATES`, and dispatch is covered by `test_products_run.py`.
 - No test of a rewrite-phase failure in batch two keeping batch one's suggestions (the keyword-phase failure is tested).
-- `test_product_kinds_are_known_and_estimated` checks the estimates only; dispatch is covered in `test_products_run.py`.
+- The spec's Testing section asks for a test that `process_job` dispatches `product_run` and `import_feed`; `test_product_kinds_are_known_and_estimated` checks the estimates only, and dispatch is covered by `test_products_run.py`.
+- The spec's Testing section (§6) lists the tests planned before execution plus the R7 and tokenless-keyword cases added in the audit; the other tests added during execution (dedupe, BOM, formula cells, error-row re-search, keyword-spend budget, time budget, R13) are listed in the plan's "Changes made during execution".
 
 API tests:
 - `GET /runs` is untested with `done > 0` or with an `import_feed` job; the idle-in-transaction probe covers import and export only.
@@ -113,11 +113,10 @@ Web:
 - `is422` in the web actions keys on the `"422 "` message prefix that `api()` builds.
 - `importFeed` has no 422 catch, so an `ftp://` URL (which `type="url"` accepts) lands on the error page. A CSV over 4 MB hits Next's body limit first and also gets no note.
 - The file and URL inputs have no `aria-label`; the URL input has only a placeholder.
-- The ` products in the catalogue.` suffix is not in `PRODUCT_CASES`.
 - `Last run failed: ` with a null error leaves a trailing colon.
 - `statusLine`, `feedLine` and `is422` have no tests.
 - `formNoValidate` on Clear does nothing, and Clear deletes in one click with no confirmation (the spec accepts this).
-- The page and its forms have not been rendered against a live API; only typecheck and build cover them until the live check.
+- The forms (CSV upload, feed import, Run and Clear buttons) were not submitted from a browser in the live check; the import and run went through the API directly, and the page and CSV download were fetched with curl (§2).
 - Export route tests: the upstream-404 test checks the status only, not the body or content type; the mocked `redirect` returns `undefined`, so a dropped `return` before `redirect()` would still pass; the 30 s `AbortSignal` also covers the streamed body, as in the PDF route.
 
 Test output:
