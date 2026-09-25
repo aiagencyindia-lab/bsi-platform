@@ -272,6 +272,13 @@ PRODUCT_CASES = [
     "CSV too large",
     "Only http(s) feed URLs",
     "Download CSV",
+    "Import CSV",
+    "Import Merchant feed",
+    "Run",
+    "Clear products",
+    "The run infers each product's generic shopper keyword, compares the title"
+    " with titles that rank for that keyword, and suggests a rewrite."
+    " Suggestions are drafts to review, not changes to the catalogue.",
 ]
 # The prompts' fixed wording is not user-facing, but it is ours.
 PRODUCT_CASES += [

@@ -12,6 +12,7 @@ import {
   lastDay,
   pageNote,
   pct,
+  productNote,
   pts,
   REPORT_TYPE,
   reportNote,
@@ -191,3 +192,19 @@ test("REPORT_TYPE labels every report type", () =>
     pr: "PR",
     agency: "Agency client",
   }));
+
+test("productNote says what the products forms did", () => {
+  expect(productNote("imported")).toBe("Imported.");
+  expect(productNote("nofile")).toBe("Choose a CSV file first.");
+  expect(productNote("cap")).toBe(
+    "Catalogue cap is 1,000 products; nothing was imported.",
+  );
+  expect(productNote("queued")).toBe("Queued; the worker runs it within a minute.");
+  expect(productNote("running")).toBe("Queued; the worker runs it within a minute.");
+  expect(productNote("done")).toBe("Done.");
+  expect(productNote("failed")).toBe("Failed; see the status line.");
+  expect(productNote("cleared")).toBe("Products cleared.");
+  expect(productNote("empty")).toBe("No products to run.");
+  expect(productNote(undefined)).toBeNull();
+  expect(productNote("constructor")).toBeNull();
+});

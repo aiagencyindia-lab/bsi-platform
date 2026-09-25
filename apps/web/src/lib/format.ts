@@ -186,3 +186,20 @@ const REPORT_NOTES: Record<string, string> = {
 /** What the reports forms did. */
 export const reportNote = (status: Params[string]) =>
   note(REPORT_NOTES, status);
+
+const PRODUCT_QUEUED = "Queued; the worker runs it within a minute.";
+const PRODUCT_NOTES: Record<string, string> = {
+  imported: "Imported.",
+  nofile: "Choose a CSV file first.",
+  cap: "Catalogue cap is 1,000 products; nothing was imported.",
+  queued: PRODUCT_QUEUED,
+  running: PRODUCT_QUEUED,
+  done: "Done.",
+  failed: "Failed; see the status line.",
+  cleared: "Products cleared.",
+  empty: "No products to run.",
+};
+
+/** What the products forms did. */
+export const productNote = (status: Params[string]) =>
+  note(PRODUCT_NOTES, status);
