@@ -166,6 +166,16 @@ def _idle_in_transaction() -> int:
         ).scalar_one()
 
 
+def _generic_404(r) -> None:
+    """A dead or unknown token gets the bare problem: nothing about the run,
+    its brand or its org."""
+    assert r.status_code == 404
+    body = r.json()
+    assert body["title"] == "Not found" and body["detail"] == ""
+    assert body["errors"] == []
+    assert "nike" not in r.text.lower()
+
+
 def test_public_page_and_pdf_follow_the_token(
     client, owner, make_org, make_brand
 ):
@@ -188,15 +198,12 @@ def test_public_page_and_pdf_follow_the_token(
     client.delete(
         f"/v1/brands/{bid}/reports/runs/{run['id']}/share", headers=org.headers
     )
-    assert client.get(f"/v1/r/{tok}").status_code == 404
-    assert client.get(f"/v1/r/{tok}.pdf").status_code == 404
+    _generic_404(client.get(f"/v1/r/{tok}"))
+    _generic_404(client.get(f"/v1/r/{tok}.pdf"))
     new = client.post(
         f"/v1/brands/{bid}/reports/runs/{run['id']}/share", headers=org.headers
     ).json()["share_token"]
     assert client.get(f"/v1/r/{new}").status_code == 200
     assert client.get(f"/v1/r/{tok}").status_code == 404
-    assert client.get("/v1/r/unknown-token-unknown-token-x").status_code == 404
+    _generic_404(client.get("/v1/r/unknown-token-unknown-token-x"))
     assert client.get("/v1/r/short").status_code == 422
-    assert (
-        "Secret" not in client.get("/v1/r/unknown-token-unknown-token-x").text
-    )
