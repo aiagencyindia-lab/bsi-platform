@@ -1,5 +1,7 @@
 """Competitor site crawl: sitemap parsing and the per-domain snapshot."""
 
+import gzip
+
 import pytest
 from bsi_core.crawl import BROWSER_UA, Response
 from bsi_core.rivals import (
@@ -7,6 +9,7 @@ from bsi_core.rivals import (
     MAX_SITEMAP_FETCHES,
     MAX_TYPE_CHARS,
     MAX_URL_CHARS,
+    MAX_URLS,
     OutOfTime,
     parse_sitemap,
     snapshot_domain,
@@ -54,29 +57,32 @@ HOME = (
 
 
 def test_parse_urlset_and_index():
-    kind, locs, ok = parse_sitemap(
-        urlset(("https://r.com/a", "2026-09-01"), ("https://r.com/b", None))
+    kind, locs, ok, cut = parse_sitemap(
+        urlset(
+            ("https://r.com/a", "2026-09-01"), ("https://r.com/b", None)
+        ).encode()
     )
-    assert (kind, ok) == ("urlset", True)
+    assert (kind, ok, cut) == ("urlset", True, False)
     assert locs == [
         ("https://r.com/a", "2026-09-01"),
         ("https://r.com/b", None),
     ]
-    kind, locs, ok = parse_sitemap(index("https://r.com/s1.xml"))
-    assert (kind, locs, ok) == (
+    kind, locs, ok, cut = parse_sitemap(index("https://r.com/s1.xml").encode())
+    assert (kind, locs, ok, cut) == (
         "sitemapindex",
         [("https://r.com/s1.xml", None)],
         True,
+        False,
     )
 
 
 def test_truncated_or_garbage_sitemap_is_not_clean():
     body = urlset(("https://r.com/a", None), ("https://r.com/b", None))
-    kind, locs, ok = parse_sitemap(body[: len(body) - 20])
-    assert kind == "urlset" and ok is False
+    kind, locs, ok, cut = parse_sitemap(body[: len(body) - 20].encode())
+    assert kind == "urlset" and ok is False and cut is False
     assert ("https://r.com/a", None) in locs  # what was read is kept
-    assert parse_sitemap("\x1f\x8b\x08garbage")[2] is False
-    assert parse_sitemap("")[2] is False
+    assert parse_sitemap(b"\x1f\x8b\x08garbage")[2] is False
+    assert parse_sitemap(b"")[2] is False
 
 
 def test_snapshot_reads_the_sitemap_home_and_new_pages():
@@ -250,10 +256,11 @@ def test_image_sitemap_locs_do_not_replace_the_page_loc():
         "<image:image><image:loc>https://cdn.r.com/a.jpg</image:loc>"
         "</image:image><lastmod>2026-09-01</lastmod></url></urlset>"
     )
-    assert parse_sitemap(body) == (
+    assert parse_sitemap(body.encode()) == (
         "urlset",
         [("https://r.com/a", "2026-09-01")],
         True,
+        False,
     )
 
 
@@ -314,7 +321,7 @@ def test_nul_locs_are_dropped(monkeypatch):
 
     locs = [("https://r.com/a\x00b", None), ("https://r.com/ok", None)]
     monkeypatch.setattr(
-        rivals, "parse_sitemap", lambda body: ("urlset", locs, True)
+        rivals, "parse_sitemap", lambda body: ("urlset", locs, True, False)
     )
     fetch = site({"https://r.com/sitemap.xml": "x", "https://r.com/": HOME})
     snap = snapshot_domain("r.com", fetch, known=set())
@@ -376,3 +383,137 @@ def test_snapshot_pauses_between_fetches_not_before_the_first(monkeypatch):
     assert log[0][0] == "f"  # no sleep before the first fetch
     assert log[1::2] == [("z", 0.5)] * (len(fetches) - 1)
     assert log[::2] == fetches
+
+
+def test_gzip_sitemap_without_content_encoding_is_unzipped():
+    body = urlset(("https://r.com/a", "2026-09-01"))
+    kind, locs, ok, cut = parse_sitemap(gzip.compress(body.encode()))
+    assert (kind, ok, cut) == ("urlset", True, False)
+    assert locs == [("https://r.com/a", "2026-09-01")]
+
+
+def test_a_gzip_sitemap_over_the_cap_is_not_clean(monkeypatch):
+    import bsi_core.rivals as rivals
+
+    monkeypatch.setattr(rivals, "SITEMAP_CAP_BYTES", 200)
+    body = urlset(*[(f"https://r.com/p{i}", None) for i in range(40)])
+    kind, locs, ok, cut = parse_sitemap(gzip.compress(body.encode()))
+    assert kind == "urlset" and ok is False and cut is True
+    assert 0 < len(locs) < 40
+
+
+def test_a_gzip_sitemap_cut_at_the_unzip_cap_is_reported_as_cut(monkeypatch):
+    import gzip as gz
+
+    import bsi_core.rivals as rivals
+
+    monkeypatch.setattr(rivals, "SITEMAP_CAP_BYTES", 200)
+    body = urlset(*[(f"https://r.com/p{i}", None) for i in range(40)])
+    raw = gz.compress(body.encode()).decode("latin-1")
+    fetch = site({"https://r.com/sitemap.xml": raw, "https://r.com/": HOME})
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert (
+        "sitemap https://r.com/sitemap.xml: cut off at the size cap"
+        in snap.errors
+    )
+    assert not any("not well-formed" in e for e in snap.errors)
+
+
+def test_snapshot_reports_truncation_and_bad_xml_exactly():
+    good = urlset(("https://r.com/a", None))
+    fetch = site(
+        {
+            "https://r.com/sitemap.xml": Response(200, good, truncated=True),
+            "https://r.com/": HOME,
+        }
+    )
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert snap.complete is False
+    assert (
+        "sitemap https://r.com/sitemap.xml: cut off at the size cap"
+        in snap.errors
+    )
+    assert "https://r.com/a" in snap.urls  # what was read is kept
+    fetch = site(
+        {"https://r.com/sitemap.xml": good[:-12], "https://r.com/": HOME}
+    )
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert (
+        "sitemap https://r.com/sitemap.xml: not well-formed XML" in snap.errors
+    )
+    assert not any("cut off" in e for e in snap.errors)
+
+
+def test_url_ceiling_stops_the_read_and_marks_incomplete(monkeypatch):
+    import bsi_core.rivals as rivals
+
+    monkeypatch.setattr(rivals, "MAX_URLS", 5)
+    s1 = urlset(*[(f"https://r.com/a{i}", None) for i in range(3)])
+    s2 = urlset(*[(f"https://r.com/b{i}", None) for i in range(4)])
+    s3 = urlset(("https://r.com/c0", None))
+    fetch = site(
+        {
+            "https://r.com/sitemap.xml": index(
+                "https://r.com/s1.xml",
+                "https://r.com/s2.xml",
+                "https://r.com/s3.xml",
+            ),
+            "https://r.com/s1.xml": s1,
+            "https://r.com/s2.xml": s2,
+            "https://r.com/s3.xml": s3,
+            "https://r.com/": HOME,
+        }
+    )
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert len(snap.urls) == 5 and snap.complete is False
+    assert (
+        "sitemap https://r.com/s2.xml: URL ceiling of 5 reached" in snap.errors
+    )
+    assert "https://r.com/s3.xml" not in fetch.calls  # queue emptied
+    assert "https://r.com/" in fetch.calls  # pages still sampled
+
+
+def test_file_cap_is_fifty_and_the_url_ceiling_can_stop_first(monkeypatch):
+    import bsi_core.rivals as rivals
+
+    assert MAX_SITEMAP_FETCHES == 50 and MAX_URLS == 50_000
+    monkeypatch.setattr(rivals, "MAX_SITEMAP_FETCHES", 4)
+    monkeypatch.setattr(rivals, "MAX_URLS", 2)
+    children = [f"https://r.com/s{i}.xml" for i in range(4)]
+    pages = {
+        "https://r.com/sitemap.xml": index(*children),
+        "https://r.com/": HOME,
+    }
+    pages |= {u: urlset((u.replace(".xml", "/p"), None)) for u in children}
+    fetch = site(pages)
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert len(snap.urls) == 2 and snap.complete is False
+    assert (
+        "sitemap https://r.com/s2.xml: URL ceiling of 2 reached" in snap.errors
+    )
+    assert "https://r.com/s3.xml" not in fetch.calls
+    assert not any("more than" in e for e in snap.errors)
+
+
+def test_sitemap_fetch_serves_sitemaps_and_fetch_serves_pages():
+    seen = {"sitemap": [], "page": []}
+
+    def sitemap_fetch(url, ua):
+        seen["sitemap"].append(url)
+        return Response(200, urlset(("https://r.com/a", None)))
+
+    def fetch(url, ua):
+        seen["page"].append(url)
+        if url.endswith("/robots.txt"):
+            return Response(200, "User-agent: *\nAllow: /\n")
+        return Response(200, HOME)
+
+    snap = snapshot_domain(
+        "r.com", fetch, known=set(), sitemap_fetch=sitemap_fetch
+    )
+    assert seen["sitemap"] == ["https://r.com/sitemap.xml"]
+    assert "https://r.com/robots.txt" in seen["page"]
+    assert (
+        "https://r.com/" in seen["page"] and "https://r.com/a" in seen["page"]
+    )
+    assert snap.fetches == 4

@@ -9,6 +9,7 @@ import json
 import time
 import uuid
 import xml.etree.ElementTree as ET
+import zlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -20,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from .crawl import (
     BROWSER_UA,
+    SITEMAP_CAP_BYTES,
     Fetch,
     Head,
     Response,
@@ -30,8 +32,9 @@ from .crawl import (
     robots_allows,
 )
 
-# The root sitemap plus up to 10 children of an index.
-MAX_SITEMAP_FETCHES = 11
+# The root sitemap plus children of an index, 50 files in all.
+MAX_SITEMAP_FETCHES = 50
+MAX_URLS = 50_000  # URLs kept per domain per crawl
 MAX_NEW_PAGES = 10
 MAX_URL_CHARS = 2_048  # the sitemap protocol's limit
 MAX_TYPE_CHARS = 200
@@ -60,13 +63,22 @@ def with_deadline(
 
 
 def parse_sitemap(
-    body: str,
-) -> tuple[str, list[tuple[str, str | None]], bool]:
-    """(root tag, [(loc, lastmod)], closed cleanly). A body cut at the
-    fetch cap, gzip bytes, or malformed XML is not clean; whatever was
-    read before the fault is still returned. Namespaces are ignored, so
-    only <loc>/<lastmod> directly under a <url>/<sitemap> entry count
-    (an image sitemap's <image:loc> sits deeper)."""
+    body: bytes,
+) -> tuple[str, list[tuple[str, str | None]], bool, bool]:
+    """(root tag, [(loc, lastmod)], closed cleanly, cut at the unzip cap).
+    Gzip bytes (magic 1f 8b) are inflated first, under SITEMAP_CAP_BYTES;
+    malformed or unclosed XML is not clean, and whatever was read before
+    the fault is still returned. Namespaces are ignored, so only <loc> and
+    <lastmod> directly under a <url>/<sitemap> entry count (an image
+    sitemap's <image:loc> sits deeper)."""
+    cut = False
+    if body[:2] == b"\x1f\x8b":
+        z = zlib.decompressobj(47)  # 32 + 15: gzip or zlib header
+        try:
+            body = z.decompress(body, SITEMAP_CAP_BYTES)
+        except zlib.error:
+            return "none", [], False, False
+        cut = bool(z.unconsumed_tail)
     parser: ET.XMLPullParser[ET.Element] = ET.XMLPullParser(
         events=("start", "end")
     )
@@ -101,7 +113,7 @@ def parse_sitemap(
             depth -= 1
     except ET.ParseError:
         closed = False
-    return root or "none", locs, closed
+    return root or "none", locs, closed, cut
 
 
 @dataclass
@@ -139,20 +151,28 @@ def _newest_first(urls: dict[str, str | None], fresh: list[str]) -> list[str]:
 
 
 def snapshot_domain(
-    host: str, fetch: Fetch, known: set[str], *, pause: float = 0.0
+    host: str,
+    fetch: Fetch,
+    known: set[str],
+    *,
+    pause: float = 0.0,
+    sitemap_fetch: Fetch | None = None,
 ) -> Snapshot:
     """One competitor domain: robots.txt, its sitemaps (an index followed
     to MAX_SITEMAP_FETCHES in all), the homepage and up to MAX_NEW_PAGES
     URLs not in `known`, newest <lastmod> first. Every fetch after
     robots.txt obeys its `*` group. Raises OutOfTime from a bounded
-    fetch; never raises otherwise."""
+    fetch; never raises otherwise. `sitemap_fetch` (default `fetch`)
+    reads sitemap files; the worker passes http_fetch bound to
+    SITEMAP_CAP_BYTES and raw=True. At most MAX_URLS URLs are kept."""
     snap = Snapshot()
+    files = sitemap_fetch or fetch
 
-    def get(url: str) -> Response:
+    def get(url: str, via: Fetch = fetch) -> Response:
         if snap.fetches and pause:
             time.sleep(pause)
         snap.fetches += 1
-        return fetch(url, BROWSER_UA)
+        return via(url, BROWSER_UA)
 
     robots = get(f"https://{host}/robots.txt")
     if robots.status == 0 or robots.status >= 500:
@@ -208,12 +228,15 @@ def snapshot_domain(
             snap.errors.append(f"sitemap {url}: disallowed by robots.txt")
             continue
         read += 1
-        r = get(url)
+        r = get(url, files)
         if not r.ok:
             snap.complete = False
             snap.errors.append(f"sitemap {url}: {r.error or r.status}")
             continue
-        kind, locs, clean = parse_sitemap(r.body)
+        # raw mode decoded the bytes as Latin-1; str fakes are ASCII.
+        kind, locs, clean, cut = parse_sitemap(
+            r.body.encode("latin-1", "replace")
+        )
         ok = [
             (loc, mod)
             for loc, mod in locs
@@ -225,9 +248,12 @@ def snapshot_domain(
                 "(too long or invalid)"
             )
         locs = ok
-        if not clean:
+        if r.truncated or cut:
             snap.complete = False
-            snap.errors.append(f"sitemap {url}: cut off or not XML")
+            snap.errors.append(f"sitemap {url}: cut off at the size cap")
+        elif not clean:
+            snap.complete = False
+            snap.errors.append(f"sitemap {url}: not well-formed XML")
         if kind == "sitemapindex":
             queue += [loc for loc, _ in locs if _owned_sitemap(host, loc)]
         elif kind != "urlset":  # a soft-404 page, a feed, garbage
@@ -236,8 +262,16 @@ def snapshot_domain(
                 snap.errors.append(f"sitemap {url}: not a sitemap (<{kind}>)")
         else:
             for loc, lastmod in locs:
-                if _owned_sitemap(host, loc):  # any on-host http(s) URL
-                    snap.urls[loc] = lastmod
+                if not _owned_sitemap(host, loc):  # any on-host http(s) URL
+                    continue
+                if loc not in snap.urls and len(snap.urls) >= MAX_URLS:
+                    snap.complete = False
+                    snap.errors.append(
+                        f"sitemap {url}: URL ceiling of {MAX_URLS} reached"
+                    )
+                    queue.clear()
+                    break
+                snap.urls[loc] = lastmod
 
     fresh = [u for u in snap.urls if u not in known]
     targets = [f"https://{host}/"]
