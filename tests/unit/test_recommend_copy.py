@@ -11,6 +11,7 @@ from bsi_core.recommend import (
     entity_copy,
     names,
     page_copy,
+    rival_content_copy,
     sample_copy,
 )
 
@@ -176,6 +177,69 @@ CASES += [
 ]
 
 
+# Quoted URL slugs are data, exempt from FORBIDDEN; fixtures avoid banned words.
+RIVAL_ONE = rival_content_copy(
+    "Nike",
+    "running shoes",
+    "comparison",
+    "comparison page",
+    [("Adidas", ["https://adidas.co.in/running-shoes/adizero-sl-2"])],
+    8,
+    0.25,
+    ("Adidas", 0.625),
+    False,
+)
+RIVAL_FOUR = rival_content_copy(
+    "Nike",
+    "running shoes",
+    "comparison",
+    "comparison page",
+    [
+        (
+            "Adidas",
+            [
+                "https://adidas.co.in/running-shoes/a",
+                "https://adidas.co.in/running-shoes/b",
+                "https://adidas.co.in/running-shoes/c",
+                "https://adidas.co.in/running-shoes/d",
+            ],
+        )
+    ],
+    8,
+    0.25,
+    ("Adidas", 0.625),
+    False,
+)
+RIVAL_MANY = rival_content_copy(
+    "Nike",
+    "kids shoes",
+    "commercial",
+    "category page",
+    [
+        ("Adidas", ["https://adidas.co.in/kids-shoes"]),
+        ("Puma", ["https://puma.com/kids/shoes"]),
+        ("Bata", ["https://bata.com/kids-shoes/"]),
+        ("Crocs", ["https://crocs.in/kids-shoes"]),
+    ],
+    10,
+    0.3,
+    ("Adidas", 0.7),
+    False,
+)
+RIVAL_GAP = rival_content_copy(
+    "Nike",
+    "running shoes",
+    "comparison",
+    "comparison page",
+    [("Adidas", ["https://adidas.co.in/running-shoes/"])],
+    8,
+    0.25,
+    ("Adidas", 0.625),
+    True,
+)
+CASES += [RIVAL_ONE, RIVAL_FOUR, RIVAL_MANY, RIVAL_GAP]
+
+
 # Alert titles are single strings with no metric line.
 ALERT_CASES = [
     drop_copy(0.18, 0.52, 0.34),
@@ -272,3 +336,24 @@ def test_page_copy_names_the_page_score_and_first_steps():
 def test_page_copy_drops_a_bare_root_path():
     title, _ = page_copy("Nike", "https://nike.com/", "school shoes", 1, 0, {})
     assert title == "Improve nike.com for school shoes"
+
+
+def test_rival_content_copy_names_pages_standing_and_response():
+    title, body = RIVAL_ONE
+    assert title == "Adidas published 1 new running shoes page"
+    assert "Adidas published 1 new page: adizero-sl-2." in body
+    assert "Nike is named in 25% of 8 answers; Adidas in 62%." in body
+    assert "Publish a comparison page on running shoes" in body
+    assert body.endswith(
+        "Metric to watch: Nike's mention rate on the running shoes cluster."
+    )
+    title, body = RIVAL_FOUR
+    assert title == "Adidas published 4 new running shoes pages"
+    assert "4 new pages: a, b, c." in body  # three named, count kept
+    title, body = RIVAL_MANY
+    assert title == "4 new kids shoes pages from Adidas, Puma and Bata"
+    assert "Crocs published 1 new page: kids-shoes." in body
+    assert "Publish a category page on kids shoes" in body
+    _, body = RIVAL_GAP
+    assert "This cluster is a content gap for Nike." in body
+    assert "named in" not in body

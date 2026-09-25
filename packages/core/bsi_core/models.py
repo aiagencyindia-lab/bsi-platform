@@ -44,6 +44,7 @@ REC_TYPES = (
     "fix_crawlability",
     "fix_entity",
     "optimize_page",
+    "respond_to_rival_content",
 )
 REC_STATES = ("open", "accepted", "dismissed")
 TASK_STATUSES = ("open", "in_progress", "done", "impact_measured")

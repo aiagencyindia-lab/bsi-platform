@@ -64,6 +64,8 @@ FEASIBILITY = {
     # Editing a page that exists is less work than writing one.
     "optimize_page": 0.6,
     "create_content": 0.4,
+    # Writing content, as create_content; the rival's move is the prompt.
+    "respond_to_rival_content": 0.4,
     "pursue_citation_source": 0.3,
 }
 # Nothing measures a site check against answers, so pressure is the
@@ -78,6 +80,11 @@ SAMPLE_MORE_WITHIN = 10
 CONTENT_REASONS = ("competitor_dominance", "not_retrieved")
 # Below this AI Citability Score a scored page is worth a task.
 PAGE_SCORE_THRESHOLD = 70
+# Rival pages count as new for this long after first_seen_at.
+RIVAL_DAYS = 14
+# Five or more new rival pages on a topic is a full-pressure signal.
+RIVAL_PAGES_SATURATION = 5
+RIVAL_PAGES_CAP = 10
 
 
 @dataclass
@@ -165,6 +172,58 @@ def cluster_copy(
         "these prompts directly gives engines something of the brand's "
         "own to retrieve. "
         f"Metric to watch: {brand}'s mention rate on the cluster's prompts.",
+    )
+
+
+def _last_segment(url: str) -> str:
+    u = urlsplit(url)
+    segs = [p for p in u.path.split("/") if p]
+    return segs[-1] if segs else (u.hostname or url)
+
+
+def rival_content_copy(
+    brand: str,
+    topic: str,
+    intent: str,
+    page_type: str,
+    pages_by_rival: list[tuple[str, list[str]]],
+    n: int,
+    brand_rate: float | None,
+    top_rival: tuple[str, float | None] | None,
+    gap: bool,
+) -> tuple[str, str]:
+    """A competitor published on a topic where the brand is behind."""
+    k = sum(len(urls) for _, urls in pages_by_rival)
+    rivals = [name for name, _ in pages_by_rival]
+    if len(rivals) == 1:
+        plural = "s" if k != 1 else ""
+        title = f"{rivals[0]} published {k} new {topic} page{plural}"
+    else:
+        title = f"{k} new {topic} pages from {names(rivals)}"
+    moves = " ".join(
+        f"{name} published {len(urls)} "
+        f"new page{'s' if len(urls) != 1 else ''}: "
+        + ", ".join(_last_segment(u) for u in urls[:3])
+        + "."
+        for name, urls in pages_by_rival
+    )
+    if gap or brand_rate is None or top_rival is None:
+        standing = f"This cluster is a content gap for {brand}."
+    else:
+        name, rate_ = top_rival
+        theirs = f"{rate_:.0%}" if rate_ is not None else "—"
+        standing = (
+            f"{brand} is named in {brand_rate:.0%} of {n} answers; "
+            f"{name} in {theirs}."
+        )
+    # ponytail: first-letter rule; every PAGE_TYPES value reads right by it.
+    art = "an" if page_type[0] in "aeiou" else "a"
+    return (
+        title,
+        f"{moves} {standing} Publish {art} {page_type} on {topic} that "
+        "answers these prompts directly, so engines have something of the "
+        "brand's own to retrieve alongside the rival's. "
+        f"Metric to watch: {brand}'s mention rate on the {topic} cluster.",
     )
 
 
