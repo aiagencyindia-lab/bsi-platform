@@ -36,7 +36,9 @@ test("streams the API's PDF with its headers and no auth", async () => {
   expect(res.headers.get("cache-control")).toBe("no-store");
   const [url, init] = vi.mocked(fetch).mock.calls[0];
   expect(url).toBe(`http://localhost:8000/v1/r/${TOKEN}.pdf`);
-  expect(init).toEqual({ cache: "no-store" });
+  expect(init).toMatchObject({ cache: "no-store" });
+  expect(init).not.toHaveProperty("headers");
+  expect(init?.signal).toBeInstanceOf(AbortSignal);
 });
 
 test("a malformed token is 404 and the API is never called", async () => {

@@ -4,6 +4,9 @@ import { API_URL } from "@/lib/api";
 // the client never sees the API host and the API can stay internal.
 // Same token rule as the API; a bad token never reaches it.
 const TOKEN = /^[A-Za-z0-9_-]{20,64}$/;
+// A hung API would otherwise hold the client for minutes; the PRD target
+// is a 20-page PDF in 30 s. An abort becomes the 502 below.
+const UPSTREAM_TIMEOUT_MS = 30_000;
 
 const plain = (body: string, status: number) =>
   new Response(body, {
@@ -21,6 +24,7 @@ export async function GET(
   try {
     upstream = await fetch(`${API_URL}/v1/r/${token}.pdf`, {
       cache: "no-store",
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
   } catch {
     return plain("Report unavailable", 502);

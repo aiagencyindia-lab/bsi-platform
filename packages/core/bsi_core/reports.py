@@ -79,6 +79,16 @@ def label(code: str) -> str:
     return words[:1].upper() + words[1:]
 
 
+def cluster_label(key: str) -> str:
+    """A cluster key "cluster:{intent}:{topic}" as "Intent · topic"; the
+    topic may hold colons. Anything else is shown as stored."""
+    prefix, _, rest = key.partition(":")
+    intent, _, topic = rest.partition(":")
+    if prefix != "cluster" or not intent or not topic:
+        return key
+    return f"{label(intent)} · {topic}"
+
+
 class Period(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     from_: datetime = Field(alias="from")
@@ -550,7 +560,7 @@ def build_seo(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
         if not c.get("ok", True)
     ]
     page_rows = [
-        [a.url, a.cluster_key, str(a.score)]
+        [a.url, cluster_label(a.cluster_key), str(a.score)]
         for a in _latest_page_audits(s, brand.id)
     ]
     gap_rows = [

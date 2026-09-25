@@ -7,6 +7,7 @@ from bsi_core.reports import (
     Period,
     Section,
     Table,
+    cluster_label,
     fmt_delta,
     fmt_pct,
     fmt_rate,
@@ -83,6 +84,19 @@ def test_label_reads_codes_as_words():
     assert label("problem-based") == "Problem-based"
     assert label("high") == "High"
     assert label("") == ""
+
+
+def test_cluster_label_reads_the_cluster_key():
+    assert cluster_label("cluster:commercial:shoes") == "Commercial · shoes"
+    assert cluster_label("cluster:problem-based:flat feet") == (
+        "Problem-based · flat feet"
+    )
+    assert cluster_label("cluster:commercial:shoes: 2026") == (
+        "Commercial · shoes: 2026"
+    )
+    assert cluster_label("cluster:commercial") == "cluster:commercial"
+    assert cluster_label("cluster::shoes") == "cluster::shoes"
+    assert cluster_label("topic:commercial:shoes") == "topic:commercial:shoes"
 
 
 def test_methodology_is_v2():

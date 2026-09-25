@@ -395,7 +395,7 @@ def test_seo_sections(owner, make_org, make_brand):
     assert audit.columns == ["Domain", "Check", "Severity", "Detail"]
     assert audit.rows == [["nike.com", "Llms txt", "Low", "404 (expected 200)"]]
     assert _table(doc, "Page citability").rows == [
-        ["https://nike.com/best-shoes", "cluster:commercial:shoes", "61"]
+        ["https://nike.com/best-shoes", "Commercial · shoes", "61"]
     ]
     assert _table(doc, "Recommendations").rows[0][1] == "Pitch forbes.com"
 
