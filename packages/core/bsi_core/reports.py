@@ -7,14 +7,16 @@ render. No links or ids: readers are outside the app. Fixed copy only.
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from . import models as m
@@ -813,3 +815,65 @@ BUILDERS: dict[str, Builder] = {
     "pr": build_pr,
     "agency": build_agency,
 }
+
+WEEKLY_DAYS = 7
+MONTHLY_DAYS = 30
+
+
+def days_for(cadence: str) -> int:
+    return MONTHLY_DAYS if cadence == "monthly" else WEEKLY_DAYS
+
+
+def new_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def definition(
+    s: Session, org_id: uuid.UUID, brand_id: uuid.UUID, type_: str
+) -> m.Report:
+    """The (brand, type) definition row, created with cadence off if
+    absent. ON CONFLICT DO NOTHING so two first runs cannot collide."""
+    s.execute(
+        pg_insert(m.Report)
+        .values(org_id=org_id, brand_id=brand_id, type=type_)
+        .on_conflict_do_nothing(constraint="uq_report_brand_type")
+    )
+    return s.scalars(
+        select(m.Report).where(
+            m.Report.brand_id == brand_id, m.Report.type == type_
+        )
+    ).one()
+
+
+def generate(
+    s: Session,
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    type_: str,
+    *,
+    days: int,
+    to: datetime,
+    source: str,
+) -> m.ReportRun:
+    """Build and store one run. SQL only: no HTTP, no model call, no
+    spend. Runs inside the caller's tenant session; never stamps
+    report.generated_at (the worker does that for scheduled runs)."""
+    brand = s.get_one(m.Brand, brand_id)
+    rep = definition(s, org_id, brand_id, type_)
+    doc = BUILDERS[type_](s, brand, days, to)
+    run = m.ReportRun(
+        org_id=org_id,
+        brand_id=brand_id,
+        report_id=rep.id,
+        type=type_,
+        source=source,
+        period_from=to - timedelta(days=days),
+        period_to=to,
+        compare_from=to - timedelta(days=2 * days),
+        document=doc.model_dump(mode="json", by_alias=True),
+        methodology_version=METHODOLOGY_VERSION,
+        share_token=new_token(),
+    )
+    s.add(run)
+    s.flush()
+    return run

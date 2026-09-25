@@ -16,11 +16,15 @@ from bsi_core.reports import (
     build_content,
     build_pr,
     build_seo,
+    days_for,
+    definition,
     fmt_day,
     fmt_delta,
     fmt_rate,
+    generate,
 )
-from sqlalchemy import text, update
+from bsi_workers.worker import generate_due_reports
+from sqlalchemy import select, text, update
 
 from tests.integration.test_competitors import (
     NOW,
@@ -473,3 +477,90 @@ def test_copy_never_promises(owner, make_org, make_brand):
             low = text_.lower()
             assert not any(w in low for w in FORBIDDEN), (doc.type, text_)
             assert "bsi" not in low and "lumenca" not in low, text_
+
+
+def test_definition_is_created_once(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    with tenant_session(org.id) as s:
+        a = definition(s, org.id, bid, "cmo")
+        b = definition(s, org.id, bid, "cmo")
+        assert a.id == b.id and a.cadence == "off"
+
+
+def test_generate_freezes_the_document(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    with tenant_session(org.id) as s:
+        run = generate(s, org.id, bid, "cmo", days=7, to=NOW, source="manual")
+        run_id, token, doc = run.id, run.share_token, run.document
+    assert token is not None and len(token) >= 40
+    assert doc["type"] == "cmo" and doc["title"] == "Nike: CMO summary"
+    before = Document.model_validate(doc)
+    # New answers after generation must not change the stored run.
+    p = _prompt(owner, org, bid, "more shoes")
+    _answers(owner, org, bid, p, NOW - timedelta(days=1), 6)
+    with tenant_session(org.id) as s:
+        run = s.get_one(m.ReportRun, run_id)
+        assert Document.model_validate(run.document) == before
+        assert run.methodology_version == "1"
+        assert run.period_to == NOW
+        assert run.period_from == NOW - timedelta(days=7)
+        assert run.compare_from == NOW - timedelta(days=14)
+        assert run.report_id == definition(s, org.id, bid, "cmo").id
+        assert s.get_one(m.Report, run.report_id).generated_at is None
+
+
+def test_days_for():
+    assert (days_for("weekly"), days_for("monthly")) == (7, 30)
+
+
+def test_worker_generates_due_runs_and_stamps(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    other = make_brand(make_org("B"))
+    _definition(owner, org, bid, "cmo", "weekly")
+    with owner() as s, s.begin():
+        s.add(
+            m.Report(
+                org_id=s.get_one(m.Brand, other).org_id,
+                brand_id=other,
+                type="pr",
+                cadence="monthly",
+            )
+        )
+    assert generate_due_reports() == 2
+    with owner() as s:
+        runs = s.scalars(select(m.ReportRun)).all()
+        stamps = s.scalars(select(m.Report.generated_at)).all()
+    assert sorted((r.type, r.source) for r in runs) == [
+        ("cmo", "scheduled"),
+        ("pr", "scheduled"),
+    ]
+    pr = next(r for r in runs if r.type == "pr")
+    assert pr.period_to - pr.period_from == timedelta(days=30)
+    assert all(t is not None for t in stamps)
+    assert generate_due_reports() == 0
+
+
+def test_worker_survives_one_failing_brand(
+    owner, make_org, make_brand, monkeypatch
+):
+    org = make_org()
+    a, b = make_brand(org, "A"), make_brand(org, "B")
+    _definition(owner, org, a, "cmo", "weekly")
+    _definition(owner, org, b, "cmo", "weekly")
+    from bsi_core import reports
+
+    real = reports.BUILDERS["cmo"]
+
+    def boom(s, brand, days, to):
+        if brand.name == "A":
+            raise RuntimeError("boom")
+        return real(s, brand, days, to)
+
+    monkeypatch.setitem(reports.BUILDERS, "cmo", boom)
+    assert generate_due_reports() == 1
+    with owner() as s:
+        stamped = s.scalars(
+            select(m.Report.brand_id).where(m.Report.generated_at.isnot(None))
+        ).all()
+    assert stamped == [b]

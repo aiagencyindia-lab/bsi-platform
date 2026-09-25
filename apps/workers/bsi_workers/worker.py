@@ -36,6 +36,8 @@ from bsi_core.pages import WEIGHTS_VERSION, Target, normalize_url, parse, score
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.recommend import refresh
+from bsi_core.reports import days_for
+from bsi_core.reports import generate as generate_report
 from bsi_core.rivals import (
     SITEMAP_FETCH,
     OutOfTime,
@@ -229,6 +231,41 @@ def scan_due_alerts() -> int:
             done += 1
         except Exception:
             log.exception("brand %s alert scan failed", brand_id)
+    return done
+
+
+def generate_due_reports() -> int:
+    """Generate every due scheduled report; returns how many were made.
+
+    SQL only, no spend, so it runs inline like the alert scan. The stamp
+    is set in the same transaction as the run, so a failed build leaves
+    the definition due. One brand's failure never stops the others.
+    """
+    with system_session() as s:
+        due = s.execute(
+            text(
+                "SELECT report_id, brand_id, org_id, report_type, cadence "
+                "FROM due_report_runs()"
+            )
+        ).all()
+    done = 0
+    for report_id, brand_id, org_id, report_type, cadence in due:
+        try:
+            with tenant_session(org_id) as s:
+                generate_report(
+                    s,
+                    org_id,
+                    brand_id,
+                    report_type,
+                    days=days_for(cadence),
+                    to=datetime.now(UTC),
+                    source="scheduled",
+                )
+                s.get_one(m.Report, report_id).generated_at = func.now()
+            log.info("brand %s: %s report generated", brand_id, report_type)
+            done += 1
+        except Exception:
+            log.exception("brand %s %s report failed", brand_id, report_type)
     return done
 
 
@@ -988,6 +1025,10 @@ def main() -> None:
                 log.info("delivered %d alerts", deliver_due_alerts())
             except Exception:
                 log.exception("deliver_due_alerts failed")
+            try:
+                log.info("generated %d reports", generate_due_reports())
+            except Exception:
+                log.exception("generate_due_reports failed")
             last_schedule_check = time.monotonic()
         if not tick(adapter, store, extractor):
             time.sleep(1)
