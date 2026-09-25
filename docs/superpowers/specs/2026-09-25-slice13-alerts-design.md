@@ -75,7 +75,7 @@ Each detector is `(s, brand_id, to) -> list[Candidate]`, where `Candidate` is a 
   - `GET /alerts?limit=50` (1 to 200) returns alerts newest first, then by id. A foreign brand returns 404.
   - `POST /alerts/scan` runs `scan` inline with `to = now` and returns `{created: n}`. It does not stamp `alerts_scanned_at`, so the daily scan still runs.
 - `AlertOut` exposes every alert column; `ScanOut` has `created`.
-- `BrandPatch.webhook_url` is optional and nullable, so an explicit null clears it. The validator accepts only `https`, a hostname that passes `is_public_hostname`, port 443 or none, no userinfo, and at most 2,000 characters. `BrandOut` returns it. Setting it to null also clears `next_attempt_at` on the brand's undelivered alerts, so an alert pending when the webhook is cleared is never posted to a webhook set later (added after the final review). A delivery already in flight when the webhook is cleared, and then failing, is given up rather than rescheduled: the worker re-reads the brand's webhook under a row lock when it records the attempt (Ruling 13).
+- `BrandPatch.webhook_url` is optional and nullable, so an explicit null clears it. The validator accepts only `https`, a hostname that passes `is_public_hostname`, port 443 or none, no userinfo, and at most 2,000 characters. `BrandOut` returns it. Setting it to null also clears `next_attempt_at` on the brand's undelivered alerts, so an alert pending when the webhook is cleared is not posted to a webhook set later (added after the final review). A delivery already in flight when the webhook is cleared, and then failing, is given up if the webhook is still cleared when the worker records the attempt: it re-reads the brand's webhook under a row lock (Ruling 13). Clearing and re-setting the webhook within one in-flight POST can still reschedule that alert (Ruling 14, accepted).
 - Isolation tests get rows for both alert routes with a foreign alert in the fixture.
 
 ### 6. Web
@@ -113,7 +113,7 @@ Each is listed to the user with its cost if wrong.
 - **`http_fetch` gains method and body.** Cost: a guard regression would affect crawling; the existing fetch tests cover the guard.
 - **Slack renders only `text`.** The rest of the JSON is for other consumers.
 
-Rulings made during the build (1 to 12, including Rulings 9 and 11 above) are listed with their costs in `docs/findings-slice13.md` §3.
+Rulings made during the build (1 to 14, including Rulings 9 and 11 above) are listed with their costs in `docs/findings-slice13.md` §3.
 
 ## Out of scope
 
