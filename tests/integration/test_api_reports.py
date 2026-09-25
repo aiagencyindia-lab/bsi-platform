@@ -1,6 +1,7 @@
 import pytest
 from bsi_core import models as m
-from sqlalchemy import select
+from bsi_core.db import system_session
+from sqlalchemy import select, text
 
 from tests.integration.test_reports import NOW, _definition, _scene
 
@@ -152,3 +153,50 @@ def test_branding_validation(client, make_org, make_brand, body, code):
     if code == 200:
         for k, v in body.items():
             assert r.json()[k] == v
+
+
+def _idle_in_transaction() -> int:
+    with system_session() as s:
+        return s.execute(
+            text(
+                "SELECT count(*) FROM pg_stat_activity WHERE datname = "
+                "current_database() AND state LIKE 'idle in transaction%' "
+                "AND pid <> pg_backend_pid()"
+            )
+        ).scalar_one()
+
+
+def test_public_page_and_pdf_follow_the_token(
+    client, owner, make_org, make_brand
+):
+    org, bid = _scene(owner, make_org, make_brand)
+    run = client.post(
+        f"/v1/brands/{bid}/reports/agency/runs", headers=org.headers
+    ).json()
+    tok = run["share_token"]
+    r = client.get(f"/v1/r/{tok}")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+    assert r.json()["document"]["title"] == "Nike visibility report"
+    pdf = client.get(f"/v1/r/{tok}.pdf")
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert pdf.headers["content-disposition"].startswith(
+        'attachment; filename="nike-agency-'
+    )
+    assert pdf.content.startswith(b"%PDF-")
+    assert _idle_in_transaction() == 0
+    client.delete(
+        f"/v1/brands/{bid}/reports/runs/{run['id']}/share", headers=org.headers
+    )
+    assert client.get(f"/v1/r/{tok}").status_code == 404
+    assert client.get(f"/v1/r/{tok}.pdf").status_code == 404
+    new = client.post(
+        f"/v1/brands/{bid}/reports/runs/{run['id']}/share", headers=org.headers
+    ).json()["share_token"]
+    assert client.get(f"/v1/r/{new}").status_code == 200
+    assert client.get(f"/v1/r/{tok}").status_code == 404
+    assert client.get("/v1/r/unknown-token-unknown-token-x").status_code == 404
+    assert client.get("/v1/r/short").status_code == 422
+    assert (
+        "Secret" not in client.get("/v1/r/unknown-token-unknown-token-x").text
+    )
