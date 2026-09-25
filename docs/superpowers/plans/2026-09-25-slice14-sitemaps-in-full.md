@@ -210,7 +210,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/cr
 
 In `tests/unit/test_rivals.py`:
 - Add `MAX_URLS` to the `bsi_core.rivals` import and `import gzip` at the top.
-- `parse_sitemap` now takes bytes and returns four values. Update every existing call: in `test_parse_urlset_and_index` wrap both bodies with `.encode()` and unpack `kind, locs, ok, cut` (assert `cut is False`); in `test_truncated_or_garbage_sitemap_is_not_clean` use `body[: len(body) - 20].encode()`, `b"\x1f\x8b\x08garbage"` and `b""` and index `[2]` as today; at the image-sitemap test (~line 253) call `parse_sitemap(body.encode())` and compare with `("urlset", [("https://r.com/a", "2026-09-01")], True, False)`.
+- `parse_sitemap` now takes bytes and returns four values. Update every existing call: in `test_parse_urlset_and_index` wrap both bodies with `.encode()` and unpack `kind, locs, ok, cut` (assert `cut is False`); in `test_truncated_or_garbage_sitemap_is_not_clean` unpack four names from `parse_sitemap(body[: len(body) - 20].encode())` (assert `cut is False`) and keep indexing `[2]` for `b"\x1f\x8b\x08garbage"` and `b""`; in `test_nul_locs_are_dropped` (~line 316) the monkeypatched fake `parse_sitemap` must return four values, `("urlset", locs, True, False)`; at the image-sitemap test (~line 253) call `parse_sitemap(body.encode())` and compare with `("urlset", [("https://r.com/a", "2026-09-01")], True, False)`.
 - In `test_index_children_are_capped_and_mark_incomplete` the child count `MAX_SITEMAP_FETCHES + 2` now means 52 fakes; keep it (it is cheap).
 - Append:
 ```python
@@ -602,7 +602,7 @@ def run_rival_crawl(
             continue
         done.append((cid, domain, baseline, snap))
 ```
-The write phase is unchanged. Update the stale comments: the `RIVAL_JOB_SECONDS` comment (worker.py ~71-72) becomes "The job's budget, shared equally by the due domains (floor RIVAL_DOMAIN_FLOOR_SECONDS). Worst case about 510 s (the budget plus one 30 s fetch per wrapper and the write), under claim_job's 10-minute stale cutoff. A domain that runs out of time is stored incomplete and waits its week; one the job never reaches stays due."; the `OutOfTime` docstring in rivals.py becomes "A domain's time budget ran out mid-crawl. The worker stores it as an incomplete "out of time" crawl, and what it had read is not kept." In `scripts/snapshot_rival.py` (also print each host's wall time, so the live check can compare it with the 60 s budget a domain gets when seven are due):
+The write phase is unchanged. Update the stale comments: the `RIVAL_JOB_SECONDS` comment (worker.py ~71-72) becomes "The job's budget, shared equally by the due domains (floor RIVAL_DOMAIN_FLOOR_SECONDS). Worst case about 510 s of fetching (the budget, plus one domain's 60 s floor, plus one 30 s fetch already under way), then the write, under claim_job's 10-minute stale cutoff. A domain that runs out of time is stored incomplete and waits its week; one the job never reaches stays due."; the `OutOfTime` docstring in rivals.py becomes "A domain's time budget ran out mid-crawl. The worker stores it as an incomplete "out of time" crawl, and what it had read is not kept." In `scripts/snapshot_rival.py` (also print each host's wall time, so the live check can compare it with the 60 s budget a domain gets when seven are due):
 ```python
 from functools import partial
 
