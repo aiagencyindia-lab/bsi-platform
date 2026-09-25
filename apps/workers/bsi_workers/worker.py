@@ -8,6 +8,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
@@ -19,6 +20,7 @@ from bsi_core.config import get_settings
 from bsi_core.crawl import (
     BROWSER_UA,
     PAUSE_SECONDS,
+    SITEMAP_CAP_BYTES,
     Audit,
     Fetch,
     Response,
@@ -68,10 +70,18 @@ SCHEDULE_CHECK_SECONDS = 60
 # Worst case: 60 sections x 2,000 chars ~= 60 x ~520 tokens ~= 31k tokens
 # of gemini-embedding-001 at $0.15/M ~= 4,700 micros, rounded up.
 PAGE_JOB_MICROS = 5_000
-# Under claim_job's 10-minute stale cutoff; a domain cut short is not
-# stored and stays due for the next hourly pass.
+# The job's budget, shared equally by the due domains (floor
+# RIVAL_DOMAIN_FLOOR_SECONDS). Worst case about 510 s of fetching (the
+# budget, plus one domain's 60 s floor, plus one 30 s fetch already under
+# way), then the write, under claim_job's 10-minute stale cutoff. A domain
+# that runs out of time is stored incomplete and waits its week; one the
+# job never reaches stays due.
 RIVAL_JOB_SECONDS = 420
 RIVAL_UPSERT_CHUNK = 2_000  # 8 binds a row: far under the 65,535 limit
+# Each due domain gets RIVAL_JOB_SECONDS / len(due), never less than this.
+RIVAL_DOMAIN_FLOOR_SECONDS = 60
+# Sitemap files may be 50 MB; raw=True keeps the bytes for gzip detection.
+SITEMAP_FETCH: Fetch = partial(http_fetch, cap=SITEMAP_CAP_BYTES, raw=True)
 CITED_URLS_CAP = 10
 # Waits before delivery attempts 2..5; after the fifth failure the alert
 # is given up and keeps its last error.
@@ -529,15 +539,18 @@ def run_rival_crawl(
     job_id: uuid.UUID,
     fetch: Fetch = http_fetch,
     clock: Callable[[], float] = time.monotonic,
+    sitemap_fetch: Fetch | None = None,
 ) -> int:
     """Snapshot each due competitor domain; returns how many were stored.
 
     Reads, then fetches with no transaction open, then writes, each
-    domain in its own savepoint. A domain that crashes, fails its write,
-    or runs out of time after the job's first domain is not stored and
-    stays due. The first domain running out of time (it had the whole
-    budget) is stored as an incomplete crawl so it is not retried
-    hourly. Crawls stay baselines until one reads URLs."""
+    domain in its own savepoint. Each domain gets an equal share of
+    RIVAL_JOB_SECONDS (floor RIVAL_DOMAIN_FLOOR_SECONDS); a domain that
+    runs out of time is stored as an incomplete crawl so it waits its
+    week; domains the job never reaches stay due. A domain that crashes
+    or fails its write is not stored and stays due. Crawls stay
+    baselines until one reads URLs."""
+    files = sitemap_fetch or (SITEMAP_FETCH if fetch is http_fetch else fetch)
     with tenant_session(org_id) as s:
         due = _due_rival_domains(s, brand_id)
         cids = sorted({cid for cid, _, _ in due})
@@ -548,25 +561,35 @@ def run_rival_crawl(
             )
         ).tuples():
             known[cid].add(url)
-    bounded = with_deadline(fetch, RIVAL_JOB_SECONDS, clock)
+    per = max(RIVAL_DOMAIN_FLOOR_SECONDS, RIVAL_JOB_SECONDS // max(len(due), 1))
+    job_end = clock() + RIVAL_JOB_SECONDS
     done = []
-    for n, (cid, domain, baseline) in enumerate(due):
+    for cid, domain, baseline in due:
+        if clock() > job_end:
+            log.info(
+                "brand %s: rival crawl job budget spent before %s",
+                brand_id,
+                domain,
+            )
+            break
         try:
             snap = snapshot_domain(
-                domain, bounded, known[cid], pause=PAUSE_SECONDS
+                domain,
+                with_deadline(fetch, per, clock),
+                known[cid],
+                pause=PAUSE_SECONDS,
+                sitemap_fetch=with_deadline(files, per, clock),
             )
         except OutOfTime:
             log.info(
                 "brand %s: rival crawl out of time at %s", brand_id, domain
             )
-            if n == 0:
-                late = Snapshot(complete=False)
-                late.errors.append(
-                    "out of time: the crawl did not finish within "
-                    f"{RIVAL_JOB_SECONDS} s"
-                )
-                done.append((cid, domain, baseline, late))
-            break
+            late = Snapshot(complete=False)
+            late.errors.append(
+                f"out of time: the crawl did not finish within {per} s"
+            )
+            done.append((cid, domain, baseline, late))
+            continue
         except Exception:
             log.exception(
                 "brand %s: rival crawl of %s failed", brand_id, domain
