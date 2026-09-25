@@ -11,8 +11,11 @@ from bsi_core.rivals import (
     MAX_URL_CHARS,
     MAX_URLS,
     OutOfTime,
+    _stem,
     parse_sitemap,
+    slug_words,
     snapshot_domain,
+    topic_words,
     with_deadline,
 )
 
@@ -517,3 +520,37 @@ def test_sitemap_fetch_serves_sitemaps_and_fetch_serves_pages():
         "https://r.com/" in seen["page"] and "https://r.com/a" in seen["page"]
     )
     assert snap.fetches == 4
+
+
+def test_stem_drops_one_trailing_s_on_longer_words():
+    assert [
+        _stem(w) for w in ("sneakers", "shoes", "kids", "bus", "glass")
+    ] == [
+        "sneaker",
+        "shoe",
+        "kid",
+        "bus",
+        "glas",
+    ]
+
+
+def test_slug_words_reads_the_path_only():
+    assert slug_words("https://skechers.in/kids/Light-Up_Sneakers?x=1#f") == {
+        "kid",
+        "light",
+        "up",
+        "sneaker",
+    }
+    assert slug_words("https://r.com/kids%20shoes/") == {"kid", "shoe"}
+    assert slug_words("https://r.com/") == frozenset()
+    assert slug_words("https://r.com") == frozenset()
+    assert slug_words("https://r.com/p/12345") == {"p", "12345"}
+
+
+def test_topic_words_match_slugs_by_subset():
+    kids_shoes = topic_words("kids shoes")
+    assert kids_shoes == {"kid", "shoe"}
+    assert kids_shoes <= slug_words("https://r.com/kids/school-shoes-boys")
+    assert not kids_shoes <= slug_words("https://r.com/kids/socks")
+    assert topic_words("light-up sneakers") == {"light", "up", "sneaker"}
+    assert topic_words("") == frozenset()
