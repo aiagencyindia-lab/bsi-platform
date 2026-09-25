@@ -479,6 +479,12 @@ def test_a_queued_prompts_job_runs_and_is_marked_done(
     assert worker.process_job(FakeAdapter(), generator, embedder) is False
 
 
+def test_product_kinds_are_known_and_estimated():
+    assert worker.JOB_ESTIMATES["product_run"] == worker.PRODUCT_JOB_MICROS
+    assert worker.PRODUCT_JOB_MICROS == 20_000
+    assert worker.JOB_ESTIMATES["import_feed"] == 0
+
+
 def test_a_label_job_labels_only_unlabelled_prompts_and_adds_none(
     owner, make_org, make_brand, make_observation
 ):

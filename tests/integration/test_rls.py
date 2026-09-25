@@ -32,6 +32,8 @@ TENANT_TABLES = [
     "alert",
     "report",
     "report_run",
+    "product",
+    "keyword_search",
 ]
 
 
@@ -172,6 +174,20 @@ def org_b(owner, make_org, make_brand, make_observation):
                 compare_from=datetime.now(UTC),
                 document={},
                 methodology_version="1",
+            )
+        )
+        s.add(
+            m.Product(
+                org_id=b.id,
+                brand_id=bid,
+                external_id="b-1",
+                title="Org B sandal",
+                source="csv",
+            )
+        )
+        s.add(
+            m.KeywordSearch(
+                org_id=b.id, brand_id=bid, keyword="b sandals", query="b"
             )
         )
     return b

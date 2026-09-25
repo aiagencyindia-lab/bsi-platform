@@ -61,6 +61,8 @@ ALERT_TYPES = ("mention_drop", "competitor_shift", "new_source")
 REPORT_TYPES = ("cmo", "seo", "content", "pr", "agency")
 REPORT_CADENCES = ("off", "weekly", "monthly")
 RUN_SOURCES = ("scheduled", "manual")
+PRODUCT_SOURCES = ("csv", "feed")
+RULE_CHECKS = ("pass", "adjusted")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -520,6 +522,72 @@ class ReportRun(Tenant, Base):
             "share_token",
             unique=True,
             postgresql_where=text("share_token IS NOT NULL"),
+        ),
+    )
+
+
+class Product(Tenant, Base):
+    """One catalogue item (PRD F16). The catalogue columns are upserted
+    on (brand_id, external_id) by every import; the result columns are
+    written only by a product_run job, so a re-import keeps them."""
+
+    __tablename__ = "product"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    external_id: Mapped[str]
+    title: Mapped[str]
+    description: Mapped[str | None]
+    attributes: Mapped[dict[str, Any]] = mapped_column(server_default="{}")
+    url: Mapped[str | None]
+    price: Mapped[str | None]
+    category: Mapped[str | None]
+    source: Mapped[str]
+    imported_at: Mapped[datetime] = mapped_column(
+        TSZ, server_default=func.now()
+    )
+    keyword: Mapped[str | None]
+    keywords: Mapped[list[str] | None]
+    missing_keywords: Mapped[list[str] | None]
+    suggested_title: Mapped[str | None]
+    suggested_bullets: Mapped[list[str] | None]
+    rule_check: Mapped[str | None]
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job.id"))
+    result_at: Mapped[datetime | None] = mapped_column(TSZ)
+    __table_args__ = (
+        CheckConstraint(
+            _in("source", PRODUCT_SOURCES), name="ck_product_source"
+        ),
+        CheckConstraint(
+            "rule_check IS NULL OR " + _in("rule_check", RULE_CHECKS),
+            name="ck_product_rule_check",
+        ),
+        UniqueConstraint(
+            "brand_id", "external_id", name="uq_product_brand_external"
+        ),
+        Index("ix_product_list", "brand_id", "title"),
+    )
+
+
+class KeywordSearch(Tenant, Base):
+    """The cached comparison set for one (brand, keyword): the product
+    titles that rank for it, from one grounded answer. Reused for
+    SEARCH_TTL_DAYS. This is the seam a SERP provider would replace."""
+
+    __tablename__ = "keyword_search"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    keyword: Mapped[str]
+    query: Mapped[str]
+    titles: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default="[]"
+    )
+    model: Mapped[str] = mapped_column(server_default="")
+    cost_micros: Mapped[int] = mapped_column(server_default="0")
+    searched_at: Mapped[datetime] = mapped_column(
+        TSZ, server_default=func.now()
+    )
+    error: Mapped[str | None]
+    __table_args__ = (
+        UniqueConstraint(
+            "brand_id", "keyword", name="uq_keyword_search_brand_keyword"
         ),
     )
 

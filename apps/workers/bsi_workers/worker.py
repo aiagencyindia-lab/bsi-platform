@@ -33,6 +33,15 @@ from bsi_core.impact import close_window
 from bsi_core.judge import JUDGE_PRICES, JUDGES, generate
 from bsi_core.metrics import Filters
 from bsi_core.pages import WEIGHTS_VERSION, Target, normalize_url, parse, score
+from bsi_core.products import (
+    FEED_FETCH,
+    PRODUCT_JOB_MICROS,
+    CatalogueCap,
+    OverBudget,
+    parse_feed,
+    run_products,
+    upsert,
+)
 from bsi_core.providers.base import EngineAdapter
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.recommend import refresh
@@ -111,6 +120,9 @@ JOB_ESTIMATES = {
     "audit_crawl": 0,  # HTTP only: no model, no spend
     "optimize_url": PAGE_JOB_MICROS,
     "crawl_rivals": 0,  # HTTP only: no model, no spend
+    "product_run": PRODUCT_JOB_MICROS,  # the keyword phase; the search
+    # phase re-checks the budget itself (products.run_products)
+    "import_feed": 0,  # HTTP only: no model, no spend
 }
 
 
@@ -544,6 +556,31 @@ def run_page_audit(
         refresh(s, org_id, brand_id)
 
 
+def run_import_feed(
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    job_id: uuid.UUID,
+    params: dict[str, Any],
+    fetch: Fetch = http_fetch,
+    feed_fetch: Fetch | None = None,
+) -> str:
+    """Fetch a Google Merchant feed with no transaction open, parse it,
+    upsert the products. A failed fetch fails the job; CatalogueCap is
+    recorded as error "cap" by process_job. A cut feed imports what was
+    read; the note is in the summary (ruling: not stored on the job)."""
+    files = feed_fetch or (FEED_FETCH if fetch is http_fetch else fetch)
+    url = str(params.get("url", ""))
+    resp = files(url, BROWSER_UA)
+    if not resp.ok:
+        raise RuntimeError(f"fetch {resp.status}: {resp.error or ''}".strip())
+    rows, note = parse_feed(resp.body.encode("latin-1", "replace"))
+    if resp.truncated:
+        note = "truncated"
+    with tenant_session(org_id) as s:
+        created, updated = upsert(s, org_id, brand_id, rows, "feed")
+    return f"created:{created} updated:{updated} note:{note}"
+
+
 def _due_rival_domains(
     s: Session, brand_id: uuid.UUID
 ) -> list[tuple[uuid.UUID, str, bool]]:
@@ -946,6 +983,12 @@ def process_job(
         "crawl_rivals": lambda: run_rival_crawl(
             org_id, brand_id, job_id, fetch
         ),
+        "product_run": lambda: run_products(
+            org_id, job_id, brand_id, params, meter.generate, meter
+        ),
+        "import_feed": lambda: run_import_feed(
+            org_id, brand_id, job_id, params, fetch
+        ),
     }
     try:
         result = runners[kind]()
@@ -955,12 +998,14 @@ def process_job(
         log.exception("job %s failed", job_id)
         # repr(JudgeFailed) already carries the cause's message, so an
         # archived brand reads as such and is never retried.
+        if isinstance(e, OverBudget):
+            error = "budget"
+        elif isinstance(e, CatalogueCap):
+            error = "cap"
+        else:
+            error = repr(e)[:2000]
         _finish_job(
-            org_id,
-            job_id,
-            "failed",
-            repr(e)[:2000],
-            getattr(e, "cost_micros", 0),
+            org_id, job_id, "failed", error, getattr(e, "cost_micros", 0)
         )
     return True
 

@@ -115,6 +115,26 @@ def other(owner, make_org, make_brand, make_observation):
         )
         s.add(run)
         s.flush()
+        s.add(
+            m.Product(
+                org_id=b.id,
+                brand_id=bid,
+                external_id="secret-1",
+                title="Secret",
+                source="csv",
+                keyword="secret",
+                suggested_title="Secret",
+            )
+        )
+        s.add(
+            m.KeywordSearch(
+                org_id=b.id,
+                brand_id=bid,
+                keyword="secret",
+                query="secret buy online",
+                titles=[{"title": "Secret", "domain": "secret.example"}],
+            )
+        )
         rid, tid, aid, rrid = rec.id, task.id, audit.id, run.id
     return {
         "b": bid,
@@ -201,6 +221,16 @@ CASES = [
     ("GET", "/v1/brands/{b}/reports/runs/{rr}", None),
     ("POST", "/v1/brands/{b}/reports/runs/{rr}/share", None),
     ("DELETE", "/v1/brands/{b}/reports/runs/{rr}/share", None),
+    ("GET", "/v1/brands/{b}/products", None),
+    ("GET", "/v1/brands/{b}/products/export.csv", None),
+    ("GET", "/v1/brands/{b}/products/runs", None),
+    (
+        "POST",
+        "/v1/brands/{b}/products/import/feed",
+        {"url": "https://secret.example/feed.xml"},
+    ),
+    ("POST", "/v1/brands/{b}/products/run", None),
+    ("DELETE", "/v1/brands/{b}/products", None),
 ]
 
 

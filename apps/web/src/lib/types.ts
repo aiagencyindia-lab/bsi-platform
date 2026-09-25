@@ -29,3 +29,6 @@ export type Report = S["ReportOut"];
 export type ReportRun = S["ReportRunListOut"];
 export type ReportRunDetail = S["ReportRunOut"];
 export type ReportDocument = S["Document"];
+export type Product = S["ProductOut"];
+export type ProductRuns = S["ProductRunsOut"];
+export type ImportResult = S["ImportOut"];

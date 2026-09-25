@@ -165,6 +165,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-25-slice17-report-polish.md](superpowers/plans/2026-09-25-slice17-report-polish.md) | Implementation plan, Tasks 1–3, with the changes made during execution. |
 | [findings-slice17.md](findings-slice17.md) | Results: what was built, a section for the live check on dev, and what is deferred or untested. |
 
+## Slice 18: product-title wedge
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-25-slice18-product-title-wedge-design.md](superpowers/specs/2026-09-25-slice18-product-title-wedge-design.md) | Design spec: a brand-scoped Products tab (PRD F16) that imports a catalogue by CSV or Google Merchant feed, infers each product's generic keyword, compares its title with titles found by one grounded search per keyword, and suggests a rule-checked title and bullets, exported as CSV through the web app's second Route Handler; with the rulings made during the build. |
+| [superpowers/plans/2026-09-25-slice18-product-title-wedge.md](superpowers/plans/2026-09-25-slice18-product-title-wedge.md) | Implementation plan, Tasks 1–8, with the changes made during execution. |
+| [findings-slice18.md](findings-slice18.md) | Results: what was built, a section for the live check on dev, and what is deferred or untested. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 
