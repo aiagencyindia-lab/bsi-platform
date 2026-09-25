@@ -40,7 +40,7 @@ Run by the controller on dev at 2026-09-25 13:44 UTC on the branch (HEAD 89ea7c3
 | Run 1 open recommendations after (by type) | unchanged: the same five types and counts |
 | `respond_to_rival_content` rows for Run 1, any status (the query grouped all of Run 1's recommendations by type and status) | 0 |
 
-Observed: after migrating to 0018, the generate route returned 200 and Run 1's recommendations were unchanged. Inferred: the new rule ran and matched nothing, because dev has no non-baseline rival page (0 of 25,017; the spec records every dev crawl as a baseline). Its positive cases are covered only by tests (§4). A real signal needs a weekly crawl of Run 1's competitors that finds new pages.
+Observed: after migrating to 0018, the generate route returned 200 and Run 1's recommendation counts by type and status were unchanged. Inferred: the new rule ran and matched nothing, because dev has no non-baseline rival page (0 of 25,017; the spec records every dev crawl as a baseline). Its positive cases are covered only by tests (§4). A real signal needs a weekly crawl of Run 1's competitors that finds new pages.
 
 ## 3. Deferred / decisions
 
