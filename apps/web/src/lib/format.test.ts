@@ -13,6 +13,8 @@ import {
   pageNote,
   pct,
   pts,
+  REPORT_TYPE,
+  reportNote,
   usd,
   validDays,
 } from "./format";
@@ -166,4 +168,23 @@ test("ALERT_KIND labels every alert type", () =>
     mention_drop: "Mention drop",
     competitor_shift: "Competitor shift",
     new_source: "New source",
+  }));
+
+test("reportNote says what the reports forms did", () => {
+  expect(reportNote("cadence")).toBe("Schedule saved.");
+  expect(reportNote("generated")).toBe("Report generated; it is first in the archive.");
+  expect(reportNote("shared")).toBe("New link created; the old one no longer works.");
+  expect(reportNote("revoked")).toBe("Link revoked.");
+  expect(reportNote("branding")).toBe("Branding saved; it applies to new agency reports.");
+  expect(reportNote(undefined)).toBeNull();
+  expect(reportNote("constructor")).toBeNull();
+});
+
+test("REPORT_TYPE labels every report type", () =>
+  expect(REPORT_TYPE).toEqual({
+    cmo: "CMO summary",
+    seo: "SEO",
+    content: "Content",
+    pr: "PR",
+    agency: "Agency client",
   }));

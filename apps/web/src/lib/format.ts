@@ -164,3 +164,24 @@ const ALERT_NOTES: Record<string, string> = {
 
 /** What the webhook or scan form did. */
 export const alertNote = (status: Params[string]) => note(ALERT_NOTES, status);
+
+// Display names for report types.
+export const REPORT_TYPE: Record<string, string> = {
+  cmo: "CMO summary",
+  seo: "SEO",
+  content: "Content",
+  pr: "PR",
+  agency: "Agency client",
+};
+
+const REPORT_NOTES: Record<string, string> = {
+  cadence: "Schedule saved.",
+  generated: "Report generated; it is first in the archive.",
+  shared: "New link created; the old one no longer works.",
+  revoked: "Link revoked.",
+  branding: "Branding saved; it applies to new agency reports.",
+};
+
+/** What the reports forms did. */
+export const reportNote = (status: Params[string]) =>
+  note(REPORT_NOTES, status);
