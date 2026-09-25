@@ -84,6 +84,7 @@ Task 5
 - The `RivalPages` signature line is 83 characters. Cost: style only.
 
 Final review (wording, no second fix wave)
+- The plan's Task 3 line under "Changes made during execution" lists the `# noqa: F811` placement as a deviation; it is a deferred style item (Task 3 above), not a change to what was built. Cost: none.
 - Spec §2 still describes `_rival_pages` as ordered `first_seen_at DESC, url` without mentioning the `RIVAL_PAGES_SCAN` cap (spec ruling 8 records the cap). Cost: one sentence of spec drift.
 - The plan's Task 6 change line credits the spec §3 and §4 wording corrections to spec ruling 7, which covers only the refresh-when-stored behaviour. Cost: a misattribution in the plan.
 - The 14-day expiry item above says "open rows without evidence are removed"; precisely, `refresh` deletes open rows whose (type, subject key) the latest `generate` did not produce. Cost: none.
