@@ -908,3 +908,14 @@ EOF
 1. Both gates as in Task 6 step 2.
 2. Live check on dev. **Ask the user before `alembic upgrade head` on dev** (0017 → 0018; it only rewrites the CHECK constraint). Then, with the API on :8000: `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/recommendations/generate` with Run 1's key; confirm 200 and, read-only, `select count(*) from recommendation where type='respond_to_rival_content'` is 0 (dev's crawls are all baselines) and `select count(*) from rival_page where not baseline` is 0. Record both in findings §2 as observed. The worker is not started.
 3. Finishing menu before pushing; PR with `GH_TOKEN=$(gh auth token -u aiagencyindia-lab)`; merge only on the user's say-so.
+
+## Changes made during execution
+
+Deviations from the text above, as recorded in the execution ledger (`.superpowers/sdd/2026-09-25-slice16-rival-content-recs/progress.md`); the spec's Rulings section gives the reasons.
+
+- Preflight, Task 1: `_stem("glass") == "glas"` stands as the plan wrote it; the spec's §1 sentence was corrected instead (spec ruling 1).
+- Preflight, Task 3: `test_each_rule_fires_exactly_where_it_should` keeps its expected set, with a comment that the `world` fixture has no labelled clusters or rival pages (spec ruling 2).
+- Task 2: the copy test's fixture slug is `adizero-sl-2`, not `ultraboost-24`, because `boost` is a banned word and quoted slugs are exempt data (spec ruling 5).
+- Task 3: `test_rival_pages_is_one_statement` became `test_rival_rule_adds_one_statement`, which computes the clusters before attaching the listener and counts the statements of a whole `_rival_content` call (one), so a later query inside the rule would fail it (review fix round 1, commit dadf538). The rival tests that take the imported `scene` fixture carry `# noqa: F811` on the `def` line or on the `scene` parameter line; two of those `def` lines exceed 80 characters.
+- Task 4: the plan's `from bsi_core import recommend` import in `test_rival_crawl.py` was dropped as unused; the imported `scene` parameters carry `# noqa: F811` (spec ruling 3).
+- Task 5: the evidence-pages markup lives in a new `apps/web/src/components/RivalPages.tsx` with `RivalPages.test.tsx`, not inline in `recommendations/page.tsx`; `Evidence.pages` and `pages_total` are typed `unknown` rather than the plan's object array and number, and the component checks each field's type; "and N more" counts from the pages shown (at most 10), not the stored array's length (spec rulings 4 and 6).

@@ -29,7 +29,7 @@ Planning ran on Fable 5.1 with the user's approval. Implementers and reviewers r
 
 ### 1. Matching (`bsi_core/rivals.py`)
 
-- `_stem(word) -> str`: drop one trailing `s` when `len(word) > 3`. A deliberately crude stem so `sneakers`/`sneaker`, `shoes`/`shoe`, `kids`/`kid` meet; `bus` and `glass` are left as they are (marked in a comment as the known ceiling; a real stemmer is the upgrade path).
+- `_stem(word) -> str`: drop one trailing `s` when `len(word) > 3`. A deliberately crude stem so `sneakers`/`sneaker`, `shoes`/`shoe`, `kids`/`kid` meet; `bus` is unchanged (length 3) and `glass` becomes `glas`, on both sides of a match, so matching is unaffected (marked in a comment as the known ceiling; a real stemmer is the upgrade path).
 - `slug_words(url) -> frozenset[str]`: `urlsplit(url).path`, percent-decoded, casefolded, split on any run of characters outside `[a-z0-9]`, each word stemmed. Query string and fragment are ignored. `https://skechers.in/kids/Light-Up_Sneakers?x=1` → `{kid, light, up, sneaker}`. A bare host gives the empty set.
 - `topic_words(topic) -> frozenset[str]`: the same split and stem on the topic text.
 - A page **matches** a cluster when `topic_words(topic) <= slug_words(url)` and the topic has at least one word.
@@ -65,10 +65,10 @@ Planning ran on Fable 5.1 with the user's approval. Implementers and reviewers r
 
 - Unit (`tests/unit/test_rivals.py`): `slug_words` on query string, percent-encoding, uppercase, underscores, trailing slash, bare host; `_stem` on `sneakers`, `shoes`, `kids`, `bus`, `glass`; `topic_words` on a three-word topic.
 - Unit (`tests/unit/test_recommend_copy.py`): `CASES` for one rival/one page, one rival/four pages, three rivals, gap form, behind form.
-- Integration (`tests/integration/test_recommend.py`, using `test_rival_crawl`'s `_rival`/`_page` and `test_gaps`' labelled scene pattern): the matching scene (one matching new page; a matching baseline page; a matching 20-day-old page; a non-matching page; a matching page of a suggested competitor) yields exactly one candidate with only the first page in evidence and `pages_total == 1`; brand ahead yields none; gap cluster yields one with the gap wording; pressure `0.4` for two pages and `1.0` for six; evidence caps at 10 with `pages_total == 12`; `refresh` twice keeps one row, removing the page deletes the open rec, an accepted rec survives; the exact-key-set test includes the new key; the statement-count test shows one added statement.
+- Integration (`tests/integration/test_recommend.py`, using `test_rival_crawl`'s `_rival`/`_page` and `test_gaps`' labelled scene pattern): the matching scene (one matching new page; a matching baseline page; a matching 20-day-old page; a non-matching page; a matching page of a suggested competitor) yields exactly one candidate with only the first page in evidence and `pages_total == 1`; brand ahead yields none; gap cluster yields one with the gap wording; pressure `0.4` for two pages and `1.0` for six; evidence caps at 10 with `pages_total == 12`; `refresh` twice keeps one row, removing the page deletes the open rec, an accepted rec survives; the exact-key-set test is unchanged (the `world` fixture has no labelled clusters and no rival pages, so its set equality asserts the rule is silent there); the statement-count test counts the statements of a whole `_rival_content` call (given the clusters) and expects exactly one.
 - Integration (`tests/integration/test_rival_crawl.py`): after `run_rival_crawl` on a scene with a matching new page and a behind cluster, an open `respond_to_rival_content` row exists; a `refresh` that raises leaves the job `done`.
 - Integration (`tests/integration/test_api_recommendations.py`): accept creates a task with the cluster's `prompt_ids` and `measures_impact` true.
-- vitest: `KIND` has the label; a fixture with `evidence.pages` renders links for https only.
+- vitest: `KIND` has the label; the `RivalPages` component (`apps/web/src/components/RivalPages.tsx`, rendered with `renderToStaticMarkup`) renders an https URL as a link, a `javascript:` URL as text, nothing for an empty array or a non-array, at most 10 pages, and "and N more" when the total exceeds the pages shown.
 
 ### 6. Live check
 
@@ -76,7 +76,14 @@ Dev has only baseline pages, so the rule produces nothing there. The check: both
 
 ## Rulings
 
-Recorded here as they are made during execution.
+Made during execution, in the order recorded in the ledger. Each gives the decision, the reason, and the cost if it is wrong.
+
+1. `_stem` follows the rule stated in §1, so `glass` becomes `glas` and the plan's test value stands; §1's sentence saying `glass` is left as it is was corrected. Both sides of a match are stemmed the same way, so matching is unaffected. Cost if wrong: one test value and one spec sentence.
+2. `test_each_rule_fires_exactly_where_it_should` keeps its expected set unchanged, with a comment that the `world` fixture has no labelled clusters or rival pages; its set equality already asserts the new rule is silent there. The §5 wording "includes the new key" cannot hold on that fixture without new data, and the rule's positive cases are covered by the dedicated tests. Cost if wrong: none.
+3. Task 4 drops the plan's unused `from bsi_core import recommend` import. The failing-refresh test is accepted as a guard that passes before the implementation (the plan says so); its value is after the change. Cost if wrong: none.
+4. Task 5 adds the vitest §5 asks for: the evidence-pages rendering moves into `apps/web/src/components/RivalPages.tsx` (props `pages`, `total`), used by `recommendations/page.tsx`, and a test with `renderToStaticMarkup` shows an https URL renders a link and a `javascript:` URL renders as text. §5 is binding and the plan had omitted the test. Cost if wrong: one small component file.
+5. The copy ban binds `rival_content_copy`'s fixed wording only. Slugs quoted from competitor URLs are data, as in slice 15's ruling for quoted stored text, so the copy test's fixture slug changes from `ultraboost-24` to `adizero-sl-2` and the findings record the exemption. Cost if wrong: a real recommendation can quote a rival slug containing a banned word such as `boost`.
+6. `Evidence.pages` and `pages_total` are typed `unknown` in the web page, and `RivalPages` checks each field's type itself, because it reads JSONB evidence. Cost if wrong: none.
 
 ## Out of scope
 
