@@ -47,7 +47,7 @@ Pydantic models, also used as the API schema for `ReportRunOut.document`:
 
 - `Document(title, brand, type, period: Period, branding: Branding | None, sections: list[Section], footer: str)`; `Period(from_, to, compare_from)` with `from` as the alias; `Branding(logo_url, accent, prepared_by)`, set only for `agency`, copied from the brand row at build time so the public route never reads the brand.
 - `Section(heading, blocks: list[Block])`; `Block` is `Paragraph(kind="p", text)` or `Table(kind="table", columns: list[str], rows: list[list[str]])`.
-- Cells are pre-formatted strings. `fmt_rate(r)` gives `0.42 [0.33, 0.52] n=100`, or `— (n=0)` when `n == 0`; `fmt_delta(d)` gives `−0.09 [−0.18, +0.01] no significant change`; `fmt_pct` for SOV share. Rounding to two decimals happens in the formatter only.
+- Cells are pre-formatted strings. `fmt_rate(r)` gives `0.42 [0.33, 0.52] n=100`, or `— (n=0)` when `n == 0`; `fmt_delta(d)` gives `-0.09 [-0.18, +0.01] no significant change` (ASCII signs, not the Unicode minus); `fmt_pct` for SOV share. Rounding to two decimals happens in the formatter only.
 - No links or ids in the document: readers are outside the app, and citation URLs are Vertex redirects. Domains, prompt texts and evidence sentences appear as text.
 - The footer string: `Methodology v1 · pipeline v{versions} · rates: 95% Wilson interval · deltas: 95% Newcombe interval · generated {ts} UTC`. For `agency`, the same line; the product name appears nowhere in any document.
 
@@ -60,7 +60,7 @@ Builders, one per type, `build_<type>(s, brand, days, to, *, client_facing=False
 - **pr**: *Sentiment mix* (one SQL count over `mention` for `entity_type = 'brand'` joined through `_where`: sentiment, mentions, share of mentions) · *Negative mentions* (up to 20: date, prompt text, evidence sentence) · *Competitor sentiment* (`entity_metrics`: name, positive, negative, index) · *Third-party sources naming the brand* (`sources` where `brand_named` and owner is `third_party`, top 20) · *New sources in period* (`new_source` alerts: domain, title, window).
 - **agency**: `build_cmo(..., client_facing=True)`. Title is `{brand} visibility report` with a `Prepared by {report_prepared_by}` paragraph when set; the Tasks table drops owner and notes; the footer has no product name (true of every type).
 
-Every section with nothing to show renders one paragraph (`No cited sources in this period.`) instead of an empty table. Recommendation type groups per report reuse the existing type constants in `recommend.py`; the plan names the exact sets.
+Every section with nothing to show renders one paragraph (`No cited sources in this period.`) instead of an empty table. This includes the competitor tables (CMO *Competitors* and PR *Competitor sentiment*): `entity_metrics` returns a row per entity even at n=0, so when the window has no answers those rows are dropped and the section is the paragraph. Recommendation type groups per report reuse the existing type constants in `recommend.py`; the plan names the exact sets.
 
 ### 3. Generation and scheduling
 
@@ -86,22 +86,22 @@ Rejected: queueing runs as jobs. `enqueue_job`/`process_job` exist for budget re
 
 `routers/public.py`, prefix `/r`, no `TENANT`:
 
-- `GET /r/{token}` → `ReportRunOut`; `GET /r/{token}.pdf` → `application/pdf` with `Content-Disposition: attachment; filename="{brand-slug}-{type}-{period_to date}.pdf"`. Both: `report_run_by_token(:token)` from `system_session()`, 404 on no row, then the run from `tenant_session(org_id)`; `Cache-Control: no-store`. The token is only ever a bound parameter. The PDF is rendered after the session closes.
+- `GET /r/{token}` → `ReportRunOut`; `GET /r/{token}.pdf` → `application/pdf` with `Content-Disposition: attachment; filename="{brand-slug}-{type}-{period_to date}.pdf"`. Both: the token must match `^[A-Za-z0-9_-]{20,64}$`, so a malformed token is 422; `report_run_by_token(:token)` from `system_session()`, 404 on no row, then the run from `tenant_session(org_id)`; `Cache-Control: no-store`. The token is only ever a bound parameter. The PDF is rendered after the session closes.
 
 `BrandPatch` gains `report_logo_url` (https only, the `_webhook_url` validator's style), `report_accent` (`^#[0-9a-fA-F]{6}$`), `report_prepared_by` (≤ 80 chars); `BrandOut` returns them. `ReportRunOut` and `ReportRunListOut` expose `share_token` so the web app can build the link.
 
 ### 5. Rendering
 
-HTML: Next.js route `apps/web/src/app/r/[token]/page.tsx`, outside `(app)`, no cookie. `lib/api.ts` gains `publicApi<T>(path)` (server-only, no Authorization header, 404 → `notFound()`); the key stays where it is. The page renders title, period, sections (`<h2>`, `<p>`, `<table>`), footer, a "Download PDF" link to the API's `/r/{token}.pdf` built from the API base URL on the server, and print CSS. For `agency` runs the brand's logo `<img>` shows only when `report_logo_url` is https, and `report_accent` sets a CSS variable for headings. The page reads branding from the document (the builder copies `logo_url` and `accent` into `Document.branding`), so the public route never exposes the brand row.
+HTML: Next.js route `apps/web/src/app/r/[token]/page.tsx`, outside `(app)`, no cookie. `lib/api.ts` gains `publicApi<T>(path)` (server-only, no Authorization header, 404 or 422 → `notFound()`, any other failure throws); the key stays where it is. A malformed or unknown token therefore shows the not-found page, and a 5xx shows a neutral error page (`app/r/error.tsx`); both sit under `app/r/layout.tsx`, whose title is "Report", so no `/r` page shows the product name. The page itself sets the tab title to the document's title. The page renders title, period, sections (`<h2>`, `<p>`, `<table>`), footer, a "Download PDF" link to the API's `/r/{token}.pdf` built from the API base URL on the server, and print CSS. For `agency` runs the brand's logo `<img>` shows only when `report_logo_url` is https, and `report_accent` sets a CSS variable for headings. The page reads branding from the document (the builder copies `logo_url` and `accent` into `Document.branding`), so the public route never exposes the brand row.
 
-PDF: `bsi_core/pdf.py`, `render_pdf(document) -> bytes` with reportlab platypus: `SimpleDocTemplate` A4, built-in Helvetica, a page-footer callback printing the methodology line and `page n`, headings coloured with `document.branding.accent` when set, tables with a repeating header row, a grid, and `Paragraph` cells so long text wraps, `KeepTogether` on a heading and its first block. No logo in the PDF (fetching an image inside a request is out; deliberate simplification). `reportlab` is added to `packages/core` as a direct dependency; mypy gets `ignore_missing_imports` for `reportlab.*`.
+PDF: `bsi_core/pdf.py`, `render_pdf(document) -> bytes` with reportlab platypus: `SimpleDocTemplate` A4, built-in Helvetica, a page-footer callback printing the methodology line and `page n`, headings coloured with `document.branding.accent` when set (a value that is not `#rrggbb` falls back to black), tables with a repeating header row, a grid, and `Paragraph` cells so long text wraps, `KeepTogether` on a heading and its first block. No logo in the PDF (fetching an image inside a request is out; deliberate simplification). `reportlab` is added to `packages/core` as a direct dependency; mypy gets `ignore_missing_imports` for `reportlab.*`.
 
 ### 6. Web (tenant side)
 
 Reports tab in `layout.tsx`; page `b/[id]/reports/page.tsx` with three parts and server actions in `actions.ts`:
 
 - Schedules: five rows, type label, `<select>` off / weekly / monthly, last scheduled run; `setCadence` → PUT.
-- Generate now: type `<select>` and a button; `generateNow` → POST; redirect with `?queued=report`; `reportNote()` on `note()`.
+- Generate now: type `<select>` and a button; `generateNow` → POST; redirect with `?queued=generated`; `reportNote()` on `note()`.
 - Archive: type, period, source, created; per row View (link to `/r/{token}`, or "not shared"), PDF, Re-share, Revoke (`share`, `revoke` actions).
 - Branding form (logo URL, accent, prepared by) → `setBranding` PATCH, in the webhook form's style.
 - `format.ts`: `REPORT_TYPE` labels, `reportNote`. `types.ts`: `Report`, `ReportRun`. `npm run gen` after the API lands; `openapi.json` and `schema.d.ts` committed.
@@ -120,7 +120,24 @@ Before the finishing menu, on dev with the API running: generate all five types 
 
 ## Rulings
 
-Recorded here as they are made during execution.
+Made during execution, in the order recorded in the ledger. Each gives the decision, the reason, and the cost if it is wrong.
+
+1. The Task 3 test `test_empty_brand_gets_a_complete_report` asserts that the Visibility Change cell reads "insufficient data" instead of starting with "not comparable: ". A brand with no answers has no pipeline versions, so `brand_deltas` calls it comparable, and this spec says the column reads "not comparable" only when `brand_deltas` does. Cost if wrong: one assertion.
+2. The Task 5 tests live in `tests/integration/test_reports.py`; `tests/integration/test_worker.py` is re-run for regressions but not edited. The plan's code already put them there, and one file per feature matches `test_alerts.py`. Cost if wrong: test location only.
+3. The Task 6 implementer could run `uv sync` (package index only) after adding reportlab to `packages/core/pyproject.toml`, with no other network use. The dependency was approved in this spec and could not be installed otherwise. Cost if wrong: none beyond the approved dependency.
+4. The Task 10 implementer could create `apps/web/vitest.config.ts` with only what the TSX test needs to compile (the automatic JSX runtime). The plan anticipated this. Cost if wrong: a small config file.
+5. From planning: signs in delta cells are ASCII (`-0.09`, `+0.01`), not the Unicode minus in this spec's first example; a malformed share token (not `[A-Za-z0-9_-]{20,64}`) is a 422 at the API and an unknown one a 404. Cost if wrong: a formatting change and one status code.
+6. The CMO builder drops competitor rows when the window has no answers, so the Competitors section becomes the empty-section paragraph. §2 says every section with nothing to show renders one paragraph, and `entity_metrics` returns a row per entity even at n=0. Cost if wrong: a new brand's Competitors section shows a paragraph instead of a table of dashes.
+7. The Task 3 fixture's done task has `window_days=14`, because the DB CHECK `ck_task_done_has_window` requires it. Cost if wrong: none (fixture only).
+8. The copy ban (the `FORBIDDEN` words) binds the report's fixed copy only. Stored text quoted verbatim (prompt texts, evidence sentences, page suggestions, brief structure lines built from prompts) is exempt: §2 says prompt texts and evidence sentences appear as text, and editing them would misquote the evidence. Cost if wrong: a report can quote an answer containing, for example, "certain"; the findings state the ban's scope.
+9. The PR builder applies the same n=0 guard to its competitor-sentiment table, with an extra test, by the same rule as ruling 6. Cost if wrong: none.
+10. The PDF falls back to black for an accent that is not `#rrggbb`, with a test: a document built from a brand row must render even if the row holds a bad value. Cost if wrong: none.
+11. The shared URL validator's message became field-neutral ("must be an https URL on a public host") because it now serves both `webhook_url` and `report_logo_url`. Cost if wrong: message text only.
+12. The plan's Task 8 assertion that "Secret" is absent from an unknown token's response was vacuous: nothing in that test's data contains "Secret" (it is the isolation fixture's title). It was replaced by assertions that the 404 body is generic and does not name the brand, for both a revoked real run and an unknown token. A test that asserts nothing is a defect whatever the plan says. Cost if wrong: none.
+13. Generate now redirects with `?queued=generated` (as the plan, brief and test have it), not `?queued=report`; §6 was corrected. The five notes (cadence, generated, shared, revoked, branding) each name what happened, and "report" would be ambiguous. Cost if wrong: one query value.
+14. The `REPORT_TYPE` vitest test compares against a literal object, not the generated schema: `ReportOut.type` is a plain string in the OpenAPI schema, so there is no union to check against; the literal equals `models.REPORT_TYPES`. Cost if wrong: a new type could ship without a label (it falls back to the raw type).
+15. Two files not in the plan were accepted: `app/r/layout.tsx` (neutral title "Report") and `app/r/not-found.tsx`. The root layout titles every page "BSI operator", which would put the product name on a client-facing page. Cost if wrong: two small files.
+16. `app/r/error.tsx` (neutral copy under the `/r` "Report" title), added in the Task 10 fix round, was accepted: it keeps 5xx pages white-label. Cost if wrong: one small file.
 
 ## Out of scope
 

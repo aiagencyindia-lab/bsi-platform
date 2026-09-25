@@ -141,6 +141,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-25-slice14-sitemaps-in-full.md](superpowers/plans/2026-09-25-slice14-sitemaps-in-full.md) | Implementation plan, Tasks 1–4. |
 | [findings-slice14.md](findings-slice14.md) | Results: the read-only re-check of skechers.in, skechers.com and crocs.in against the slice 12 numbers, and what is deferred. |
 
+## Slice 15: reports
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-25-slice15-reports-design.md](superpowers/specs/2026-09-25-slice15-reports-design.md) | Design spec: five report types (CMO, SEO, content, PR, agency client) on a weekly or monthly cadence or on demand, stored as frozen documents, a revocable public share link and a reportlab PDF; with the rulings made during the build. |
+| [superpowers/plans/2026-09-25-slice15-reports.md](superpowers/plans/2026-09-25-slice15-reports.md) | Implementation plan, Tasks 1–11, with the changes made during execution. |
+| [findings-slice15.md](findings-slice15.md) | Results: what was built, the live check on dev (pages, bytes and seconds per type), and what is deferred or untested. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 

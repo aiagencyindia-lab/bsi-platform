@@ -3395,3 +3395,24 @@ EOF
 1. Both gates as in Task 11 step 2.
 2. Live check on dev (writes only `report_run` rows; the worker stays stopped): `docker compose up -d`, `uv run alembic upgrade head`, start the API on :8000 and the web app on :3000, then for each type `curl -s -X POST -H "Authorization: Bearer $KEY" localhost:8000/v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/reports/$t/runs | jq -r .share_token`, time `curl -o /tmp/$t.pdf -w '%{size_download} %{time_total}\n' localhost:8000/v1/r/$TOKEN.pdf`, count pages with `grep -ac '/Type /Page' /tmp/$t.pdf`, and open `http://localhost:3000/r/$TOKEN` in the browser pane. Record the table in `docs/findings-slice15.md` §2 as observed.
 3. Finishing menu (merge locally / push and PR / keep) before pushing; `gh pr create` with `GH_TOKEN=$(gh auth token -u aiagencyindia-lab)`; watch `gh pr checks N --watch`; merge only on the user's say-so.
+
+## Changes made during execution
+
+Deviations from the text above, as recorded in the execution ledger (`.superpowers/sdd/2026-09-25-slice15-reports/progress.md`); the spec's Rulings section gives the reasons.
+
+- Preflight, Task 3: `test_empty_brand_gets_a_complete_report` asserts the Change cell is `"insufficient data"`, not `startswith("not comparable: ")`, because an empty brand is comparable in `brand_deltas`.
+- Preflight, Task 5: the Task 5 tests went into `tests/integration/test_reports.py` only; `tests/integration/test_worker.py` was re-run, not edited (the Files list named it).
+- Preflight, Task 6: `uv sync` was allowed to reach the package index to install reportlab, against the Global Constraint forbidding network use; nothing else used the network.
+- Preflight, Task 10: `apps/web/vitest.config.ts` was created with `esbuild: { jsx: "automatic" }` only.
+- Task 3: `build_cmo` drops competitor rows whose mention-rate n is 0, so with no answers in the window the Competitors section is the empty paragraph, not a table of dashes.
+- Task 3: the test fixture's done task sets `window_days=14`, required by the DB CHECK `ck_task_done_has_window`.
+- Task 4: `build_pr` applies the same n=0 guard to Competitor sentiment, with one extra test.
+- Task 4: the copy ban was ruled to bind the fixed copy only (stored text quoted verbatim is exempt); `test_copy_never_promises` still scans every string of the seeded documents, whose stored text holds no banned word.
+- Task 6: `render_pdf` falls back to black when the accent is not `#rrggbb`, with a test (the plan called `colors.HexColor(doc.branding.accent)` directly).
+- Task 6: a fix round added a renderer-drawn "Prepared by" line to match the module docstring (0153544), then removed it (5f7e94d) because the agency builder already puts that line in the document, which printed it twice; the test asserts a document-held line appears exactly once.
+- Task 7: the shared URL validator's message became "must be an https URL on a public host", since it now validates `report_logo_url` as well as `webhook_url`.
+- Task 8: the vacuous `"Secret" not in ...` assertion was replaced by `_generic_404`, which checks the bare problem body and that "nike" is absent, for the revoked token (page and PDF) and an unknown token.
+- Task 9: built as written (`?queued=generated`); the spec's `?queued=report` was corrected instead.
+- Task 10: files added beyond the Files list: `app/r/layout.tsx` (title "Report"), `app/r/not-found.tsx`, `app/r/error.tsx` (fix round) and `src/lib/api.test.ts`; the page also sets the tab title with `generateMetadata`.
+- Task 10: `publicApi` maps 422 (a malformed token) to `notFound()` as well as 404 (the plan mapped 404 only), so a truncated link shows the not-found page rather than the root error page.
+- Task 11: the brief's commit trailer was replaced by the session's (`Claude Opus 5.5`), and this section was added.
