@@ -36,10 +36,25 @@
 
 ## 2. Live check
 
-Run by the controller on dev before the finishing menu; filled in below.
+Run by the controller on dev at 2026-09-25 11:44 UTC, after the final-review fix wave (HEAD 42f1164). Dev was upgraded from migration 0016 to 0017 first. The API ran on :8000; the web app ran as `next dev` on :3000 and then as a production build (`next build` + `next start`) on :3001. One manual run of each type was generated for Run 1 (brand `BSOAgentTestBrand`, 100 done answers dated 2026-09-19 to 2026-09-22) through `POST /v1/brands/{id}/reports/{type}/runs`, and each PDF was fetched through its public link. No worker, no model spend. This wrote five `report_run` rows and five `report` definition rows (cadence `off`) on dev.
 
-| Type | Pages | Bytes | Seconds |
-|---|---|---|---|
+| Type | Sections | Generate (s) | PDF pages | PDF bytes | PDF (s) |
+|---|---|---|---|---|---|
+| cmo | 8 | 0.463 | 2 | 4,960 | 0.059 |
+| seo | 7 | 0.066 | 3 | 7,314 | 0.025 |
+| content | 6 | 0.031 | 3 | 6,222 | 0.020 |
+| pr | 7 | 0.046 | 2 | 4,736 | 0.017 |
+| agency | 8 | 0.054 | 2 | 4,963 | 0.018 |
+
+Times are curl's `time_total` on one machine, one run each; the first request (cmo) includes the API's first-request warm-up. Pages were counted as `/Type /Page` objects in the PDF.
+
+Observed:
+- Every PDF returned 200 with `Cache-Control: no-store` and `Content-Disposition: attachment; filename="bsoagenttestbrand-<type>-2026-09-25.pdf"`, and starts `%PDF-`.
+- Reading the CMO and SEO PDFs: every rate cell prints `value [low, high] n=N`; the prior period (2026-09-11 to 2026-09-18) has no answers, so it prints `— (n=0)` and every change reads `insufficient data`; the footer `Methodology v1 · pipeline v2 · …` is on every page; the headings are the spec's ("Alerts in period").
+- The public page for the agency run returned 200 with `<title>BSOAgentTestBrand visibility report</title>`, the methodology footer and a PDF link to `http://localhost:8000/v1/r/<token>.pdf`. One page load made one `GET /v1/r/<token>` in the API log, so Next deduped the `generateMetadata` and page fetches.
+- Product name on the public pages: on the production build, the agency page, a malformed token (`/r/short`) and an unknown token all contain no "bsi", "lumenca" or "operator"; both error cases are 404 with `<title>Report</title>`. On `next dev`, the 404 HTML embeds Next's dev-mode stack trace, whose file paths contain the repo directory name `bsi-platform`; that is dev-server output only and does not appear in the production build.
+- Two presentation issues seen in the real data (added to §3): the SEO and content "Content gaps" tables show the same topic more than once (e.g. "kids shoes" three times) because clusters are keyed by intent and topic but the table prints only the topic; and "No scored pages in this period." says "in this period" although page audits are the latest per URL, not filtered by the period.
+- Not checked live: the worker's scheduled sweep (the worker stays stopped), the revoke and re-share flow (covered by tests), and the 5xx error page.
 
 ## 3. Deferred / decisions
 
@@ -109,6 +124,10 @@ Task 10
 - The report's `--accent` CSS variable collides with the app's global `--accent` (`globals.css`, `#1d4ed8`, used for links): unbranded headings take the app blue, and a brand accent also colours the PDF link. Cost: unbranded reports show app blue headings (fix: rename to `--report-accent`).
 - React keys use heading and column text, which can repeat. Cost: a React key warning and possible mis-rendering on duplicate headings or columns.
 - Only `h2` takes the accent, not `h1`. Cost: the title stays in the default colour.
+
+### Seen in the live check
+- **Content-gap rows repeat a topic.** The SEO and content "Content gaps" tables print the topic only, so clusters with the same topic and different intents look like duplicate rows. Cost: a reader cannot tell the rows apart; the fix is an Intent column.
+- **"No scored pages in this period."** Page audits are the latest per URL regardless of the period, so "in this period" is inaccurate. Cost: wording only.
 
 ## 4. Not covered by tests
 - The Next.js public page route itself (`app/r/[token]/page.tsx`); only `ReportBody` (rendering a fixture document) and `publicApi` (404 and 422 to not-found, 5xx throws, no auth sent) are unit-tested. The route is exercised in the live check (§2).
