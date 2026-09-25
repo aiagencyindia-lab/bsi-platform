@@ -46,7 +46,7 @@ Run by the controller on dev at 2026-09-25 11:44 UTC, after the final-review fix
 | pr | 7 | 0.046 | 2 | 4,736 | 0.017 |
 | agency | 8 | 0.054 | 2 | 4,963 | 0.018 |
 
-Times are curl's `time_total` on one machine, one run each; the first request (cmo) is slower, likely first-request warm-up. Pages were counted with the regex `/Type\s*/Page(?!s)`, so the `/Pages` tree node is not counted. My first PDF fetch attempt sent the wrong field as the token and got five 422s (visible in the API log); the numbers above are from the corrected fetch.
+Times are curl's `time_total` on one machine, one run each; the first request (cmo) is slower, likely first-request warm-up. Pages were counted with the regex `/Type\s*/Page(?!s)`, so the `/Pages` tree node is not counted. The controller's first PDF fetch attempt sent the wrong field as the token and got five 422s, plus one more for a page request (visible in the API log); the numbers above are from the corrected fetch.
 
 Observed:
 - Every PDF returned 200 with `Cache-Control: no-store` and `Content-Disposition: attachment; filename="bsoagenttestbrand-<type>-2026-09-25.pdf"`, and starts `%PDF-`.
@@ -132,6 +132,6 @@ Task 10
 ## 4. Not covered by tests
 - The Next.js public page route itself (`app/r/[token]/page.tsx`); only `ReportBody` (rendering a fixture document) and `publicApi` (404 and 422 to not-found, 5xx throws, no auth sent) are unit-tested. The route is exercised in the live check (§2).
 - The tab title on `/r` error paths (not-found and error pages under the "Report" layout title); no test renders them.
-- Whether Next dedupes the `generateMetadata` fetch and the page fetch into one GET. The page's comment says it does and both use `cache: "no-store"`; no test measures it (one live observation in §2).
+- Whether Next dedupes the `generateMetadata` fetch and the page fetch into one GET. The page's comment says it does and both use `cache: "no-store"`; no test measures it (one live check in §2).
 - `app/r/layout.tsx`, `not-found.tsx` and `error.tsx` have no tests.
 - The ledger's other untested paths, listed with their tasks in §3: a monthly report becoming due at 30 days (Task 1); `fmt_day`, `Branding` and the labels directly (Task 2); the Task 3 and Task 4 cells named there; the run-and-stamp rollback (Task 5); the runs `limit` bounds and a same-org run id from another brand (Task 7); a transaction held during `render_pdf` (Task 8).
