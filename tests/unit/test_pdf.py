@@ -51,13 +51,13 @@ def test_long_table_spans_pages():
     assert len(PAGE.findall(render_pdf(_doc(300)))) > 1
 
 
-def test_branding_accent_and_escaping_do_not_break_rendering(monkeypatch):
-    # Uncompressed page streams so the prepared-by text is findable.
+def test_branding_renders_only_what_the_document_holds(monkeypatch):
+    # Uncompressed page streams so the text is findable in the bytes.
     monkeypatch.setattr(rl_config, "pageCompression", 0)
-    pdf = render_pdf(
-        _doc(2, branding=Branding(accent="#112233", prepared_by="Acme"))
-    )
-    assert pdf.startswith(b"%PDF-") and b"Prepared by Acme" in pdf
+    doc = _doc(2, branding=Branding(accent="#112233", prepared_by="Acme"))
+    doc.sections[0].blocks.insert(0, Paragraph(text="Prepared by Acme."))
+    pdf = render_pdf(doc)
+    assert pdf.startswith(b"%PDF-") and pdf.count(b"Prepared by Acme") == 1
 
 
 def test_invalid_accent_falls_back_instead_of_crashing():

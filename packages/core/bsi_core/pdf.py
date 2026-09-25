@@ -56,11 +56,6 @@ def render_pdf(doc: Document) -> bytes:
         ),
         Spacer(1, 4 * mm),
     ]
-    if doc.branding and doc.branding.prepared_by:
-        story.insert(
-            2,
-            Paragraph(escape(f"Prepared by {doc.branding.prepared_by}"), body),
-        )
     for sec in doc.sections:
         blocks = [_block(b, body, cell) for b in sec.blocks]
         story.append(
