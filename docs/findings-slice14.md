@@ -40,7 +40,7 @@ From the spec (the first three approved by the user through the design sections,
 - The job budget is split equally with a 60 s floor. Cost: one slow site gets less time when many domains are due, and an out-of-time domain keeps none of the URLs it read.
 - Each file is parsed whole, not streamed. Cost: peak memory of one 50 MB file plus its entries, a few hundred MB, on one worker.
 
-Rulings during the build:
+Rulings made after the spec (docs review before Task 1, and the build):
 - Ruling 1: the both-caps test became `test_file_cap_is_fifty_and_the_url_ceiling_can_stop_first` (4 files, ceiling 2). The planned test could not pass: with its caps the file cap tripped first, so its ceiling assertion would fail. Cost if wrong: none.
 - Ruling 2: the floor test was rewritten to show the 60 s floor in the stored error ("within 60 s", with 10 domains) instead of asserting arithmetic. Cost if wrong: none (stronger test).
 - Ruling 3: `parse_sitemap` is fed `r.body.encode("latin-1", "replace")`, lossless only for raw fetches, which production always uses. Cost if wrong: a caller with a non-raw fetch gets mangled Unicode URLs.
