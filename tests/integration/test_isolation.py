@@ -115,6 +115,26 @@ def other(owner, make_org, make_brand, make_observation):
         )
         s.add(run)
         s.flush()
+        s.add(
+            m.Product(
+                org_id=b.id,
+                brand_id=bid,
+                external_id="secret-1",
+                title="Secret",
+                source="csv",
+                keyword="secret",
+                suggested_title="Secret",
+            )
+        )
+        s.add(
+            m.KeywordSearch(
+                org_id=b.id,
+                brand_id=bid,
+                keyword="secret",
+                query="secret buy online",
+                titles=[{"title": "Secret", "domain": "secret.example"}],
+            )
+        )
         rid, tid, aid, rrid = rec.id, task.id, audit.id, run.id
     return {
         "b": bid,
