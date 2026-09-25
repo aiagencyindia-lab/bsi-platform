@@ -8,18 +8,28 @@ render. No links or ids: readers are outside the app. Fixed copy only.
 from __future__ import annotations
 
 import uuid
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from . import models as m
 from .citations import sources
 from .competitors import entity_metrics
-from .metrics import DELTA_METRICS, Filters, brand_deltas, brand_sov
+from .gaps import clusters
+from .metrics import (
+    DELTA_METRICS,
+    Filters,
+    _where,
+    brand_deltas,
+    brand_sov,
+    prompt_metrics,
+    rate,
+)
 from .recommend import top_by_type
 
 # Bump whenever a builder changes what it computes or how a cell is
@@ -426,3 +436,380 @@ def build_agency(
     s: Session, brand: m.Brand, days: int, to: datetime
 ) -> Document:
     return build_cmo(s, brand, days, to, client_facing=True)
+
+
+SEO_SOURCE_ROWS = 20
+GAP_ROWS = 10
+NEGATIVE_ROWS = 20
+SEO_REC_TYPES = (
+    "pursue_citation_source",
+    "fix_crawlability",
+    "fix_entity",
+    "optimize_page",
+)
+CONTENT_REC_TYPES = ("create_content", "optimize_page")
+
+
+def _latest_site_audits(s: Session, brand_id: uuid.UUID) -> list[m.SiteAudit]:
+    """The latest audit per currently declared domain (the Site tab's
+    query)."""
+    q = (
+        select(m.SiteAudit)
+        .join(
+            m.Domain,
+            (m.Domain.brand_id == m.SiteAudit.brand_id)
+            & (m.Domain.host == m.SiteAudit.domain),
+        )
+        .where(m.SiteAudit.brand_id == brand_id)
+        .order_by(
+            m.SiteAudit.domain,
+            m.SiteAudit.created_at.desc(),
+            m.SiteAudit.id.desc(),
+        )
+        .distinct(m.SiteAudit.domain)
+    )
+    return list(s.scalars(q))
+
+
+def _latest_page_audits(s: Session, brand_id: uuid.UUID) -> list[m.PageAudit]:
+    """The latest scored audit per (cluster, url), best score first."""
+    q = (
+        select(m.PageAudit)
+        .where(m.PageAudit.brand_id == brand_id)
+        .order_by(
+            m.PageAudit.cluster_key,
+            m.PageAudit.url,
+            m.PageAudit.created_at.desc(),
+            m.PageAudit.id.desc(),
+        )
+        .distinct(m.PageAudit.cluster_key, m.PageAudit.url)
+    )
+    rows = [a for a in s.scalars(q) if a.score is not None]
+    rows.sort(key=lambda a: (-(a.score or 0), a.url))
+    return rows
+
+
+def _gap_rows(
+    s: Session, brand_id: uuid.UUID, f: Filters
+) -> list[dict[str, Any]]:
+    return [c for c in clusters(s, brand_id, f) if c["gap"]][:GAP_ROWS]
+
+
+def build_seo(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
+    period, sections, versions = _opening(s, brand, days, to)
+    f = _window(period)
+    src_rows = [
+        [
+            x["domain"],
+            x["owner"],
+            str(x["answers"]),
+            str(x["prompts"]),
+            "yes" if x["gap"] else "no",
+        ]
+        for x in sources(s, brand.id, f)[:SEO_SOURCE_ROWS]
+    ]
+    audit_rows = [
+        [
+            a.domain,
+            str(c.get("code", "")),
+            str(c.get("severity", "")),
+            f"{c.get('observed', '')} (expected {c.get('expected', '')})",
+        ]
+        for a in _latest_site_audits(s, brand.id)
+        for c in a.checks
+        if not c.get("ok", True)
+    ]
+    page_rows = [
+        [a.url, a.cluster_key, str(a.score)]
+        for a in _latest_page_audits(s, brand.id)
+    ]
+    gap_rows = [
+        [
+            c["topic"],
+            str(len(c["prompts"])),
+            fmt_rate(c["brand"]),
+            (
+                f"{c['top_rival']['name']} {fmt_rate(c['top_rival'])}"
+                if c["top_rival"]
+                else "—"
+            ),
+        ]
+        for c in _gap_rows(s, brand.id, f)
+    ]
+    sections += [
+        Section(
+            heading="Cited sources",
+            blocks=[
+                table_or_empty(
+                    ["Domain", "Owner", "Answers", "Prompts", "Gap"],
+                    src_rows,
+                    "cited sources",
+                )
+            ],
+        ),
+        Section(
+            heading="Site audit",
+            blocks=[
+                table_or_empty(
+                    ["Domain", "Check", "Severity", "Observed"],
+                    audit_rows,
+                    "failing site checks",
+                )
+            ],
+        ),
+        Section(
+            heading="Page citability",
+            blocks=[
+                table_or_empty(
+                    ["URL", "Cluster", "Score"], page_rows, "scored pages"
+                )
+            ],
+        ),
+        Section(
+            heading="Content gaps",
+            blocks=[
+                table_or_empty(
+                    ["Topic", "Prompts", "Brand mention rate", "Top rival"],
+                    gap_rows,
+                    "content gaps",
+                )
+            ],
+        ),
+        _rec_section(
+            "Recommendations",
+            _open_recommendations(s, brand.id, SEO_REC_TYPES),
+        ),
+    ]
+    return Document(
+        title=f"{brand.name}: SEO report",
+        brand=brand.name,
+        type="seo",
+        period=period,
+        sections=sections,
+        footer=footer(versions, to),
+    )
+
+
+def _topic_rows(s: Session, brand_id: uuid.UUID, f: Filters) -> list[list[str]]:
+    by_topic: dict[str, list[dict[str, Any]]] = {}
+    for p in prompt_metrics(s, brand_id, f):
+        by_topic.setdefault(p["topic"] or "untopiced", []).append(p)
+    rows = []
+    for topic, ps in sorted(by_topic.items()):
+        n = sum(p["brand"]["n"] for p in ps)
+        # rate() stores k/n; k is recovered exactly by rounding.
+        k = sum(
+            round(p["brand"]["value"] * p["brand"]["n"])
+            for p in ps
+            if p["brand"]["value"] is not None
+        )
+        tops = Counter(
+            p["top_competitor"]["name"] for p in ps if p["top_competitor"]
+        )
+        top = tops.most_common(1)[0][0] if tops else "—"
+        rows.append([topic, str(len(ps)), fmt_rate(rate(k, n)), top])
+    return rows
+
+
+def build_content(
+    s: Session, brand: m.Brand, days: int, to: datetime
+) -> Document:
+    period, sections, versions = _opening(s, brand, days, to)
+    f = _window(period)
+    gap_rows = []
+    for c in _gap_rows(s, brand.id, f):
+        b = c["brief"] or {}
+        gap_rows.append(
+            [
+                c["topic"],
+                str(b.get("page_type", "—")),
+                "; ".join(b.get("structure", [])[:3]) or "—",
+                str(b.get("prompts_total", len(c["prompts"]))),
+            ]
+        )
+    page_rows = []
+    for a in _latest_page_audits(s, brand.id):
+        sug = a.suggestions or {}
+        first = next(
+            (
+                str(x.get("text", ""))
+                for key in ("add", "rewrite", "remove", "evidence_to_add")
+                for x in sug.get(key, [])
+                if x.get("text")
+            ),
+            "—",
+        )
+        page_rows.append([a.url, str(a.score), first])
+    sections += [
+        Section(
+            heading="Prompt performance by topic",
+            blocks=[
+                table_or_empty(
+                    ["Topic", "Prompts", "Mention rate", "Top rival"],
+                    _topic_rows(s, brand.id, f),
+                    "answered prompts",
+                )
+            ],
+        ),
+        Section(
+            heading="Content gaps",
+            blocks=[
+                table_or_empty(
+                    ["Topic", "Page type", "Structure", "Prompts"],
+                    gap_rows,
+                    "content gaps",
+                )
+            ],
+        ),
+        Section(
+            heading="Page citability",
+            blocks=[
+                table_or_empty(
+                    ["URL", "Score", "Next step"], page_rows, "scored pages"
+                )
+            ],
+        ),
+        _rec_section(
+            "Recommendations",
+            _open_recommendations(s, brand.id, CONTENT_REC_TYPES),
+        ),
+    ]
+    return Document(
+        title=f"{brand.name}: content report",
+        brand=brand.name,
+        type="content",
+        period=period,
+        sections=sections,
+        footer=footer(versions, to),
+    )
+
+
+_MENTIONS = (
+    "FROM mention mn JOIN observation o ON o.id = mn.observation_id "
+    "WHERE o.status = 'done' AND mn.entity_type = 'brand' AND "
+)
+
+
+def build_pr(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
+    period, sections, versions = _opening(s, brand, days, to)
+    f = _window(period)
+    where, params = _where(brand.id, f)
+    mix = s.execute(
+        text(
+            "SELECT mn.sentiment, count(*) AS k "
+            + _MENTIONS
+            + where
+            + " GROUP BY mn.sentiment ORDER BY k DESC, mn.sentiment"
+        ),
+        params,
+    ).all()
+    total = sum(r.k for r in mix)
+    mix_rows = [
+        [r.sentiment, str(r.k), fmt_pct(r.k / total if total else None)]
+        for r in mix
+    ]
+    negatives = s.execute(
+        text(
+            "SELECT o.requested_at, p.text, mn.evidence_sentence "
+            "FROM mention mn JOIN observation o ON o.id = mn.observation_id "
+            "JOIN prompt p ON p.id = o.prompt_id "
+            "WHERE o.status = 'done' AND mn.entity_type = 'brand' "
+            "AND mn.sentiment = 'negative' AND "
+            + where
+            + " ORDER BY o.requested_at DESC, mn.id LIMIT :cap"
+        ),
+        {**params, "cap": NEGATIVE_ROWS},
+    ).all()
+    neg_rows = [
+        [fmt_day(r.requested_at), r.text, r.evidence_sentence or "—"]
+        for r in negatives
+    ]
+    comp_rows = [
+        [
+            e["name"],
+            fmt_rate(e["sentiment"]["positive"]),
+            fmt_rate(e["sentiment"]["negative"]),
+            fmt_signed(e["sentiment"]["index"]),
+        ]
+        for e in entity_metrics(s, brand.id, f)[:COMPETITOR_ROWS]
+        # With no answers every row is "— (n=0)": nothing to show.
+        if e["mention_rate"]["n"]
+    ]
+    third_rows = [
+        [x["domain"], str(x["answers"]), str(x["prompts"])]
+        for x in sources(s, brand.id, f)
+        if x["brand_named"] and x["owner"] == "third_party"
+    ][:SEO_SOURCE_ROWS]
+    new_rows = [
+        [
+            str(a.detail.get("domain", a.subject_key)),
+            a.title,
+            f"{fmt_day(a.window_from)} to {fmt_day(a.window_to)}",
+        ]
+        for a in _alerts_in(s, brand.id, period, "new_source")
+    ]
+    sections += [
+        Section(
+            heading="Sentiment mix",
+            blocks=[
+                table_or_empty(
+                    ["Sentiment", "Mentions", "Share"], mix_rows, "mentions"
+                )
+            ],
+        ),
+        Section(
+            heading="Negative mentions",
+            blocks=[
+                table_or_empty(
+                    ["Date", "Prompt", "Evidence"],
+                    neg_rows,
+                    "negative mentions",
+                )
+            ],
+        ),
+        Section(
+            heading="Competitor sentiment",
+            blocks=[
+                table_or_empty(
+                    ["Entity", "Positive", "Negative", "Index"],
+                    comp_rows,
+                    "mentions",
+                )
+            ],
+        ),
+        Section(
+            heading="Third-party sources naming the brand",
+            blocks=[
+                table_or_empty(
+                    ["Domain", "Answers", "Prompts"],
+                    third_rows,
+                    "third-party sources naming the brand",
+                )
+            ],
+        ),
+        Section(
+            heading="New sources",
+            blocks=[
+                table_or_empty(
+                    ["Domain", "Alert", "Window"], new_rows, "new sources"
+                )
+            ],
+        ),
+    ]
+    return Document(
+        title=f"{brand.name}: PR report",
+        brand=brand.name,
+        type="pr",
+        period=period,
+        sections=sections,
+        footer=footer(versions, to),
+    )
+
+
+BUILDERS: dict[str, Builder] = {
+    "cmo": build_cmo,
+    "seo": build_seo,
+    "content": build_content,
+    "pr": build_pr,
+    "agency": build_agency,
+}

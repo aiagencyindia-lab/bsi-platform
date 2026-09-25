@@ -8,10 +8,15 @@ from bsi_core.competitors import entity_metrics
 from bsi_core.db import system_session, tenant_session
 from bsi_core.metrics import DELTA_METRICS, Filters, brand_deltas
 from bsi_core.reports import (
+    BUILDERS,
     METRIC_LABEL,
     Document,
     build_agency,
     build_cmo,
+    build_content,
+    build_pr,
+    build_seo,
+    fmt_day,
     fmt_delta,
     fmt_rate,
 )
@@ -24,6 +29,7 @@ from tests.integration.test_competitors import (
     _mention,
     _prompt,
 )
+from tests.unit.test_recommend_copy import FORBIDDEN
 
 
 def due_runs():
@@ -316,3 +322,154 @@ def test_agency_is_client_facing_cmo(owner, make_org, make_brand):
     tasks = _table(doc, "Tasks")
     assert tasks.columns == ["Task", "Status", "Impact", "Change"]
     assert "Priya" not in str(doc.model_dump())
+
+
+def _audits(owner, org, bid):
+    with owner() as s, s.begin():
+        s.add(
+            m.SiteAudit(
+                org_id=org.id,
+                brand_id=bid,
+                domain="nike.com",
+                checks=[
+                    {
+                        "code": "robots_ok",
+                        "ok": True,
+                        "severity": "high",
+                        "observed": "200",
+                        "expected": "200",
+                        "url": "https://nike.com/robots.txt",
+                    },
+                    {
+                        "code": "llms_txt",
+                        "ok": False,
+                        "severity": "low",
+                        "observed": "404",
+                        "expected": "200",
+                        "url": "https://nike.com/llms.txt",
+                    },
+                ],
+            )
+        )
+        s.add(
+            m.PageAudit(
+                org_id=org.id,
+                brand_id=bid,
+                url="https://nike.com/best-shoes",
+                cluster_key="cluster:commercial:shoes",
+                status=200,
+                weights_version="v1",
+                score=61,
+                suggestions={
+                    "add": [{"text": "Add an FAQ block"}],
+                    "remove": [],
+                    "rewrite": [],
+                    "evidence_to_add": [],
+                },
+            )
+        )
+
+
+def test_seo_sections(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    _audits(owner, org, bid)
+    with tenant_session(org.id) as s:
+        doc = build_seo(s, s.get_one(m.Brand, bid), 7, NOW)
+    assert [sec.heading for sec in doc.sections][2:] == [
+        "Cited sources",
+        "Site audit",
+        "Page citability",
+        "Content gaps",
+        "Recommendations",
+    ]
+    src = _table(doc, "Cited sources")
+    assert src.columns == ["Domain", "Owner", "Answers", "Prompts", "Gap"]
+    assert _table(doc, "Site audit").rows == [
+        ["nike.com", "llms_txt", "low", "404 (expected 200)"]
+    ]
+    assert _table(doc, "Page citability").rows == [
+        ["https://nike.com/best-shoes", "cluster:commercial:shoes", "61"]
+    ]
+    assert _table(doc, "Recommendations").rows[0][1] == "Pitch forbes.com"
+
+
+def test_content_sections(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    _audits(owner, org, bid)
+    with tenant_session(org.id) as s:
+        doc = build_content(s, s.get_one(m.Brand, bid), 7, NOW)
+    assert [sec.heading for sec in doc.sections][2:] == [
+        "Prompt performance by topic",
+        "Content gaps",
+        "Page citability",
+        "Recommendations",
+    ]
+    topics = _table(doc, "Prompt performance by topic")
+    assert topics.columns == ["Topic", "Prompts", "Mention rate", "Top rival"]
+    assert topics.rows == [
+        ["untopiced", "1", "0.67 [0.30, 0.90] n=6", "Adidas"]
+    ]
+    assert _table(doc, "Page citability").rows == [
+        ["https://nike.com/best-shoes", "61", "Add an FAQ block"]
+    ]
+    assert _section(doc, "Recommendations").blocks[0].kind == "p"
+
+
+def test_pr_sections(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    with tenant_session(org.id) as s:
+        doc = build_pr(s, s.get_one(m.Brand, bid), 7, NOW)
+    assert [sec.heading for sec in doc.sections][2:] == [
+        "Sentiment mix",
+        "Negative mentions",
+        "Competitor sentiment",
+        "Third-party sources naming the brand",
+        "New sources",
+    ]
+    mix = _table(doc, "Sentiment mix")
+    assert mix.rows == [["neutral", "3", "75.0%"], ["negative", "1", "25.0%"]]
+    neg = _table(doc, "Negative mentions")
+    assert len(neg.rows) == 1 and neg.rows[0][1] == "best shoes"
+    third = _table(doc, "Third-party sources naming the brand")
+    assert third.rows == [["forbes.com", "6", "1"]]
+    assert _table(doc, "New sources").rows == [
+        [
+            "forbes.com",
+            "forbes.com is a new source",
+            f"{fmt_day(NOW - timedelta(days=7))} to {fmt_day(NOW)}",
+        ]
+    ]
+
+
+def test_pr_empty_brand_has_no_dash_rows(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Fresh")
+    with tenant_session(org.id) as s:
+        doc = build_pr(s, s.get_one(m.Brand, bid), 7, NOW)
+    for heading in [sec.heading for sec in doc.sections][2:]:
+        assert _section(doc, heading).blocks[0].kind == "p", heading
+
+
+def _strings(node):
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for v in node.values():
+            yield from _strings(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _strings(v)
+
+
+def test_copy_never_promises(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    _audits(owner, org, bid)
+    with tenant_session(org.id) as s:
+        brand = s.get_one(m.Brand, bid)
+        docs = [b(s, brand, 7, NOW) for b in BUILDERS.values()]
+    assert set(BUILDERS) == set(m.REPORT_TYPES)
+    for doc in docs:
+        for text_ in _strings(doc.model_dump(mode="json", by_alias=True)):
+            low = text_.lower()
+            assert not any(w in low for w in FORBIDDEN), (doc.type, text_)
+            assert "bsi" not in low and "lumenca" not in low, text_
