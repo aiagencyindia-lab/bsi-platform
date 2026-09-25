@@ -28,7 +28,7 @@
 
 ## 2. Live check
 
-Run by the controller on dev at 2026-09-25 13:44 UTC on the branch (HEAD 89ea7c3), after the user approved migrating dev. No crawl, no worker, no model spend.
+Run by the controller on dev at 2026-09-25 13:44 UTC on the branch (HEAD 89ea7c3), after the user approved migrating dev. No crawl, no worker, no model spend. The check was not read-only: `POST …/recommendations/generate` runs `refresh`, which by the code upserts every generated candidate over its open row and deletes any open row the rules no longer produce. Observed: 78 open rows before and after, same types and counts; subject keys were not compared, so which rows were rewritten, and whether any were deleted and replaced, is not known. When asking to migrate, the controller described the check as calling generate and reading counts, without saying that generate writes recommendations.
 
 | Check | Result |
 |---|---|
