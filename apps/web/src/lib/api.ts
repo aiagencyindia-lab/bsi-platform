@@ -48,7 +48,9 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 /** Server-side call to a public /v1 route: no cookie, no key. */
 export async function publicApi<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}/v1${path}`, { cache: "no-store" });
-  if (res.status === 404) notFound();
+  // 422 = malformed token (e.g. a link truncated by a mail client): to the
+  // reader that is just a link that doesn't exist.
+  if (res.status === 404 || res.status === 422) notFound();
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
