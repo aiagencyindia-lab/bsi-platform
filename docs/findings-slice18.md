@@ -33,9 +33,31 @@
 
 ## 2. Live check on dev
 
-Not yet run. The controller runs it after the user approves migrating dev to 0019; results are recorded here then.
+Run on 2026-09-26 against the dev database, with the user's approval for both the migration and the check. Everything below was observed unless it is marked *inferred*.
+
+**Migration.** `alembic current` read `0018` before and `0019 (head)` after `alembic upgrade head`. `pg_class` shows `relrowsecurity` and `relforcerowsecurity` true for `product` and `keyword_search`. No existing rows were touched.
+
+**Import.** Ten sample products (ids LC-01 to LC-10, footwear titles starting with the brand name `BSOAgentTestBrand`) were posted as CSV to `POST /v1/brands/{Run 1 brand}/products/import/csv` through a local API. The response was `201 {"created":10,"updated":0,"skipped":0,"total":10}`.
+
+**Run.** `POST /products/run` returned `202`, queued job `c651afc7…`, which was the only queued job in dev. It was run once through `process_job(GeminiGroundingAdapter(), generate, embed)`; the worker loop was not started. It took 2 min 16 s and finished `done` with `cost_micros = 342,367` ($0.3424). The summary was `products:10 keywords:10 searched:10`.
+
+- **Spend was more than twice the $0.15 estimate.** Each product got its own rank-1 keyword ("boys sandal", "girls sandal", "kids shoe", "men slipper", "womens sandal" and so on), so none of the ten grounded searches was shared. Each search cost about 37,000 micros, which is in line with `SEARCH_MICROS = 45,000`.
+- **One search failed with `429 Resource exhausted`** ("men shoe"). It was stored with the error and `titles = []`, and the run went on; under R9 the next run searches it again. Two other searches ("girls sandal", "men slipper") returned an answer from which no product title survived `keep_present` (0 titles). Six returned 5 titles and one returned 2.
+- **Rule check: all ten suggestions were `pass`, none `adjusted`.**
+- **Quality problem: plural echo.** `missing` compares tokens exactly, so a title containing "Sandal" lacks "sandals". Two suggestions gained a padded plural: "BSOAgentTestBrand Blue Boys Sandal And Sandals" (LC-01) and "BSOAgentTestBrand Grey Kids Slipper And Slippers" (LC-04). The rule check passes these because `sandal` and `sandals` are different tokens. LC-06 became "BSOAgentTestBrand Brown Mens Sandal Shoes". *Inferred:* singular/plural folding in `missing` (and possibly in `rule_check`) would remove these; this is recorded in §3.
+- Most other suggestions only moved the colour forward ("BSOAgentTestBrand Navy Men Slipper"), and LC-09 lost "School". Bullets were written for every product (three each, drawn from the description and attributes).
+
+**Web, production build.** `npm run build` listed `/b/[id]/products` and `/b/[id]/products/export.csv`, and `next start -p 3001` ran with `API_URL=http://localhost:8000`. With the Run 1 key in the `bsi_key` cookie:
+- `GET /b/{id}/products` returned 200 with 11 table rows (a header and 10 products), "Last run: done" and "Download CSV".
+- `GET /b/{id}/products/export.csv` returned 200 with `content-type: text/csv; charset=utf-8`, `content-disposition: attachment; filename="products-{id}.csv"` and `cache-control: no-store`. The file had a header row and 10 data rows, with `|`-joined lists.
+- The same URL with no cookie returned 307 to `/login`. `/b/not-a-uuid/products/export.csv` returned 404.
+
+**Writes to dev.** 10 `product` rows, 10 `keyword_search` rows and 1 `job` row (`product_run`, $0.3424). Every API-key request updated `api_key.last_used_at`, and the latest is now 2026-09-25 18:39 UTC. Both servers were stopped afterwards. The model spend on dev is now $9.6287 of the $15 cap.
 
 ## 3. Deferred and untested
+
+- **Plural echo in suggestions (found by the live check, §2).** `missing` and `rule_check` compare tokens exactly, so `sandal` does not cover `sandals`, and two of ten suggestions gained a padded plural ("Sandal And Sandals"). Folding singular and plural (for example, `rivals._stem`'s crude drop of one trailing s) in both functions is the likely fix.
+- **Keywords too specific to share searches (found by the live check, §2).** Ten products gave ten different rank-1 keywords, so the one-search-per-keyword saving did not happen, and spend was $0.34 against the $0.15 estimate. The keyword prompt asks for the audience plus the category; normalising the audience word (boys/girls → kids, men/mens) or plurals before voting would let products share a search.
 
 Out of scope (spec):
 - Shopify OAuth ingest, and pushing titles to Shopify as drafts (PRD Phase 2).
