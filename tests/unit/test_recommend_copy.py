@@ -2,6 +2,7 @@ import pytest
 from bsi_core import entity
 from bsi_core.alerts import drop_copy, shift_copy, source_copy
 from bsi_core.crawl import SEVERITY
+from bsi_core.products import keyword_prompt, rewrite_prompt, titles_prompt
 from bsi_core.recommend import (
     citation_copy,
     cluster_copy,
@@ -247,6 +248,44 @@ ALERT_CASES = [
     shift_copy("Adidas", "down", 10),
     source_copy("forbes.com", 6),
 ]
+
+# Fixed wording of the Products tab and API, mirrored from
+# apps/web/src/lib/format.ts PRODUCT_NOTES, products/page.tsx and
+# routers/products.py Problem titles. Keep in step by hand.
+PRODUCT_CASES = [
+    "Imported.",
+    "Choose a CSV file first.",
+    "Catalogue cap is 1,000 products; nothing was imported.",
+    "Queued; the worker runs it within a minute.",
+    "Done.",
+    "Failed; see the status line.",
+    "Products cleared.",
+    "No products to run.",
+    "No products yet.",
+    "Run in progress",
+    "Last run: done",
+    "Last run failed",
+    "Feed import",
+    "pass",
+    "adjusted",
+    "Catalogue cap is 1,000 products",
+    "CSV too large",
+    "Only http(s) feed URLs",
+    "Download CSV",
+]
+# The prompts' fixed wording is not user-facing, but it is ours.
+PRODUCT_CASES += [
+    keyword_prompt("Acme", []),
+    titles_prompt("kids shoes", "", []),
+    rewrite_prompt("Acme", []),
+]
+
+
+@pytest.mark.parametrize("copy", PRODUCT_CASES)
+def test_product_copy_never_promises_an_outcome(copy):
+    text = copy.lower()
+    for word in FORBIDDEN:
+        assert word not in text, word
 
 
 @pytest.mark.parametrize("copy", ALERT_CASES)

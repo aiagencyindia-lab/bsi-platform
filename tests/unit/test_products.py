@@ -6,10 +6,21 @@ from types import SimpleNamespace
 
 from bsi_core.products import (
     EXPORT_COLUMNS,
+    KeywordSet,
+    RewriteSet,
+    TitleSet,
+    drop_brand_terms,
     export_rows,
+    keep_present,
+    keyword_prompt,
+    missing,
     parse_attributes,
     parse_csv,
     parse_feed,
+    rewrite_prompt,
+    rule_check,
+    titles_prompt,
+    vote,
 )
 
 CSV = (
@@ -156,3 +167,135 @@ def test_export_rows_joins_lists_and_blanks_none():
         ],
         ["W-2", "https://walkaroo.in/p/2", "Other", "", "", "", "", ""],
     ]
+
+
+BRAND = ("Walkaroo", "WKR")
+
+
+def test_vote_picks_the_most_frequent_rank_one():
+    samples = [
+        ["kids shoes", "running shoes"],
+        ["kids shoes"],
+        ["running shoes", "kids shoes"],
+    ]
+    assert vote(samples) == ["kids shoes", "running shoes"]
+
+
+def test_vote_ties_go_to_the_first_sample_and_cap_at_five():
+    samples = [["a", "b", "c"], ["d", "e", "f"], ["g", "h"]]
+    assert vote(samples) == ["a", "b", "c", "d", "e"]
+    assert vote([[], [], []]) == []
+
+
+def test_drop_brand_terms_matches_tokens():
+    assert drop_brand_terms(
+        ["walkaroo sandals", "kids sandals", "wkr shoes"], BRAND
+    ) == ["kids sandals"]
+    assert drop_brand_terms(["walkaroo sandals"], BRAND) == []
+
+
+TITLES = [
+    "Kids Sandals for Boys Summer Sandal",
+    "Boys Summer Sandals Lightweight",
+    "Summer Sandals Kids",
+]
+
+
+def test_missing_keywords_need_two_titles_and_skip_present_tokens():
+    assert missing("Walkaroo Boys Sandal Blue", TITLES, BRAND) == [
+        "sandals",
+        "summer",
+        "kids",
+    ]
+
+
+def test_missing_skips_brand_stopwords_numbers_and_caps_at_eight():
+    titles = [
+        "walkaroo for online 2024 alpha beta gamma delta eps zeta eta "
+        "theta iota",
+        "walkaroo for online 2024 alpha beta gamma delta eps zeta eta "
+        "theta iota",
+    ]
+    out = missing("Plain", titles, BRAND)
+    assert len(out) == 8
+    for bad in ("walkaroo", "for", "online", "2024"):
+        assert bad not in out
+
+
+def test_rule_check_removes_repeated_tokens():
+    assert rule_check(
+        "Walkaroo Kids Shoes", "Walkaroo Kids Shoes Shoes", BRAND
+    ) == (
+        "Walkaroo Kids Shoes",
+        "adjusted",
+    )
+
+
+def test_rule_check_restores_the_brand_the_original_had():
+    assert rule_check("Walkaroo Boys Sandal", "Boys Summer Sandal", BRAND) == (
+        "Walkaroo Boys Summer Sandal",
+        "adjusted",
+    )
+    # The original had no brand: none is added.
+    assert rule_check("Boys Sandal", "Boys Summer Sandal", BRAND) == (
+        "Boys Summer Sandal",
+        "pass",
+    )
+
+
+def test_rule_check_trims_to_150_at_a_word_boundary():
+    words = [f"w{i}" for i in range(60)]  # "w0 w1 ... w59" = 229 chars
+    fixed, status = rule_check("Plain", " ".join(words), BRAND)
+    assert status == "adjusted"
+    assert len(fixed) <= 150
+    assert fixed == " ".join(words)[: len(fixed)]
+    assert not fixed.endswith(" ") and fixed.split()[-1] in words
+
+
+def test_rule_check_passes_an_unchanged_suggestion():
+    assert rule_check(
+        "Walkaroo Boys Sandal", "Walkaroo Boys Summer Sandal", BRAND
+    ) == (
+        "Walkaroo Boys Summer Sandal",
+        "pass",
+    )
+
+
+def test_keep_present_drops_titles_absent_from_the_text():
+    text = "Top picks:\n1. **Kids  Sandals for Boys** on amazon.in\n2. other"
+    titles = [
+        {"title": "Kids Sandals for Boys", "domain": "Amazon.in"},
+        {"title": "Invented Sandal", "domain": "x.in"},
+    ]
+    assert keep_present(titles, text) == [
+        {"title": "Kids Sandals for Boys", "domain": "amazon.in"}
+    ]
+
+
+def test_prompts_carry_the_inputs_and_parse_with_their_schemas():
+    products = [
+        {
+            "index": 0,
+            "title": "Walkaroo Boys Sandal",
+            "description": "Light sandal",
+            "attributes": {"color": "blue"},
+            "category": "Sandals",
+            "keyword": "kids sandals",
+            "missing": ["summer"],
+        }
+    ]
+    kp = keyword_prompt("Walkaroo", products)
+    assert "Walkaroo Boys Sandal" in kp and "Light sandal" in kp
+    KeywordSet.model_validate_json(
+        '{"products": [{"index": 0, "keywords": ["kids sandals"]}]}'
+    )
+    tp = titles_prompt("kids sandals", "answer text", ["amazon.in"])
+    assert "kids sandals" in tp and "answer text" in tp and "amazon.in" in tp
+    TitleSet.model_validate_json(
+        '{"titles": [{"title": "Kids Sandals", "domain": "amazon.in"}]}'
+    )
+    rp = rewrite_prompt("Walkaroo", products)
+    assert "summer" in rp and "150" in rp
+    RewriteSet.model_validate_json(
+        '{"products": [{"index": 0, "title": "t", "bullets": ["b"]}]}'
+    )

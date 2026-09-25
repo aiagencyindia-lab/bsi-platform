@@ -10,11 +10,16 @@ transaction open during a model call, the `suggest_competitors` shape.
 import csv
 import hashlib
 import io
+import json
+import re
 import xml.etree.ElementTree as ET
 import zlib
-from collections.abc import Iterable
+from collections import Counter
+from collections.abc import Iterable, Sequence
 from functools import partial
 from typing import Any
+
+from pydantic import BaseModel
 
 from .crawl import Fetch, http_fetch
 
@@ -205,3 +210,234 @@ def export_rows(products: Iterable[Any]) -> list[list[str]]:
         return str(value)
 
     return [[cell(getattr(p, c)) for c in EXPORT_COLUMNS] for p in products]
+
+
+BATCH = 20
+SAMPLES = 3
+KEYWORD_TEMPERATURE = 0.4
+MAX_KEYWORDS = 5
+KEYWORD_CAP = 100  # grounded searches per run
+SEARCH_TTL_DAYS = 7
+# 35,000 micros grounding + tokens + the flash-lite parse call.
+SEARCH_MICROS = 45_000
+# The keyword phase: 150 flash-lite calls for 1,000 products.
+PRODUCT_JOB_MICROS = 20_000
+TOP_TITLES = 5
+MIN_TITLES = 2
+MAX_MISSING = 8
+MAX_TITLE_CHARS = 150
+MAX_BULLETS = 3
+MAX_BULLET_CHARS = 200
+MAX_DESCRIPTION_CHARS = 300  # in prompts
+MAX_ATTRIBUTES = 10  # in prompts
+
+_TOKEN = re.compile(r"[a-z0-9]+")
+STOPWORDS = frozenset(
+    "and for the with from your our this that are you all any buy online "
+    "free shop shopping sale offer offers price prices deal deals off "
+    "new".split()
+)
+
+
+def tokens(text: str) -> list[str]:
+    return _TOKEN.findall(text.casefold())
+
+
+def brand_tokens(names: Sequence[str]) -> frozenset[str]:
+    return frozenset(t for n in names for t in tokens(n))
+
+
+def vote(samples: Sequence[Sequence[str]]) -> list[str]:
+    """One product's ranked keywords from SAMPLES ranked lists: rank 1 is
+    the keyword most often at rank 1 (ties: sample order), then the union
+    in first-seen order, capped at MAX_KEYWORDS."""
+    firsts = [s[0] for s in samples if s]
+    if not firsts:
+        return []
+    counts = Counter(firsts)
+    top = max(firsts, key=lambda k: (counts[k], -firsts.index(k)))
+    out = [top]
+    for sample in samples:
+        for keyword in sample:
+            if keyword not in out:
+                out.append(keyword)
+    return out[:MAX_KEYWORDS]
+
+
+def drop_brand_terms(
+    keywords: Sequence[str], brand_names: Sequence[str]
+) -> list[str]:
+    """Drop any keyword sharing a token with the brand name or an alias."""
+    bt = brand_tokens(brand_names)
+    return [k for k in keywords if not (set(tokens(k)) & bt)]
+
+
+def missing(
+    product_title: str, titles: Sequence[str], brand_names: Sequence[str]
+) -> list[str]:
+    """Tokens of the ranking titles the product title lacks: at least 3
+    characters, not a number, not a stopword or brand token, in at least
+    MIN_TITLES titles; by title count then alphabetically; MAX_MISSING."""
+    have = set(tokens(product_title)) | brand_tokens(brand_names)
+    counts: Counter[str] = Counter()
+    for title in titles:
+        for tok in set(tokens(title)):
+            if (
+                len(tok) >= 3
+                and not tok.isdigit()
+                and tok not in STOPWORDS
+                and tok not in have
+            ):
+                counts[tok] += 1
+    ranked = sorted(
+        (tok for tok, n in counts.items() if n >= MIN_TITLES),
+        key=lambda tok: (-counts[tok], tok),
+    )
+    return ranked[:MAX_MISSING]
+
+
+def _brand_in(text: str, brand_names: Sequence[str]) -> str | None:
+    """The first brand name (name, then aliases) whose tokens all appear."""
+    have = set(tokens(text))
+    for name in brand_names:
+        bt = tokens(name)
+        if bt and set(bt) <= have:
+            return name
+    return None
+
+
+def rule_check(
+    original: str, suggestion: str, brand_names: Sequence[str]
+) -> tuple[str, str]:
+    """(title, "pass" | "adjusted"). Fixes rather than retries: repeated
+    tokens are dropped (first occurrence kept), the brand is prepended
+    if the original had it and the suggestion lost it, and the title is
+    trimmed to MAX_TITLE_CHARS at a word boundary."""
+    seen: set[str] = set()
+    kept: list[str] = []
+    for word in suggestion.split():
+        key = "".join(tokens(word))
+        if key and key in seen:
+            continue
+        seen.add(key)
+        kept.append(word)
+    title = " ".join(kept)
+    brand = _brand_in(original, brand_names)
+    if brand and _brand_in(title, [brand]) is None:
+        title = f"{brand} {title}".strip()
+    if len(title) > MAX_TITLE_CHARS:
+        cut = title[: MAX_TITLE_CHARS + 1]
+        space = cut.rfind(" ")
+        title = cut[:space].rstrip() if space > 0 else title[:MAX_TITLE_CHARS]
+    return title, ("pass" if title == suggestion else "adjusted")
+
+
+def _squash(text: str) -> str:
+    return " ".join(text.casefold().split())
+
+
+def keep_present(
+    titles: list[dict[str, Any]], text: str
+) -> list[dict[str, str]]:
+    """Only titles found verbatim in the answer text (case and
+    whitespace ignored), at most TOP_TITLES, domains lowercased."""
+    hay = _squash(text)
+    out: list[dict[str, str]] = []
+    for t in titles:
+        title = str(t.get("title") or "").strip()
+        if title and _squash(title) in hay:
+            domain = str(t.get("domain") or "").strip().lower()
+            out.append({"title": title, "domain": domain})
+    return out[:TOP_TITLES]
+
+
+class KeywordItem(BaseModel):
+    index: int
+    keywords: list[str]
+
+
+class KeywordSet(BaseModel):
+    products: list[KeywordItem]
+
+
+class TitleItem(BaseModel):
+    title: str
+    domain: str = ""
+
+
+class TitleSet(BaseModel):
+    titles: list[TitleItem]
+
+
+class RewriteItem(BaseModel):
+    index: int
+    title: str
+    bullets: list[str]
+
+
+class RewriteSet(BaseModel):
+    products: list[RewriteItem]
+
+
+def _product_lines(products: Sequence[dict[str, Any]], *keys: str) -> str:
+    rows = []
+    for p in products:
+        row: dict[str, Any] = {"index": p["index"], "title": p["title"]}
+        for k in keys:
+            v = p.get(k)
+            if k == "description" and isinstance(v, str):
+                v = v[:MAX_DESCRIPTION_CHARS]
+            if k == "attributes" and isinstance(v, dict):
+                v = dict(list(v.items())[:MAX_ATTRIBUTES])
+            if v:
+                row[k] = v
+        rows.append(row)
+    return json.dumps(rows, ensure_ascii=False)
+
+
+def keyword_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
+    """The ADK keyword-finding prompt, one call per batch, JSON out."""
+    return (
+        "You find the keywords shoppers type when looking for products "
+        f"like these from the brand {brand!r}.\n"
+        "For each product give up to "
+        f"{MAX_KEYWORDS} keywords, lowercase, generic first: rank 1 is "
+        "the shortest phrase naming the audience plus the product "
+        'category (for example "kids shoes"), more specific phrases '
+        "after it. Never include the brand name. One keyword per entry. "
+        "Given the same products, choose the same rank 1.\n"
+        'Return JSON {"products": [{"index": <index>, '
+        '"keywords": [...]}, ...]} with one entry per input index.\n'
+        "Products:\n"
+        + _product_lines(products, "description", "attributes", "category")
+    )
+
+
+def titles_prompt(keyword: str, text: str, domains: Sequence[str]) -> str:
+    """Parse a grounded answer into the product titles it names."""
+    return (
+        f"The text below answers a search for {keyword!r} buy online.\n"
+        f"List up to {TOP_TITLES} distinct product titles that appear "
+        "verbatim in the text, in the order they appear, each with the "
+        "seller's domain when the text names it (else an empty string). "
+        "Do not invent titles or shorten them.\n"
+        f"Known source domains: {', '.join(domains) or 'none'}\n"
+        'Return JSON {"titles": [{"title": ..., "domain": ...}]}.\n'
+        f"Text:\n{text}"
+    )
+
+
+def rewrite_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
+    return (
+        f"Rewrite each product title for the brand {brand!r}.\n"
+        f"Each new title: at most {MAX_TITLE_CHARS} characters; keep the "
+        "brand name if the original has it; work in the keyword and the "
+        "missing terms naturally; repeat no word; no keyword stuffing. "
+        f"Also give {MAX_BULLETS} short description bullet points.\n"
+        'Return JSON {"products": [{"index": <index>, "title": ..., '
+        '"bullets": [...]}, ...]} with one entry per input index.\n'
+        "Products:\n"
+        + _product_lines(
+            products, "keyword", "missing", "description", "attributes"
+        )
+    )
