@@ -4,10 +4,12 @@ from types import SimpleNamespace
 import pytest
 from bsi_core import models as m
 from bsi_core.db import tenant_session
-from bsi_core.recommend import generate, refresh
-from sqlalchemy import func, select, update
+from bsi_core.recommend import _rival_pages, generate, refresh
+from sqlalchemy import delete, func, select, update
 
 from tests.integration.test_api_recommendations import _wait_until_blocked
+from tests.integration.test_gaps import scene  # noqa: F401
+from tests.integration.test_rival_crawl import _page
 
 
 def _mention(org, oid, etype, eid):
@@ -171,6 +173,8 @@ def found(w):
 
 def test_each_rule_fires_exactly_where_it_should(world):
     # One assertion covers every negative case in the fixture docstring.
+    # No labelled clusters or rival pages here: respond_to_rival_content
+    # stays silent.
     assert set(found(world)) == {
         ("pursue_citation_source", "forbes.com"),
         ("create_content", str(world.dominated)),
@@ -738,6 +742,156 @@ def test_pages_rule_is_one_statement(owner, world):
         event.listen(bind, "before_cursor_execute", count)
         try:
             assert len(_pages(s, world.brand, "Nike", 16)) == 3
+        finally:
+            event.remove(bind, "before_cursor_execute", count)
+    assert len(seen) == 1
+
+
+KEY = "rival:cluster:comparison:running shoes"
+
+
+def _rival_found(scene):  # noqa: F811
+    with tenant_session(scene.org.id) as s:
+        return {
+            c.subject_key: c
+            for c in generate(s, scene.brand)
+            if c.type == "respond_to_rival_content"
+        }
+
+
+def test_rival_rule_fires_on_new_matching_pages_where_brand_is_behind(
+    owner,
+    scene,  # noqa: F811
+):
+    org, bid, A, B = scene.org, scene.brand, scene.adidas, scene.bata
+    ad = "https://adidas.co.in"
+    # The gap cluster (comparison, running shoes) is behind Adidas.
+    _page(owner, org, bid, A, f"{ad}/running-shoes/new", 2)
+    _page(owner, org, bid, A, f"{ad}/running-shoes/old", 2, baseline=True)
+    _page(owner, org, bid, A, f"{ad}/running-shoes/stale", 20)
+    _page(owner, org, bid, A, f"{ad}/socks", 2)
+    _page(
+        owner,
+        org,
+        bid,
+        B,
+        "https://bata.com/running-shoes",
+        2,
+        domain="bata.com",
+    )
+    # The (recommendation, kids) cluster has the brand ahead: 3/4 vs 2/4.
+    _page(owner, org, bid, A, f"{ad}/kids/shoes", 2)
+    found = _rival_found(scene)
+    assert set(found) == {KEY}
+    c = found[KEY]
+    ev = c.evidence
+    assert [p["url"] for p in ev["pages"]] == [f"{ad}/running-shoes/new"]
+    assert ev["pages"][0]["name"] == "Adidas"
+    assert ev["pages"][0]["competitor_id"] == str(A)
+    assert ev["pages_total"] == 1
+    assert ev["cluster"] == {"intent": "comparison", "topic": "running shoes"}
+    assert ev["cluster_key"] == "cluster:comparison:running shoes"
+    assert ev["gap"] is True and ev["n"] == 8 and ev["spread"] < 0
+    assert set(ev["prompt_ids"]) == {str(scene.vs), str(scene.best)}
+    assert len(ev["observation_ids"]) == 6
+    assert (c.reach, c.pressure, c.feasibility) == (8 / 19, 0.2, 0.4)
+    assert c.title == "Adidas published 1 new running shoes page"
+    assert "This cluster is a content gap for Nike." in c.body
+
+
+def test_rival_rule_behind_but_not_a_gap_uses_the_standing_wording(
+    owner,
+    scene,  # noqa: F811
+):
+    A = scene.adidas
+    # Brand present 2/4 (no absence reasons -> not a gap), Adidas 3/4.
+    scene.add(
+        "trail running shoes",
+        "commercial",
+        "trail shoes",
+        [
+            (True, [A], None, []),
+            (True, [A], None, []),
+            (False, [A], None, []),
+            (False, [], None, []),
+        ],
+    )
+    _page(
+        owner, scene.org, scene.brand, A, "https://adidas.co.in/trail-shoes", 1
+    )
+    found = _rival_found(scene)
+    c = found["rival:cluster:commercial:trail shoes"]
+    assert c.evidence["gap"] is False and c.evidence["spread"] == -0.25
+    assert "Nike is named in 50% of 4 answers; Adidas in 75%." in c.body
+    assert "Publish a category page on trail shoes" in c.body
+
+
+def test_rival_rule_pressure_saturates_and_evidence_is_capped(owner, scene):  # noqa: F811
+    A = scene.adidas
+    url = "https://adidas.co.in/running-shoes/{}"
+    for i in range(2):
+        _page(owner, scene.org, scene.brand, A, url.format(i), 1)
+    assert _rival_found(scene)[KEY].pressure == 0.4
+    for i in range(2, 12):
+        _page(owner, scene.org, scene.brand, A, url.format(i), 1)
+    c = _rival_found(scene)[KEY]
+    assert c.pressure == 1.0
+    assert len(c.evidence["pages"]) == 10 and c.evidence["pages_total"] == 12
+
+
+def test_rival_rule_refresh_upserts_deletes_and_keeps_decisions(owner, scene):  # noqa: F811
+    org, bid, A = scene.org, scene.brand, scene.adidas
+    _page(owner, org, bid, A, "https://adidas.co.in/running-shoes/new", 2)
+
+    def rows():
+        with owner() as s:
+            return s.scalars(
+                select(m.Recommendation).where(
+                    m.Recommendation.type == "respond_to_rival_content"
+                )
+            ).all()
+
+    with tenant_session(org.id) as s:
+        refresh(s, org.id, bid)
+        refresh(s, org.id, bid)
+    assert [r.subject_key for r in rows()] == [KEY]
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Recommendation)
+            .where(m.Recommendation.type == "respond_to_rival_content")
+            .values(status="accepted")
+        )
+        s.execute(delete(m.RivalPage))
+    with tenant_session(org.id) as s:
+        refresh(s, org.id, bid)
+    assert [r.status for r in rows()] == ["accepted"]  # decided rows stay
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Recommendation)
+            .where(m.Recommendation.type == "respond_to_rival_content")
+            .values(status="open")
+        )
+    with tenant_session(org.id) as s:
+        refresh(s, org.id, bid)
+    assert rows() == []  # open rows without evidence are removed
+
+
+def test_rival_pages_is_one_statement(owner, scene):  # noqa: F811
+    from sqlalchemy import event
+
+    _page(
+        owner, scene.org, scene.brand, scene.adidas, "https://adidas.co.in/a", 1
+    )
+    seen = []
+
+    def count(_conn, _cursor, statement, *_):
+        seen.append(statement)
+
+    with tenant_session(scene.org.id) as s:
+        bind = s.get_bind()
+        event.listen(bind, "before_cursor_execute", count)
+        try:
+            assert len(_rival_pages(s, scene.brand)) == 1
         finally:
             event.remove(bind, "before_cursor_execute", count)
     assert len(seen) == 1
