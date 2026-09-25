@@ -36,7 +36,7 @@
 
 ## 2. Live check
 
-Run by the controller on dev at 2026-09-25 11:44 UTC, after the final-review fix wave (HEAD 42f1164). Dev was upgraded from migration 0016 to 0017 first. The API ran on :8000; the web app ran as `next dev` on :3000 and then as a production build (`next build` + `next start`) on :3001. One manual run of each type was generated for Run 1 (brand `BSOAgentTestBrand`, 100 done answers dated 2026-09-19 to 2026-09-22) through `POST /v1/brands/{id}/reports/{type}/runs`, and each PDF was fetched through its public link. No worker, no model spend. This wrote five `report_run` rows and five `report` definition rows (cadence `off`) on dev.
+Run by the controller on dev at 2026-09-25 11:44 UTC, after the final-review fix wave (HEAD 42f1164). Dev was upgraded from migration 0016 to 0017 first. The API ran on :8000; the web app ran as `next dev` on :3000 and then as a production build (`next build` + `next start`) on :3001. One manual run of each type was generated for Run 1 (brand `BSOAgentTestBrand`; a read-only query on dev showed 100 answers, all `done`, requested 2026-09-19 to 2026-09-22) through `POST /v1/brands/{id}/reports/{type}/runs`, and each PDF was fetched through its public link. No worker, no model spend. This wrote five `report_run` rows and five `report` definition rows (cadence `off`) on dev.
 
 | Type | Sections | Generate (s) | PDF pages | PDF bytes | PDF (s) |
 |---|---|---|---|---|---|
@@ -46,14 +46,14 @@ Run by the controller on dev at 2026-09-25 11:44 UTC, after the final-review fix
 | pr | 7 | 0.046 | 2 | 4,736 | 0.017 |
 | agency | 8 | 0.054 | 2 | 4,963 | 0.018 |
 
-Times are curl's `time_total` on one machine, one run each; the first request (cmo) includes the API's first-request warm-up. Pages were counted as `/Type /Page` objects in the PDF.
+Times are curl's `time_total` on one machine, one run each; the first request (cmo) is slower, likely first-request warm-up. Pages were counted with the regex `/Type\s*/Page(?!s)`, so the `/Pages` tree node is not counted. My first PDF fetch attempt sent the wrong field as the token and got five 422s (visible in the API log); the numbers above are from the corrected fetch.
 
 Observed:
 - Every PDF returned 200 with `Cache-Control: no-store` and `Content-Disposition: attachment; filename="bsoagenttestbrand-<type>-2026-09-25.pdf"`, and starts `%PDF-`.
-- Reading the CMO and SEO PDFs: every rate cell prints `value [low, high] n=N`; the prior period (2026-09-11 to 2026-09-18) has no answers, so it prints `— (n=0)` and every change reads `insufficient data`; the footer `Methodology v1 · pipeline v2 · …` is on every page; the headings are the spec's ("Alerts in period").
-- The public page for the agency run returned 200 with `<title>BSOAgentTestBrand visibility report</title>`, the methodology footer and a PDF link to `http://localhost:8000/v1/r/<token>.pdf`. One page load made one `GET /v1/r/<token>` in the API log, so Next deduped the `generateMetadata` and page fetches.
+- Reading the PDFs: every rate in the Visibility and Competitors tables prints `value [low, high] n=N`; the Share of voice table prints `pct% [low%, high%]` with a Mentions column and no `n=` (spec §2 assigns a percent share there; ruled in the final review); the prior period (2026-09-11 to 2026-09-18) has no answers, so it prints `— (n=0)` and every change reads `insufficient data`; the footer `Methodology v1 · pipeline v2 · …` is on every page; the headings are the spec's ("Alerts in period" in CMO and agency, "Content gaps with briefs" and "Page citability with next step" in content, "New sources in period" in PR).
+- The public page for the agency run returned 200 with `<title>BSOAgentTestBrand visibility report</title>`, the methodology footer and a PDF link to `http://localhost:8000/v1/r/<token>.pdf`. Each page load made one `GET /v1/r/<token>` in the API log: two loads on `next dev` (a warm-up and a measured one) logged two, and one load on the production build logged one. That is consistent with Next deduping the `generateMetadata` and page fetches.
 - Product name on the public pages: on the production build, the agency page, a malformed token (`/r/short`) and an unknown token all contain no "bsi", "lumenca" or "operator"; both error cases are 404 with `<title>Report</title>`. On `next dev`, the 404 HTML embeds Next's dev-mode stack trace, whose file paths contain the repo directory name `bsi-platform`; that is dev-server output only and does not appear in the production build.
-- Two presentation issues seen in the real data (added to §3): the SEO and content "Content gaps" tables show the same topic more than once (e.g. "kids shoes" three times) because clusters are keyed by intent and topic but the table prints only the topic; and "No scored pages in this period." says "in this period" although page audits are the latest per URL, not filtered by the period.
+- Two presentation issues seen in the real data (added to §3): the SEO "Content gaps" table shows the same topic more than once ("kids shoes" three times) with nothing to tell the rows apart, because clusters are keyed by intent and topic but the table prints only the topic (the content report's "Content gaps with briefs" repeats topics too, but its Page type column separates them); and "No scored pages in this period.", printed by both the SEO "Page citability" and the content "Page citability with next step" sections, says "in this period" although page audits are the latest per cluster and URL, not filtered by the period.
 - Not checked live: the worker's scheduled sweep (the worker stays stopped), the revoke and re-share flow (covered by tests), and the 5xx error page.
 
 ## 3. Deferred / decisions
@@ -126,12 +126,12 @@ Task 10
 - Only `h2` takes the accent, not `h1`. Cost: the title stays in the default colour.
 
 ### Seen in the live check
-- **Content-gap rows repeat a topic.** The SEO and content "Content gaps" tables print the topic only, so clusters with the same topic and different intents look like duplicate rows. Cost: a reader cannot tell the rows apart; the fix is an Intent column.
-- **"No scored pages in this period."** Page audits are the latest per URL regardless of the period, so "in this period" is inaccurate. Cost: wording only.
+- **SEO content-gap rows repeat a topic.** The SEO report's "Content gaps" table prints the topic only, so clusters with the same topic and different intents look like duplicate rows. Cost: a reader cannot tell the rows apart; the fix is an Intent column.
+- **"No scored pages in this period."** Both page-citability sections (SEO and content) use the latest audit per cluster and URL regardless of the period, so "in this period" is inaccurate. Cost: wording only.
 
 ## 4. Not covered by tests
 - The Next.js public page route itself (`app/r/[token]/page.tsx`); only `ReportBody` (rendering a fixture document) and `publicApi` (404 and 422 to not-found, 5xx throws, no auth sent) are unit-tested. The route is exercised in the live check (§2).
 - The tab title on `/r` error paths (not-found and error pages under the "Report" layout title); no test renders them.
-- Whether Next dedupes the `generateMetadata` fetch and the page fetch into one GET. The page's comment says it does; nothing measures it, and both use `cache: "no-store"`.
+- Whether Next dedupes the `generateMetadata` fetch and the page fetch into one GET. The page's comment says it does and both use `cache: "no-store"`; no test measures it (one live observation in §2).
 - `app/r/layout.tsx`, `not-found.tsx` and `error.tsx` have no tests.
 - The ledger's other untested paths, listed with their tasks in §3: a monthly report becoming due at 30 days (Task 1); `fmt_day`, `Branding` and the labels directly (Task 2); the Task 3 and Task 4 cells named there; the run-and-stamp rollback (Task 5); the runs `limit` bounds and a same-org run id from another brand (Task 7); a transaction held during `render_pdf` (Task 8).
