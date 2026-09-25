@@ -67,7 +67,7 @@ Codebase facts the design rests on:
 | `searched_at` | timestamptz | |
 | `error` | text, null | a failed search is stored so the run proceeds |
 
-`uq_keyword_search_brand_keyword (brand_id, keyword)`. A row younger than `SEARCH_TTL_DAYS = 7` is reused; an older one is re-searched and overwritten.
+`uq_keyword_search_brand_keyword (brand_id, keyword)`. A row younger than `SEARCH_TTL_DAYS = 7` with no error is reused; an older one, or one that stored an error, is re-searched and overwritten (R9).
 
 Both tables get `_protect()`, an entry in `TENANT_TABLES` and rows in the `org_b` fixture. No brand columns and no `due_*()` function: nothing is scheduled in this slice. `models.py` gains `PRODUCT_SOURCES = ("csv", "feed")` and `RULE_CHECKS = ("pass", "adjusted")`, used by both the CHECKs and the migration (copied, as 0017 does).
 
