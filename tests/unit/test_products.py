@@ -169,6 +169,23 @@ def test_export_rows_joins_lists_and_blanks_none():
     ]
 
 
+def test_export_rows_neutralises_formula_cells():
+    p = SimpleNamespace(
+        external_id="W-1",
+        url=None,
+        title="=HYPERLINK(1)",
+        keyword=None,
+        missing_keywords=["-x", "ok"],
+        suggested_title="+cmd",
+        suggested_bullets=None,
+        rule_check=None,
+    )
+    row = export_rows([p])[0]
+    assert row[2] == "'=HYPERLINK(1)"
+    assert row[5] == "'+cmd"
+    assert row[4] == "'-x|ok"
+
+
 BRAND = ("Walkaroo", "WKR")
 
 

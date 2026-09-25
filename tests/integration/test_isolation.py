@@ -221,6 +221,16 @@ CASES = [
     ("GET", "/v1/brands/{b}/reports/runs/{rr}", None),
     ("POST", "/v1/brands/{b}/reports/runs/{rr}/share", None),
     ("DELETE", "/v1/brands/{b}/reports/runs/{rr}/share", None),
+    ("GET", "/v1/brands/{b}/products", None),
+    ("GET", "/v1/brands/{b}/products/export.csv", None),
+    ("GET", "/v1/brands/{b}/products/runs", None),
+    (
+        "POST",
+        "/v1/brands/{b}/products/import/feed",
+        {"url": "https://secret.example/feed.xml"},
+    ),
+    ("POST", "/v1/brands/{b}/products/run", None),
+    ("DELETE", "/v1/brands/{b}/products", None),
 ]
 
 

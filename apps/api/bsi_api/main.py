@@ -16,6 +16,7 @@ from .routers import (
     observations,
     ops,
     pages,
+    products,
     prompts,
     public,
     recommendations,
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
         pages.router,
         alerts.router,
         reports.router,
+        products.router,
         public.router,
     ):
         app.include_router(router, prefix="/v1")

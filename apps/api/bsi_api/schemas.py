@@ -516,3 +516,56 @@ class ReportRunListOut(BaseModel):
 
 class ReportRunOut(ReportRunListOut):
     document: Document
+
+
+class ProductOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    created_at: datetime
+    brand_id: uuid.UUID
+    external_id: str
+    title: str
+    description: str | None
+    attributes: dict[str, Any]
+    url: str | None
+    price: str | None
+    category: str | None
+    source: str
+    imported_at: datetime
+    keyword: str | None
+    keywords: list[str] | None
+    missing_keywords: list[str] | None
+    suggested_title: str | None
+    suggested_bullets: list[str] | None
+    rule_check: str | None
+    job_id: uuid.UUID | None
+    result_at: datetime | None
+
+
+class ImportOut(BaseModel):
+    created: int
+    updated: int
+    skipped: int
+    total: int
+
+
+class FeedIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: str
+
+
+class ProductJobOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    kind: str
+    status: str | None
+    error: str | None
+    cost_micros: int
+    created_at: datetime
+    started_at: datetime | None
+
+
+class ProductRunsOut(BaseModel):
+    jobs: list[ProductJobOut]
+    done: int
+    total: int

@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 import re
+import uuid
 import xml.etree.ElementTree as ET
 import zlib
 from collections import Counter
@@ -20,7 +21,11 @@ from functools import partial
 from typing import Any
 
 from pydantic import BaseModel
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.orm import Session
 
+from . import models as m
 from .crawl import Fetch, http_fetch
 
 MAX_PRODUCTS = 1_000  # per brand, the PRD's run ceiling
@@ -58,6 +63,8 @@ EXPORT_COLUMNS = [
     "suggested_bullets",
     "rule_check",
 ]
+
+FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
 
 
 class CatalogueCap(ValueError):
@@ -200,16 +207,77 @@ def parse_feed(body: bytes) -> tuple[list[dict[str, Any]], str | None]:
 
 def export_rows(products: Iterable[Any]) -> list[list[str]]:
     """One CSV row per product in EXPORT_COLUMNS order; lists are
-    '|'-joined and None is blank."""
+    '|'-joined, None is blank and a formula-like cell gets a leading
+    apostrophe."""
 
     def cell(value: Any) -> str:
         if value is None:
             return ""
         if isinstance(value, list):
-            return "|".join(str(v) for v in value)
-        return str(value)
+            value = "|".join(str(v) for v in value)
+        text = str(value)
+        # Spreadsheets run a cell that starts like a formula; titles come
+        # from a model that read competitor pages.
+        return "'" + text if text.startswith(FORMULA_START) else text
 
     return [[cell(getattr(p, c)) for c in EXPORT_COLUMNS] for p in products]
+
+
+_CATALOGUE = (
+    "external_id",
+    "title",
+    "description",
+    "attributes",
+    "url",
+    "price",
+    "category",
+)
+
+
+def upsert(
+    s: Session,
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    rows: Sequence[dict[str, Any]],
+    source: str,
+) -> tuple[int, int]:
+    """(created, updated). One INSERT ... ON CONFLICT on
+    (brand_id, external_id) that rewrites only the catalogue columns,
+    source and imported_at; the result columns are kept. Raises
+    CatalogueCap, before writing, if the brand would exceed MAX_PRODUCTS.
+    A later row with the same external_id wins."""
+    by_id = {str(r["external_id"]): r for r in rows}
+    if not by_id:
+        return 0, 0
+    existing = set(
+        s.scalars(
+            select(m.Product.external_id).where(m.Product.brand_id == brand_id)
+        )
+    )
+    new_ids = set(by_id) - existing
+    if len(existing) + len(new_ids) > MAX_PRODUCTS:
+        raise CatalogueCap(f"{len(existing) + len(new_ids)} > {MAX_PRODUCTS}")
+    values = [
+        {
+            "org_id": org_id,
+            "brand_id": brand_id,
+            "source": source,
+            "imported_at": func.now(),
+            **{k: r[k] for k in _CATALOGUE},
+        }
+        for r in by_id.values()
+    ]
+    stmt = pg_insert(m.Product).values(values)
+    s.execute(
+        stmt.on_conflict_do_update(
+            constraint="uq_product_brand_external",
+            set_={
+                c: getattr(stmt.excluded, c)
+                for c in (*_CATALOGUE, "source", "imported_at")
+            },
+        )
+    )
+    return len(new_ids), len(by_id) - len(new_ids)
 
 
 BATCH = 20
