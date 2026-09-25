@@ -2995,7 +2995,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 
 ## Changes made during execution
 
-Deviations from the tasks above, by task. Rulings R1–R11 are recorded in the spec's `## Rulings`; R1 (the `nofile` and `cap` notes and the 422 mapping), R3 (lowercased domains in `keep_present`), R4 (Next's `redirect()`, 307) and R8 (the `titles_prompt` name) were already in this plan's code, so they changed the spec, not the code.
+Deviations from the tasks above, by task. Rulings R1–R13 are recorded in the spec's `## Rulings`; R1 (the `nofile` and `cap` notes and the 422 mapping), R3 (lowercased domains in `keep_present`), R4 (Next's `redirect()`, 307) and R8 (the `titles_prompt` name) were already in this plan's code, so they changed the spec, not the code.
 
 Task 2 (0f55f44)
 - R5: `parse_feed` sets `closed = True` when the root element ends and, if it never closed, sets the note `malformed` (keeping `truncated` when the gzip cap already set it). The plan's code returned no note for a cut feed and failed `test_parse_feed_cut_mid_item_keeps_complete_items`.
@@ -3026,3 +3026,10 @@ Task 7 (66f328a)
 
 Task 8
 - The spec's §1, §2, §3, §4 and §5 were updated to match R2, R5–R11, the tokenless-keyword drop, the last-row-wins dedupe and the `bytes` CSV body; `findings-slice18.md` and the README rows were added. The live check (§2 of the findings) is left to the controller.
+
+Final review fix (bb56ad4)
+- R12: `run_products` reads products ordered by `result_at NULLS FIRST, title, id` and runs keywords, searches, rewrite and write for one batch before the next. `PRODUCT_JOB_SECONDS = 480` and an injectable `clock=time.monotonic` stop the run before a batch (never before the first); the summary is then `out of time after {done} of {total} products`. The budget check (R10) and `KEYWORD_CAP` are applied per batch and counted across the run; `titles_by_kw` is kept across batches and seeded per batch.
+- R13: a product whose keyword drops has `missing_keywords`, `suggested_title`, `suggested_bullets` and `rule_check` cleared and `job_id`, `result_at` set in the keyword write.
+- `test_a_model_failure_in_batch_two_keeps_batch_one` changed meaning: batch one now finishes, suggestions included, before batch two, so `fail_on` is 6 (batch two's first keyword call), 20 products have a keyword and a suggestion, the 21st has neither, and `cost_micros` is `3*700 + 35_000 + 700 + 700`.
+- Added `test_a_run_stops_at_the_time_budget` (41 products, a clock that reads 0 then 481; `run_products` called directly for the summary), `test_a_second_run_continues_with_the_oldest_results` (25 products; the second run's first rewrite prompt starts with the 5 unrun titles) and `test_a_product_whose_keyword_drops_loses_its_old_suggestion`. `_generator` gained a `keywords` argument.
+- The summary's keyword count is the run's distinct rank-1 keywords.
