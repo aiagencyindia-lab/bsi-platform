@@ -28,7 +28,7 @@ Brainstorming ran on Opus 5.5; the session switched to Fable 5.1 while the spec 
 - `apps/web/src/app/r/[token]/pdf/route.ts` exports `GET(request, { params })`. It is the app's first Route Handler; the frontend rule becomes "Server Components, server actions, and this one Route Handler for the public PDF" (recorded in the process memory).
 - Behaviour:
   1. If the token does not match `^[A-Za-z0-9_-]{20,64}$`, return a plain 404 without calling the API.
-  2. `fetch(`${API_URL}/v1/r/${token}.pdf`, { cache: "no-store" })`: no Authorization header, no cookie; `API_URL` is the existing module constant from `lib/api.ts`, read when the server starts (not per request, and not at build time).
+  2. `fetch(`${API_URL}/v1/r/${token}.pdf`, { cache: "no-store" })`: no Authorization header, no cookie; `API_URL` is the existing module constant from `lib/api.ts`, read when the server starts (not per request, and not at build time). The fetch passes `signal: AbortSignal.timeout(30_000)`; a timeout is a thrown fetch and becomes the 502 below.
   3. API 404 or 422 → plain 404. Any other non-2xx, or a thrown fetch → plain 502 with no detail. No error body names the product or the API host.
   4. Otherwise stream the body with the API's `Content-Type` and `Content-Disposition`, plus `Cache-Control: no-store`.
 - Both PDF links become the relative `/r/{token}/pdf`: the archive's "PDF" link in `b/[id]/reports/page.tsx` and the public page's "Download PDF" (`pdfHref`) in `r/[token]/page.tsx`. `API_URL` then appears only in `lib/api.ts`, the login action and the new route, all server-side. The API's own route is unchanged.
@@ -42,6 +42,7 @@ Brainstorming ran on Opus 5.5; the session switched to Fable 5.1 while the spec 
   - CMO/agency Tasks: Status and Impact cells (impact stays `—` when None).
   - PR "Sentiment mix": the Sentiment cell.
   - SEO "Site audit": Check and Severity cells.
+  - SEO "Page citability": the Cluster cell, via `cluster_label(key)`, which reads a key `cluster:{intent}:{topic}` as `{label(intent)} · {topic}` (split on the first two colons only) and shows any other key as stored.
 - SEO "Content gaps" columns become `Intent, Topic, Prompts, Brand mention rate, Top rival`, with `label(c["intent"])` first. The content report's "Content gaps with briefs" is unchanged.
 - `METHODOLOGY_VERSION` becomes `"2"`. New runs print `Methodology v2`; stored runs keep `v1`.
 - Tests: unit tests for `label()` (owner overrides including `Own site`, underscore codes including `H1 missing`, a hyphenated intent, a one-word code, an empty string returns `""`) and one pinning `METHODOLOGY_VERSION == "2"`; the report integration tests updated to the labelled cells (`Third party`, `Impact measured`, `Improved`, `Llms txt`/`Low`, `Neutral`/`Negative`), plus a new test of the SEO gap table's five columns with Intent values `Commercial` and `Problem-based`; the CMO footer test now expects `Methodology v2`, and two existing tests that assert a stored run's `methodology_version` moved from `"1"` to `"2"`; the existing copy-ban test still scans every builder's output.
@@ -61,6 +62,9 @@ Made during execution, in the order recorded in the ledger. Each gives the decis
 4. The PDF route also reads `API_URL` (server-side, imported from `lib/api`). §1's "`API_URL` then appears only in `lib/api.ts` and the login action" contradicted its own fetch line and is corrected to include the route; the key-secrecy rule is unaffected, since only the host constant is imported. Cost if wrong: none.
 5. Two tests the plan did not name (the `generate` test in `tests/integration/test_reports.py` and the manual-run test in `tests/integration/test_api_reports.py`) move from `methodology_version` `"1"` to `"2"`. They follow directly from the approved bump, and no stored run is rewritten. Cost if wrong: none.
 6. The integration tests assert `Third party` and `Llms txt` instead of §2's example cells `Own site` and `H1 missing`, because the test scene's data yields those codes; both prove the cells go through `label()`, and the unit test pins `Own site` and `H1 missing`. Cost if wrong: none.
+7. The SEO "Page citability" Cluster cell is fixed in this slice to read `{label(intent)} · {topic}`, parsed from the cluster key, because it is the same raw code in a client cell that this slice removes, and methodology v2 is not yet released, so no second bump. Cost if wrong: one cell's format.
+8. The PDF route's upstream fetch gets `AbortSignal.timeout(30_000)`, and a timeout becomes the existing 502, because a hung API would otherwise hold the client's request for about five minutes on this unauthenticated path. Cost if wrong: a PDF that takes longer than 30 s fails with 502; the PRD target is 30 s for 20 pages.
+9. The final review's documentation items are fixed or recorded: findings §3 gains the carried-over slice 15 "in this period" wording and the awkward acronym labels; the plan's `API_URL` Global Constraint and its "holds with the route added" line say the constraint was amended; the findings commit table quotes the real subjects. These are documentation hygiene the reviewer triaged. Cost if wrong: none.
 
 ## Out of scope
 

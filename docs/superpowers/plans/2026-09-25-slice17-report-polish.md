@@ -17,6 +17,7 @@
 - ruff line length 80; `mypy --strict` over `packages/core/bsi_core`.
 - Token pattern `^[A-Za-z0-9_-]{20,64}$`; malformed → 404 without calling the API; API 404/422 → 404; any other failure → 502 with no detail; success passes through `Content-Type` and `Content-Disposition` and sets `Cache-Control: no-store`. No error body names the product or the API host. The request to the API sends no Authorization header and no cookie.
 - Both PDF links are the relative `/r/{token}/pdf`. `API_URL` stays only in `lib/api.ts` and the login action.
+  (amended during execution: also the route — see Changes made during execution)
 - `label()`: `OWNER_LABEL = {"brand": "Own site", "rival": "Competitor", "third_party": "Third party"}`; otherwise underscores → spaces and capitalise the first letter; `""` → `""`.
 - Labels apply only in the builders (new runs). Stored runs are never rewritten. `METHODOLOGY_VERSION = "2"`.
 - SEO "Content gaps" columns: `Intent, Topic, Prompts, Brand mention rate, Top rival`.
@@ -390,6 +391,8 @@ Deviations from the text above, as recorded in the execution ledger (`.superpowe
 
 - Task 1: `apps/web/vitest.config.ts` gained an `@` → `src` alias (spec ruling 3); the file map did not list it.
 - Task 1: the route test reads the call as `vi.mocked(fetch).mock.calls[0]` instead of `fetchMock.mock.calls[0]`, because `vi.fn(async () => …)` infers a no-argument mock and the destructuring failed `tsc` (TS2493); this is the pattern `src/lib/api.test.ts` already uses, and the assertions are unchanged (Task 1 report; no spec ruling).
-- Task 1: `API_URL` also appears in the new route, so the Global Constraint "`API_URL` stays only in `lib/api.ts` and the login action" and Step 4's grep expectation hold with the route added (spec ruling 4).
+- Task 1: `API_URL` also appears in the new route, so the Global Constraint "`API_URL` stays only in `lib/api.ts` and the login action" was amended to include the route, and Step 4's grep expectation with it (spec ruling 4).
 - Task 2: two tests the plan did not list, the `generate` test in `tests/integration/test_reports.py` and the manual-run test in `tests/integration/test_api_reports.py`, changed their `methodology_version` literal from `"1"` to `"2"` (spec ruling 5).
 - Task 2: the integration tests assert `Third party` and `Llms txt`/`Low` as this plan's text specifies; this differs from the spec §2 example cells (`Own site`, `H1 missing`), not from the plan (spec ruling 6).
+- Final review: the SEO "Page citability" Cluster cell reads `{label(intent)} · {topic}` through a new `cluster_label()` instead of the raw cluster key, with a unit test and the integration assertion moved to `Commercial · shoes` (spec ruling 7).
+- Final review: the PDF route's upstream fetch passes `signal: AbortSignal.timeout(30_000)`, so a hung API becomes the existing 502, and the route test checks the signal (spec ruling 8).
