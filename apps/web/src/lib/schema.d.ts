@@ -629,6 +629,114 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brands/{brand_id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Reports */
+        get: operations["list_reports_v1_brands__brand_id__reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/reports/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_v1_brands__brand_id__reports_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/reports/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_v1_brands__brand_id__reports_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/reports/runs/{run_id}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Share Run */
+        post: operations["share_run_v1_brands__brand_id__reports_runs__run_id__share_post"];
+        /** Revoke Run */
+        delete: operations["revoke_run_v1_brands__brand_id__reports_runs__run_id__share_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/reports/{type}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Cadence */
+        put: operations["set_cadence_v1_brands__brand_id__reports__type__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/brands/{brand_id}/reports/{type}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Now
+         * @description Generate now, with the weekly window. SQL only, so it runs inline.
+         *     Does not stamp report.generated_at: an operator's click must not
+         *     defer the scheduled run.
+         */
+        post: operations["run_now_v1_brands__brand_id__reports__type__runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/runs": {
         parameters: {
             query?: never;
@@ -819,6 +927,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/r/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Run */
+        get: operations["public_run_v1_r__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/r/{token}.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Pdf */
+        get: operations["public_pdf_v1_r__token__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -898,6 +1040,12 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+            /** Report Accent */
+            report_accent: string | null;
+            /** Report Logo Url */
+            report_logo_url: string | null;
+            /** Report Prepared By */
+            report_prepared_by: string | null;
             /** Status */
             status: string;
             /** Webhook Url */
@@ -911,8 +1059,23 @@ export interface components {
             category?: string | null;
             /** Name */
             name?: string;
+            /** Report Accent */
+            report_accent?: string | null;
+            /** Report Logo Url */
+            report_logo_url?: string | null;
+            /** Report Prepared By */
+            report_prepared_by?: string | null;
             /** Webhook Url */
             webhook_url?: string | null;
+        };
+        /** Branding */
+        Branding: {
+            /** Accent */
+            accent?: string | null;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Prepared By */
+            prepared_by?: string | null;
         };
         /** BriefEvidenceOut */
         BriefEvidenceOut: {
@@ -950,6 +1113,14 @@ export interface components {
              * @enum {string}
              */
             status: "suggested" | "active" | "paused" | "archived";
+        };
+        /** CadenceIn */
+        CadenceIn: {
+            /**
+             * Cadence
+             * @enum {string}
+             */
+            cadence: "off" | "weekly" | "monthly";
         };
         /** ChangeOut */
         ChangeOut: {
@@ -1235,6 +1406,21 @@ export interface components {
         DismissIn: {
             /** Reason */
             reason: string;
+        };
+        /** Document */
+        Document: {
+            /** Brand */
+            brand: string;
+            branding?: components["schemas"]["Branding"] | null;
+            /** Footer */
+            footer: string;
+            period: components["schemas"]["Period"];
+            /** Sections */
+            sections: components["schemas"]["Section"][];
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
         };
         /** DomainIn */
         DomainIn: {
@@ -1715,6 +1901,34 @@ export interface components {
             /** Url */
             url: string;
         };
+        /** Paragraph */
+        Paragraph: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "p";
+            /** Text */
+            text: string;
+        };
+        /** Period */
+        Period: {
+            /**
+             * Compare From
+             * Format: date-time
+             */
+            compare_from: string;
+            /**
+             * From
+             * Format: date-time
+             */
+            from: string;
+            /**
+             * To
+             * Format: date-time
+             */
+            to: string;
+        };
         /** PromptIn */
         PromptIn: {
             /** Text */
@@ -1849,6 +2063,98 @@ export interface components {
             subject_key: string;
             /** Title */
             title: string;
+            /** Type */
+            type: string;
+        };
+        /** ReportOut */
+        ReportOut: {
+            /** Cadence */
+            cadence: string;
+            /** Generated At */
+            generated_at: string | null;
+            /** Type */
+            type: string;
+        };
+        /** ReportRunListOut */
+        ReportRunListOut: {
+            /**
+             * Brand Id
+             * Format: uuid
+             */
+            brand_id: string;
+            /**
+             * Compare From
+             * Format: date-time
+             */
+            compare_from: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Methodology Version */
+            methodology_version: string;
+            /**
+             * Period From
+             * Format: date-time
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date-time
+             */
+            period_to: string;
+            /** Share Token */
+            share_token: string | null;
+            /** Source */
+            source: string;
+            /** Type */
+            type: string;
+        };
+        /** ReportRunOut */
+        ReportRunOut: {
+            /**
+             * Brand Id
+             * Format: uuid
+             */
+            brand_id: string;
+            /**
+             * Compare From
+             * Format: date-time
+             */
+            compare_from: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            document: components["schemas"]["Document"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Methodology Version */
+            methodology_version: string;
+            /**
+             * Period From
+             * Format: date-time
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date-time
+             */
+            period_to: string;
+            /** Share Token */
+            share_token: string | null;
+            /** Source */
+            source: string;
             /** Type */
             type: string;
         };
@@ -1990,6 +2296,13 @@ export interface components {
             samples: number;
             /** Status */
             status: string;
+        };
+        /** Section */
+        Section: {
+            /** Blocks */
+            blocks: (components["schemas"]["Paragraph"] | components["schemas"]["Table"])[];
+            /** Heading */
+            heading: string;
         };
         /** SentimentOut */
         SentimentOut: {
@@ -2157,6 +2470,18 @@ export interface components {
              * @default []
              */
             rewrite: components["schemas"]["SuggestionOut"][];
+        };
+        /** Table */
+        Table: {
+            /** Columns */
+            columns: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "table";
+            /** Rows */
+            rows: string[][];
         };
         /** TaskOut */
         TaskOut: {
@@ -3817,6 +4142,246 @@ export interface operations {
             };
         };
     };
+    list_reports_v1_brands__brand_id__reports_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_v1_brands__brand_id__reports_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunListOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_v1_brands__brand_id__reports_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_run_v1_brands__brand_id__reports_runs__run_id__share_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_run_v1_brands__brand_id__reports_runs__run_id__share_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_cadence_v1_brands__brand_id__reports__type__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                type: "cmo" | "seo" | "content" | "pr" | "agency";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CadenceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_now_v1_brands__brand_id__reports__type__runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+                type: "cmo" | "seo" | "content" | "pr" | "agency";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_runs_v1_brands__brand_id__runs_get: {
         parameters: {
             query?: never;
@@ -4299,6 +4864,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_run_v1_r__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_pdf_v1_r__token__pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

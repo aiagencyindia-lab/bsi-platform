@@ -193,6 +193,39 @@
             "title": "Name",
             "type": "string"
           },
+          "report_accent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Accent"
+          },
+          "report_logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Logo Url"
+          },
+          "report_prepared_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Prepared By"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -215,7 +248,10 @@
           "aliases",
           "category",
           "status",
-          "webhook_url"
+          "webhook_url",
+          "report_logo_url",
+          "report_accent",
+          "report_prepared_by"
         ],
         "title": "BrandOut",
         "type": "object"
@@ -249,6 +285,42 @@
             "title": "Name",
             "type": "string"
           },
+          "report_accent": {
+            "anyOf": [
+              {
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Accent"
+          },
+          "report_logo_url": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Logo Url"
+          },
+          "report_prepared_by": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Prepared By"
+          },
           "webhook_url": {
             "anyOf": [
               {
@@ -263,6 +335,45 @@
           }
         },
         "title": "BrandPatch",
+        "type": "object"
+      },
+      "Branding": {
+        "properties": {
+          "accent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accent"
+          },
+          "logo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Url"
+          },
+          "prepared_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prepared By"
+          }
+        },
+        "title": "Branding",
         "type": "object"
       },
       "BriefEvidenceOut": {
@@ -387,6 +498,24 @@
           "status"
         ],
         "title": "BulkPatch",
+        "type": "object"
+      },
+      "CadenceIn": {
+        "properties": {
+          "cadence": {
+            "enum": [
+              "off",
+              "weekly",
+              "monthly"
+            ],
+            "title": "Cadence",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cadence"
+        ],
+        "title": "CadenceIn",
         "type": "object"
       },
       "ChangeOut": {
@@ -1140,6 +1269,56 @@
           "reason"
         ],
         "title": "DismissIn",
+        "type": "object"
+      },
+      "Document": {
+        "properties": {
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "branding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Branding"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "footer": {
+            "title": "Footer",
+            "type": "string"
+          },
+          "period": {
+            "$ref": "#/components/schemas/Period"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/Section"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "brand",
+          "type",
+          "period",
+          "sections",
+          "footer"
+        ],
+        "title": "Document",
         "type": "object"
       },
       "DomainIn": {
@@ -2500,6 +2679,51 @@
         "title": "PageOptimizeIn",
         "type": "object"
       },
+      "Paragraph": {
+        "properties": {
+          "kind": {
+            "const": "p",
+            "default": "p",
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "Paragraph",
+        "type": "object"
+      },
+      "Period": {
+        "properties": {
+          "compare_from": {
+            "format": "date-time",
+            "title": "Compare From",
+            "type": "string"
+          },
+          "from": {
+            "format": "date-time",
+            "title": "From",
+            "type": "string"
+          },
+          "to": {
+            "format": "date-time",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "compare_from"
+        ],
+        "title": "Period",
+        "type": "object"
+      },
       "PromptIn": {
         "properties": {
           "text": {
@@ -2887,6 +3111,183 @@
         "title": "RecommendationOut",
         "type": "object"
       },
+      "ReportOut": {
+        "properties": {
+          "cadence": {
+            "title": "Cadence",
+            "type": "string"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "cadence",
+          "generated_at"
+        ],
+        "title": "ReportOut",
+        "type": "object"
+      },
+      "ReportRunListOut": {
+        "properties": {
+          "brand_id": {
+            "format": "uuid",
+            "title": "Brand Id",
+            "type": "string"
+          },
+          "compare_from": {
+            "format": "date-time",
+            "title": "Compare From",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "methodology_version": {
+            "title": "Methodology Version",
+            "type": "string"
+          },
+          "period_from": {
+            "format": "date-time",
+            "title": "Period From",
+            "type": "string"
+          },
+          "period_to": {
+            "format": "date-time",
+            "title": "Period To",
+            "type": "string"
+          },
+          "share_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Token"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "brand_id",
+          "type",
+          "source",
+          "period_from",
+          "period_to",
+          "compare_from",
+          "methodology_version",
+          "share_token",
+          "created_at"
+        ],
+        "title": "ReportRunListOut",
+        "type": "object"
+      },
+      "ReportRunOut": {
+        "properties": {
+          "brand_id": {
+            "format": "uuid",
+            "title": "Brand Id",
+            "type": "string"
+          },
+          "compare_from": {
+            "format": "date-time",
+            "title": "Compare From",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/components/schemas/Document"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "methodology_version": {
+            "title": "Methodology Version",
+            "type": "string"
+          },
+          "period_from": {
+            "format": "date-time",
+            "title": "Period From",
+            "type": "string"
+          },
+          "period_to": {
+            "format": "date-time",
+            "title": "Period To",
+            "type": "string"
+          },
+          "share_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Token"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "brand_id",
+          "type",
+          "source",
+          "period_from",
+          "period_to",
+          "compare_from",
+          "methodology_version",
+          "share_token",
+          "created_at",
+          "document"
+        ],
+        "title": "ReportRunOut",
+        "type": "object"
+      },
       "RivalChangesOut": {
         "properties": {
           "competitor_id": {
@@ -3203,6 +3604,41 @@
           "last_result"
         ],
         "title": "ScheduleRow",
+        "type": "object"
+      },
+      "Section": {
+        "properties": {
+          "blocks": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "p": "#/components/schemas/Paragraph",
+                  "table": "#/components/schemas/Table"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Paragraph"
+                },
+                {
+                  "$ref": "#/components/schemas/Table"
+                }
+              ]
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "heading": {
+            "title": "Heading",
+            "type": "string"
+          }
+        },
+        "required": [
+          "heading",
+          "blocks"
+        ],
+        "title": "Section",
         "type": "object"
       },
       "SentimentOut": {
@@ -3587,6 +4023,39 @@
           }
         },
         "title": "SuggestionsOut",
+        "type": "object"
+      },
+      "Table": {
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "kind": {
+            "const": "table",
+            "default": "table",
+            "title": "Kind",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "columns",
+          "rows"
+        ],
+        "title": "Table",
         "type": "object"
       },
       "TaskOut": {
@@ -7581,6 +8050,503 @@
         ]
       }
     },
+    "/v1/brands/{brand_id}/reports": {
+      "get": {
+        "operationId": "list_reports_v1_brands__brand_id__reports_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportOut"
+                  },
+                  "title": "Response List Reports V1 Brands  Brand Id  Reports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Reports",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/reports/runs": {
+      "get": {
+        "operationId": "list_runs_v1_brands__brand_id__reports_runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportRunListOut"
+                  },
+                  "title": "Response List Runs V1 Brands  Brand Id  Reports Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/reports/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_v1_brands__brand_id__reports_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/reports/runs/{run_id}/share": {
+      "delete": {
+        "operationId": "revoke_run_v1_brands__brand_id__reports_runs__run_id__share_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Run",
+        "tags": [
+          "reports"
+        ]
+      },
+      "post": {
+        "operationId": "share_run_v1_brands__brand_id__reports_runs__run_id__share_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Share Run",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/reports/{type}": {
+      "put": {
+        "operationId": "set_cadence_v1_brands__brand_id__reports__type__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "cmo",
+                "seo",
+                "content",
+                "pr",
+                "agency"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CadenceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Cadence",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/reports/{type}/runs": {
+      "post": {
+        "description": "Generate now, with the weekly window. SQL only, so it runs inline.\nDoes not stamp report.generated_at: an operator's click must not\ndefer the scheduled run.",
+        "operationId": "run_now_v1_brands__brand_id__reports__type__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "enum": [
+                "cmo",
+                "seo",
+                "content",
+                "pr",
+                "agency"
+              ],
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Now",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/v1/brands/{brand_id}/runs": {
       "get": {
         "operationId": "list_runs_v1_brands__brand_id__runs_get",
@@ -8633,6 +9599,90 @@
         "summary": "Get Ops",
         "tags": [
           "ops"
+        ]
+      }
+    },
+    "/v1/r/{token}": {
+      "get": {
+        "operationId": "public_run_v1_r__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{20,64}$",
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRunOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Run",
+        "tags": [
+          "public"
+        ]
+      }
+    },
+    "/v1/r/{token}.pdf": {
+      "get": {
+        "operationId": "public_pdf_v1_r__token__pdf_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Za-z0-9_-]{20,64}$",
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Public Pdf",
+        "tags": [
+          "public"
         ]
       }
     }

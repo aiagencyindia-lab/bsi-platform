@@ -11,6 +11,7 @@ from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
 from bsi_core.pages import normalize_url
+from bsi_core.reports import Document
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -486,3 +487,32 @@ class AlertOut(BaseModel):
 
 class ScanOut(BaseModel):
     created: int
+
+
+class ReportOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    type: str
+    cadence: str
+    generated_at: datetime | None
+
+
+class CadenceIn(BaseModel):
+    cadence: Literal["off", "weekly", "monthly"]
+
+
+class ReportRunListOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    brand_id: uuid.UUID
+    type: str
+    source: str
+    period_from: datetime
+    period_to: datetime
+    compare_from: datetime
+    methodology_version: str
+    share_token: str | None
+    created_at: datetime
+
+
+class ReportRunOut(ReportRunListOut):
+    document: Document

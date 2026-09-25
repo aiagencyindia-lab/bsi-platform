@@ -97,8 +97,25 @@ def other(owner, make_org, make_brand, make_observation):
             window_to=datetime.now(UTC),
         )
         s.add(alert)
+        rep = m.Report(org_id=b.id, brand_id=bid, type="cmo")
+        s.add(rep)
         s.flush()
-        rid, tid, aid = rec.id, task.id, audit.id
+        run = m.ReportRun(
+            org_id=b.id,
+            brand_id=bid,
+            report_id=rep.id,
+            type="cmo",
+            source="manual",
+            period_from=datetime.now(UTC),
+            period_to=datetime.now(UTC),
+            compare_from=datetime.now(UTC),
+            document={"title": "Secret"},
+            methodology_version="1",
+            share_token="Secret-token-Secret-token-Secret",
+        )
+        s.add(run)
+        s.flush()
+        rid, tid, aid, rrid = rec.id, task.id, audit.id, run.id
     return {
         "b": bid,
         "c": cid,
@@ -111,6 +128,7 @@ def other(owner, make_org, make_brand, make_observation):
         "r": rid,
         "t": tid,
         "a": aid,
+        "rr": rrid,
     }
 
 
@@ -176,6 +194,13 @@ CASES = [
     ("GET", "/v1/brands/{b}/pages/{a}", None),
     ("GET", "/v1/brands/{b}/alerts", None),
     ("POST", "/v1/brands/{b}/alerts/scan", None),
+    ("GET", "/v1/brands/{b}/reports", None),
+    ("PUT", "/v1/brands/{b}/reports/cmo", {"cadence": "weekly"}),
+    ("POST", "/v1/brands/{b}/reports/cmo/runs", None),
+    ("GET", "/v1/brands/{b}/reports/runs", None),
+    ("GET", "/v1/brands/{b}/reports/runs/{rr}", None),
+    ("POST", "/v1/brands/{b}/reports/runs/{rr}/share", None),
+    ("DELETE", "/v1/brands/{b}/reports/runs/{rr}/share", None),
 ]
 
 
