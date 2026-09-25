@@ -2992,3 +2992,37 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 - Type consistency: `run_products(org_id, job_id, brand_id, params, generator, adapter, now=None)` matches the worker lambda; `run_import_feed(org_id, brand_id, job_id, params, fetch, feed_fetch=None)` matches its lambda; `upsert(s, org_id, brand_id, rows, source)` is used identically by the router and the worker; `ProductRuns["jobs"][number]` fields match `ProductJobOut`; `EXPORT_COLUMNS` is asserted in Task 2 and printed by Task 4; `OverBudget.cost_micros` is read by `process_job`.
 - Spec Testing values checked word for word: `vote` samples and result; `drop_brand_terms` names and result; `missing` example → `["sandals", "summer", "kids"]`; `rule_check` four cases; `keep_present`; export joins; API cases (round trip, cap 422, 413, feed queue + `ftp://`, run 422/202, export header and rows, delete, idle probe); run cases (21 products → two writes, one search per keyword, 6/8-day cache, budget keeps keywords, adjusted, batch-two failure, idle probe); RLS and isolation; `productNote` and the route tests.
 - Fixtures: no banned word appears in any fixture string above (`sandal`, `summer`, `kids`, `Walkaroo`, `Secret`, `Light`, `Washable`).
+
+## Changes made during execution
+
+Deviations from the tasks above, by task. Rulings R1–R11 are recorded in the spec's `## Rulings`; R1 (the `nofile` and `cap` notes and the 422 mapping), R3 (lowercased domains in `keep_present`), R4 (Next's `redirect()`, 307) and R8 (the `titles_prompt` name) were already in this plan's code, so they changed the spec, not the code.
+
+Task 2 (0f55f44)
+- R5: `parse_feed` sets `closed = True` when the root element ends and, if it never closed, sets the note `malformed` (keeping `truncated` when the gzip cap already set it). The plan's code returned no note for a cut feed and failed `test_parse_feed_cut_mid_item_keeps_complete_items`.
+- Fixture reflow for ruff E501: `CSV` became an implicit concatenation of string literals (byte-identical), and `RSS` gained a newline between `</g:price>` and `<g:product_type>` (whitespace between sibling elements; the parse is unchanged).
+
+Task 3 (78fb225, fix 6411ede)
+- Reflow for ruff E501: the long titles in the `missing` fixture are split by implicit concatenation, two `rule_check` asserts are wrapped, `keep_present` puts the domain expression in a local `domain`, and the prompts' JSON-shape lines use single-quoted Python literals instead of `\"` escapes (the strings are identical).
+- Fix round (review finding): `drop_brand_terms` also drops keywords with no tokens (`""`, `"!!!"`); `test_drop_brand_terms_matches_tokens` gained that case.
+- R7: `rule_check` works at the token level: brand prepended first, then any word that shares a token with an earlier kept word is dropped, punctuation-only words kept, then the trim. Three cases added: `Kids-Sandal Sandal` and `Red Tape Tape Shoes` (in `test_rule_check_drops_a_word_that_repeats_an_earlier_token`) and `Walkaroo - Sandal | Kids` (`test_rule_check_keeps_punctuation_only_words`, `pass`). The four planned `rule_check` tests are unchanged.
+
+Task 4 (f7747f7)
+- R6: `FORMULA_START` and the apostrophe in `export_rows`, with `test_export_rows_neutralises_formula_cells`.
+- Added `test_duplicate_ids_in_one_import_keep_the_last_row` (two `W-1` rows: one product, the second title, `created 1`) and `test_csv_import_ignores_a_leading_bom` (a BOM-prefixed CSV imports as usual).
+- Removed the unused `import pytest` from `test_api_products.py` (ruff F401).
+
+Task 5 (f1a7960, fix d89077f)
+- In `run_products` the rewrite-phase dict `got` is renamed `rewrites`; reusing `got` clashed with the earlier `got: KeywordSet` under mypy. Behaviour unchanged.
+- ruff RUF059 renames in `test_products_run.py`: `searches` → `_searches` in two tests and an unused `job` → `_`. No assertion changed.
+- R9: the freshness read filters on `KeywordSearch.error IS NULL`; added `test_an_error_search_is_not_reused`.
+- R10: the search-phase check is `budget_fits(s, org_id, 0, extra_micros=spent + len(new) * SEARCH_MICROS)`; added `test_keyword_spend_counts_against_the_search_budget`.
+
+Task 6 (bc88442)
+- `PRODUCT_CASES` in `tests/unit/test_recommend_copy.py` gained the page's fixed copy the plan left out: the explanatory paragraph and the button labels `Import CSV`, `Import Merchant feed`, `Run` and `Clear products`.
+- R11: `feedLine` kept as planned (an error only on a failed job); the review's Important finding was ruled, not fixed.
+
+Task 7 (66f328a)
+- None beyond the plan.
+
+Task 8
+- The spec's §1, §2, §3, §4 and §5 were updated to match R2, R5–R11, the tokenless-keyword drop, the last-row-wins dedupe and the `bytes` CSV body; `findings-slice18.md` and the README rows were added. The live check (§2 of the findings) is left to the controller.
