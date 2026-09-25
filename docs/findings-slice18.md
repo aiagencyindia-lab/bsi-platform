@@ -14,7 +14,7 @@
 
 **Second Route Handler (`app/(app)/b/[id]/products/export.csv/route.ts`).** The web app now has two Route Handlers; this is the first authenticated one. `GET` returns a plain 404 `Not found` for a brand id that is not a UUID, without calling the API. A missing `bsi_key` cookie redirects to `/login` through Next's `redirect()`, which answers 307 (ruling R4). Otherwise it fetches the API export with `Authorization: Bearer`, `cache: "no-store"` and a 30 s timeout. An upstream 401 redirects to `/login`, an upstream 404 becomes a plain 404, and any other non-ok status or a thrown fetch becomes a plain 502 `Export unavailable`. On success it streams the body with `content-type`, `content-disposition` and `cache-control: no-store`. The comment in `app/r/[token]/pdf/route.ts` now names both handlers.
 
-**Commits** (`git log --oneline main..HEAD`, oldest first, before this one):
+**Commits** (`git log --oneline main..HEAD`, oldest first; later docs commits are in the branch log):
 
 | Commit | Subject |
 |---|---|
@@ -63,7 +63,7 @@ Run on 2026-09-26 against the dev database, with the user's approval for both th
 Out of scope (spec):
 - Shopify OAuth ingest, and pushing titles to Shopify as drafts (PRD Phase 2).
 - A licensed SERP provider for Google Shopping and organic results; the seam is `keyword_search`.
-- Choosing a subset of products or a locale per run in the UI; the run covers all products in the brand's first locale.
+- Choosing a subset of products or a locale per run in the UI; a run works through all products in the brand's first locale, oldest results first, until its time budget (R12).
 - A history of past suggestions.
 - Storing the feed URL on the brand for a scheduled refresh.
 - The marketplace check (PRD Phase 2).
@@ -86,7 +86,11 @@ Import and parsing:
 - No tests for the gzip-error and gzip-cap `truncated` branches of `parse_feed`, nor for `run_import_feed`'s truncation and note path.
 
 The run and its pure steps:
-- The run covers all products in the brand's first locale.
+- A run works through all products in the brand's first locale, oldest results first, and stops starting batches after 480 s (R12).
+- One bad titles-parse reply (invalid JSON) fails the whole run through `JudgeFailed`, even after paid searches; storing `error = "parse"` for that keyword would match R9.
+- The rewrite phase's spend is never budget-checked: `PRODUCT_JOB_MICROS` covers the keyword phase and R10's check covers searches.
+- If `OverBudget` is raised in batch N, batch N's new keywords are already written, so a product whose keyword changed shows the new keyword next to an earlier run's suggestion.
+- The R13 test does not assert `suggested_bullets` or `result_at`; the out-of-time path is tested by calling `run_products` directly, not through `process_job`.
 - `keep_present` matches titles as substrings, so a title that is a prefix of a longer one in the text is kept. It does not dedupe titles either, so one title repeated in the text can reach `MIN_TITLES = 2`.
 - `STOPWORDS` is a short English list, and tokens are ASCII-only (`[a-z0-9]+`), so Devanagari or accented titles give no tokens.
 - A multi-word brand is matched as a subset of tokens, not as a phrase.
@@ -97,6 +101,8 @@ The run and its pure steps:
 - The prompts quote values with `{x!r}`, the `titles_prompt` wording is awkward, and the rewrite prompt does not state the 200-character bullet cap (the cap is applied in code).
 - The local `products` list in `run_products` shadows the module name.
 - `keep_present`'s test does not check case-insensitivity.
+- `PRODUCT_CASES` (the banned-word test) omits the Problem detail "Import products first.", the route bodies "Not found" and "Export unavailable", and the " products in the catalogue." suffix. None contains a banned word.
+- The spec's Testing section asks for a test that `process_job` dispatches `product_run` and `import_feed`; `test_worker.py` checks only `JOB_ESTIMATES`, and dispatch is covered by `test_products_run.py`.
 - No test of a rewrite-phase failure in batch two keeping batch one's suggestions (the keyword-phase failure is tested).
 - `test_product_kinds_are_known_and_estimated` checks the estimates only; dispatch is covered in `test_products_run.py`.
 
