@@ -126,7 +126,7 @@ def test_raw_mode_round_trips_the_exact_bytes():
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/unit/test_http_fetch.py -k "cut_body or custom_cap or custom_cap or raw_mode" -x`
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/unit/test_http_fetch.py -k "cut_body or custom_cap or raw_mode" -x`
 Expected: FAIL with `ImportError: cannot import name 'SITEMAP_CAP_BYTES'` (then `TypeError ... unexpected keyword argument 'cap'` once the import exists).
 
 - [ ] **Step 3: Implement**
@@ -166,10 +166,12 @@ and its docstring gains: "`cap` bounds the decoded bytes kept (every guard is un
                         if time.monotonic() > deadline:
                             return Response(0, "", _TIMED_OUT)
                         if len(buf) >= cap:
-                            # Cut only if the stream had more to give.
-                            cut = next(chunks, b"") != b"" or bool(
-                                z and z.unconsumed_tail
+                            # Cut only if something was dropped: the rest of
+                            # this chunk (inflated or not), or a later chunk.
+                            more = (
+                                bool(z.unconsumed_tail) if z else len(chunk) > room
                             )
+                            cut = more or next(chunks, b"") != b""
                             break
                     data = bytes(buf)
                     text_body = (
@@ -179,7 +181,7 @@ and its docstring gains: "`cap` bounds the decoded bytes kept (every guard is un
                     )
                     return Response(r.status_code, text_body, truncated=cut)
 ```
-Note for the implementer: `z.unconsumed_tail` is non-empty when `max_length` stopped the inflate with input left, which is how a gzip bomb shows it was cut. `next(chunks, b"")` reads at most one more chunk. If mypy complains about `z` being `Any`, keep the `bool(...)` wrapper.
+Note for the implementer: a plain body cut mid-chunk is detected by `len(chunk) > room` (the test transport sends each body as one chunk). `z.unconsumed_tail` is non-empty when `max_length` stopped the inflate with input left, which is how a gzip bomb shows it was cut. `next(chunks, b"")` reads at most one more chunk. Also update the `http_fetch` docstring's "never inflates past BODY_CAP_BYTES" to "past `cap`".
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -202,20 +204,20 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/cr
 
 **Interfaces:**
 - Consumes: `Response.truncated`, `SITEMAP_CAP_BYTES` from Task 1.
-- Produces: `MAX_SITEMAP_FETCHES = 50`, `MAX_URLS = 50_000`; `parse_sitemap(body: bytes) -> (root_tag, entries, closed)`; `snapshot_domain(host, fetch, known, *, pause=0.0, sitemap_fetch: Fetch | None = None)`; error lines `"sitemap {url}: cut off at 50 MiB"`, `"sitemap {url}: not well-formed XML"`, `"sitemap {url}: URL ceiling of 50000 reached"`.
+- Produces: `MAX_SITEMAP_FETCHES = 50`, `MAX_URLS = 50_000`; `parse_sitemap(body: bytes) -> (root_tag, entries, closed, cut)` where `cut` is True when a gzip body was cut at `SITEMAP_CAP_BYTES`; `snapshot_domain(host, fetch, known, *, pause=0.0, sitemap_fetch: Fetch | None = None)`; error lines `"sitemap {url}: cut off at the size cap"`, `"sitemap {url}: not well-formed XML"`, `"sitemap {url}: URL ceiling of 50000 reached"`.
 
 - [ ] **Step 1: Write the failing tests**
 
 In `tests/unit/test_rivals.py`:
 - Add `MAX_URLS` to the `bsi_core.rivals` import and `import gzip` at the top.
-- Change the three existing `parse_sitemap(...)` string calls to bytes: `parse_sitemap(body[: len(body) - 20].encode())`, `parse_sitemap(b"\x1f\x8b\x08garbage")`, `parse_sitemap(b"")`, and in `test_parse_urlset_and_index` wrap both bodies with `.encode()`.
+- `parse_sitemap` now takes bytes and returns four values. Update every existing call: in `test_parse_urlset_and_index` wrap both bodies with `.encode()` and unpack `kind, locs, ok, cut` (assert `cut is False`); in `test_truncated_or_garbage_sitemap_is_not_clean` use `body[: len(body) - 20].encode()`, `b"\x1f\x8b\x08garbage"` and `b""` and index `[2]` as today; at the image-sitemap test (~line 253) call `parse_sitemap(body.encode())` and compare with `("urlset", [("https://r.com/a", "2026-09-01")], True, False)`.
 - In `test_index_children_are_capped_and_mark_incomplete` the child count `MAX_SITEMAP_FETCHES + 2` now means 52 fakes; keep it (it is cheap).
 - Append:
 ```python
 def test_gzip_sitemap_without_content_encoding_is_unzipped():
     body = urlset(("https://r.com/a", "2026-09-01"))
-    kind, locs, ok = parse_sitemap(gzip.compress(body.encode()))
-    assert (kind, ok) == ("urlset", True)
+    kind, locs, ok, cut = parse_sitemap(gzip.compress(body.encode()))
+    assert (kind, ok, cut) == ("urlset", True, False)
     assert locs == [("https://r.com/a", "2026-09-01")]
 
 
@@ -224,9 +226,26 @@ def test_a_gzip_sitemap_over_the_cap_is_not_clean(monkeypatch):
 
     monkeypatch.setattr(rivals, "SITEMAP_CAP_BYTES", 200)
     body = urlset(*[(f"https://r.com/p{i}", None) for i in range(40)])
-    kind, locs, ok = parse_sitemap(gzip.compress(body.encode()))
-    assert kind == "urlset" and ok is False
+    kind, locs, ok, cut = parse_sitemap(gzip.compress(body.encode()))
+    assert kind == "urlset" and ok is False and cut is True
     assert 0 < len(locs) < 40
+
+
+def test_a_gzip_sitemap_cut_at_the_unzip_cap_is_reported_as_cut(monkeypatch):
+    import gzip as gz
+
+    import bsi_core.rivals as rivals
+
+    monkeypatch.setattr(rivals, "SITEMAP_CAP_BYTES", 200)
+    body = urlset(*[(f"https://r.com/p{i}", None) for i in range(40)])
+    raw = gz.compress(body.encode()).decode("latin-1")
+    fetch = site({"https://r.com/sitemap.xml": raw, "https://r.com/": HOME})
+    snap = snapshot_domain("r.com", fetch, known=set())
+    assert (
+        "sitemap https://r.com/sitemap.xml: cut off at the size cap"
+        in snap.errors
+    )
+    assert not any("not well-formed" in e for e in snap.errors)
 
 
 def test_snapshot_reports_truncation_and_bad_xml_exactly():
@@ -239,7 +258,7 @@ def test_snapshot_reports_truncation_and_bad_xml_exactly():
     )
     snap = snapshot_domain("r.com", fetch, known=set())
     assert snap.complete is False
-    assert "sitemap https://r.com/sitemap.xml: cut off at 50 MiB" in snap.errors
+    assert "sitemap https://r.com/sitemap.xml: cut off at the size cap" in snap.errors
     assert "https://r.com/a" in snap.urls  # what was read is kept
     fetch = site(
         {"https://r.com/sitemap.xml": good[:-12], "https://r.com/": HOME}
@@ -276,11 +295,11 @@ def test_url_ceiling_stops_the_read_and_marks_incomplete(monkeypatch):
     assert "https://r.com/" in fetch.calls  # pages still sampled
 
 
-def test_file_cap_is_fifty_and_both_caps_can_apply(monkeypatch):
+def test_file_cap_is_fifty_and_the_url_ceiling_can_stop_first(monkeypatch):
     import bsi_core.rivals as rivals
 
     assert MAX_SITEMAP_FETCHES == 50 and MAX_URLS == 50_000
-    monkeypatch.setattr(rivals, "MAX_SITEMAP_FETCHES", 3)
+    monkeypatch.setattr(rivals, "MAX_SITEMAP_FETCHES", 4)
     monkeypatch.setattr(rivals, "MAX_URLS", 2)
     children = [f"https://r.com/s{i}.xml" for i in range(4)]
     pages = {"https://r.com/sitemap.xml": index(*children), "https://r.com/": HOME}
@@ -288,7 +307,9 @@ def test_file_cap_is_fifty_and_both_caps_can_apply(monkeypatch):
     fetch = site(pages)
     snap = snapshot_domain("r.com", fetch, known=set())
     assert len(snap.urls) == 2 and snap.complete is False
-    assert any("URL ceiling" in e for e in snap.errors)
+    assert "sitemap https://r.com/s2.xml: URL ceiling of 2 reached" in snap.errors
+    assert "https://r.com/s3.xml" not in fetch.calls
+    assert not any("more than" in e for e in snap.errors)
 
 
 def test_sitemap_fetch_serves_sitemaps_and_fetch_serves_pages():
@@ -331,11 +352,11 @@ MAX_NEW_PAGES = 10
 ```python
 def parse_sitemap(
     body: bytes,
-) -> tuple[str, list[tuple[str, str | None]], bool]:
-    """(root tag, [(loc, lastmod)], closed cleanly). Gzip bytes (magic
-    1f 8b) are inflated first, under SITEMAP_CAP_BYTES; a body cut at a
-    cap or malformed XML is not clean, and whatever was read before the
-    fault is still returned. Namespaces are ignored, so only <loc> and
+) -> tuple[str, list[tuple[str, str | None]], bool, bool]:
+    """(root tag, [(loc, lastmod)], closed cleanly, cut at the unzip cap).
+    Gzip bytes (magic 1f 8b) are inflated first, under SITEMAP_CAP_BYTES;
+    malformed or unclosed XML is not clean, and whatever was read before
+    the fault is still returned. Namespaces are ignored, so only <loc> and
     <lastmod> directly under a <url>/<sitemap> entry count."""
     cut = False
     if body[:2] == b"\x1f\x8b":
@@ -343,13 +364,13 @@ def parse_sitemap(
         try:
             body = z.decompress(body, SITEMAP_CAP_BYTES)
         except zlib.error:
-            return "none", [], False
+            return "none", [], False, False
         cut = bool(z.unconsumed_tail)
     parser: ET.XMLPullParser[ET.Element] = ET.XMLPullParser(
         events=("start", "end")
     )
     ...  # the existing body, unchanged, feeding `body` (bytes) to parser.feed
-    return root or "none", locs, closed and not cut
+    return root or "none", locs, closed, cut
 ```
 `snapshot_domain`:
 ```python
@@ -375,11 +396,13 @@ def snapshot_domain(
 In the sitemap loop: `r = get(url, files)`; then
 ```python
         # raw mode decoded the bytes as Latin-1; str fakes are ASCII.
-        kind, locs, clean = parse_sitemap(r.body.encode("latin-1", "replace"))
+        kind, locs, clean, cut = parse_sitemap(
+            r.body.encode("latin-1", "replace")
+        )
         ...
-        if r.truncated:
+        if r.truncated or cut:
             snap.complete = False
-            snap.errors.append(f"sitemap {url}: cut off at 50 MiB")
+            snap.errors.append(f"sitemap {url}: cut off at the size cap")
         elif not clean:
             snap.complete = False
             snap.errors.append(f"sitemap {url}: not well-formed XML")
@@ -439,9 +462,9 @@ In `tests/integration/test_rival_crawl.py`:
         rows = {c.domain: c for c in s.scalars(select(m.RivalCrawl))}
     assert (rows["a.com"].complete, rows["a.com"].urls_seen) == (True, 1)
     assert rows["b.com"].complete is False and rows["b.com"].urls_seen == 0
+    per = max(worker.RIVAL_DOMAIN_FLOOR_SECONDS, worker.RIVAL_JOB_SECONDS // 2)
     assert rows["b.com"].errors == [
-        "out of time: the crawl did not finish within "
-        f"{max(worker.RIVAL_DOMAIN_FLOOR_SECONDS, worker.RIVAL_JOB_SECONDS // 2)} s"
+        f"out of time: the crawl did not finish within {per} s"
     ]
     assert due() == []  # both stored; both wait 7 days
 ```
@@ -468,19 +491,25 @@ def test_domains_the_job_never_reaches_stay_due(owner, make_org, make_brand):
 
 
 def test_the_per_domain_budget_has_a_floor(owner, make_org, make_brand):
+    # 420 // 10 = 42 s, so the floor of 60 s applies.
     org = make_org()
     bid = make_brand(org)
     _rival(owner, org, bid, domains=tuple(f"d{i}.com" for i in range(10)))
-    seen = []
+    now = [0.0]
+    inner = _fake({})
 
     def fetch(url, ua):
-        seen.append(url)
-        return _fake({})(url, ua)
+        now[0] = 1e9  # the first fetch uses up every budget
+        return inner(url, ua)
 
-    _direct(owner, org, bid, fetch, lambda: 0.0)
+    stored = _direct(owner, org, bid, fetch, lambda: now[0])
     assert worker.RIVAL_DOMAIN_FLOOR_SECONDS == 60
-    assert max(60, worker.RIVAL_JOB_SECONDS // 10) == 60
-    assert len({u.split("/")[2] for u in seen}) == 10  # every domain crawled
+    assert stored == 1
+    with owner() as s:
+        [c] = s.scalars(select(m.RivalCrawl)).all()
+    assert c.complete is False
+    assert c.errors == ["out of time: the crawl did not finish within 60 s"]
+    assert due() == [bid]  # the other nine never started
 
 
 def test_sitemaps_go_through_the_sitemap_fetch(owner, make_org, make_brand):
@@ -573,7 +602,7 @@ def run_rival_crawl(
             continue
         done.append((cid, domain, baseline, snap))
 ```
-The write phase is unchanged. In `scripts/snapshot_rival.py`:
+The write phase is unchanged. Update the stale comments: the `RIVAL_JOB_SECONDS` comment (worker.py ~71-72) becomes "The job's budget, shared equally by the due domains (floor RIVAL_DOMAIN_FLOOR_SECONDS). Worst case about 510 s (the budget plus one 30 s fetch per wrapper and the write), under claim_job's 10-minute stale cutoff. A domain that runs out of time is stored incomplete and waits its week; one the job never reaches stays due."; the `OutOfTime` docstring in rivals.py becomes "A domain's time budget ran out mid-crawl. The worker stores it as an incomplete "out of time" crawl, and what it had read is not kept." In `scripts/snapshot_rival.py` (also print each host's wall time, so the live check can compare it with the 60 s budget a domain gets when seven are due):
 ```python
 from functools import partial
 
@@ -582,9 +611,12 @@ from bsi_core.rivals import snapshot_domain
 
 SITEMAP_FETCH = partial(http_fetch, cap=SITEMAP_CAP_BYTES, raw=True)
 ...
+    start = time.monotonic()
     snap = snapshot_domain(
         host, http_fetch, set(), pause=PAUSE_SECONDS, sitemap_fetch=SITEMAP_FETCH
     )
+    seconds = round(time.monotonic() - start, 1)
+    # add "seconds": seconds to the printed JSON (and `import time`)
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
@@ -611,7 +643,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add apps/workers/bsi_workers/
 ```bash
 cd /Users/vineet/Downloads/ADK/bsi-platform && set -a && source .env && set +a && uv run python scripts/snapshot_rival.py skechers.in skechers.com crocs.in > .superpowers/sdd/2026-09-25-slice14-sitemaps-in-full/live-check.json
 ```
-Record per domain: `urls`, `complete`, `fetches`, `errors`, wall time. State causes as observed.
+Record per domain: `urls`, `complete`, `fetches`, `errors`, `seconds`. Compare each `seconds` with the 60 s budget a domain gets when Run 1's seven domains are due; a host over it would be stored as "out of time" by the worker with none of its URLs kept. State causes as observed.
 
 - [ ] **Step 2: Write `docs/findings-slice14.md`**
 
