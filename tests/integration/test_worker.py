@@ -1027,3 +1027,32 @@ def test_one_failing_delivery_does_not_block_the_rest(
     with owner() as s:
         assert s.get(m.Alert, good).delivered_at is not None
         assert s.get(m.Alert, bad).delivered_at is None
+
+
+def test_a_delivery_that_fails_after_the_webhook_is_cleared_is_given_up(
+    owner, make_org, make_brand
+):
+    org, bid = _hooked_brand(owner, make_org, make_brand)
+    aid = _due_alert(owner, org, bid)
+
+    def fetch(url, ua, *, method, body, content_type):
+        # The operator clears the webhook while the POST is in flight, as
+        # PATCH {"webhook_url": null} does.
+        with owner() as s, s.begin():
+            s.execute(
+                update(m.Brand)
+                .where(m.Brand.id == bid)
+                .values(webhook_url=None)
+            )
+            s.execute(
+                update(m.Alert)
+                .where(m.Alert.id == aid)
+                .values(next_attempt_at=None)
+            )
+        return Response(500, "")
+
+    assert deliver_due_alerts(fetch=fetch) == 0
+    with owner() as s:
+        a = s.get(m.Alert, aid)
+    assert (a.delivery_attempts, a.last_error) == (1, "HTTP 500")
+    assert a.next_attempt_at is None

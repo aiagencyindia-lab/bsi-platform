@@ -253,6 +253,13 @@ def deliver_due_alerts(fetch: Poster = http_fetch) -> int:
             )
             with tenant_session(org_id) as s:
                 alert = s.get_one(m.Alert, alert_id)
+                # FOR UPDATE: a webhook clear either committed before this
+                # read or waits and then nulls next_attempt_at after us.
+                hooked = s.scalar(
+                    select(m.Brand.webhook_url)
+                    .where(m.Brand.id == alert.brand_id)
+                    .with_for_update()
+                )
                 alert.delivery_attempts += 1
                 if resp.ok:
                     alert.delivered_at = func.now()
@@ -266,7 +273,7 @@ def deliver_due_alerts(fetch: Poster = http_fetch) -> int:
                     n = alert.delivery_attempts
                     alert.next_attempt_at = (
                         func.now() + timedelta(seconds=BACKOFF_DELIVERY[n - 1])
-                        if n < MAX_DELIVERY_ATTEMPTS
+                        if n < MAX_DELIVERY_ATTEMPTS and hooked is not None
                         else None
                     )
         except Exception:
