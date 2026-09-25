@@ -28,11 +28,11 @@ Brainstorming ran on Opus 5.5; the session switched to Fable 5.1 while the spec 
 - `apps/web/src/app/r/[token]/pdf/route.ts` exports `GET(request, { params })`. It is the app's first Route Handler; the frontend rule becomes "Server Components, server actions, and this one Route Handler for the public PDF" (recorded in the process memory).
 - Behaviour:
   1. If the token does not match `^[A-Za-z0-9_-]{20,64}$`, return a plain 404 without calling the API.
-  2. `fetch(`${API_URL}/v1/r/${token}.pdf`, { cache: "no-store" })`: no Authorization header, no cookie; `API_URL` is read at request time.
+  2. `fetch(`${API_URL}/v1/r/${token}.pdf`, { cache: "no-store" })`: no Authorization header, no cookie; `API_URL` is the existing module constant from `lib/api.ts`, read when the server starts (not per request, and not at build time).
   3. API 404 or 422 → plain 404. Any other non-2xx, or a thrown fetch → plain 502 with no detail. No error body names the product or the API host.
   4. Otherwise stream the body with the API's `Content-Type` and `Content-Disposition`, plus `Cache-Control: no-store`.
-- Both PDF links become the relative `/r/{token}/pdf`: the archive's "PDF" link in `b/[id]/reports/page.tsx` and the public page's "Download PDF" (`pdfHref`) in `r/[token]/page.tsx`. `API_URL` then appears only in `lib/api.ts` and the login action. The API's own route is unchanged.
-- Tests (vitest, stubbing `fetch`): a valid token streams the body with the three headers and the request carries no Authorization header; a malformed token gives 404 with `fetch` never called; API 404 and 422 give 404; API 500 and a throwing `fetch` give 502; and `ReportBody` renders `pdfHref` as given (the pages pass `/r/{token}/pdf`).
+- Both PDF links become the relative `/r/{token}/pdf`: the archive's "PDF" link in `b/[id]/reports/page.tsx` and the public page's "Download PDF" (`pdfHref`) in `r/[token]/page.tsx`. `API_URL` then appears only in `lib/api.ts`, the login action and the new route, all server-side. The API's own route is unchanged.
+- Tests (vitest, stubbing `fetch`): a valid token streams the body with the three headers and the request carries no Authorization header; a malformed token gives 404 with `fetch` never called; API 404 and 422 give 404; API 500 and a throwing `fetch` give 502; and `ReportBody` renders `pdfHref` as given (the pages pass `/r/{token}/pdf`; their hrefs are checked by grep and the live check, not a unit test). `apps/web/vitest.config.ts` gains an `@` → `src` alias so the route's `@/lib/api` import resolves in tests.
 
 ### 2. Readable labels and the Intent column (`bsi_core/reports.py`)
 
@@ -44,7 +44,7 @@ Brainstorming ran on Opus 5.5; the session switched to Fable 5.1 while the spec 
   - SEO "Site audit": Check and Severity cells.
 - SEO "Content gaps" columns become `Intent, Topic, Prompts, Brand mention rate, Top rival`, with `label(c["intent"])` first. The content report's "Content gaps with briefs" is unchanged.
 - `METHODOLOGY_VERSION` becomes `"2"`. New runs print `Methodology v2`; stored runs keep `v1`.
-- Tests: unit tests for `label()` (owner overrides, an underscore code, a hyphenated intent, a one-word code, an empty string returns `""`); the report integration tests updated to the labelled cells (`Own site`, `Impact measured`, `Improved`, `H1 missing`/`Low`, `Neutral`/`Negative`) and to the SEO gap table's five columns with an Intent value; a test that a new document's footer starts `Methodology v2`; the existing copy-ban test still scans every builder's output.
+- Tests: unit tests for `label()` (owner overrides including `Own site`, underscore codes including `H1 missing`, a hyphenated intent, a one-word code, an empty string returns `""`) and one pinning `METHODOLOGY_VERSION == "2"`; the report integration tests updated to the labelled cells (`Third party`, `Impact measured`, `Improved`, `Llms txt`/`Low`, `Neutral`/`Negative`), plus a new test of the SEO gap table's five columns with Intent values `Commercial` and `Problem-based`; the CMO footer test now expects `Methodology v2`, and two existing tests that assert a stored run's `methodology_version` moved from `"1"` to `"2"`; the existing copy-ban test still scans every builder's output.
 
 ### 3. Live check, docs, out of scope
 
@@ -53,7 +53,14 @@ Brainstorming ran on Opus 5.5; the session switched to Fable 5.1 while the spec 
 
 ## Rulings
 
-Recorded here as they are made during execution.
+Made during execution, in the order recorded in the ledger. Each gives the decision, the reason, and the cost if it is wrong.
+
+1. The PDF route reads `API_URL` as the existing module constant, evaluated when the server process starts, not at build time; §1's "read at request time" is corrected to that. The spec's reason was to avoid the build-time rewrite trap, which this meets. Cost if wrong: changing `API_URL` needs a web restart.
+2. The pages' relative PDF hrefs are verified by a grep and the live check, not by a unit test of the Server Components, because rendering those pages in vitest needs the API and the Next runtime; `ReportBody`'s test covers rendering `pdfHref` as given. Cost if wrong: a regression in either page's href is caught only by the live check.
+3. `apps/web/vitest.config.ts` gains an `@` → `src` alias. The route test is the first test that imports `@/` at runtime, slice 15's preflight already allowed this alias if needed, and relative imports would break the `@/` convention. Cost if wrong: one config line.
+4. The PDF route also reads `API_URL` (server-side, imported from `lib/api`). §1's "`API_URL` then appears only in `lib/api.ts` and the login action" contradicted its own fetch line and is corrected to include the route; the key-secrecy rule is unaffected, since only the host constant is imported. Cost if wrong: none.
+5. Two tests the plan did not name (the `generate` test in `tests/integration/test_reports.py` and the manual-run test in `tests/integration/test_api_reports.py`) move from `methodology_version` `"1"` to `"2"`. They follow directly from the approved bump, and no stored run is rewritten. Cost if wrong: none.
+6. The integration tests assert `Third party` and `Llms txt` instead of §2's example cells `Own site` and `H1 missing`, because the test scene's data yields those codes; both prove the cells go through `label()`, and the unit test pins `Own site` and `H1 missing`. Cost if wrong: none.
 
 ## Out of scope
 

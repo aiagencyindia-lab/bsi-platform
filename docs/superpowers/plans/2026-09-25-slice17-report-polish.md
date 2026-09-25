@@ -383,3 +383,13 @@ EOF
 2. Live check on dev, read-only (no migration needed; no new rows): start the API on :8000 and a production build of the web app (`npm run build && npx next start -p 3001`); read the five stored share tokens with `docker compose exec -T db psql -U bsi_owner -d bsi -tAc "select type, share_token from report_run order by created_at"`; for each, `curl -s -o /tmp/x.pdf -D - -w '%{http_code}\n' localhost:3001/r/$TOKEN/pdf` → 200, `%PDF-`, `content-disposition` filename, `cache-control: no-store`; `curl -s localhost:3001/r/$TOKEN | grep -o 'href="/r/[^"]*/pdf"'`; `/r/short/pdf` and `/r/unknown-token-unknown-token-xyz/pdf` → 404 bodies "Not found" with no product name. Record in findings §2 as observed. Stop both servers.
 3. Update the process memory: the frontend rule is now "Server Components, server actions, and the one Route Handler `app/r/[token]/pdf/route.ts`".
 4. Finishing menu before pushing; PR with `GH_TOKEN=$(gh auth token -u aiagencyindia-lab)`; merge only on the user's say-so.
+
+## Changes made during execution
+
+Deviations from the text above, as recorded in the execution ledger (`.superpowers/sdd/2026-09-25-slice17-report-polish/progress.md`) and the Task 1 report; the spec's Rulings section gives the reasons where a ruling covers the change.
+
+- Task 1: `apps/web/vitest.config.ts` gained an `@` → `src` alias (spec ruling 3); the file map did not list it.
+- Task 1: the route test reads the call as `vi.mocked(fetch).mock.calls[0]` instead of `fetchMock.mock.calls[0]`, because `vi.fn(async () => …)` infers a no-argument mock and the destructuring failed `tsc` (TS2493); this is the pattern `src/lib/api.test.ts` already uses, and the assertions are unchanged (Task 1 report; no spec ruling).
+- Task 1: `API_URL` also appears in the new route, so the Global Constraint "`API_URL` stays only in `lib/api.ts` and the login action" and Step 4's grep expectation hold with the route added (spec ruling 4).
+- Task 2: two tests the plan did not list, the `generate` test in `tests/integration/test_reports.py` and the manual-run test in `tests/integration/test_api_reports.py`, changed their `methodology_version` literal from `"1"` to `"2"` (spec ruling 5).
+- Task 2: the integration tests assert `Third party` and `Llms txt`/`Low` as this plan's text specifies; this differs from the spec §2 example cells (`Own site`, `H1 missing`), not from the plan (spec ruling 6).
