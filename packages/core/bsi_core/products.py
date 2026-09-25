@@ -619,12 +619,16 @@ def run_products(
                         m.KeywordSearch.brand_id == brand_id,
                         m.KeywordSearch.keyword.in_(ordered),
                         m.KeywordSearch.searched_at > fresh_after,
+                        # R9: an error row is searched again
+                        m.KeywordSearch.error.is_(None),
                     )
                 )
             }
             new = [k for k in ordered if k not in titles_by_kw]
+            # R10: job.cost_micros is written only at the end, so this
+            # job's keyword spend is added here.
             fits = not new or budget_fits(
-                s, org_id, 0, extra_micros=len(new) * SEARCH_MICROS
+                s, org_id, 0, extra_micros=spent + len(new) * SEARCH_MICROS
             )
         if not fits:
             raise OverBudget(spent)

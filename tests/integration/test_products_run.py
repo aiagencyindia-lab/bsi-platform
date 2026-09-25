@@ -246,6 +246,56 @@ def test_budget_failure_after_keywords_keeps_them(owner, make_org, make_brand):
     assert job.cost_micros == 3 * 700
 
 
+def test_an_error_search_is_not_reused(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    with owner() as s, s.begin():
+        s.add(
+            m.KeywordSearch(
+                org_id=org.id,
+                brand_id=bid,
+                keyword="kids sandals",
+                query="q",
+                titles=[],
+                error="429 quota",
+                searched_at=datetime.now(UTC) - timedelta(days=1),
+            )
+        )
+    engine = FakeEngine()
+    _, _rows, searches = _run(owner, org, bid, _generator(), engine)
+    assert engine.prompts == [("kids sandals buy online", "IN", "en")]
+    assert len(searches) == 1 and searches[0].error is None
+    assert searches[0].titles == [
+        {"title": "Kids Sandals for Boys Summer", "domain": "amazon.in"},
+        {"title": "Boys Summer Sandals Lightweight", "domain": ""},
+    ]
+
+
+def test_keyword_spend_counts_against_the_search_budget(
+    owner, make_org, make_brand, monkeypatch
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    monkeypatch.setattr(products, "SEARCH_MICROS", 30_000)
+    # $0.032: PRODUCT_JOB_MICROS (20,000) fits at claim, so the job runs.
+    # Keywords spend 3 x 700 = 2,100; 2,100 + 30,000 > 32,000. Without the
+    # spend term the check would pass (30,000 <= 32,000).
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Organization)
+            .where(m.Organization.id == org.id)
+            .values(daily_budget_usd=0.032)
+        )
+    engine = FakeEngine()
+    job, rows, searches = _run(owner, org, bid, _generator(), engine)
+    assert (job.status, job.error) == ("failed", "budget")
+    assert job.cost_micros == 3 * 700
+    assert rows[0].keyword == "kids sandals"
+    assert engine.prompts == [] and searches == []
+
+
 def test_a_failed_search_is_stored_and_the_run_goes_on(
     owner, make_org, make_brand
 ):
