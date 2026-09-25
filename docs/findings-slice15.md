@@ -36,7 +36,7 @@
 
 ## 2. Live check
 
-Run by the controller on dev at 2026-09-25 11:44 UTC, after the final-review fix wave (HEAD 42f1164). Dev was upgraded from migration 0016 to 0017 first. The API ran on :8000; the web app ran as `next dev` on :3000 and then as a production build (`next build` + `next start`) on :3001. One manual run of each type was generated for Run 1 (brand `BSOAgentTestBrand`; a read-only query on dev showed 100 answers, all `done`, requested 2026-09-19 to 2026-09-22) through `POST /v1/brands/{id}/reports/{type}/runs`, and each PDF was fetched through its public link. No worker, no model spend. This wrote five `report_run` rows and five `report` definition rows (cadence `off`) on dev.
+Run by the controller on dev at 2026-09-25 11:44 UTC, after the final-review fix wave (HEAD 42f1164). Dev was upgraded from migration 0016 to 0017 first, by the controller without asking the user. The API ran on :8000; the web app ran as `next dev` on :3000 and then as a production build (`next build` + `next start`) on :3001. One manual run of each type was generated for Run 1 (brand `BSOAgentTestBrand`; a read-only query on dev showed 100 answers, all `done`, requested 2026-09-19 to 2026-09-22) through `POST /v1/brands/{id}/reports/{type}/runs`, and each PDF was fetched through its public link. No worker, no model spend. This wrote five `report_run` rows and five `report` definition rows (cadence `off`) on dev.
 
 | Type | Sections | Generate (s) | PDF pages | PDF bytes | PDF (s) |
 |---|---|---|---|---|---|
@@ -113,6 +113,7 @@ Task 8
 - The idle-in-transaction probe runs after the PDF response, so it cannot see a transaction held during `render_pdf`. Cost: a regression that renders inside the session would pass (fix: probe from inside a monkeypatched `render_pdf`).
 - The public JSON exposes `id`, `brand_id` and `share_token` (the spec mandates `ReportRunOut`). Cost: internal ids reach the reader.
 - No rate limiting on the public routes. Cost: a client can request the PDF route without limit, and each request renders a PDF.
+- From the final review: `tests/integration/test_api_reports.py` does not assert the status of the brand-rename PATCH before the PDF filename check. Cost: if the PATCH ever failed, the filename test would pass without testing the rename.
 
 Task 9
 - The Schedules table puts the select, timestamp and Save in one `colSpan=3` cell under a four-column header. Cost: a misaligned table.

@@ -116,7 +116,7 @@ Reports tab in `layout.tsx`; page `b/[id]/reports/page.tsx` with three parts and
 
 ### 8. Live check
 
-Before the finishing menu, on dev with the API running: generate all five types for Run 1 through the API, open `/r/{token}` and the PDF, record page counts, byte sizes and timings in `docs/findings-slice15.md`, and state what was observed. This writes `report_run` rows on dev and nothing else. The worker is not started.
+Before the finishing menu, on dev with the API running: generate all five types for Run 1 through the API, open `/r/{token}` and the PDF, record page counts, byte sizes and timings in `docs/findings-slice15.md`, and state what was observed. This writes `report_run` rows on dev and nothing else. The worker is not started. What the check actually did: the controller first upgraded dev from migration 0016 to 0017 without asking the user (the migration is additive; a downgrade removes it), and generating the runs wrote five `report_run` rows and five `report` definition rows (cadence `off`); see `docs/findings-slice15.md` §2.
 
 ## Rulings
 
@@ -141,6 +141,7 @@ Made during execution, in the order recorded in the ledger. Each gives the decis
 17. From the final review: the headings and the site-audit column take the §2 names ("Alerts in period", "Content gaps with briefs", "Page citability with next step", "New sources in period", column "Detail"); the SEO report keeps "Content gaps" and "Page citability", as §2 names them. This spec is the binding authority and its sections were approved; the plan's shorter names were an unrecorded drift. Cost if wrong: heading text only.
 18. From the final review: four small fixes went into the same fix wave: the public route re-checks the run's token after the tenant read (a revoke or re-share between the lookup and the read is a 404), the archive list defers the document, the PDF filename comes from the stored document's brand name instead of the brand row, and the HTML page emits the accent only when it is `#rrggbb`. Each is one or two lines on the public or security path or a known growth cost. Cost if wrong: a small extra diff under review.
 19. From the final review: `METHODOLOGY_VERSION` is not bumped for the interval format now printed in the Competitors share-of-voice and Sentiment mix cells, because no report runs exist outside tests yet (the dev live check comes after this change). Cost if wrong: none.
+20. From the final review: the Share of voice table (`brand_sov`) prints the share as `pct% [low%, high%]` with a Mentions column and no `n=`, because §2 assigns a percent share with its interval there and the Mentions column is the n. Cost if wrong: one format change.
 
 ## Out of scope
 

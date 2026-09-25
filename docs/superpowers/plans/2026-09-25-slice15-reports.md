@@ -3419,3 +3419,4 @@ Deviations from the text above, as recorded in the execution ledger (`.superpowe
 - Final review: the CMO/agency Competitors share-of-voice cell and the PR Sentiment mix share print `value [low, high] n=N` (`fmt_rate`), not `fmt_pct`; `METHODOLOGY_VERSION` stays "1".
 - Final review: headings "Alerts in period", "Content gaps with briefs" and "Page citability with next step" (content report), "New sources in period", and the site-audit column "Detail", as spec §2 names them (the plan had shorter names).
 - Final review: `public._run` 404s when the run's token no longer matches; the PDF filename comes from `run.document["brand"]` (no `Brand` read); `list_runs` defers `document` with `raiseload`; `ReportBody` sets `--accent` only for `#rrggbb`, with a vitest case.
+- Final review: the Share of voice table (`brand_sov`) prints `pct% [low%, high%]` with a Mentions column and no `n=` (spec ruling 20).
