@@ -12,12 +12,13 @@
 
 ## Changes made during execution
 
-This plan is the record of what was planned. These changes were made while it ran; the spec is updated to match, and `docs/findings-slice13.md` §3 lists every ruling with its cost.
-- Docs review fixes (commit 8194de4): no `s.begin()` on `tenant_session`; `http_fetch`'s response buffer renamed to `buf`; the 15-point floor rounds to 9 places and gets floor-only, label-only and exact-15-point tests; a delivery-marking test; the live check runs the detectors in a rolled-back session.
+This plan is the record of what was planned; the fixes from the docs review before Task 1 (commit 8194de4) are already in the task text below. These changes were made while it ran; the spec is updated to match, and `docs/findings-slice13.md` §3 lists every ruling with its cost.
 - Task 1: added the list index `ix_alert_list` (Ruling 1); ascending index columns (Ruling 4).
 - Task 2: the scan test is named `test_scan_inserts_and_dedupes_within_the_window` (Ruling 3); alert copy is tested by a separate `ALERT_CASES` list (Ruling 10).
-- Task 7: new-source alerts need a full window of history before the current window (Ruling 11, commits 4717c95 and 20b1387).
+- Task 7: new-source alerts need history before the window (Ruling 11). Commit 4717c95 required one answer before the window; after review, commit 20b1387 replaced that with a full window of history (the brand's earliest answer at or before `to` minus 14 days).
+- Task 7 Step 1 below says the detectors run on dev without migration 0016. That was wrong: the mention-rate detector loads the brand through the ORM, which needs the new columns, so only the new-source and competitor detectors ran (findings §2).
 - Final review (commit 7e22c45): clearing the webhook stops pending deliveries; `scan` takes a per-brand advisory lock; webhook posts send `WEBHOOK_UA`.
+- After the spec update's review (commit af0e5e7): a delivery that fails after the webhook was cleared mid-POST is given up instead of rescheduled (Ruling 13); the attempt re-reads the brand's webhook under a row lock.
 
 ## Global Constraints
 

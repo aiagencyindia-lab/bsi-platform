@@ -75,7 +75,7 @@ Each detector is `(s, brand_id, to) -> list[Candidate]`, where `Candidate` is a 
   - `GET /alerts?limit=50` (1 to 200) returns alerts newest first, then by id. A foreign brand returns 404.
   - `POST /alerts/scan` runs `scan` inline with `to = now` and returns `{created: n}`. It does not stamp `alerts_scanned_at`, so the daily scan still runs.
 - `AlertOut` exposes every alert column; `ScanOut` has `created`.
-- `BrandPatch.webhook_url` is optional and nullable, so an explicit null clears it. The validator accepts only `https`, a hostname that passes `is_public_hostname`, port 443 or none, no userinfo, and at most 2,000 characters. `BrandOut` returns it. Setting it to null also clears `next_attempt_at` on the brand's undelivered alerts, so an alert pending when the webhook is cleared is never posted to a webhook set later (added after the final review).
+- `BrandPatch.webhook_url` is optional and nullable, so an explicit null clears it. The validator accepts only `https`, a hostname that passes `is_public_hostname`, port 443 or none, no userinfo, and at most 2,000 characters. `BrandOut` returns it. Setting it to null also clears `next_attempt_at` on the brand's undelivered alerts, so an alert pending when the webhook is cleared is never posted to a webhook set later (added after the final review). A delivery already in flight when the webhook is cleared, and then failing, is given up rather than rescheduled: the worker re-reads the brand's webhook under a row lock when it records the attempt (Ruling 13).
 - Isolation tests get rows for both alert routes with a foreign alert in the fixture.
 
 ### 6. Web
@@ -91,6 +91,8 @@ Each detector is `(s, brand_id, to) -> list[Candidate]`, where `Candidate` is a 
 - Integration, with seeded observations at explicit `requested_at` values and a fixed `to`: each detector's fire and no-fire cases (threshold, incomparable windows, brand and rival domains skipped, an old domain is not new); dedupe within a window and re-fire after it; `next_attempt_at` set only with a webhook.
 - Worker: a brand is due again after a day (backdated through the database clock); every tenant is served; the payload is POSTed and the alert marked delivered; the backoff schedule then give-up; a refused host is recorded; no transaction is open during the POST; one failing delivery does not block the rest.
 - API: list order and limit; scan count; webhook validation cases; null clears. RLS and isolation rows.
+- Added during the build: `test_an_exact_15_point_drop_counts`; `test_scan_marks_alerts_for_delivery_only_with_a_webhook`; `test_new_source_needs_a_baseline_before_the_window`; `test_clearing_the_webhook_stops_pending_deliveries`; the webhook user agent assertion in the worker delivery test; `test_a_delivery_that_fails_after_the_webhook_is_cleared_is_given_up`.
+- Not tested: two scans of one brand at the same time (the advisory lock is verified by reading), and a PATCH that waits on the worker's brand row lock.
 
 ### 8. Live check
 
