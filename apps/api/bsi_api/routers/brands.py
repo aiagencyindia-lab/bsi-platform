@@ -41,13 +41,15 @@ def _webhook_url(value: str) -> str:
         and parts.username is None
     )
     if not ok:
-        raise ValueError("webhook_url must be https on a public host")
+        raise ValueError("must be an https URL on a public host")
     return value
 
 
 WebhookUrl = Annotated[
     str, Field(max_length=2000), AfterValidator(_webhook_url)
 ]
+LogoUrl = Annotated[str, Field(max_length=2000), AfterValidator(_webhook_url)]
+Accent = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]
 
 
 class Out(BaseModel):
@@ -68,6 +70,9 @@ class BrandPatch(BaseModel):
     aliases: list[Short] = Field(None, max_length=20)
     category: Short | None = None
     webhook_url: WebhookUrl | None = None
+    report_logo_url: LogoUrl | None = None
+    report_accent: Accent | None = None
+    report_prepared_by: str | None = Field(None, max_length=80)
 
 
 class BrandOut(Out):
@@ -76,6 +81,9 @@ class BrandOut(Out):
     category: str | None
     status: str
     webhook_url: str | None
+    report_logo_url: str | None
+    report_accent: str | None
+    report_prepared_by: str | None
 
 
 class CompetitorIn(BaseModel):

@@ -18,6 +18,7 @@ from .routers import (
     pages,
     prompts,
     recommendations,
+    reports,
     runs,
     schedules,
     tasks,
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
         clusters.router,
         pages.router,
         alerts.router,
+        reports.router,
     ):
         app.include_router(router, prefix="/v1")
     return app
