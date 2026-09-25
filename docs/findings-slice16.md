@@ -28,10 +28,19 @@
 
 ## 2. Live check
 
-Run by the controller on dev before the finishing menu; filled in below.
+Run by the controller on dev at 2026-09-25 13:44 UTC on the branch (HEAD 89ea7c3), after the user approved migrating dev. No crawl, no worker, no model spend.
 
 | Check | Result |
 |---|---|
+| Dev migration before the check | 0017 |
+| `alembic upgrade head` on dev | 0018 (head) |
+| `rival_page` rows on dev / non-baseline | 25,017 / 0 |
+| Run 1 open recommendations before (by type) | create_content 14, fix_crawlability 1, fix_entity 4, pursue_citation_source 53, sample_more 6 |
+| `POST /v1/brands/{Run 1}/recommendations/generate` | 200 in 0.53 s (curl `time_total`, one call) |
+| Run 1 open recommendations after (by type) | unchanged: the same five types and counts |
+| `respond_to_rival_content` rows for Run 1 | 0 |
+
+Observed: with migration 0018 the generate route runs the new rule without error. Dev has no non-baseline rival page (every crawl on dev so far is a baseline), so the rule produced nothing, as expected; its positive cases are covered only by tests (§4). A real signal needs the worker's next weekly crawl of Run 1's competitors to find new pages.
 
 ## 3. Deferred / decisions
 
@@ -73,6 +82,11 @@ Task 4
 Task 5
 - `RivalPages` renders `[object Object]` for a non-string `url` (as escaped text). Cost: an unreadable entry for malformed evidence; no link, no injection.
 - The `RivalPages` signature line is 83 characters. Cost: style only.
+
+Final review (wording, no second fix wave)
+- Spec §2 still describes `_rival_pages` as ordered `first_seen_at DESC, url` without mentioning the `RIVAL_PAGES_SCAN` cap (spec ruling 8 records the cap). Cost: one sentence of spec drift.
+- The plan's Task 6 change line credits the spec §3 and §4 wording corrections to spec ruling 7, which covers only the refresh-when-stored behaviour. Cost: a misattribution in the plan.
+- The 14-day expiry item above says "open rows without evidence are removed"; precisely, `refresh` deletes open rows whose (type, subject key) the latest `generate` did not produce. Cost: none; the meaning is the same.
 
 ## 4. Not covered by tests
 
