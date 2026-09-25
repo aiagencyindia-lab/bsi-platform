@@ -30,6 +30,8 @@ TENANT_TABLES = [
     "rival_crawl",
     "rival_page",
     "alert",
+    "report",
+    "report_run",
 ]
 
 
@@ -153,6 +155,23 @@ def org_b(owner, make_org, make_brand, make_observation):
                 title="t",
                 window_from=datetime.now(UTC),
                 window_to=datetime.now(UTC),
+            )
+        )
+        rep = m.Report(org_id=b.id, brand_id=bid, type="cmo")
+        s.add(rep)
+        s.flush()
+        s.add(
+            m.ReportRun(
+                org_id=b.id,
+                brand_id=bid,
+                report_id=rep.id,
+                type="cmo",
+                source="manual",
+                period_from=datetime.now(UTC),
+                period_to=datetime.now(UTC),
+                compare_from=datetime.now(UTC),
+                document={},
+                methodology_version="1",
             )
         )
     return b

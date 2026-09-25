@@ -57,6 +57,9 @@ IMPACT_LABELS = (
     "not_comparable",
 )
 ALERT_TYPES = ("mention_drop", "competitor_shift", "new_source")
+REPORT_TYPES = ("cmo", "seo", "content", "pr", "agency")
+REPORT_CADENCES = ("off", "weekly", "monthly")
+RUN_SOURCES = ("scheduled", "manual")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -127,6 +130,11 @@ class Brand(Tenant, Base):
     alerts_scanned_at: Mapped[datetime | None] = mapped_column(TSZ)
     # One HTTPS URL each new alert is POSTed to; null = no delivery.
     webhook_url: Mapped[str | None]
+    # Agency-report branding; all optional. Copied into the document at
+    # build time, so the public route never reads this row.
+    report_logo_url: Mapped[str | None]
+    report_accent: Mapped[str | None]
+    report_prepared_by: Mapped[str | None]
 
 
 class Domain(Tenant, Base):
@@ -460,6 +468,57 @@ class Alert(Tenant, Base):
             postgresql_where=text(
                 "delivered_at IS NULL AND next_attempt_at IS NOT NULL"
             ),
+        ),
+    )
+
+
+class Report(Tenant, Base):
+    """The definition: one row per (brand, type), created lazily.
+    generated_at is stamped by the worker's scheduled pass only; a manual
+    run must not defer the next scheduled one."""
+
+    __tablename__ = "report"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    type: Mapped[str]
+    cadence: Mapped[str] = mapped_column(server_default="off")
+    generated_at: Mapped[datetime | None] = mapped_column(TSZ)
+    __table_args__ = (
+        CheckConstraint(_in("type", REPORT_TYPES), name="ck_report_type"),
+        CheckConstraint(
+            _in("cadence", REPORT_CADENCES), name="ck_report_cadence"
+        ),
+        UniqueConstraint("brand_id", "type", name="uq_report_brand_type"),
+    )
+
+
+class ReportRun(Tenant, Base):
+    """One rendered report. `document` is the whole content, frozen at
+    generation; the HTML page and the PDF only render it."""
+
+    __tablename__ = "report_run"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    report_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("report.id"))
+    type: Mapped[str]
+    source: Mapped[str]
+    period_from: Mapped[datetime] = mapped_column(TSZ)
+    period_to: Mapped[datetime] = mapped_column(TSZ)
+    # The prior period is [compare_from, period_from).
+    compare_from: Mapped[datetime] = mapped_column(TSZ)
+    document: Mapped[dict[str, Any]]
+    methodology_version: Mapped[str]
+    # NULL = link revoked (or never shared).
+    share_token: Mapped[str | None]
+    __table_args__ = (
+        CheckConstraint(_in("type", REPORT_TYPES), name="ck_report_run_type"),
+        CheckConstraint(
+            _in("source", RUN_SOURCES), name="ck_report_run_source"
+        ),
+        Index("ix_report_run_list", "brand_id", "created_at"),
+        Index(
+            "ix_report_run_token",
+            "share_token",
+            unique=True,
+            postgresql_where=text("share_token IS NOT NULL"),
         ),
     )
 
