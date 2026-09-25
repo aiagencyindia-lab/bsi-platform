@@ -44,3 +44,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }
+
+/** Server-side call to a public /v1 route: no cookie, no key. */
+export async function publicApi<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}/v1${path}`, { cache: "no-store" });
+  if (res.status === 404) notFound();
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
