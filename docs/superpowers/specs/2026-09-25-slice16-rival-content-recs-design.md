@@ -48,18 +48,18 @@ Planning ran on Fable 5.1 with the user's approval. Implementers and reviewers r
 
 ### 3. Type, migration, copy, evidence
 
-- `REC_TYPES` gains `"respond_to_rival_content"` (eight values). Migration `0018_respond_to_rival_content.py` recreates `ck_recommendation_type` with `_rec_type_check` copied from 0014; downgrade deletes recommendations of the new type (tasks keep their nullable `recommendation_id`), then restores the seven-value constraint.
+- `REC_TYPES` gains `"respond_to_rival_content"` (eight values). Migration `0018_respond_to_rival_content.py` recreates `ck_recommendation_type` with `_rec_type_check` copied from 0014; downgrade sets `task.recommendation_id` to NULL for the new type's recommendations, then deletes those recommendations, then restores the seven-value constraint (tasks survive).
 - `rival_content_copy(brand, topic, intent, page_type, pages_by_rival, n, brand_rate, top_rival, gap) -> (title, body)`:
   - Title: `{Rival} published {k} new {topic} page(s)` for one competitor; `{k} new {topic} pages from {names(...)}` for several.
-  - Body: one clause per competitor naming up to three pages by their last path segment; the brand's standing (`this cluster is a content gap` when `gap`, else `{brand} is named in {brand_rate:.0%} of {n} answers; {top_rival} in {rival_rate:.0%}`); the response (`Publish a {page_type} on {topic}` using `gaps.PAGE_TYPES[intent]`); and `Metric to watch: mention rate on the {topic} cluster.` No promised outcome.
+  - Body: one clause per competitor naming up to three pages by their last path segment; the brand's standing (`this cluster is a content gap` when `gap`, else `{brand} is named in {brand_rate:.0%} of {n} answers; {top_rival} in {rival_rate:.0%}`); the response (`Publish a {page_type} on {topic}` using `gaps.PAGE_TYPES[intent]`, the article chosen `a`/`an` by the page type's first letter); and `Metric to watch: {brand}'s mention rate on the {topic} cluster.` No promised outcome.
 - `NO_IMPACT` unchanged: accepting creates a task that measures impact on the cluster's prompts.
 - Web `KIND["respond_to_rival_content"] = "Rival content"`. `reports.REC_LABEL` gets the same; `SEO_REC_TYPES` and `CONTENT_REC_TYPES` include the type. `METHODOLOGY_VERSION` is not bumped (ruling: it tracks how numbers are computed and formatted, not which recommendation types exist).
 
 ### 4. When it runs, API, web
 
-- `run_rival_crawl` ends with one `refresh(s, org_id, brand_id)` in a fresh tenant session, in its own `try/log.exception`, so recommendations follow a crawl at once and a refresh failure never fails the crawl job. No `recs_refreshed_at` stamp (the weekly pass keeps its cadence). The manual `POST /competitors/crawl` therefore yields the recommendations once its job runs.
+- `run_rival_crawl` ends, when at least one domain was stored (`if stored:`), with one `refresh(s, org_id, brand_id)` in a fresh tenant session, in its own `try/log.exception`, so recommendations follow a crawl at once and a refresh failure never fails the crawl job. No `recs_refreshed_at` stamp (the weekly pass keeps its cadence). The manual `POST /competitors/crawl` therefore yields the recommendations once its job runs.
 - API: no new routes; `RecommendationOut.type` is a free string. `npm run gen` is run and `gen:check` should show no diff.
-- Web: `recommendations/page.tsx` renders `evidence.pages` (read defensively with `Array.isArray`) as up to 10 external links, http(s) only, with the competitor name and the day first seen; `KIND` gains the label.
+- Web: `apps/web/src/components/RivalPages.tsx`, used by `recommendations/page.tsx`, renders `evidence.pages` (read defensively with `Array.isArray`) as up to 10 external links, http(s) only, with the competitor name and the day first seen; `KIND` gains the label.
 
 ### 5. Testing
 
@@ -84,6 +84,9 @@ Made during execution, in the order recorded in the ledger. Each gives the decis
 4. Task 5 adds the vitest §5 asks for: the evidence-pages rendering moves into `apps/web/src/components/RivalPages.tsx` (props `pages`, `total`), used by `recommendations/page.tsx`, and a test with `renderToStaticMarkup` shows an https URL renders a link and a `javascript:` URL renders as text. §5 is binding and the plan had omitted the test. Cost if wrong: one small component file.
 5. The copy ban binds `rival_content_copy`'s fixed wording only. Slugs quoted from competitor URLs are data, as in slice 15's ruling for quoted stored text, so the copy test's fixture slug changes from `ultraboost-24` to `adizero-sl-2` and the findings record the exemption. Cost if wrong: a real recommendation can quote a rival slug containing a banned word such as `boost`.
 6. `Evidence.pages` and `pages_total` are typed `unknown` in the web page, and `RivalPages` checks each field's type itself, because it reads JSONB evidence. Cost if wrong: none.
+7. `run_rival_crawl` refreshes only when at least one domain was stored (`if stored:`, the plan's code), and §4 was corrected to say so, because a refresh after a crawl that stored nothing cannot change anything. Cost if wrong: none.
+8. `_rival_pages` reads at most `RIVAL_PAGES_SCAN = 5_000` pages, newest first, with a `ponytail:` comment naming the ceiling, because a full-site re-slug would otherwise make every generate (including the synchronous API route) load up to 50k rows per domain. Cost if wrong: in that extreme case older matched pages beyond 5,000 are ignored and `pages_total` is capped.
+9. The final fix wave also adds a test for the empty-topic guard and records over-matching, 14-day card expiry and migrate-before-deploy in the findings; the Task 4 "no WHERE" note is corrected to say it has no effect because each test truncates first. Cost if wrong: a small extra diff under review.
 
 ## Out of scope
 
