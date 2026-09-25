@@ -130,6 +130,11 @@ Task 10
 - **SEO content-gap rows repeat a topic.** The SEO report's "Content gaps" table prints the topic only, so clusters with the same topic and different intents look like duplicate rows. Cost: a reader cannot tell the rows apart; the fix is an Intent column.
 - **"No scored pages in this period."** Both page-citability sections (SEO and content) use the latest audit per cluster and URL regardless of the period, so "in this period" is inaccurate. Cost: wording only.
 
+### Wording notes from the audit review
+- §2 says the first fetch attempt "got five 422s, plus one more for a page request"; it could say more clearly that the sixth 422 came from a page request (not a PDF fetch) sent with the same wrong token. Cost: wording only; the facts stated are correct.
+- Spec §8 keeps its original planned sentence ("This writes `report_run` rows on dev and nothing else.") right before the appended correction, which reads as a contradiction; it could mark the original as the plan ("as planned") or open the correction with "In fact". Cost: wording only; the facts stated are correct.
+- §2's Observed bullet says the share-of-voice format was "ruled in the final review"; it could cite "spec ruling 20" to match the plan's entry. Cost: wording only; the facts stated are correct.
+
 ## 4. Not covered by tests
 - The Next.js public page route itself (`app/r/[token]/page.tsx`); only `ReportBody` (rendering a fixture document) and `publicApi` (404 and 422 to not-found, 5xx throws, no auth sent) are unit-tested. The route is exercised in the live check (§2).
 - The tab title on `/r` error paths (not-found and error pages under the "Report" layout title); no test renders them.
