@@ -41,6 +41,7 @@ BOTS = (
     "Bingbot",
 )
 BODY_CAP_BYTES = 512 * 1024  # decoded bytes kept per fetch
+SITEMAP_CAP_BYTES = 50 * 1024 * 1024  # the sitemap protocol's file limit
 OBSERVED_CAP = 300
 PAUSE_SECONDS = 0.5
 PHASE_TIMEOUT_SECONDS = 15  # connect, each read
@@ -59,6 +60,7 @@ class Response:
     status: int
     body: str = ""
     error: str | None = None
+    truncated: bool = False  # the body was cut at the fetch's cap
 
     @property
     def ok(self) -> bool:
@@ -237,18 +239,25 @@ def http_fetch(
     method: str = "GET",
     body: bytes | None = None,
     content_type: str | None = None,
+    cap: int = BODY_CAP_BYTES,
+    raw: bool = False,
 ) -> Response:
     """The real fetch. Never raises: an error is a Response with status 0,
     and a URL it will not fetch has error "refused: <reason>".
 
     The body is decoded here, not by httpx, so a compressed body never
-    inflates past BODY_CAP_BYTES. The 30 s deadline covers resolving,
+    inflates past `cap`. The 30 s deadline covers resolving,
     connecting, sending and reading on every hop; a lookup waits at most
     DNS_TIMEOUT_SECONDS or the time left, whichever is less.
 
     POST sends `body` (and `content_type` as Content-Type) and never
     follows a redirect: a 3xx comes back as a non-ok Response. Every guard
     applies to both methods.
+
+    `cap` bounds the decoded bytes kept (every guard is unchanged);
+    `truncated` says the cap cut the body. `raw=True` decodes the bytes as
+    Latin-1, which is lossless: `body.encode('latin-1')` gives the exact
+    bytes back.
     """
     deadline = time.monotonic() + DEADLINE_SECONDS
     try:
@@ -307,17 +316,31 @@ def http_fetch(
                         continue
                     z = _decompressor(r.headers.get("content-encoding", ""))
                     buf = bytearray()
-                    for raw in r.iter_raw():
-                        room = BODY_CAP_BYTES - len(buf)
+                    cut = False
+                    chunks = r.iter_raw()
+                    for chunk in chunks:
+                        room = cap - len(buf)
                         # max_length bounds each inflate to what fits.
-                        buf += z.decompress(raw, room) if z else raw[:room]
+                        buf += z.decompress(chunk, room) if z else chunk[:room]
                         if time.monotonic() > deadline:
                             return Response(0, "", _TIMED_OUT)
-                        if len(buf) >= BODY_CAP_BYTES:
+                        if len(buf) >= cap:
+                            # Cut only if something was dropped: the rest of
+                            # this chunk (inflated or not), or a later chunk.
+                            more = (
+                                bool(z.unconsumed_tail)
+                                if z
+                                else len(chunk) > room
+                            )
+                            cut = more or next(chunks, b"") != b""
                             break
-                    return Response(
-                        r.status_code, _decode(bytes(buf), r.charset_encoding)
+                    data = bytes(buf)
+                    text_body = (
+                        data.decode("latin-1")
+                        if raw
+                        else _decode(data, r.charset_encoding)
                     )
+                    return Response(r.status_code, text_body, truncated=cut)
             raise _Refused(_REDIRECTS_REFUSED)
     except _Refused as e:
         return Response(0, "", f"refused: {e}")
