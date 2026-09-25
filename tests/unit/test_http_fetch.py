@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 import pytest
-from bsi_core.crawl import BODY_CAP_BYTES, http_fetch
+from bsi_core.crawl import BODY_CAP_BYTES, SITEMAP_CAP_BYTES, http_fetch
 
 PUBLIC = "93.184.216.34"
 
@@ -460,3 +460,89 @@ def test_post_to_a_private_address_is_refused():
         body=b"{}",
     )
     assert r.status == 0 and r.error.startswith("refused:") and t.seen == []
+
+
+def test_a_cut_body_is_flagged_and_an_exact_fit_is_not():
+    big = b"a" * (BODY_CAP_BYTES * 3)
+    r, _ = fetch(
+        "https://nike.com/",
+        {"nike.com": [PUBLIC]},
+        lambda q: httpx.Response(200, content=big),
+    )
+    assert (r.status, len(r.body), r.truncated) == (200, BODY_CAP_BYTES, True)
+    exact = b"b" * BODY_CAP_BYTES
+    r, _ = fetch(
+        "https://nike.com/",
+        {"nike.com": [PUBLIC]},
+        lambda q: httpx.Response(200, content=exact),
+    )
+    assert (len(r.body), r.truncated) == (BODY_CAP_BYTES, False)
+
+
+def test_a_custom_cap_is_honoured():
+    body = b"c" * 10_000
+    t = server(lambda q: httpx.Response(200, content=body))
+    r = http_fetch(
+        "https://nike.com/",
+        "UA",
+        resolve=dns({"nike.com": [PUBLIC]}),
+        transport=t,
+        cap=4_000,
+    )
+    assert (len(r.body), r.truncated) == (4_000, True)
+    t = server(lambda q: httpx.Response(200, content=body))
+    r = http_fetch(
+        "https://nike.com/",
+        "UA",
+        resolve=dns({"nike.com": [PUBLIC]}),
+        transport=t,
+        cap=SITEMAP_CAP_BYTES,
+    )
+    assert (len(r.body), r.truncated) == (10_000, False)
+
+
+def test_a_gzip_bomb_stays_bounded_at_a_custom_cap():
+    bomb = gz_zeros(256 << 20)
+    cap = 2 << 20
+    tracemalloc.start()
+    try:
+        t = server(encoded(bomb, "gzip"))
+        r = http_fetch(
+            "https://nike.com/",
+            "UA",
+            resolve=dns({"nike.com": [PUBLIC]}),
+            transport=t,
+            cap=cap,
+        )
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert (r.status, len(r.body), r.truncated) == (200, cap, True)
+    assert peak < 12 * 1024 * 1024, peak
+
+
+def test_raw_mode_round_trips_the_exact_bytes():
+    payload = b"\x1f\x8b\x08\x00\xff\xfe<urlset/>\xe9"
+    t = server(
+        lambda q: httpx.Response(
+            200,
+            headers={"Content-Type": "text/xml; charset=utf-8"},
+            content=payload,
+        )
+    )
+    r = http_fetch(
+        "https://nike.com/s.xml.gz",
+        "UA",
+        resolve=dns({"nike.com": [PUBLIC]}),
+        transport=t,
+        raw=True,
+    )
+    assert r.ok and r.body.encode("latin-1") == payload
+    t = server(lambda q: httpx.Response(200, content=payload))
+    r = http_fetch(
+        "https://nike.com/s.xml.gz",
+        "UA",
+        resolve=dns({"nike.com": [PUBLIC]}),
+        transport=t,
+    )
+    assert r.body.encode("latin-1", "replace") != payload  # default decodes

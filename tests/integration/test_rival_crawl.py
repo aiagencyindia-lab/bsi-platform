@@ -317,7 +317,7 @@ def test_first_domain_out_of_time_is_stored_and_waits(
     org = make_org()
     bid = make_brand(org)
     cid = _rival(owner, org, bid, domains=("r.com",))
-    ticks = iter([0.0])  # the deadline is set at 0; every later read is late
+    ticks = iter([0.0] * 4)  # job start, domain check, two deadlines
     stored = _direct(owner, org, bid, _fake({}), lambda: next(ticks, 1e9))
     assert stored == 1
     with owner() as s:
@@ -336,7 +336,7 @@ def test_first_domain_out_of_time_is_stored_and_waits(
     assert due() == []  # waits 7 days like any other crawl
 
 
-def test_a_later_domain_out_of_time_is_not_stored_and_stays_due(
+def test_every_out_of_time_domain_is_stored_incomplete(
     owner, make_org, make_brand
 ):
     org = make_org()
@@ -358,16 +358,16 @@ def test_a_later_domain_out_of_time_is_not_stored_and_stays_due(
         return inner(url, ua)
 
     stored = _direct(owner, org, bid, fetch, lambda: now[0])
-    assert stored == 1
+    assert stored == 2
     with owner() as s:
-        [c] = s.scalars(select(m.RivalCrawl)).all()
-    assert (c.domain, c.complete, c.urls_seen, c.errors) == (
-        "a.com",
-        True,
-        1,
-        [],
-    )
-    assert due() == [bid]  # b.com never crawled
+        rows = {c.domain: c for c in s.scalars(select(m.RivalCrawl))}
+    assert (rows["a.com"].complete, rows["a.com"].urls_seen) == (True, 1)
+    assert rows["b.com"].complete is False and rows["b.com"].urls_seen == 0
+    per = max(worker.RIVAL_DOMAIN_FLOOR_SECONDS, worker.RIVAL_JOB_SECONDS // 2)
+    assert rows["b.com"].errors == [
+        f"out of time: the crawl did not finish within {per} s"
+    ]
+    assert due() == []  # both stored; both wait 7 days
 
 
 def test_one_domain_failing_its_write_does_not_lose_the_others(
@@ -753,3 +753,71 @@ def test_site_changes_reports_the_latest_crawl_of_declared_domains(
     assert [
         (c["domain"], c["complete"], c["crawled_at"]) for c in ad["crawls"]
     ] == [("r.com", False, at)]
+
+
+def test_domains_the_job_never_reaches_stay_due(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    _rival(owner, org, bid, domains=("a.com", "b.com"))
+    now = [0.0]
+    inner = _fake({"a.com": {"https://a.com/": HOME}})
+
+    def fetch(url, ua):
+        if url == "https://a.com/":  # a.com's last fetch eats the job budget
+            now[0] = 1e9
+        return inner(url, ua)
+
+    stored = _direct(owner, org, bid, fetch, lambda: now[0])
+    assert stored == 1
+    with owner() as s:
+        assert [c.domain for c in s.scalars(select(m.RivalCrawl))] == ["a.com"]
+    assert due() == [bid]  # b.com never started
+
+
+def test_the_per_domain_budget_has_a_floor(owner, make_org, make_brand):
+    # 420 // 10 = 42 s, so the floor of 60 s applies.
+    org = make_org()
+    bid = make_brand(org)
+    _rival(owner, org, bid, domains=tuple(f"d{i}.com" for i in range(10)))
+    now = [0.0]
+    inner = _fake({})
+
+    def fetch(url, ua):
+        now[0] = 1e9  # the first fetch uses up every budget
+        return inner(url, ua)
+
+    stored = _direct(owner, org, bid, fetch, lambda: now[0])
+    assert worker.RIVAL_DOMAIN_FLOOR_SECONDS == 60
+    assert stored == 1
+    with owner() as s:
+        [c] = s.scalars(select(m.RivalCrawl)).all()
+    assert c.complete is False
+    assert c.errors == ["out of time: the crawl did not finish within 60 s"]
+    assert due() == [bid]  # the other nine never started
+
+
+def test_sitemaps_go_through_the_sitemap_fetch(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    cid = _rival(owner, org, bid, domains=("r.com",))
+    inner = _fake({"r.com": {"https://r.com/": HOME}})
+    sitemap_calls = []
+
+    def sitemap_fetch(url, ua):
+        sitemap_calls.append(url)
+        return Response(200, urlset(("https://r.com/x", None)))
+
+    jid = _job(owner, org, bid, "crawl_rivals", "running")
+    worker.run_rival_crawl(
+        org.id, bid, jid, inner, clock=lambda: 0.0, sitemap_fetch=sitemap_fetch
+    )
+    assert sitemap_calls == ["https://r.com/sitemap.xml"]
+    assert "https://r.com/x" in _pages(owner, cid)
+
+
+def test_the_default_sitemap_fetch_is_http_fetch_bound_to_the_sitemap_cap():
+    from bsi_core.crawl import SITEMAP_CAP_BYTES, http_fetch
+
+    f = worker.SITEMAP_FETCH
+    assert f.func is http_fetch
+    assert f.keywords == {"cap": SITEMAP_CAP_BYTES, "raw": True}

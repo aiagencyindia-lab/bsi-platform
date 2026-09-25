@@ -133,6 +133,14 @@ In the order they were written:
 | [superpowers/plans/2026-09-25-slice13-alerts.md](superpowers/plans/2026-09-25-slice13-alerts.md) | Implementation plan, Tasks 1–7. |
 | [findings-slice13.md](findings-slice13.md) | Results: what was built, the read-only scan on Run 1, and what is deferred. |
 
+## Slice 14: sitemaps in full
+
+| Document | What it is |
+|---|---|
+| [superpowers/specs/2026-09-25-slice14-sitemaps-in-full-design.md](superpowers/specs/2026-09-25-slice14-sitemaps-in-full-design.md) | Design spec: sitemap files read up to 50 MiB with gzip, 50 files and 50,000 URLs per domain, exact cut-off errors, a time budget per domain. |
+| [superpowers/plans/2026-09-25-slice14-sitemaps-in-full.md](superpowers/plans/2026-09-25-slice14-sitemaps-in-full.md) | Implementation plan, Tasks 1–4. |
+| [findings-slice14.md](findings-slice14.md) | Results: the read-only re-check of skechers.in, skechers.com and crocs.in against the slice 12 numbers, and what is deferred. |
+
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
 
