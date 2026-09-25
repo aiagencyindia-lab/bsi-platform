@@ -34,7 +34,7 @@ Error lines:
 
 ## 3. Deferred / decisions
 
-From the spec:
+From the spec (approved by the user through the design sections, as built, on 2026-09-25):
 - The 30 s deadline per fetch stays for sitemap files. Cost: a file that cannot download in 30 s stays incomplete; the fix is a `deadline` keyword shaped like `cap`.
 - The URL ceiling cuts in sitemap order, not newest first. Cost: on a site over 50,000 URLs the newest products may be dropped.
 - The job budget is split equally with a 60 s floor. Cost: one slow site gets less time when many domains are due, and an out-of-time domain keeps none of the URLs it read.
@@ -62,6 +62,10 @@ Minor items deferred from the task reviews ("final triage" marks those the ledge
 - The 50 MiB cap in production depends on `fetch is http_fetch`; untested, and a wrapped `http_fetch` would fall back to 512 KiB silently. Cost: big sitemaps cut again after such a refactor.
 - `test_domains_the_job_never_reaches_stay_due` does not assert how the first domain ended. Cost: a weaker test.
 - `iter([0.0] * 4)` ties a test to the exact number of clock reads. Cost: a brittle test.
+
+Nits from the final re-review, deferred:
+- An uneven line break in the `RIVAL_JOB_SECONDS` comment in `worker.py`. Cost: cosmetic.
+- The worst-case item above is marked fixed but sits in this deferred list. Cost: a misleading placement.
 
 ## 4. Not covered by tests
 - Real gzip sitemaps served without Content-Encoding. The tests fake them. The live check's output does not list the sitemap URLs it read, and ".gz" appears nowhere in it, so it neither shows nor rules out that a `.gz` file was read.
