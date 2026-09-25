@@ -22,6 +22,7 @@ from bsi_core.reports import (
     fmt_delta,
     fmt_rate,
     generate,
+    label,
 )
 from bsi_workers.worker import generate_due_reports
 from sqlalchemy import select, text, update
@@ -234,7 +235,7 @@ def test_cmo_opening_agrees_with_brand_deltas(owner, make_org, make_brand):
         for k in DELTA_METRICS
     ]
     assert vis.rows[0][1] == "0.67 [0.30, 0.90] n=6"
-    assert doc.footer.startswith("Methodology v1 · pipeline v")
+    assert doc.footer.startswith("Methodology v2 · pipeline v")
 
 
 def test_cmo_sections_agree_with_the_dashboard_functions(
@@ -263,9 +264,10 @@ def test_cmo_sections_agree_with_the_dashboard_functions(
     assert comp.rows[0][2] == fmt_rate(ents[0]["sov"])
     src = _table(doc, "Top cited sources")
     assert src.rows == [
-        [x["domain"], x["owner"], str(x["answers"]), str(x["prompts"])]
+        [x["domain"], label(x["owner"]), str(x["answers"]), str(x["prompts"])]
         for x in srcs[:10]
     ]
+    assert src.rows[0][1] == "Third party"
     assert _table(doc, "Recommendations").rows == [
         ["Citation source", "Pitch forbes.com", "0.12"]
     ]
@@ -280,8 +282,8 @@ def test_cmo_sections_agree_with_the_dashboard_functions(
         [
             "Pitch forbes.com",
             "Priya",
-            "impact_measured",
-            "improved",
+            "Impact measured",
+            "Improved",
             "+0.20 [+0.10, +0.30] increase",
         ]
     ]
@@ -391,11 +393,57 @@ def test_seo_sections(owner, make_org, make_brand):
     assert src.columns == ["Domain", "Owner", "Answers", "Prompts", "Gap"]
     audit = _table(doc, "Site audit")
     assert audit.columns == ["Domain", "Check", "Severity", "Detail"]
-    assert audit.rows == [["nike.com", "llms_txt", "low", "404 (expected 200)"]]
+    assert audit.rows == [["nike.com", "Llms txt", "Low", "404 (expected 200)"]]
     assert _table(doc, "Page citability").rows == [
         ["https://nike.com/best-shoes", "cluster:commercial:shoes", "61"]
     ]
     assert _table(doc, "Recommendations").rows[0][1] == "Pitch forbes.com"
+
+
+def test_seo_gap_table_has_an_intent_column(owner, make_org, make_brand):
+    org, bid = _scene(owner, make_org, make_brand)
+    # Two labelled prompts with the same topic and different intents, the
+    # brand absent on every answer, so both clusters are gaps.
+    with owner() as s, s.begin():
+        cid = s.scalars(
+            select(m.Competitor.id).where(m.Competitor.brand_id == bid)
+        ).first()
+    for intent in ("commercial", "problem-based"):
+        p = _prompt(owner, org, bid, f"{intent} kids shoes")
+        with owner() as s, s.begin():
+            s.execute(
+                update(m.Prompt)
+                .where(m.Prompt.id == p)
+                .values(intent=intent, topic="kids shoes")
+            )
+        obs = _answers(owner, org, bid, p, NOW - timedelta(days=1), 4)
+        with owner() as s, s.begin():
+            for o in obs:
+                s.add(
+                    m.Extraction(
+                        org_id=org.id,
+                        observation_id=o,
+                        pipeline_version="2",
+                        model_used="t",
+                        brand_mentioned=False,
+                        absence_reason="competitor_dominance",
+                    )
+                )
+                s.add(_mention(org, o, "competitor", cid))
+    with tenant_session(org.id) as s:
+        doc = build_seo(s, s.get_one(m.Brand, bid), 7, NOW)
+    gaps = _table(doc, "Content gaps")
+    assert gaps.columns == [
+        "Intent",
+        "Topic",
+        "Prompts",
+        "Brand mention rate",
+        "Top rival",
+    ]
+    assert sorted((r[0], r[1]) for r in gaps.rows) == [
+        ("Commercial", "kids shoes"),
+        ("Problem-based", "kids shoes"),
+    ]
 
 
 def test_content_sections(owner, make_org, make_brand):
@@ -433,8 +481,8 @@ def test_pr_sections(owner, make_org, make_brand):
     ]
     mix = _table(doc, "Sentiment mix")
     assert mix.rows == [
-        ["neutral", "3", fmt_rate(rate(3, 4))],
-        ["negative", "1", fmt_rate(rate(1, 4))],
+        ["Neutral", "3", fmt_rate(rate(3, 4))],
+        ["Negative", "1", fmt_rate(rate(1, 4))],
     ]
     neg = _table(doc, "Negative mentions")
     assert len(neg.rows) == 1 and neg.rows[0][1] == "best shoes"
@@ -506,7 +554,7 @@ def test_generate_freezes_the_document(owner, make_org, make_brand):
     with tenant_session(org.id) as s:
         run = s.get_one(m.ReportRun, run_id)
         assert Document.model_validate(run.document) == before
-        assert run.methodology_version == "1"
+        assert run.methodology_version == "2"
         assert run.period_to == NOW
         assert run.period_from == NOW - timedelta(days=7)
         assert run.compare_from == NOW - timedelta(days=14)
