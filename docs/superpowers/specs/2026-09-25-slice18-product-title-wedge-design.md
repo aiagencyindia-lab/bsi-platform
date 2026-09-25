@@ -1,0 +1,171 @@
+# Slice 18 design: product-title wedge (F16)
+
+## Context
+
+F16 (PRD §F16, flow §5.7) is a P0 and the reason the project started: the ADK demo's loop of finding a generic shopper keyword, searching for the titles that already rank for it, comparing them with the brand's own titles and rewriting the titles. Nothing of it exists in bsi-platform yet: no product table, no import, no rewrite. This slice ports the loop as a brand-scoped Products tab.
+
+Classification, said first in chat: **architectural**. It is a new subsystem (product catalogue, import, batch run, rewrite), not a change to an existing flow.
+
+Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-25):
+
+- **Ingest:** CSV upload and Google Merchant feed URL. Shopify OAuth is deferred: it needs a partner app, client secrets, a callback Route Handler and token storage, a slice of its own.
+- **Top-ranking titles:** the platform's grounded Gemini engine (`gemini-2.5-flash` with Google Search, prompt `"<keyword> buy online"`), parsed by flash-lite. This is what the ADK `search_results` agent does. A licensed SERP provider (Google Shopping and organic, as the PRD wants) can replace it later at the `keyword_search` seam without touching products or the run.
+- **Export:** an API CSV endpoint plus a **second Route Handler** at `app/(app)/b/[id]/products/export.csv/route.ts`, approved by the user. It is the first authenticated Route Handler.
+- **Spend:** one grounded search per distinct rank-1 keyword, not per product. The run cap is 1,000 products, the PRD's figure. The budget guard runs in the worker.
+- **Data model, approach A:** the latest result lives on the product row; a `keyword_search` table caches the comparison set per keyword; runs are `job` rows. Rejected: a full history (`product_run` + `product_result`: two more RLS tables for a view the PRD never asks for) and emitting suggestions as recommendations (1,000 cards, impact windows that don't apply, no CSV).
+
+Codebase facts the design rests on:
+
+- `Job` (`models.py`) has `kind`, `status`, `params`, `error`, `cost_micros`, `started_at`; there is no CHECK on `kind`. The worker's `JOB_ESTIMATES` dict (`worker.py`) is the list of kinds; `process_job` claims a job through `claim_job()`, checks `budget_fits(s, org_id, 0, extra_micros=estimate)` in a short tenant session, wraps the adapter and generator in `_Meter`, calls the runner with no transaction open, and `_finish_job` adds the metered micros. Runners raise `JudgeFailed(e, spent)` so money spent before a failure is recorded. The API never checks the budget; `runs.queue_suggestion` just queues.
+- `judge.generate(prompt, schema, temperature)` calls `extract_model` (`gemini-3.5-flash-lite`) with a JSON response schema and returns `(json_text, cost_micros, model)`. `suggest.py` injects it as `Generator = Callable[[str, type[BaseModel], float], tuple[str, int, str]]`, so tests never spend.
+- `GeminiGroundingAdapter.query(prompt, country, language)` returns an `EngineResult` (`kind`, `raw`, `cost_micros`, `model`); `providers.gemini.parse(raw)` gives `ParsedAnswer(text, citations=[(url, domain)])`. Grounding metadata carries source domains, not product titles: the titles must come from the answer text.
+- `crawl.http_fetch(url, ua, *, cap, raw)` never raises, has a 30 s deadline, and `rivals.parse_sitemap` streams XML with `XMLPullParser`, strips namespaces with `tag.rsplit("}", 1)[-1]`, and inflates gzip under the cap. `SITEMAP_FETCH = partial(http_fetch, cap=..., raw=True)`.
+- Migration template: `0017_reports.py` copies `_protect(table)` (index, ENABLE + FORCE RLS, policy `tenant`, grant to `bsi_app`) and `_row_columns()` (`id`, `created_at`, `org_id`, `brand_id`). Names: `ck_{table}_{column}`, `uq_{table}_{cols}`, `ix_{table}_{purpose}`. Models are `class X(Tenant, Base)`; there is no `updated_at`.
+- `tests/integration/test_rls.py` fails unless every table with `org_id` is in `TENANT_TABLES` and seeded by `org_b`. `tests/integration/test_isolation.py` replays every `CASES` row against org B's "Secret" rows and requires a 404 with no "Secret" in the body.
+- Web: a brand tab is `page.tsx` (Server Component, `api<T>()` calls in `Promise.all`) plus `actions.ts` (`"use server"`, `redirect(\`…?queued=<status>\`)`) plus a `*Note()` helper built on the private `note()` in `lib/format.ts`. Tabs are hard-coded `<Link>`s in `b/[id]/layout.tsx`. No file upload exists; `next.config.ts` is empty, so Server Actions have the default 1 MB body limit. `app/r/[token]/pdf/route.ts` and its test are the Route Handler template. `api()` never returns the raw `Response`.
+- `FORBIDDEN` in `tests/unit/test_recommend_copy.py`: guarantee, will rank, will appear, will be recommended, ensure, boost, #1, top spot, dominat, certain. The ban applies to our fixed wording only; stored text is exempt (slice 15 and 16 rulings).
+
+## Design
+
+### 1. Data model (migration 0019, `models.py`)
+
+`product` — one row per catalogue item.
+
+| Column | Type | Notes |
+|---|---|---|
+| `brand_id` | uuid FK brand | |
+| `external_id` | text | the feed's `g:id`, the CSV's `id` column, else the URL, else `sha1(title)` |
+| `title` | text | required |
+| `description` | text, null | |
+| `attributes` | JSONB dict | `{"color": "blue", "size": "10"}`, keys lowercased |
+| `url` | text, null | |
+| `price` | text, null | kept as given, e.g. `1299.00 INR` |
+| `category` | text, null | |
+| `source` | text | `csv` or `feed`; `ck_product_source` |
+| `imported_at` | timestamptz | `now()` on every upsert |
+| `keyword` | text, null | the voted rank-1 generic keyword |
+| `keywords` | text[], null | the ranked keywords after dropping brand terms |
+| `missing_keywords` | text[], null | |
+| `suggested_title` | text, null | |
+| `suggested_bullets` | text[], null | |
+| `rule_check` | text, null | `pass` or `adjusted`; `ck_product_rule_check` |
+| `job_id` | uuid FK job, null | the run that wrote the result columns |
+| `result_at` | timestamptz, null | |
+
+`uq_product_brand_external (brand_id, external_id)`; `ix_product_list (brand_id, title)`. `MAX_PRODUCTS = 1_000` per brand is enforced in code, not the DB.
+
+`keyword_search` — one row per (brand, keyword): the cached comparison set and the SERP seam.
+
+| Column | Type | Notes |
+|---|---|---|
+| `brand_id` | uuid FK brand | |
+| `keyword` | text | |
+| `query` | text | the string sent to the engine |
+| `titles` | JSONB list | `[{"title": …, "domain": …}]`, at most `TOP_TITLES = 5` |
+| `model` | text | |
+| `cost_micros` | int | engine plus parse |
+| `searched_at` | timestamptz | |
+| `error` | text, null | a failed search is stored so the run proceeds |
+
+`uq_keyword_search_brand_keyword (brand_id, keyword)`. A row younger than `SEARCH_TTL_DAYS = 7` is reused; an older one is re-searched and overwritten.
+
+Both tables get `_protect()`, an entry in `TENANT_TABLES` and rows in the `org_b` fixture. No brand columns and no `due_*()` function: nothing is scheduled in this slice. `models.py` gains `PRODUCT_SOURCES = ("csv", "feed")` and `RULE_CHECKS = ("pass", "adjusted")`, used by both the CHECKs and the migration (copied, as 0017 does).
+
+Jobs: kind `product_run`, `params = {"locale": {"country", "language"}, "product_count"}`; kind `import_feed`, `params = {"url"}`. Both are added to `JOB_ESTIMATES` and `runners`.
+
+### 2. Import (`bsi_core/products.py`, `routers/products.py`, worker)
+
+**CSV** is synchronous: no network, so it runs inside the request.
+
+- `POST /v1/brands/{id}/products/import/csv`. The body is raw `text/csv`, read with `await request.body()`; no multipart dependency. `CSV_MAX_BYTES = 4 MiB`; a larger body is 413.
+- `parse_csv(text) -> (rows, skipped)` uses `csv.DictReader`. Header names are matched case-insensitively after stripping. `title` is required; `id`, `description`, `attributes`, `url` or `link`, `price`, `category` are optional; every other column becomes an `attributes` entry keyed by the lowercased header. An `attributes` cell is split on `;` then `:` (`Size: 10; Color: Blue` → `{"size": "10", "color": "blue"}`); a fragment without `:` is dropped. A row with an empty title is skipped and counted. `external_id` falls back as in §1.
+- `upsert(s, org_id, brand_id, rows, source) -> (created, updated)` is one `INSERT … ON CONFLICT (brand_id, external_id) DO UPDATE` on the catalogue columns and `imported_at` only; the result columns are kept, so a re-import never wipes suggestions. Before writing it counts existing products plus new external ids; above `MAX_PRODUCTS` it raises `CatalogueCap`, and the route answers 422 `"Catalogue cap is 1,000 products"` with nothing written.
+- Response `ImportOut {created, updated, skipped, total}`.
+- Web: a form with `<input type="file" name="csv" accept=".csv,text/csv" required>`; the `importCsv` server action reads `form.get("csv")` as a `File` and sends `await file.text()` as the body with `Content-Type: text/csv`. `next.config.ts` gains `experimental: { serverActions: { bodySizeLimit: "4mb" } }`. Redirect to `?queued=imported&n=<total>`.
+
+**Google Merchant feed** is a network fetch, so it is a job, like `audit_crawl`.
+
+- `POST /v1/brands/{id}/products/import/feed` with `FeedIn {url}`; the URL must start with `http://` or `https://` (422 otherwise). Queues `import_feed` with `slot=now()` through `queue_suggestion` and returns `QueuedOut`.
+- Worker `run_import_feed(org_id, job_id, brand_id, params, fetch=FEED_FETCH)` with `FEED_FETCH = partial(http_fetch, cap=FEED_CAP_BYTES, raw=True)`, `FEED_CAP_BYTES = 8 MiB`. A fetch that is not `ok` fails the job with `error = f"fetch {status}: {error}"`.
+- `parse_feed(body: bytes) -> (rows, truncated_note)` streams with `XMLPullParser`, strips namespaces, inflates gzip under the cap, and reads RSS `<item>` and Atom `<entry>`: `g:id` → `external_id`, `title`, `description`, `link` → `url`, `g:price`, `g:product_type` else `g:google_product_category` → `category`, and `g:brand`, `g:color`, `g:size`, `g:material`, `g:gender`, `g:age_group`, `g:condition` into `attributes`. Malformed or truncated XML yields what was read before the fault, with a note.
+- Then one tenant session runs the same `upsert`; `CatalogueCap` fails the job with `error = "cap"`. A truncated feed imports what was read; the job finishes `done` with `error = "truncated"` so the tab can show it.
+
+### 3. The run (`bsi_core/products.py` pure functions, worker `run_products`)
+
+`POST /v1/brands/{id}/products/run` queues one `product_run` job over all the brand's products, 422 `"No products to run"` if there are none, `slot=now()` so every request is its own job. Locale = the brand's first locale by `created_at`. `JOB_ESTIMATES["product_run"] = PRODUCT_JOB_MICROS = 20_000` covers the keyword phase; the runner re-checks the budget before the grounded phase.
+
+The runner processes `BATCH = 20` products at a time, reading and writing in short tenant sessions, with no transaction open during any model call. `run_products(org_id, job_id, brand_id, params, generator, adapter, now)` is the orchestration; every step below it is a pure function.
+
+1. **Keywords.** One flash-lite call per batch at `KEYWORD_TEMPERATURE = 0.4`, `SAMPLES = 3` times. The prompt is the ADK keyword prompt ported to JSON: per product, up to `MAX_KEYWORDS = 5` keywords shoppers would type to find it, lowercase, generic first (rank 1 is the shortest phrase naming the audience plus the category, e.g. `kids shoes`), one keyword per entry. Schema `KeywordSet {products: [{index, keywords: [str]}]}`. `vote(samples) -> list[str]` per product: rank 1 is the keyword most often at rank 1 across the samples, ties broken by sample order; the rest is the union in first-seen order, capped at 5. `drop_brand_terms(keywords, brand_names)` removes any keyword whose tokens include a token of the brand name or an alias. If nothing survives the product gets `keyword = NULL`, `keywords = []` and is skipped by the later steps. `keyword` and `keywords` are written after every batch, which is the progress signal.
+2. **Search.** After all batches: the distinct rank-1 keywords, ordered by product count then keyword, capped at `KEYWORD_CAP = 100`. Products whose keyword is beyond the cap get `missing_keywords = []` and still get a rewrite. Keywords with a `keyword_search` row younger than 7 days are reused. In one tenant session, `budget_fits(s, org_id, 0, extra_micros=n_new * SEARCH_MICROS)` with `SEARCH_MICROS = 45_000` (35,000 grounding plus tokens plus the parse call); if it fails the job finishes `failed` with `error = "budget"` and the keywords already written stay. For each new keyword: `adapter.query(f"{keyword} buy online", country, language)`; if `kind != "ok"` the row stores `error` and `titles = []`. Otherwise `parse_titles_prompt(text)` goes to flash-lite at temperature 0 with schema `TitleSet {titles: [{title, domain}]}`, asking only for product titles that appear verbatim in the text, at most 5, with the seller's domain when the text names it. `keep_present(titles, text)` drops any title not found in the text (case-insensitive, whitespace-collapsed). The row is upserted with `searched_at = now`.
+3. **Missing keywords.** `missing(product_title, titles, brand_names) -> list[str]`: tokens of the top titles (lowercase, letters and digits only, at least 3 characters, not in `STOPWORDS`, not a pure number, not a brand token) that appear in at least `MIN_TITLES = 2` of the titles and not in the product's title. Ordered by the number of titles containing them, then alphabetically; capped at `MAX_MISSING = 8`. No model call.
+4. **Rewrite.** One flash-lite call per batch at temperature 0 with schema `RewriteSet {products: [{index, title, bullets: [str]}]}`. For each product it gets the title, brand name, `keyword`, `missing_keywords`, description and attributes, and is asked for a title of at most 150 characters that keeps the brand name where the original had it, works the keyword and the missing terms in naturally, repeats no word, and three short description bullets. Products with `keyword = NULL` are excluded from the call.
+5. **Rule check.** `rule_check(original, suggestion, brand_names) -> (title, status)` fixes deterministically instead of retrying: it drops repeated tokens (case-insensitive, keeping the first occurrence and the original spelling), prepends the brand name if the original contained it and the suggestion lost it, and trims to `MAX_TITLE_CHARS = 150` at the last word boundary. `status = "pass"` when nothing changed, else `"adjusted"`. Every stored suggestion therefore satisfies the PRD's rule check (no duplicate tokens, brand preserved, length) by construction; the badge shows when the model needed help. Bullets are capped at 3 and each at 200 characters.
+6. **Write.** `suggested_title`, `suggested_bullets`, `missing_keywords`, `rule_check`, `job_id`, `result_at` per batch.
+
+A model failure raises `JudgeFailed`; the job fails with its cost recorded and the batches already written stay (partial results). For 1,000 products: 50 batches × 3 samples + 50 rewrite calls = 200 flash-lite calls, plus at most 100 grounded and 100 parse calls, about $3.6 and ten minutes, inside the PRD's 45.
+
+### 4. API (`routers/products.py`, prefix `/brands/{brand_id}/products`)
+
+Literal routes are declared first. All take `c: Ctx = TENANT` and call `brand_or_404`.
+
+| Route | Response | Notes |
+|---|---|---|
+| `GET /` | `list[ProductOut]` | order `title, id`; `limit` 1..1000, default 1000 |
+| `GET /export.csv` | `text/csv` | `Content-Disposition: attachment; filename="products-{brand_id}.csv"`. Columns `external_id, url, title, keyword, missing_keywords, suggested_title, suggested_bullets, rule_check`; the list columns are `|`-joined. `export_rows(products)` builds the rows; the route writes them with `csv.writer` into a `StringIO`. |
+| `GET /runs` | `ProductRunsOut {jobs: [ProductJobOut], done, total}` | the last 20 jobs of kinds `product_run` and `import_feed` (`id, kind, status, error, cost_micros, created_at, started_at`); `done` = products whose `job_id` is the latest `product_run`'s id, `total` = all products |
+| `POST /import/csv` | `ImportOut`, 201 | §2 |
+| `POST /import/feed` | `QueuedOut`, 202 | §2 |
+| `POST /run` | `QueuedOut`, 202 | §3 |
+| `DELETE /` | 204 | deletes the brand's `product` and `keyword_search` rows |
+
+`ProductOut` has every column of §1 plus `id` and `created_at`. Every id-taking route gets a `CASES` row in `test_isolation.py`; the `other` fixture seeds `Product(title="Secret", external_id="secret-1")` and `KeywordSearch(keyword="secret")`.
+
+### 5. Web (`app/(app)/b/[id]/products/`)
+
+- `layout.tsx` gains the `Products` tab link after Reports.
+- `page.tsx` fetches the brand, `GET /products` and `GET /products/runs` in parallel. Top: the CSV form, the feed URL form (`<input type="url" name="url" required>`), the Run button and the Clear button (`confirm` is not available in a Server Component form, so Clear is a plain button labelled "Clear products"). A status line from the latest job: `Run in progress: {done} of {total} products` while `running`, `Last run: done` / `Last run failed: {error}` otherwise; `Feed import: {status}` for the latest `import_feed`. Then the table: Title, Keyword, Missing keywords, Suggested title, Check (a `tag` span with `pass` or `adjusted`), or `No products yet.` when empty. A "Download CSV" link to `/b/{id}/products/export.csv` when there are products. Titles and URLs are rendered as text; the URL becomes a link only when it is http(s), through the existing rule.
+- `actions.ts`: `importCsv`, `importFeed`, `runProducts`, `clearProducts`; each redirects to `/b/{id}/products?queued=<status>`. `importCsv` also appends `&n=<total>`.
+- `format.ts`: `PRODUCT_NOTES` and `productNote(status)`: `imported` → "Imported.", `queued`/`running` → "Queued; the worker runs it within a minute.", `done` → "Done.", `failed` → "Failed; see the status line.", `cleared` → "Products cleared.", `empty` → "No products to run.". The page appends `n` to the imported note as ` {n} products in the catalogue.`
+- `export.csv/route.ts`, the second Route Handler: reads the `bsi_key` cookie (302 to `/login` when missing), validates the brand id as a UUID (404 otherwise), fetches `${API_URL}/v1/brands/{id}/products/export.csv` with `Authorization: Bearer`, `cache: "no-store"` and `AbortSignal.timeout(30_000)`; copies `content-type` and `content-disposition`, adds `cache-control: no-store`, streams the body with status 200. Upstream 401 → 302 to `/login`; 404 → 404 "Not found"; any other non-ok or a thrown fetch → 502 "Export unavailable".
+- `types.ts`: `Product = S["ProductOut"]`, `ProductRuns = S["ProductRunsOut"]`. Run `npm run gen` after the API lands and commit `openapi.json` and `schema.d.ts`.
+
+### 6. Testing
+
+Unit, `tests/unit/test_products.py`:
+
+- `parse_csv`: header aliases (`Title`, `LINK`, `Id`) map; an `attributes` cell `Size: 10; Color: Blue` becomes `{"size": "10", "color": "blue"}`; an unknown column `material` becomes an attribute; a row with an empty title is skipped and counted; `external_id` falls back to `id`, then `url`, then `sha1(title)`.
+- `parse_feed`: an RSS feed with two items gives two rows with `g:id`, `link`, `g:price`, `g:product_type` and `g:color` mapped; an Atom feed with one entry gives one row; a gzip-compressed feed parses; a feed cut mid-item yields the complete items and a note.
+- `vote`: samples `[["kids shoes", "running shoes"], ["kids shoes"], ["running shoes", "kids shoes"]]` give rank 1 `kids shoes`; a three-way tie gives the first sample's rank 1; the union keeps first-seen order and is capped at 5.
+- `drop_brand_terms`: with brand names `("Walkaroo", "WKR")`, `["walkaroo sandals", "kids sandals"]` becomes `["kids sandals"]`; an empty result is allowed.
+- `missing`: with the product title `Walkaroo Boys Sandal Blue` and titles `[Kids Sandals for Boys Summer Sandal, Boys Summer Sandals Lightweight, Summer Sandals Kids]`, the result is `["sandals", "summer", "kids"]`: tokens are compared exactly, so `sandal` in the product title does not cover `sandals`; `sandals` and `summer` appear in 3 titles and `kids` in 2, and `boys` is already in the title. Brand tokens and stopwords never appear; the cap is 8.
+- `rule_check`: `Walkaroo Kids Shoes Shoes` → `Walkaroo Kids Shoes`, `adjusted`; original `Walkaroo Boys Sandal` with suggestion `Boys Summer Sandal` → `Walkaroo Boys Summer Sandal`, `adjusted`; a 160-character suggestion is trimmed at a word boundary to at most 150, `adjusted`; an unchanged suggestion is `pass`.
+- `keep_present`: a title absent from the text is dropped; matching ignores case and repeated whitespace.
+- `export_rows`: lists are `|`-joined; `None` becomes an empty string.
+
+Copy: `PRODUCT_CASES` in `tests/unit/test_recommend_copy.py` holds every string of `PRODUCT_NOTES`, the badge labels and the empty-state and status-line wording; the banned-word test runs over it. Test fixtures avoid the banned words.
+
+Integration, `tests/integration/test_api_products.py`: a CSV import round trip (`created`, then `updated` on re-import with the result columns untouched); the cap returns 422 and writes nothing; a 5 MiB body is 413; the feed route queues an `import_feed` job and rejects `ftp://`; `POST /run` is 422 with no products and 202 with one; the export has the header row and `|`-joined lists; `DELETE` empties both tables; every request records nothing in `pg_stat_activity` as idle in transaction.
+
+Integration, `tests/integration/test_products_run.py`, with a fake generator and adapter (never the network): keywords are written per batch (21 products → two keyword writes); two products sharing a keyword cause one search; a `keyword_search` row 6 days old is reused and one 8 days old is re-searched; a failing `budget_fits` finishes the job `failed` with `error = "budget"` and keeps the keywords; a suggestion with a repeated token is stored `adjusted`; a `JudgeFailed` in the second batch leaves the first batch's results and fails the job with the cost recorded; the adapter and generator never see an open transaction (the `pg_stat_activity` probe). `test_worker.py`: `process_job` dispatches `product_run` and `import_feed`.
+
+`test_rls.py` and `test_isolation.py`: both tables and every route as in §1 and §4.
+
+Web: `format.test.ts` covers `productNote` for every status and `undefined`; `export.csv/route.test.ts` covers the missing cookie, a bad id, a 200 with copied headers, a 404 and a 502, modelled on `pdf/route.test.ts`.
+
+### 7. Live check
+
+After the user's OK to migrate dev to 0019: import about ten products by CSV for `BSOAgentTestBrand`, `POST /run`, run one job through the documented single-job path (never `worker.main()` or `tick()`), then view the tab on a production build and download the CSV. Expected spend about $0.15 (a few keywords). Every API-key request writes `api_key.last_used_at`; the run writes `product`, `keyword_search` and `job`. Record the observed spend and the writes in findings.
+
+## Rulings
+
+Rulings made during execution are appended here.
+
+## Out of scope
+
+- Shopify OAuth ingest and pushing titles to Shopify as drafts (PRD Phase 2).
+- A licensed SERP provider for Google Shopping and organic results; the seam is `keyword_search`.
+- Choosing a subset of products or a locale per run in the UI; the run covers all products in the brand's first locale.
+- A history of past suggestions.
+- Storing the feed URL on the brand for a scheduled refresh.
+- The marketplace check (PRD Phase 2).
