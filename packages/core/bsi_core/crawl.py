@@ -234,6 +234,9 @@ def http_fetch(
     *,
     resolve: Callable[[str, int], list[str]] = _resolve,
     transport: httpx.BaseTransport | None = None,
+    method: str = "GET",
+    body: bytes | None = None,
+    content_type: str | None = None,
 ) -> Response:
     """The real fetch. Never raises: an error is a Response with status 0,
     and a URL it will not fetch has error "refused: <reason>".
@@ -242,6 +245,10 @@ def http_fetch(
     inflates past BODY_CAP_BYTES. The 30 s deadline covers resolving,
     connecting, sending and reading on every hop; a lookup waits at most
     DNS_TIMEOUT_SECONDS or the time left, whichever is less.
+
+    POST sends `body` (and `content_type` as Content-Type) and never
+    follows a redirect: a 3xx comes back as a non-ok Response. Every guard
+    applies to both methods.
     """
     deadline = time.monotonic() + DEADLINE_SECONDS
     try:
@@ -275,33 +282,41 @@ def http_fetch(
                 left = deadline - time.monotonic()
                 if left <= 0:
                     return Response(0, "", _TIMED_OUT)
+                headers = {
+                    "Host": host,
+                    "User-Agent": user_agent,
+                    "Accept-Encoding": "gzip, deflate",
+                }
+                if content_type:
+                    headers["Content-Type"] = content_type
                 with client.stream(
-                    "GET",
+                    method,
                     target,
-                    headers={
-                        "Host": host,
-                        "User-Agent": user_agent,
-                        "Accept-Encoding": "gzip, deflate",
-                    },
+                    content=body,
+                    headers=headers,
                     extensions=ext,
                     timeout=httpx.Timeout(min(PHASE_TIMEOUT_SECONDS, left)),
                 ) as r:
                     location = r.headers.get("location")
-                    if r.status_code in _REDIRECTS and location:
+                    if (
+                        method == "GET"
+                        and r.status_code in _REDIRECTS
+                        and location
+                    ):
                         url = urljoin(url, location)
                         continue
                     z = _decompressor(r.headers.get("content-encoding", ""))
-                    body = bytearray()
+                    buf = bytearray()
                     for raw in r.iter_raw():
-                        room = BODY_CAP_BYTES - len(body)
+                        room = BODY_CAP_BYTES - len(buf)
                         # max_length bounds each inflate to what fits.
-                        body += z.decompress(raw, room) if z else raw[:room]
+                        buf += z.decompress(raw, room) if z else raw[:room]
                         if time.monotonic() > deadline:
                             return Response(0, "", _TIMED_OUT)
-                        if len(body) >= BODY_CAP_BYTES:
+                        if len(buf) >= BODY_CAP_BYTES:
                             break
                     return Response(
-                        r.status_code, _decode(bytes(body), r.charset_encoding)
+                        r.status_code, _decode(bytes(buf), r.charset_encoding)
                     )
             raise _Refused(_REDIRECTS_REFUSED)
     except _Refused as e:

@@ -232,6 +232,7 @@ def test_rec_label_rejects_an_unknown_label(
         ("ck_recommendation_status", m.REC_STATES),
         ("ck_task_status", m.TASK_STATUSES),
         ("ck_task_impact_label", m.IMPACT_LABELS),
+        ("ck_alert_type", m.ALERT_TYPES),
     ],
 )
 def test_slice6_checks_match_their_constants(owner, db, name, values):

@@ -7,11 +7,13 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import asdict
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
 from bsi_core import models as m
+from bsi_core.alerts import payload
+from bsi_core.alerts import scan as scan_alerts
 from bsi_core.competitors import _entities_and_hosts, owner_of
 from bsi_core.config import get_settings
 from bsi_core.crawl import (
@@ -19,6 +21,7 @@ from bsi_core.crawl import (
     PAUSE_SECONDS,
     Audit,
     Fetch,
+    Response,
     audit_domain,
     http_fetch,
 )
@@ -70,6 +73,25 @@ PAGE_JOB_MICROS = 5_000
 RIVAL_JOB_SECONDS = 420
 RIVAL_UPSERT_CHUNK = 2_000  # 8 binds a row: far under the 65,535 limit
 CITED_URLS_CAP = 10
+# Waits before delivery attempts 2..5; after the fifth failure the alert
+# is given up and keeps its last error.
+BACKOFF_DELIVERY = (60, 300, 1800, 7200)
+MAX_DELIVERY_ATTEMPTS = 5
+WEBHOOK_UA = "bsi-platform-alerts/1.0"  # a machine POST, not a browser
+
+
+class Poster(Protocol):
+    def __call__(
+        self,
+        url: str,
+        user_agent: str,
+        *,
+        method: str,
+        body: bytes,
+        content_type: str,
+    ) -> Response: ...
+
+
 # What a suggestion job reserves before it spends (spec §5).
 JOB_ESTIMATES = {
     "suggest_prompts": PROMPT_JOB_MICROS,
@@ -169,6 +191,94 @@ def refresh_due_recommendations() -> int:
         except Exception:
             log.exception("brand %s refresh failed", brand_id)
     return done
+
+
+def scan_due_alerts() -> int:
+    """Scan brands due a daily alert pass; returns how many were scanned.
+
+    SQL only, no spend, so it runs inline like the recommendation refresh.
+    One brand's failure never stops the others.
+    """
+    with system_session() as s:
+        due = s.execute(
+            text("SELECT brand_id, org_id FROM due_alert_scans()")
+        ).all()
+    done = 0
+    for brand_id, org_id in due:
+        try:
+            with tenant_session(org_id) as s:
+                brand = s.get_one(m.Brand, brand_id)
+                rows = scan_alerts(
+                    s,
+                    org_id,
+                    brand_id,
+                    datetime.now(UTC),
+                    deliver=brand.webhook_url is not None,
+                )
+                brand.alerts_scanned_at = func.now()
+            log.info("brand %s: %d alerts", brand_id, len(rows))
+            done += 1
+        except Exception:
+            log.exception("brand %s alert scan failed", brand_id)
+    return done
+
+
+def deliver_due_alerts(fetch: Poster = http_fetch) -> int:
+    """POST each due alert to its brand's webhook; returns how many were
+    delivered. The POST runs with no session open. Never raises.
+    """
+    with system_session() as s:
+        due = s.execute(
+            text("SELECT alert_id, org_id FROM due_alert_deliveries()")
+        ).all()
+    delivered = 0
+    for alert_id, org_id in due:
+        try:
+            with tenant_session(org_id) as s:
+                alert = s.get_one(m.Alert, alert_id)
+                brand = s.get_one(m.Brand, alert.brand_id)
+                url, body = (
+                    brand.webhook_url,
+                    json.dumps(
+                        payload(alert, brand.name), default=str
+                    ).encode(),
+                )
+            assert url is not None  # due_alert_deliveries() filtered on it
+            resp = fetch(
+                url,
+                WEBHOOK_UA,
+                method="POST",
+                body=body,
+                content_type="application/json",
+            )
+            with tenant_session(org_id) as s:
+                alert = s.get_one(m.Alert, alert_id)
+                # FOR UPDATE: a webhook clear either committed before this
+                # read or waits and then nulls next_attempt_at after us.
+                hooked = s.scalar(
+                    select(m.Brand.webhook_url)
+                    .where(m.Brand.id == alert.brand_id)
+                    .with_for_update()
+                )
+                alert.delivery_attempts += 1
+                if resp.ok:
+                    alert.delivered_at = func.now()
+                    alert.next_attempt_at = None
+                    alert.last_error = None
+                    delivered += 1
+                else:
+                    alert.last_error = (resp.error or f"HTTP {resp.status}")[
+                        :2000
+                    ]
+                    n = alert.delivery_attempts
+                    alert.next_attempt_at = (
+                        func.now() + timedelta(seconds=BACKOFF_DELIVERY[n - 1])
+                        if n < MAX_DELIVERY_ATTEMPTS and hooked is not None
+                        else None
+                    )
+        except Exception:
+            log.exception("alert %s delivery failed", alert_id)
+    return delivered
 
 
 def run_crawl_audit(
@@ -848,6 +958,14 @@ def main() -> None:
                 log.info("queued %d rival crawls", queue_due_rival_crawls())
             except Exception:
                 log.exception("queue_due_rival_crawls failed")
+            try:
+                log.info("scanned %d brands for alerts", scan_due_alerts())
+            except Exception:
+                log.exception("scan_due_alerts failed")
+            try:
+                log.info("delivered %d alerts", deliver_due_alerts())
+            except Exception:
+                log.exception("deliver_due_alerts failed")
             last_schedule_check = time.monotonic()
         if not tick(adapter, store, extractor):
             time.sleep(1)

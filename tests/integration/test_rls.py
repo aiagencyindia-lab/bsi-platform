@@ -29,6 +29,7 @@ TENANT_TABLES = [
     "page_audit",
     "rival_crawl",
     "rival_page",
+    "alert",
 ]
 
 
@@ -142,6 +143,17 @@ def org_b(owner, make_org, make_brand, make_observation):
                     baseline=True,
                 ),
             ]
+        )
+        s.add(
+            m.Alert(
+                org_id=b.id,
+                brand_id=bid,
+                type="new_source",
+                subject_key="b.com",
+                title="t",
+                window_from=datetime.now(UTC),
+                window_to=datetime.now(UTC),
+            )
         )
     return b
 

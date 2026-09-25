@@ -410,3 +410,53 @@ def test_an_abandoned_lookup_still_queued_never_runs(monkeypatch, hang):
     hang.release.set()
     pool.shutdown(wait=True)  # every lookup that will ever run has run
     assert ran == []
+
+
+def test_post_sends_the_body_and_content_type_to_the_pinned_address():
+    t = server(ok)
+    r = http_fetch(
+        "https://hook.example.com/in",
+        "UA",
+        resolve=dns({"hook.example.com": [PUBLIC]}),
+        transport=t,
+        method="POST",
+        body=b'{"text":"hi"}',
+        content_type="application/json",
+    )
+    assert r.ok
+    (req,) = t.seen
+    assert req.method == "POST" and req.content == b'{"text":"hi"}'
+    assert req.headers["content-type"] == "application/json"
+    assert req.headers["host"] == "hook.example.com"
+    assert req.url.host == PUBLIC
+
+
+def test_post_does_not_follow_a_redirect():
+    def moved(request):
+        return httpx.Response(
+            302, headers={"location": "https://x.example.com/"}
+        )
+
+    t = server(moved)
+    r = http_fetch(
+        "https://hook.example.com/in",
+        "UA",
+        resolve=dns({"hook.example.com": [PUBLIC], "x.example.com": [PUBLIC]}),
+        transport=t,
+        method="POST",
+        body=b"{}",
+    )
+    assert (r.status, r.ok, len(t.seen)) == (302, False, 1)
+
+
+def test_post_to_a_private_address_is_refused():
+    t = server(ok)
+    r = http_fetch(
+        "https://hook.example.com/in",
+        "UA",
+        resolve=dns({"hook.example.com": ["10.0.0.1"]}),
+        transport=t,
+        method="POST",
+        body=b"{}",
+    )
+    assert r.status == 0 and r.error.startswith("refused:") and t.seen == []

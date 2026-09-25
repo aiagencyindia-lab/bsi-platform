@@ -24,3 +24,4 @@ export type Changes = S["ChangesOut"];
 export type SiteChanges = S["SiteChangesOut"];
 export type Clusters = S["ClustersOut"];
 export type PageAudit = S["PageAuditOut"];
+export type Alert = S["AlertOut"];

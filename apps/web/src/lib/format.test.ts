@@ -1,5 +1,7 @@
 import { expect, test } from "vitest";
 import {
+  ALERT_KIND,
+  alertNote,
   apiQuery,
   auditNote,
   ciText,
@@ -149,3 +151,19 @@ test("crawlNote says what the crawl button actually did", () => {
   expect(crawlNote(undefined)).toBeNull();
   expect(crawlNote("constructor")).toBeNull();
 });
+
+test("alertNote says what the alerts forms did", () => {
+  expect(alertNote("saved")).toBe("Webhook saved; new alerts are posted to it.");
+  expect(alertNote("cleared")).toBe("Webhook cleared.");
+  expect(alertNote("new")).toBe("Scan done; new alerts are listed below.");
+  expect(alertNote("none")).toBe("Scan done; nothing new.");
+  expect(alertNote(undefined)).toBeNull();
+  expect(alertNote("constructor")).toBeNull();
+});
+
+test("ALERT_KIND labels every alert type", () =>
+  expect(ALERT_KIND).toEqual({
+    mention_drop: "Mention drop",
+    competitor_shift: "Competitor shift",
+    new_source: "New source",
+  }));
