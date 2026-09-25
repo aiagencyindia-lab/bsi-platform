@@ -11,6 +11,7 @@ from bsi_core.reports import (
     Section,
     Table,
 )
+from reportlab import rl_config
 
 AT = datetime(2026, 9, 25, tzinfo=UTC)
 PAGE = re.compile(rb"/Type\s*/Page(?!s)")
@@ -50,11 +51,13 @@ def test_long_table_spans_pages():
     assert len(PAGE.findall(render_pdf(_doc(300)))) > 1
 
 
-def test_branding_accent_and_escaping_do_not_break_rendering():
+def test_branding_accent_and_escaping_do_not_break_rendering(monkeypatch):
+    # Uncompressed page streams so the prepared-by text is findable.
+    monkeypatch.setattr(rl_config, "pageCompression", 0)
     pdf = render_pdf(
         _doc(2, branding=Branding(accent="#112233", prepared_by="Acme"))
     )
-    assert pdf.startswith(b"%PDF-")
+    assert pdf.startswith(b"%PDF-") and b"Prepared by Acme" in pdf
 
 
 def test_invalid_accent_falls_back_instead_of_crashing():
