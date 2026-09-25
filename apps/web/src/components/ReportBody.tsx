@@ -12,7 +12,9 @@ export function ReportBody({
   doc: ReportDocument;
   pdfHref: string;
 }) {
-  const accent = doc.branding?.accent ?? null;
+  // Mirror the PDF: a brand row may hold anything, so only #rrggbb is emitted.
+  const raw = doc.branding?.accent;
+  const accent = raw && /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : null;
   const logo = https(doc.branding?.logo_url);
   const style = (accent ? { "--accent": accent } : {}) as CSSProperties;
   return (

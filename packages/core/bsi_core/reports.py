@@ -338,7 +338,7 @@ def build_cmo(
         [
             e["name"],
             fmt_rate(e["mention_rate"]),
-            fmt_pct(e["sov"]["value"]),
+            fmt_rate(e["sov"]),
             fmt_signed(e["sentiment"]["index"]),
         ]
         for e in entity_metrics(s, brand.id, f)[:COMPETITOR_ROWS]
@@ -399,7 +399,7 @@ def build_cmo(
             ],
         ),
         Section(
-            heading="Alerts",
+            heading="Alerts in period",
             blocks=[
                 table_or_empty(
                     ["Type", "Alert", "Window"],
@@ -553,7 +553,7 @@ def build_seo(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
             heading="Site audit",
             blocks=[
                 table_or_empty(
-                    ["Domain", "Check", "Severity", "Observed"],
+                    ["Domain", "Check", "Severity", "Detail"],
                     audit_rows,
                     "failing site checks",
                 )
@@ -654,7 +654,7 @@ def build_content(
             ],
         ),
         Section(
-            heading="Content gaps",
+            heading="Content gaps with briefs",
             blocks=[
                 table_or_empty(
                     ["Topic", "Page type", "Structure", "Prompts"],
@@ -664,7 +664,7 @@ def build_content(
             ],
         ),
         Section(
-            heading="Page citability",
+            heading="Page citability with next step",
             blocks=[
                 table_or_empty(
                     ["URL", "Score", "Next step"], page_rows, "scored pages"
@@ -707,8 +707,7 @@ def build_pr(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
     ).all()
     total = sum(r.k for r in mix)
     mix_rows = [
-        [r.sentiment, str(r.k), fmt_pct(r.k / total if total else None)]
-        for r in mix
+        [r.sentiment, str(r.k), fmt_rate(rate(r.k, total))] for r in mix
     ]
     negatives = s.execute(
         text(
@@ -790,7 +789,7 @@ def build_pr(s: Session, brand: m.Brand, days: int, to: datetime) -> Document:
             ],
         ),
         Section(
-            heading="New sources",
+            heading="New sources in period",
             blocks=[
                 table_or_empty(
                     ["Domain", "Alert", "Window"], new_rows, "new sources"

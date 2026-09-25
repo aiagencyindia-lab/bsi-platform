@@ -59,3 +59,10 @@ test("logo renders only for https and never for a missing branding", () => {
   const bad = { ...doc, branding: { ...doc.branding!, logo_url: "http://x/l.png" } };
   expect(renderToStaticMarkup(<ReportBody doc={bad} pdfHref="x" />)).not.toContain("<img");
 });
+
+test("accent is emitted only when it is #rrggbb", () => {
+  const bad = { ...doc, branding: { ...doc.branding!, accent: "red;color:blue" } };
+  const html = renderToStaticMarkup(<ReportBody doc={bad} pdfHref="x" />);
+  expect(html).not.toContain("--accent");
+  expect(html).not.toContain("color:blue");
+});

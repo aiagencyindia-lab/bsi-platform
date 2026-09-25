@@ -6,7 +6,7 @@ from bsi_core import models as m
 from bsi_core.citations import sources
 from bsi_core.competitors import entity_metrics
 from bsi_core.db import system_session, tenant_session
-from bsi_core.metrics import DELTA_METRICS, Filters, brand_deltas
+from bsi_core.metrics import DELTA_METRICS, Filters, brand_deltas, rate
 from bsi_core.reports import (
     BUILDERS,
     METRIC_LABEL,
@@ -255,11 +255,12 @@ def test_cmo_sections_agree_with_the_dashboard_functions(
         "Top cited sources",
         "Recommendations",
         "Tasks",
-        "Alerts",
+        "Alerts in period",
     ]
     comp = _table(doc, "Competitors")
     assert [r[0] for r in comp.rows] == [e["name"] for e in ents]
     assert comp.rows[0][1] == fmt_rate(ents[0]["mention_rate"])
+    assert comp.rows[0][2] == fmt_rate(ents[0]["sov"])
     src = _table(doc, "Top cited sources")
     assert src.rows == [
         [x["domain"], x["owner"], str(x["answers"]), str(x["prompts"])]
@@ -284,7 +285,7 @@ def test_cmo_sections_agree_with_the_dashboard_functions(
             "+0.20 [+0.10, +0.30] increase",
         ]
     ]
-    alerts = _table(doc, "Alerts")
+    alerts = _table(doc, "Alerts in period")
     assert alerts.rows[0][:2] == ["New source", "forbes.com is a new source"]
 
 
@@ -388,9 +389,9 @@ def test_seo_sections(owner, make_org, make_brand):
     ]
     src = _table(doc, "Cited sources")
     assert src.columns == ["Domain", "Owner", "Answers", "Prompts", "Gap"]
-    assert _table(doc, "Site audit").rows == [
-        ["nike.com", "llms_txt", "low", "404 (expected 200)"]
-    ]
+    audit = _table(doc, "Site audit")
+    assert audit.columns == ["Domain", "Check", "Severity", "Detail"]
+    assert audit.rows == [["nike.com", "llms_txt", "low", "404 (expected 200)"]]
     assert _table(doc, "Page citability").rows == [
         ["https://nike.com/best-shoes", "cluster:commercial:shoes", "61"]
     ]
@@ -404,8 +405,8 @@ def test_content_sections(owner, make_org, make_brand):
         doc = build_content(s, s.get_one(m.Brand, bid), 7, NOW)
     assert [sec.heading for sec in doc.sections][2:] == [
         "Prompt performance by topic",
-        "Content gaps",
-        "Page citability",
+        "Content gaps with briefs",
+        "Page citability with next step",
         "Recommendations",
     ]
     topics = _table(doc, "Prompt performance by topic")
@@ -413,7 +414,7 @@ def test_content_sections(owner, make_org, make_brand):
     assert topics.rows == [
         ["untopiced", "1", "0.67 [0.30, 0.90] n=6", "Adidas"]
     ]
-    assert _table(doc, "Page citability").rows == [
+    assert _table(doc, "Page citability with next step").rows == [
         ["https://nike.com/best-shoes", "61", "Add an FAQ block"]
     ]
     assert _section(doc, "Recommendations").blocks[0].kind == "p"
@@ -428,15 +429,18 @@ def test_pr_sections(owner, make_org, make_brand):
         "Negative mentions",
         "Competitor sentiment",
         "Third-party sources naming the brand",
-        "New sources",
+        "New sources in period",
     ]
     mix = _table(doc, "Sentiment mix")
-    assert mix.rows == [["neutral", "3", "75.0%"], ["negative", "1", "25.0%"]]
+    assert mix.rows == [
+        ["neutral", "3", fmt_rate(rate(3, 4))],
+        ["negative", "1", fmt_rate(rate(1, 4))],
+    ]
     neg = _table(doc, "Negative mentions")
     assert len(neg.rows) == 1 and neg.rows[0][1] == "best shoes"
     third = _table(doc, "Third-party sources naming the brand")
     assert third.rows == [["forbes.com", "6", "1"]]
-    assert _table(doc, "New sources").rows == [
+    assert _table(doc, "New sources in period").rows == [
         [
             "forbes.com",
             "forbes.com is a new source",

@@ -24,7 +24,7 @@ Token = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{20,64}$")]
 NO_STORE = {"Cache-Control": "no-store"}
 
 
-def _run(token: str) -> tuple[m.ReportRun, str]:
+def _run(token: str) -> m.ReportRun:
     with system_session() as s:
         row = s.execute(
             text("SELECT run_id, org_id FROM report_run_by_token(:t)"),
@@ -34,11 +34,11 @@ def _run(token: str) -> tuple[m.ReportRun, str]:
         raise Problem(404, "Not found")
     with tenant_session(uuid.UUID(str(row.org_id))) as s:
         run = s.get(m.ReportRun, row.run_id)
-        if run is None:
+        # Revoked or re-shared between the token lookup and this read.
+        if run is None or run.share_token != token:
             raise Problem(404, "Not found")
-        name = s.get_one(m.Brand, run.brand_id).name
         s.expunge(run)
-    return run, name
+    return run
 
 
 def _slug(name: str) -> str:
@@ -47,9 +47,11 @@ def _slug(name: str) -> str:
 
 @router.get("/{token}.pdf")
 def public_pdf(token: Token) -> Response:
-    run, name = _run(token)
-    pdf = render_pdf(Document.model_validate(run.document))
-    filename = f"{_slug(name)}-{run.type}-{run.period_to:%Y-%m-%d}.pdf"
+    run = _run(token)
+    doc = Document.model_validate(run.document)
+    pdf = render_pdf(doc)
+    # The stored brand name: a later rename keeps the old run's filename.
+    filename = f"{_slug(doc.brand)}-{run.type}-{run.period_to:%Y-%m-%d}.pdf"
     return Response(
         content=pdf,
         media_type="application/pdf",
@@ -62,6 +64,6 @@ def public_pdf(token: Token) -> Response:
 
 @router.get("/{token}", response_model=ReportRunOut)
 def public_run(token: Token, response: Response) -> m.ReportRun:
-    run, _ = _run(token)
+    run = _run(token)
     response.headers.update(NO_STORE)
     return run

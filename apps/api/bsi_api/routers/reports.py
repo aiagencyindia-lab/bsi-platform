@@ -8,6 +8,7 @@ from bsi_core import models as m
 from bsi_core.reports import WEEKLY_DAYS, definition, generate, new_token
 from fastapi import APIRouter, Query, Response
 from sqlalchemy import select
+from sqlalchemy.orm import defer
 
 from ..deps import TENANT, Ctx, brand_or_404, child_or_404
 from ..schemas import CadenceIn, ReportOut, ReportRunListOut, ReportRunOut
@@ -50,6 +51,7 @@ def list_runs(
     brand_or_404(c, brand_id)
     q = (
         select(m.ReportRun)
+        .options(defer(m.ReportRun.document, raiseload=True))
         .where(m.ReportRun.brand_id == brand_id)
         .order_by(m.ReportRun.created_at.desc(), m.ReportRun.id)
         .limit(limit)

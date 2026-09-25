@@ -195,6 +195,15 @@ def test_public_page_and_pdf_follow_the_token(
     )
     assert pdf.content.startswith(b"%PDF-")
     assert _idle_in_transaction() == 0
+    # The filename comes from the stored document, not the live brand row.
+    client.patch(
+        f"/v1/brands/{bid}", headers=org.headers, json={"name": "Renamed"}
+    )
+    assert (
+        client.get(f"/v1/r/{tok}.pdf")
+        .headers["content-disposition"]
+        .startswith('attachment; filename="nike-agency-')
+    )
     client.delete(
         f"/v1/brands/{bid}/reports/runs/{run['id']}/share", headers=org.headers
     )
