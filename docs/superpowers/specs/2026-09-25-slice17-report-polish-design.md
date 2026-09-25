@@ -2,13 +2,13 @@
 
 ## Context
 
-Slice 15 shipped reports with a public share page and a PDF. Its findings §3 left three items to fix before a real client gets a link: the PDF link is built from the server-side `API_URL`, so it breaks where the API host is not public and it exposes that host on the white-label page; client-facing cells print raw codes such as `third_party` and `impact_measured`; and the SEO report's "Content gaps" table repeats a topic across intents with nothing to tell the rows apart. The user asked to fix these three. Classification: bounded, but the user's process requires a spec and plan for every change; brainstorming ran on Opus 5.5 on 2026-09-25.
+Slice 15 shipped reports with a public share page and a PDF. Its findings §3 left three items to fix before a real client gets a link: the PDF link is built from the server-side `API_URL`, so it breaks where the API host is not public and it exposes that host on the white-label page; client-facing cells print raw codes such as `third_party` and `impact_measured`; and the SEO report's "Content gaps" table repeats a topic across intents with nothing to tell the rows apart. The user asked to fix these three. Classification: architectural, as said in chat before the first question, with the reasons given there: each fix changes an existing flow, but the PDF fix changes how a public URL is built and deployed; and the user's process calls for a spec and plan even on small changes (this spec earlier recorded "bounded" by mistake; corrected in the slice 17 audit); brainstorming ran on Opus 5.5 on 2026-09-25.
 
 Decisions approved in chat:
 
 - **PDF host:** a same-origin Route Handler in the web app, `/r/{token}/pdf`, proxies the API's `/v1/r/{token}.pdf` server-side. Rejected: a `next.config` rewrite (API_URL fixed at build time) and a separate `PUBLIC_API_URL` (the API host still shows on the client page).
 - **Labels:** in the report documents only, for new runs. Stored runs stay frozen. The operator's web tabs are unchanged.
-- **Live check:** read-only on dev, through the new route against the five runs already stored; no new run is generated.
+- **Live check:** on dev, through the new route against the five runs already stored; no new run is generated. (As run it was not fully read-only: the signed-in archive request updates `api_key.last_used_at`; see findings §2.)
 
 Codebase facts the design rests on:
 
@@ -49,7 +49,7 @@ Brainstorming ran on Opus 5.5; the session switched to Fable 5.1 while the spec 
 
 ### 3. Live check, docs, out of scope
 
-- Live check on dev, read-only, no new rows: API on :8000 and a production build of the web app; for the five report runs already stored (tokens read from dev with a read-only query), fetch `/r/{token}/pdf` and check 200, `%PDF-`, the `Content-Disposition` filename, `no-store`, and that the public page's "Download PDF" href is `/r/{token}/pdf`; a malformed and an unknown token give 404 with no product name. The new labels, the Intent column and `Methodology v2` need a new run, which is a write; they are covered by tests only unless the user asks for a run. Results are recorded as observed in `docs/findings-slice17.md` §2.
+- Live check on dev, no new rows (as run, the signed-in archive request also updated `api_key.last_used_at`; see findings §2): API on :8000 and a production build of the web app; for the five report runs already stored (tokens read from dev with a read-only query), fetch `/r/{token}/pdf` and check 200, `%PDF-`, the `Content-Disposition` filename, `no-store`, and that the public page's "Download PDF" href is `/r/{token}/pdf`; a malformed and an unknown token give 404 with no product name. The new labels, the Intent column and `Methodology v2` need a new run, which is a write; they are covered by tests only unless the user asks for a run. Results are recorded as observed in `docs/findings-slice17.md` §2.
 - Docs: `docs/findings-slice17.md` (what was built, live check, deferred/decisions, not covered by tests), a `docs/README.md` section, the spec's Rulings, the plan's "Changes made during execution", and the process-memory line for the Route Handler exception.
 
 ## Rulings
