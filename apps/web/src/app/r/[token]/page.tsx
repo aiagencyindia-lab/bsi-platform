@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ReportBody } from "@/components/ReportBody";
-import { API_URL, publicApi } from "@/lib/api";
+import { publicApi } from "@/lib/api";
 import type { ReportRunDetail } from "@/lib/types";
 
 type Props = { params: Promise<{ token: string }> };
@@ -30,7 +30,7 @@ export default async function PublicReport({ params }: Props) {
       `}</style>
       <ReportBody
         doc={run.document}
-        pdfHref={`${API_URL}/v1/r/${encodeURIComponent(token)}.pdf`}
+        pdfHref={`/r/${encodeURIComponent(token)}/pdf`}
       />
     </main>
   );

@@ -1,4 +1,4 @@
-import { API_URL, api } from "@/lib/api";
+import { api } from "@/lib/api";
 import { REPORT_TYPE, reportNote, type Params } from "@/lib/format";
 import type { Brand, Report, ReportRun } from "@/lib/types";
 import {
@@ -133,7 +133,7 @@ export default async function Reports({
                   {r.share_token ? (
                     <>
                       <a href={`/r/${r.share_token}`}>View</a>{" "}
-                      <a href={`${API_URL}/v1/r/${r.share_token}.pdf`}>PDF</a>
+                      <a href={`/r/${r.share_token}/pdf`}>PDF</a>
                     </>
                   ) : (
                     <span className="muted">not shared</span>

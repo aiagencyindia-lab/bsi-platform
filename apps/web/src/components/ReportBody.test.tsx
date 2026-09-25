@@ -32,7 +32,7 @@ const doc: ReportDocument = {
 
 test("renders every heading, cell and the footer, escaped", () => {
   const html = renderToStaticMarkup(
-    <ReportBody doc={doc} pdfHref="http://localhost:8000/v1/r/t.pdf" />,
+    <ReportBody doc={doc} pdfHref="/r/t/pdf" />,
   );
   for (const s of [
     "Nike visibility report",
@@ -45,7 +45,7 @@ test("renders every heading, cell and the footer, escaped", () => {
     "No tasks in this period.",
     "Methodology v1 · pipeline v2",
     "&amp; more",
-    'href="http://localhost:8000/v1/r/t.pdf"',
+    'href="/r/t/pdf"',
     'src="https://nike.com/logo.png"',
     "--accent:#112233",
   ]) {
