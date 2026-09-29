@@ -127,7 +127,7 @@ Run only with the user's OK, asked at that point.
 
 ### 5. Extension after the first live check: rival brand and model names
 
-The first dev live check (job `d73eaefa`, 2026-09-29, `cost_micros = 313,103`; dev spend on jobs then totalled 1,168,067 micros, about $10.25 of the $15 cap in the spend tally) removed store names: its 8 searches each stored 5 titles, all of them product names. But `missing` then suggested rival brand and model words from those titles, observed: LC-01 and LC-02 got "Teva Hurricane XLT", LC-03 "Big Nike Boots", LC-06 "Birkenstock". `missing` excludes only the brand's own name. The user chose to fix this in slice 20 before merge. Findings §2 records the full run in the docs task.
+The first dev live check (job `d73eaefa`, 2026-09-29, `cost_micros = 313,103`, which took the project's model spend tally from $9.9377 to about $10.25 of the $15 cap) removed store names: its 8 searches each stored 5 titles, all of them product names. But `missing` then suggested rival brand and model words from those titles, observed: LC-01 and LC-02 got "Teva Hurricane XLT", LC-03 "Big Nike Boots", LC-06 "Birkenstock". `missing` excludes only the brand's own name. The user chose to fix this in slice 20 before merge. Findings §2 records the full run in the docs task.
 
 Classification, said in chat as the first line of the reply that re-opened brainstorming: **bounded**. This extends slice 20's existing `missing` step in `products.py` so it drops rival brand and model words, with no schema, API or UI change.
 
