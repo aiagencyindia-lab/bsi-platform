@@ -87,7 +87,8 @@ Ruling R2 (re-review of the final fix wave, approved by the user): the fallback 
 | a1e3bba | docs: slice 21 findings: gate warnings as observed; wording |
 | 81301e2 | fix(products): an empty rule-check title falls back to the original (R1) |
 | 47939f1 | fix(products): the empty-title fallback also covers connector-only rewrites (R2) |
-| (this commit) | docs: slice 21 live check and remaining findings |
+| 38991a4 | docs: slice 21 live check and remaining findings |
+| (this commit) | docs: slice 21 findings: colour words come from the original titles |
 
 ## 2. Live check on dev
 
@@ -98,7 +99,7 @@ Run on 2026-09-29 by the controller, with the user's OK.
 
 **What improved.**
 - Models mostly come back without the product type ("Moc", "Monster", "Flow", "CozyChic", "Free Ride"). Two still carry it: "Cars Lighted Sandal" and "Colby Gore Moc".
-- No noise word, rival name or invented word appears in any missing list or suggestion.
+- No missing list contains a noise word, rival name or invented word, and no suggestion adds one. Every colour word in the suggestions ("Blue", "Pink", "Black", "Grey", "Navy", "Brown", "Beige", "Tan") is in that product's original title, per the controller's read-only query after the job (for example LC-01's original is "BSOAgentTestBrand Boys Sandal Blue").
 - No suggestion ends in a connector or a number.
 
 **Per product** (missing words as recorded; the suggestion's end only):
