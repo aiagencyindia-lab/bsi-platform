@@ -55,7 +55,8 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 | 78dd56b | docs: slice 20 extension plan review fixes; ruling R2 in the spec |
 | dbd9328 | docs: slice 20 extension plan: re-review fixes (sources, R2 check, self-review) |
 | 42300cc | fix(products): keep rival brands, models and competitors out of missing words |
-| (this commit) | docs: slice 20 extension findings and first live check |
+| 24b5523 | docs: slice 20 extension findings and first live check |
+| (this commit) | docs: slice 20 findings: LC-07's observed suggestion |
 
 ## 2. Live check on dev
 
@@ -69,7 +70,7 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 - One stored title carries answer commentary: "Teva Psyclone (Top overall recommendation for kids' sandals)". Out of scope (spec).
 - Writes: the job row, 10 `product` rows, 8 `keyword_search` rows, `api_key.last_used_at` (10:30:37 UTC). The 11 rows under the old query were untouched. Worker and API stopped afterwards; 0 jobs queued.
 
-Per product, as observed (missing words as stored; the suggested title as recorded in the ledger, which gives only its end; rule check status):
+Per product, as observed (missing words as stored; the end of each suggested title, from the ledger's per-product line or, for LC-07, the controller's note of the observed full title; rule check status):
 
 | Product | Keyword | Missing words | Suggested title (end) | Status |
 |---|---|---|---|---|
@@ -79,7 +80,7 @@ Per product, as observed (missing words as stored; the suggested title as record
 | LC-04 | kids slippers | (none) | "…Grey Kids Slipper" | pass |
 | LC-05 | navy flip flops | color | "…Navy Flip Flop Color" | review (dropped `men`) |
 | LC-06 | men sandals | birkenstock | "…Brown Men Casual Sandal Birkenstock" | pass |
-| LC-07 | women slippers | (none) | (not recorded) | pass |
+| LC-07 | women slippers | (none) | "…Beige Women Casual Slipper" | pass |
 | LC-08 | men shoes | gender, inclusive, sneaker | "…Grey Men Sports Shoe Gender Inclusive Sneaker" | pass |
 | LC-09 | kids shoes | kids, big, nike, boots | "…Black Boys School Shoe Big Nike Boots Kids" | adjusted |
 | LC-10 | women sandals | jelly | "…Tan Women Sandal Jelly" | pass |
