@@ -540,3 +540,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   - The multi-line edits were made with a short Python replace script with exact-match asserts (each old block had to occur exactly once).
 - Task 3: the controller created the `docs/findings-slice22.md` stub after the user approved it in chat ("yes, create the stub"), as Task 3 says (plan departure 7). The implementer filled it with the Edit tool. Findings §3 also has an "Untested" list (plan departures 4 and 14, fixed judge output), which Step 1 does not name, in the style of findings-slice21 §3.
 - No rulings were made during execution; the spec's `## Rulings` section reads "None."
+- Final whole-branch review: ready to merge, 0 Critical, 0 Important, 4 Minor (all deferred in the ledger). A docs-only fix wave after it:
+  - `findings-slice22.md` §3 gains a "From the final whole-branch review:" list with the 4 minors, and the 2 Task 3 review minors under "From the task reviews:".
+  - The findings commit table gains the rows dbb5d82 and 01dbca7.
+  - The README's slice 22 spec row now says "no rulings were made during the build".
+  - No code change: the duplicate-titles minor and the LC-09 note stay deferred.
