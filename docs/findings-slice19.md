@@ -8,14 +8,14 @@ The four quality problems found by slice 18's live check (findings-slice18 §2 a
 
 **`missing`** compares by stem. A ranking-title token counts if it is at least 3 characters, not a number, not a stopword, and its stem is not in the product title's or the brand's stems. Each title counts a stem once, a stem needs `MIN_TITLES` titles, and the first surface form seen is reported (by title count, then stem, at most `MAX_MISSING`). "sandals" is no longer missing from a title that has "Sandal".
 
-**`dropped(original, suggestion, brand_names)`** lists the original title's words whose stem is not in the suggestion. Stopwords, brand stems, pure numbers and 1-letter tokens are ignored; the words are lowercased, in original order, without repeats.
+**`dropped(original, suggestion, brand_names)`** lists the original title's words whose stem is not in the suggestion. Stopwords, brand stems, pure numbers and 1-letter tokens are ignored; the words are lowercased, in original order, without repeats. `STOPWORDS` gained `a an in of on to by at or` (ruling R4), so "Kurta Set of 3 Blue" rewritten as "Blue Kurta Set 3 Piece" is a `pass` with nothing dropped, where "of" was flagged before. `missing` already skipped words under 3 letters, so R4 does not change it.
 
 **`rule_check(original, suggestion, brand_names)`** now returns `(title, status, dropped_words)`. It prepends a lost brand, drops a word whose stems overlap an earlier kept word's stems (R7, now by stem, so "Sandal And Sandals" loses "Sandals"), strips trailing `CONNECTORS` (`and`, `with`, `for`, `&`, `-`, `|`), trims to 150 characters at a word boundary, and strips trailing connectors again after the trim (ruling R2, helper `_strip_connectors`). `dropped` runs on the final title. Status is `review` when any original word was lost, else `adjusted` when the title differs from the suggestion, else `pass`.
 
 **The keyword step.**
 - `keyword_key(k)` is `" ".join(_stem(t) for t in tokens(_display(k)))`. `_display` lowercases, collapses whitespace and removes the possessive `'s` (straight or curly apostrophe, `_POSSESSIVE`). 1-letter tokens are kept (ruling R1).
 - `vote(samples)` compares keys: rank 1 is the key most often at rank 1 (ties by sample order), then the other keys in first-seen order, each shown in its first surface form. `vote([["men's sandals"], ["mens sandal"], ["men flip flops"]]) == ["men sandals", "men flip flops"]`.
-- `fit_rank(keywords, title, category, description)` runs after `drop_brand_terms`. A keyword's category word is its last word. Keywords whose category stem is in the title come first, then those whose stem is only in the category or description; the rest are dropped. With none left the keyword is NULL and R13 applies.
+- `fit_rank(keywords, title, category, description)` runs after `drop_brand_terms`. A keyword's category word is the last folded word before its first `STOPWORDS` token, or its last folded word when nothing comes before that token (ruling R3): "slippers for men" is read by `slipper`, not `men`. Keywords whose category stem is in the title come first, then those whose stem is only in the category or description; the rest are dropped. With none left the keyword is NULL and R13 applies.
 - **Run-wide key map.** `run_products` keeps `key_map: dict[str, str]` for the whole run. The first product with a key sets the keyword string, and later products with the same key reuse it, so `mens sandal` and `men sandals` share one search and one `keyword_search` row.
 
 **Prompts.** `keyword_prompt` asks for rank 1 as a broad plural shopper phrase (audience plus the product's own category, e.g. "kids sandals", "men flip flops"), "kids" rather than "boys" or "girls", and never a different product type. `rewrite_prompt` says to keep every word of the original title (reordering allowed), add the keyword and missing terms naturally, never change the product type, repeat no word and avoid keyword stuffing.
@@ -28,7 +28,7 @@ The four quality problems found by slice 18's live check (findings-slice18 §2 a
 
 **Products tab.** `format.ts` gains `droppedNote(words)`, which returns `dropped: a, b` or `null` for an empty or missing list. The Check cell shows the `rule_check` tag (now including `review`) and under it a muted line with the dropped words. `PRODUCT_CASES` in `test_recommend_copy.py` gains `review` and `dropped: `.
 
-**Commits** (`git log --oneline main..HEAD`, oldest first; this docs commit follows them):
+**Commits** (`git log --oneline main..HEAD`, oldest first; the docs commit for the final-review fixes follows them):
 
 | Commit | Subject |
 |---|---|
@@ -39,6 +39,9 @@ The four quality problems found by slice 18's live check (findings-slice18 §2 a
 | 95f62ca | fix(products): strip a trailing connector the 150-char trim leaves |
 | 6fd76ac | feat(products): key-based keyword vote, shared searches and a fit check |
 | 386a59b | feat(web): show the review status and dropped words |
+| e0d349c | docs: slice 19 findings, index and rulings |
+| e1c1260 | docs: show the RUF001 fix as the escape text in the plan |
+| 8cfa6fa | fix(products): read the category word before a stopword; add short stopwords |
 
 ## 2. Live check on dev
 
@@ -49,15 +52,21 @@ Not yet run. The controller runs it after the user approves migrating dev to 002
 Decisions with a cost (rulings, spec `## Rulings`):
 - `keyword_key` keeps 1-letter tokens and strips the possessive first, where the spec's first text used `fold` (R1). Cost: none seen.
 - Trailing connectors are stripped a second time, after the 150-character trim (R2). Cost: none.
+- `fit_rank` reads the category word before the keyword's first stopword (R3). Cost: a phrase whose category genuinely follows a stopword is read by the earlier word.
+- `a an in of on to by at or` are stopwords (R4). Cost: none.
 
 Migration and export:
-- No test checks that `dropped_words` export cells are formula-neutralised (R6 applies to every cell through `export_rows`, but no test uses a `dropped_words` value that starts with a formula character such as `=` or `-`).
+- `dropped_words` export cells cannot start with a formula character: the values come from `tokens()`, which yields only `[a-z0-9]+`, so the risk cannot occur. The generic `cell()` in `export_rows` (R6) still covers the column.
+- The CSV export gained a 9th column, `dropped_words`, so a consumer that checks the column count strictly will see a change.
 - The downgrade of migration 0020 was never exercised, by a test or against a database.
 
 Folding, `dropped` and the rule check:
 - `dropped()` de-duplicates by surface form, not by stem, so an original with both "sandal" and "sandals" that loses them lists both.
 - A connector with punctuation attached ("And," or "for:") is not in `CONNECTORS` and is not stripped from the end of a title.
 - A rewritten product stores `dropped_words = []` when nothing was lost, while a product that was never rewritten has NULL. Both show no dropped line on the tab.
+- `-es` plurals (dresses, watches, boxes) do not fold with `_stem`, which drops only one `s`, so a "Dress Dresses" echo survives the repeat check and "dress" can be flagged as dropped when the suggestion has only "dresses".
+- Removing a repeated word mid-title can leave two connectors side by side ("Sandal And For Kids"), because connectors are stripped only at the end.
+- `drop_brand_terms` compares exact tokens while the other checks compare stems, so "croc clogs" survives for the brand "Crocs".
 - No tests for mixed surface forms in `missing` (e.g. "Sandals" in one title and "sandal" in another) or for several connectors in a row at the end of a title.
 
 The keyword step:
