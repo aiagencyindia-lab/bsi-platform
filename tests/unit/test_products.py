@@ -429,6 +429,19 @@ def test_fit_rank_reads_the_category_word_before_a_stopword():
     ]
 
 
+def test_fit_rank_cuts_only_at_for_and_with():
+    # R6: "on" and "a" are stopwords (R4) but not category cuts.
+    assert fit_rank(
+        ["men slip on shoes", "men shoes"], "Men Casual Shoe Black", None, None
+    ) == ["men slip on shoes", "men shoes"]
+    assert fit_rank(
+        ["women pull on boots"], "Women Ankle Boot", None, None
+    ) == ["women pull on boots"]
+    assert fit_rank(
+        ["a line dress for women"], "Blue A Line Dress", None, None
+    ) == ["a line dress for women"]
+
+
 def test_short_stopwords_are_not_flagged_as_dropped():
     # R4: "of" and "in" are not product words.
     assert rule_check("Kurta Set of 3 Blue", "Blue Kurta Set 3 Piece", ()) == (

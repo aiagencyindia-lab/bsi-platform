@@ -410,6 +410,10 @@ def drop_brand_terms(
     return [k for k in keywords if (t := set(tokens(k))) and not t & bt]
 
 
+# fit_rank cuts a keyword here (R6); "slip on shoes" keeps its "on".
+CATEGORY_CUTS = frozenset({"for", "with"})
+
+
 def fit_rank(
     keywords: Sequence[str],
     title: str,
@@ -417,13 +421,13 @@ def fit_rank(
     description: str | None,
 ) -> list[str]:
     """Keywords whose category word names this product. The category
-    word is the last folded word before the keyword's first STOPWORDS
-    token ("slippers for men" -> slipper), or the keyword's last folded
-    word if nothing comes before it. First come those whose category
-    stem is in the title, then those whose stem is only in the category
-    or description; others are dropped, so a flip flop is never searched
-    as "men slippers" when a title fit exists, and never as "kids shoes"
-    at all."""
+    word is the last folded word before the keyword's first CATEGORY_CUTS
+    token ("slippers for men" -> slipper, "men slip on shoes" -> shoe),
+    or the keyword's last folded word if nothing folds before the cut.
+    First come those whose category stem is in the title, then those
+    whose stem is only in the category or description; others are
+    dropped, so a flip flop is never searched as "men slippers" when a
+    title fit exists, and never as "kids shoes" at all."""
     in_title = fold_set(title)
     in_other = fold_set(category or "") | fold_set(description or "")
     first: list[str] = []
@@ -433,7 +437,9 @@ def fit_rank(
         if not words:
             continue
         toks = tokens(k)
-        cut = next((i for i, t in enumerate(toks) if t in STOPWORDS), len(toks))
+        cut = next(
+            (i for i, t in enumerate(toks) if t in CATEGORY_CUTS), len(toks)
+        )
         head = fold(" ".join(toks[:cut]))
         word = (head or words)[-1]
         if word in in_title:
