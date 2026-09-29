@@ -45,9 +45,29 @@ The four quality problems found by slice 18's live check (findings-slice18 §2 a
 
 ## 2. Live check on dev
 
-Not yet run. The controller runs it after the user approves migrating dev to 0020; results are recorded here then.
+Run on 2026-09-29 against the dev database, with the user's approval for both the migration and the re-check. Everything below was observed unless it is marked *inferred*.
+
+**Migration.** `alembic current` read `0019` before and `0020 (head)` after `alembic upgrade head`. `pg_get_constraintdef` shows `ck_product_rule_check` allowing `pass`, `adjusted` and `review`, and `product.dropped_words` exists. No existing rows were changed.
+
+**Run.** With the API running locally, `POST /products/run` returned `202` and queued job `d2aee331…`, the only queued job in dev. It was run once through `process_job(GeminiGroundingAdapter(), generate, embed)`; the worker loop was not started. It took 1 min 37 s (slice 18's run took 2 min 16 s) and finished `done` with `cost_micros = 308,958` ($0.3090), inside the spec §5 estimate of $0.27–$0.38. The summary was `products:10 keywords:8 searched:8`.
+
+**The four slice 18 problems on the same ten products:**
+- **Plural echo:** gone. No suggestion contains a repeated stem; LC-01 is "BSOAgentTestBrand Blue Boys Sandal Com Kids" (see the new problem below), not "…Sandal And Sandals".
+- **Ill-fitting keyword:** LC-05 "Men Flip Flop Navy" got `men flip flops` and became "BSOAgentTestBrand Navy Men Flip Flop"; slice 18 gave `men slipper` and "…Navy Men Slipper".
+- **Dropped words:** none. "Casual" (LC-06, LC-07) and "School" (LC-09) are kept. Every product's `dropped_words` is `[]`, so no product was flagged `review`.
+- **Shared searches:** 10 products used 8 keywords (`kids sandals` for LC-01 and LC-02, `kids shoes` for LC-03 and LC-09), so 8 grounded searches instead of 10.
+- All ten suggestions are `adjusted`; most only move the colour forward.
+
+**New problem found by this re-check.** Two suggestions gained the junk word "Com": LC-01 "…Blue Boys Sandal Com Kids" and LC-02 "…Pink Girls Sandal Com Kids". The titles-parse step for `kids sandals` returned store names, not product titles: "Famous Footwear", "Zappos.com", "Next USA", "Journeys Kidz", "ShopWSS.com". They pass `keep_present` because they appear in the answer text, and "com" is in two of them, so `missing` reported it and the rewrite worked it in. Two searches (`women sandals`, `women slippers`) stored 0 titles. The search results are US stores although the locale is IN/en (*inferred* from the domains; the locale is recorded, not enforced). Recorded in §3.
+
+**Web, production build.** Requests were made with `curl` against `next start -p 3001` with `API_URL=http://localhost:8000` and the Run 1 key in the `bsi_key` cookie. `GET /b/{id}/products` returned 200 with 11 table rows and "Last run: done"; "Navy Men Flip Flop" is present and "And Sandals" is not. `GET /b/{id}/products/export.csv` returned 200 with the header ending `rule_check,dropped_words` and 10 data rows. No product was `review`, so the `review` badge and the `dropped:` line were not rendered in this check.
+
+**Writes to dev.** 10 `product` rows updated, 8 new `keyword_search` rows (the 10 slice 18 rows remain), 1 `job` row (`product_run`, $0.3090). Every API-key request updated `api_key.last_used_at`, latest 2026-09-29 08:07 UTC. Both servers were stopped afterwards. Model spend on dev is now $9.9377 of the $15 cap.
 
 ## 3. Deferred and untested
+
+- **Store names parsed as product titles (found by the re-check, §2).** For `kids sandals` the titles-parse step returned retailer names ("Zappos.com", "ShopWSS.com"), and `missing` then suggested "com", which the rewrite put into two titles. Likely fixes: tell `titles_prompt` to return product titles only, drop titles that equal or contain their own domain, and treat domain-like tokens (com, in, co) as stopwords in `missing`.
+- **Grounded search results ignore the locale (found by the re-check, §2).** US stores came back for an IN/en brand; the locale is recorded, not enforced (slice 1 design).
 
 Decisions with a cost (rulings, spec `## Rulings`):
 - `keyword_key` keeps 1-letter tokens and strips the possessive first, where the spec's first text used `fold` (R1). Cost: none seen.
