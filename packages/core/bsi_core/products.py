@@ -31,6 +31,7 @@ from . import models as m
 from .crawl import Fetch, http_fetch
 from .db import tenant_session
 from .judge import JudgeFailed
+from .matching import normalize_domain
 from .providers.base import EngineAdapter
 from .rivals import _stem
 from .scheduling import budget_fits
@@ -318,7 +319,7 @@ _TOKEN = re.compile(r"[a-z0-9]+")
 STOPWORDS = frozenset(
     "and for the with from your our this that are you all any buy online "
     "free shop shopping sale offer offers price prices deal deals off "
-    "new a an in of on to by at or".split()
+    "new a an in of on to by at or com".split()
 )
 
 
@@ -450,13 +451,17 @@ def fit_rank(
 
 
 def missing(
-    product_title: str, titles: Sequence[str], brand_names: Sequence[str]
+    product_title: str,
+    titles: Sequence[str],
+    brand_names: Sequence[str],
+    exclude: Sequence[str] = (),
 ) -> list[str]:
     """Words of the ranking titles the product title lacks, compared by
-    stem (fold): at least 3 characters, not a number, not a stopword or a
-    brand stem, in at least MIN_TITLES titles. The first surface form
-    seen is reported; by title count, then stem; MAX_MISSING."""
-    have = fold_set(product_title) | _brand_stems(brand_names)
+    stem (fold): at least 3 characters, not a number, not a stopword, not
+    a stem of the brand's names or of `exclude` (rival brands, models and
+    competitor names), in at least MIN_TITLES titles. The first surface
+    form seen is reported; by title count, then stem; MAX_MISSING."""
+    have = fold_set(product_title) | _brand_stems([*brand_names, *exclude])
     counts: Counter[str] = Counter()
     surface: dict[str, str] = {}
     for title in titles:
@@ -542,19 +547,65 @@ def _squash(text: str) -> str:
     return " ".join(text.casefold().split())
 
 
+def _named_in(value: Any, title: str) -> str:
+    """value, stripped, when it has a token and all its tokens are in the
+    title's tokens, unless its tokens equal the title's (Ruling R4); else
+    "". Keeps the parse from inventing exclusions."""
+    v = str(value or "").strip()
+    toks, title_toks = set(tokens(v)), set(tokens(title))
+    return v if toks and toks <= title_toks and toks != title_toks else ""
+
+
 def keep_present(
     titles: list[dict[str, Any]], text: str
 ) -> list[dict[str, str]]:
     """Only titles found verbatim in the answer text (case and
-    whitespace ignored), at most TOP_TITLES, domains lowercased."""
+    whitespace ignored), at most TOP_TITLES, domains lowercased; brand
+    and model kept only when named in the title (_named_in)."""
     hay = _squash(text)
     out: list[dict[str, str]] = []
     for t in titles:
         title = str(t.get("title") or "").strip()
         if title and _squash(title) in hay:
             domain = str(t.get("domain") or "").strip().lower()
-            out.append({"title": title, "domain": domain})
+            out.append(
+                {
+                    "title": title,
+                    "domain": domain,
+                    "brand": _named_in(t.get("brand"), title),
+                    "model": _named_in(t.get("model"), title),
+                }
+            )
     return out[:TOP_TITLES]
+
+
+def drop_stores(
+    titles: list[dict[str, Any]], domains: Sequence[str]
+) -> list[dict[str, Any]]:
+    """Titles that are not a store: a title is dropped when its letters
+    and digits, joined, equal a known domain's name or joined form
+    ("Famous Footwear" = famousfootwear.com, "Zappos.com" = zappos.com),
+    or it contains a known dotted domain ("Buy at ShopWSS.com"). Known
+    domains are the title's own plus the cited ones, normalised. Order
+    kept."""
+    # ponytail: a subdomain's name is its first label (shop.nike.com ->
+    # "shop"), and a store named unlike its domain ("Journeys Kidz",
+    # journeys.com) is left to titles_prompt; a store list would catch it.
+    cited = [normalize_domain(d) for d in domains]
+    out: list[dict[str, Any]] = []
+    for t in titles:
+        title = str(t.get("title") or "")
+        squashed = "".join(tokens(title))
+        low = title.casefold()
+        own = normalize_domain(str(t.get("domain") or ""))
+        if not any(
+            squashed in (d.split(".")[0], "".join(tokens(d)))
+            or ("." in d and d in low)
+            for d in (own, *cited)
+            if d
+        ):
+            out.append(t)
+    return out
 
 
 class KeywordItem(BaseModel):
@@ -569,6 +620,8 @@ class KeywordSet(BaseModel):
 class TitleItem(BaseModel):
     title: str
     domain: str = ""
+    brand: str = ""
+    model: str = ""
 
 
 class TitleSet(BaseModel):
@@ -621,16 +674,29 @@ def keyword_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
     )
 
 
+def search_query(keyword: str) -> str:
+    """The grounded search that should list products, not stores."""
+    return (
+        f"{keyword}: popular products to buy online, "
+        "with each product's full title"
+    )
+
+
 def titles_prompt(keyword: str, text: str, domains: Sequence[str]) -> str:
     """Parse a grounded answer into the product titles it names."""
     return (
-        f"The text below answers a search for {keyword!r} buy online.\n"
+        f"The text below answers the search {search_query(keyword)!r}.\n"
         f"List up to {TOP_TITLES} distinct product titles that appear "
         "verbatim in the text, in the order they appear, each with the "
         "seller's domain when the text names it (else an empty string). "
-        "Do not invent titles or shorten them.\n"
+        "Do not invent titles or shorten them. A product title names one "
+        "product; never list a store, retailer, marketplace or brand name "
+        "on its own. For each title also give its brand and its model or "
+        "product-line name, each as written in the title, else an empty "
+        "string.\n"
         f"Known source domains: {', '.join(domains) or 'none'}\n"
-        'Return JSON {"titles": [{"title": ..., "domain": ...}]}.\n'
+        'Return JSON {"titles": [{"title": ..., "domain": ..., '
+        '"brand": ..., "model": ...}]}.\n'
         f"Text:\n{text}"
     )
 
@@ -700,6 +766,15 @@ def run_products(
         with tenant_session(org_id) as s:
             brand = s.get_one(m.Brand, brand_id)
             names = [brand.name, *brand.aliases]
+            rivals = [
+                n
+                for c in s.scalars(
+                    select(m.Competitor).where(
+                        m.Competitor.brand_id == brand_id
+                    )
+                )
+                for n in (c.name, *c.aliases)
+            ]
             products: list[dict[str, Any]] = [
                 {
                     "id": p.id,
@@ -806,6 +881,10 @@ def run_products(
                             m.KeywordSearch.error.is_(None),
                         )
                     )
+                    # a row from an older query wording, or parsed before
+                    # titles carried brand and model, is searched again
+                    if row.query == search_query(row.keyword)
+                    and all("brand" in t for t in row.titles)
                 )
                 new = [k for k in ordered if k not in titles_by_kw]
                 new = new[: max(KEYWORD_CAP - searched, 0)]
@@ -820,7 +899,7 @@ def run_products(
             if not fits:
                 raise OverBudget(spent)
             for keyword in new:
-                query = f"{keyword} buy online"
+                query = search_query(keyword)
                 result = adapter.query(query, country, language)
                 spent += result.cost_micros
                 row: dict[str, Any] = {
@@ -843,10 +922,15 @@ def run_products(
                     spent += cost
                     row["cost_micros"] += cost
                     row["titles"] = keep_present(
-                        [
-                            t.model_dump()
-                            for t in TitleSet.model_validate_json(raw).titles
-                        ],
+                        drop_stores(
+                            [
+                                t.model_dump()
+                                for t in TitleSet.model_validate_json(
+                                    raw
+                                ).titles
+                            ],
+                            domains,
+                        ),
                         parsed.text,
                     )
                 with tenant_session(org_id) as s:
@@ -875,10 +959,23 @@ def run_products(
             # past KEYWORD_CAP has no titles, so its missing list is [].
             for i, p in enumerate(kept):
                 p["index"] = i
+                ranking = titles_by_kw.get(p["keyword"], [])
                 p["missing"] = missing(
                     p["title"],
-                    [t["title"] for t in titles_by_kw.get(p["keyword"], [])],
+                    [t["title"] for t in ranking],
                     names,
+                    # ponytail: a generic word in a model ("Classic") is
+                    # excluded for this keyword, and one in a competitor's
+                    # name or alias for every keyword.
+                    exclude=[
+                        *rivals,
+                        *(
+                            v
+                            for t in ranking
+                            for v in (t.get("brand"), t.get("model"))
+                            if v
+                        ),
+                    ],
                 )
             raw, cost, _model = generator(
                 rewrite_prompt(brand.name, kept), RewriteSet, 0.0

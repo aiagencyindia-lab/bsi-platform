@@ -4,6 +4,7 @@ import gzip
 import hashlib
 from types import SimpleNamespace
 
+import pytest
 from bsi_core.products import (
     CONNECTORS,
     EXPORT_COLUMNS,
@@ -11,6 +12,7 @@ from bsi_core.products import (
     RewriteSet,
     TitleSet,
     drop_brand_terms,
+    drop_stores,
     dropped,
     export_rows,
     fit_rank,
@@ -24,6 +26,7 @@ from bsi_core.products import (
     parse_feed,
     rewrite_prompt,
     rule_check,
+    search_query,
     titles_prompt,
     vote,
 )
@@ -300,8 +303,93 @@ def test_keep_present_drops_titles_absent_from_the_text():
         {"title": "Invented Sandal", "domain": "x.in"},
     ]
     assert keep_present(titles, text) == [
-        {"title": "Kids Sandals for Boys", "domain": "amazon.in"}
+        {
+            "title": "Kids Sandals for Boys",
+            "domain": "amazon.in",
+            "brand": "",
+            "model": "",
+        }
     ]
+
+
+TEVA_KIDS = "Teva Hurricane XLT 2 Sandals - Kids'"
+
+
+def test_keep_present_keeps_a_brand_and_model_named_in_the_title():
+    got = keep_present(
+        [
+            {
+                "title": TEVA_KIDS,
+                "domain": "",
+                "brand": "Teva",
+                "model": "Hurricane XLT 2",
+            }
+        ],
+        f"Try the {TEVA_KIDS} today.",
+    )
+    assert (got[0]["brand"], got[0]["model"]) == ("Teva", "Hurricane XLT 2")
+
+
+def test_keep_present_blanks_a_brand_not_in_the_title():
+    title = "Teva Original Universal Sandals"
+    got = keep_present(
+        [
+            {
+                "title": title,
+                "domain": "",
+                "brand": "Nike",
+                "model": "Original Universal",
+            }
+        ],
+        f"See {title}.",
+    )
+    assert (got[0]["brand"], got[0]["model"]) == ("", "Original Universal")
+
+
+def test_keep_present_model_named_in_title_edge_cases():
+    title = "Teva Hurricane XLT 2 Sandals"
+
+    def model(value: str) -> str:
+        got = keep_present(
+            [{"title": title, "domain": "", "brand": "", "model": value}],
+            f"See {title}.",
+        )
+        return got[0]["model"]
+
+    assert model("-") == ""  # no letters or digits
+    assert model("XLT-2") == "XLT-2"  # tokens match across punctuation
+    assert model(title) == ""  # the whole title (Ruling R4)
+
+
+def test_keep_present_without_brand_or_model_keys_stores_empty():
+    got = keep_present([{"title": "Kids Sandal", "domain": ""}], "Kids Sandal")
+    assert (got[0]["brand"], got[0]["model"]) == ("", "")
+
+
+TEVA_TITLES = [
+    TEVA_KIDS,
+    "Teva Hurricane XLT 2 Sandals - Toddlers'",
+    "Teva Original Universal Sandals - Kids'",
+]
+
+
+def test_missing_leaves_out_excluded_brand_and_model_words():
+    exclude = ["Teva", "Hurricane XLT 2", "Original Universal"]
+    got = missing(
+        "Blue Boys Sandal", TEVA_TITLES, ["BSOAgentTestBrand"], exclude=exclude
+    )
+    assert got == ["kids"]
+    assert "teva" in missing(
+        "Blue Boys Sandal", TEVA_TITLES, ["BSOAgentTestBrand"]
+    )
+
+
+def test_titles_prompt_asks_for_brand_and_model():
+    tp = titles_prompt("kids sandals", "answer text", ["amazon.in"])
+    assert (
+        "For each title also give its brand and its model or product-line name"
+        in tp
+    )
 
 
 def test_prompts_carry_the_inputs_and_parse_with_their_schemas():
@@ -450,3 +538,63 @@ def test_short_stopwords_are_not_flagged_as_dropped():
         [],
     )
     assert dropped("Made in India Sandal", "Sandal Made India", ()) == []
+
+
+def test_search_query_asks_for_products_with_full_titles():
+    assert search_query("kids sandals") == (
+        "kids sandals: popular products to buy online, "
+        "with each product's full title"
+    )
+
+
+def test_titles_prompt_names_the_new_query_and_forbids_stores():
+    tp = titles_prompt("kids sandals", "answer text", ["amazon.in"])
+    assert search_query("kids sandals") in tp
+    assert "buy online." not in tp
+    assert (
+        "never list a store, retailer, marketplace or brand name on its own"
+        in tp
+    )
+
+
+@pytest.mark.parametrize(
+    ("title", "domains"),
+    [
+        ({"title": "Famous Footwear", "domain": "famousfootwear.com"}, []),
+        ({"title": "Zappos.com", "domain": "zappos.com"}, []),
+        ({"title": "REEF", "domain": "reef.com"}, []),
+        ({"title": "Kids Foot Locker", "domain": "www.kidsfootlocker.com"}, []),
+        ({"title": "Zappos.com", "domain": ""}, ["zappos.com"]),
+        ({"title": "Buy at ShopWSS.com", "domain": "shopwss.com"}, []),
+        ({"title": "Zappos", "domain": "https://www.zappos.com/kids"}, []),
+    ],
+)
+def test_drop_stores_drops_a_store_name(title, domains):
+    assert drop_stores([title], domains) == []
+
+
+def test_drop_stores_keeps_product_titles_in_order():
+    titles = [
+        {"title": "Crocs Classic Clog", "domain": "crocs.com"},
+        {"title": "Zappos Kids Sandal", "domain": ""},
+        {"title": "Amazon Essentials Sandal", "domain": "amazon"},
+        {"title": "Kids Lanner Ridge II Slipper", "domain": ""},
+        # The documented ceiling: a store named unlike its domain is left
+        # to the prompt. A later fix that catches it flips this case.
+        {"title": "Journeys Kidz", "domain": "journeys.com"},
+    ]
+    assert drop_stores(titles, ["zappos.com"]) == titles
+
+
+def test_drop_stores_keeps_order_around_a_dropped_title():
+    crocs = {"title": "Crocs Classic Clog", "domain": "crocs.com"}
+    reef = {"title": "REEF", "domain": "reef.com"}
+    lanner = {"title": "Kids Lanner Ridge II Slipper", "domain": ""}
+    assert drop_stores([crocs, reef, lanner], []) == [crocs, lanner]
+
+
+def test_missing_never_suggests_com():
+    got = missing(
+        "Blue Sandal", ["Zappos com sandal", "ShopWSS com sandal"], []
+    )
+    assert "com" not in got
