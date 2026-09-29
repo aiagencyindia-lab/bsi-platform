@@ -414,3 +414,26 @@ def test_prompts_ask_for_plural_kids_keywords_and_kept_words():
     kp = keyword_prompt("Walkaroo", [])
     assert "kids" in kp and "plural" in kp
     assert "Keep every word" in rewrite_prompt("Walkaroo", [])
+
+
+def test_fit_rank_reads_the_category_word_before_a_stopword():
+    # R3: "slippers for men" is a slippers phrase, not a men phrase.
+    assert fit_rank(
+        ["men slippers", "slippers for men", "men flip flops"],
+        "Men Flip Flop Navy",
+        "Slippers",
+        None,
+    ) == ["men flip flops", "men slippers", "slippers for men"]
+    assert fit_rank(["sandals for kids"], "Boys Sandal Blue", None, None) == [
+        "sandals for kids"
+    ]
+
+
+def test_short_stopwords_are_not_flagged_as_dropped():
+    # R4: "of" and "in" are not product words.
+    assert rule_check("Kurta Set of 3 Blue", "Blue Kurta Set 3 Piece", ()) == (
+        "Blue Kurta Set 3 Piece",
+        "pass",
+        [],
+    )
+    assert dropped("Made in India Sandal", "Sandal Made India", ()) == []

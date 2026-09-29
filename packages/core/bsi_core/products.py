@@ -318,7 +318,7 @@ _TOKEN = re.compile(r"[a-z0-9]+")
 STOPWORDS = frozenset(
     "and for the with from your our this that are you all any buy online "
     "free shop shopping sale offer offers price prices deal deals off "
-    "new".split()
+    "new a an in of on to by at or".split()
 )
 
 
@@ -416,11 +416,14 @@ def fit_rank(
     category: str | None,
     description: str | None,
 ) -> list[str]:
-    """Keywords whose category word (the last word) names this product:
-    first those whose category stem is in the title, then those whose
-    stem is only in the category or description; others are dropped, so
-    a flip flop is never searched as "men slippers" when a title fit
-    exists, and never as "kids shoes" at all."""
+    """Keywords whose category word names this product. The category
+    word is the last folded word before the keyword's first STOPWORDS
+    token ("slippers for men" -> slipper), or the keyword's last folded
+    word if nothing comes before it. First come those whose category
+    stem is in the title, then those whose stem is only in the category
+    or description; others are dropped, so a flip flop is never searched
+    as "men slippers" when a title fit exists, and never as "kids shoes"
+    at all."""
     in_title = fold_set(title)
     in_other = fold_set(category or "") | fold_set(description or "")
     first: list[str] = []
@@ -429,9 +432,13 @@ def fit_rank(
         words = fold(k)
         if not words:
             continue
-        if words[-1] in in_title:
+        toks = tokens(k)
+        cut = next((i for i, t in enumerate(toks) if t in STOPWORDS), len(toks))
+        head = fold(" ".join(toks[:cut]))
+        word = (head or words)[-1]
+        if word in in_title:
             first.append(k)
-        elif words[-1] in in_other:
+        elif word in in_other:
             second.append(k)
     return first + second
 
