@@ -35,7 +35,8 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 | 19fa5f8 | docs: slice 20 findings, index and rulings |
 | 9ecbb33 | test: slice 20 final review: the R9 test seeds the new query (R1) |
 | 10765f8 | docs: slice 20 audit fixes (section-approval record, stale reasons) |
-| (this commit) | docs: slice 20 plan: name the R1 commit |
+| 8129e17 | docs: slice 20 plan: name the R1 commit |
+| (this commit) | docs: slice 20 plan: fix the R1 bullet's table reference |
 
 ## 2. Live check on dev
 
