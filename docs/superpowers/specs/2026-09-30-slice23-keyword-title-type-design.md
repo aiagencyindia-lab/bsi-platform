@@ -262,7 +262,7 @@ Run by the controller only with the user's OK at that point, by the live-check p
 
 ## Rulings
 
-None yet. Rulings made during execution are added here with their R-number.
+None.
 
 ## Out of scope
 
