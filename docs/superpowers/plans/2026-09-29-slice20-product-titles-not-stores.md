@@ -733,7 +733,7 @@ Expected: all pass.
                 ],
 ```
 
-5. Add after `test_store_names_are_not_stored_as_titles`:
+5. Add after `test_store_names_are_not_stored_as_titles` (changed by R5: the rival test's competitor is `name="Deckers", aliases=["Crocs"]`, so "crocs" is excluded only through the alias):
 
 ```python
 def _fresh_row(owner, org, bid, titles):
@@ -791,8 +791,6 @@ def test_rival_brands_models_and_competitors_are_not_missing_words(
     bid = make_brand(org, "Walkaroo")
     _seed(owner, org, bid, 1)
     with owner() as s, s.begin():
-        # (changed by R5) name="Deckers", aliases=["Crocs"], so "crocs"
-        # is reached only through an alias.
         s.add(
             m.Competitor(
                 org_id=org.id,

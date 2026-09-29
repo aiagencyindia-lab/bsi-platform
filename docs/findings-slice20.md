@@ -62,7 +62,8 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 | 4181ae7 | docs: slice 20 findings: LC-07's observed suggestion |
 | 1079f38 | fix(products): a brand or model that is the whole title is not named in it (R4, R5) |
 | 6780fa1 | docs: slice 20 plan records rulings R4 and R5 |
-| (this commit) | docs: slice 20 second live check, R6, and review minors |
+| 9b3c864 | docs: slice 20 second live check, R6, and review minors |
+| (this commit) | docs: slice 20 findings: observed keywords; plan marker in prose |
 
 ## 2. Live check on dev
 
@@ -99,20 +100,20 @@ Per product, as observed (missing words as recorded (order not kept); the end of
 - The parse put category nouns in models, such as "Chase Sandal", "Moc Slipper", "Artie Shoe", "Adalyn Sneaker" and "Kamila Sandal", so generic category words were excluded for those keywords. The kids shoes titles had brand `""` and models such as "Taye 2.0 Sneaker".
 - Writes: the job row, 10 `product` rows, 8 `keyword_search` rows, `api_key.last_used_at`. Afterwards 0 jobs queued; worker and API stopped.
 
-Per product, as observed (missing words as recorded (order not kept); the end of each suggested title from the ledger line; every status `adjusted`, with no dropped words). The ledger line gives no keyword for LC-02, LC-04, LC-07 and LC-10; the ones shown for them are the first check's keywords (*inferred*).
+Per product, as observed (missing words as recorded (order not kept); the end of each suggested title from the ledger line; every status `adjusted`, with no dropped words). The keywords for LC-02, LC-04, LC-07 and LC-10 come from the controller's read-only query after the job.
 
 | Product | Keyword | Missing words | Suggested title (end) | Status |
 |---|---|---|---|---|
 | LC-01 | kids sandals | (none) | "…Blue Boys Sandal Kids" | adjusted |
-| LC-02 | kids sandals (*inferred*) | (none) | "…Pink Girls Sandal Kids" | adjusted |
+| LC-02 | kids sandals | (none) | "…Pink Girls Sandal Kids" | adjusted |
 | LC-03 | kids shoes | little, white | "…Little White Black Kids Sports Shoe" | adjusted |
-| LC-04 | kids slippers (*inferred*) | (none) | "…Grey Kids Slipper" | adjusted |
+| LC-04 | kids slippers | (none) | "…Grey Kids Slipper" | adjusted |
 | LC-05 | men flip flops | (none) | "…Navy Men Flip Flop" | adjusted |
 | LC-06 | men sandals | (none) | "…Brown Boys Casual Sandal Men" | adjusted |
-| LC-07 | women slippers (*inferred*) | (none) | "…Beige Women Casual Slipper" | adjusted |
+| LC-07 | women slippers | (none) | "…Beige Women Casual Slipper" | adjusted |
 | LC-08 | men shoes | basketball | "…Basketball Grey Men Sports Shoe" | adjusted |
 | LC-09 | kids shoes | kid, little, white | "…Little Kid White Black Boys School Shoe" | adjusted |
-| LC-10 | women sandals (*inferred*) | (none) | "…Tan Women Sandal" | adjusted |
+| LC-10 | women sandals | (none) | "…Tan Women Sandal" | adjusted |
 
 New problems (slice 21 scope, §3):
 - 7 of 10 products get no missing words, because the parse puts category nouns in models ("Chase Sandal", "Moc Slipper", "Artie Shoe", "Adalyn Sneaker") and the alias "Campus Shoes" excludes "shoe" and "shoes" (R6).
