@@ -35,6 +35,8 @@ A row with no titles is still a hit. Rows written before this slice lack the key
 
 `run_products` passes `allowed=[keyword, *missing, description or "", category or "", *attribute values as str]`. A title changed by this step is `adjusted`; `review` still means original words were lost.
 
+Ruling R1 (final whole-branch review): if the step leaves no word, `rule_check` uses the original title instead (`title = title or original`), so `suggested_title` is never stored empty. Such a title is `adjusted`, with no dropped words.
+
 **Tests.**
 - `tests/unit/test_products.py`:
   - The prompt contains "without the product type".
@@ -47,6 +49,8 @@ A row with no titles is still a hit. Rows written before this slice lack the key
   - "Watch" with "men watches", and "Leather" with `allowed` "Leather", are `pass`.
   - The eight named `rule_check` tests pass `allowed=` and keep their expected values.
   - The `keep_present` expectation gains `"parse": 2`.
+  - R1: "Comfy Footwear" for "Boys Sandal" gives "Boys Sandal", `adjusted`, no dropped words. It failed first (`''`, `review`).
+  - Two pins, both passing when written: "White" is skipped even with keyword "white sneakers" (`["sneaker"]`), and "Glass" with allowed "reading glasses" is `pass`.
 - `tests/integration/test_products_run.py`:
   - Every exact stored-title assertion and the two seeds gain `"parse": 2`.
   - `test_a_row_parsed_without_brand_is_redone` is renamed `test_a_row_parsed_before_parse_2_is_redone`. It checks that a row whose titles have brand and model keys but no `parse` key is searched again.
@@ -74,7 +78,8 @@ A row with no titles is still a hit. Rows written before this slice lack the key
 | 24c5726 | fix(products): keyword guard, colour/size noise and parse version for missing words |
 | 4e3f668 | fix(products): the rule check drops words the rewrite invents |
 | 1e10fa4 | docs: slice 21 findings, index and rulings |
-| (this commit) | docs: slice 21 findings: gate warnings as observed; wording |
+| a1e3bba | docs: slice 21 findings: gate warnings as observed; wording |
+| (this commit) | fix(products): an empty rule-check title falls back to the original (R1) |
 
 ## 2. Live check on dev
 
@@ -86,7 +91,6 @@ From the task reviews:
 - `keyword=p["keyword"]` in `run_products`'s `missing` call has no integration test (plan departure 7). The unit test pins the guard inside `missing`, and the spec asks for none.
 - A drop can leave a function word that is not a connector at the end ("Walkaroo Sandal in"), because only CONNECTORS are stripped from the end.
 - Kept numbers can leave promotional scraps ("Walkaroo Sandal 50%"). The plan keeps numbers by design.
-- `rule_check` can return an empty title when the rewrite shares no word with anything allowed ("Comfy Footwear" gives `""` with `review`). `run_products` then stores `suggested_title = ""`. A one-line guard could fall back to the original title.
 - The `-es` fix is one-sided: it applies to allowed texts only, so an original "Watches" or "Boxes" is not folded. `-es` folding is out of scope.
 - The description, category and attribute sources of `allowed` are untested end to end, because the seeded products have none.
 - Gate warnings:
@@ -94,6 +98,10 @@ From the task reviews:
   - Task 2's report names only one of its 2 warnings (the anyio `BlockingPortal` alias). The controller's own gate run at 1e10fa4 has since named both (§1).
 - With `-W default`, the backend suite also shows a psycopg `ResourceWarning` ("Connection ... deleted while still open"). It has not been checked against `main`.
 - Task 1's implementer ran the full suite twice, one after the other. The second run was only to read the warning names.
+
+From the final whole-branch review:
+- `FUNCTION_WORDS` lacks "from" and "at" (both are in `STOPWORDS`), so an added "from" or "at" is dropped as invented. The list is fixed by the spec.
+- The keyword guard lets a rival's name through when the keyword itself contains it (for example keyword "campus sandals" with the competitor Campus).
 
 Known ceilings (spec §1–§3, in `# ponytail:` comments where the spec asks):
 - The keyword guard fixes slice 20's R6 ("Campus Shoes" excluding "shoe") only for keywords containing "shoe". For sandal, slipper and sneaker keywords, "shoe" stays excluded.

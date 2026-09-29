@@ -705,3 +705,27 @@ def test_rule_check_allows_attribute_words():
         ["Walkaroo"],
         allowed=["kids sandals", "Leather"],
     ) == ("Walkaroo Leather Sandal", "pass", [])
+
+
+def test_rule_check_falls_back_to_the_original_when_every_word_is_invented():
+    assert rule_check(
+        "Boys Sandal", "Comfy Footwear", [], allowed=["kids sandals"]
+    ) == ("Boys Sandal", "adjusted", [])
+
+
+def test_missing_skips_a_noise_word_even_in_the_keyword():
+    assert missing(
+        "Kids Shoe",
+        ["Taye White Sneaker", "Artie White Sneaker"],
+        ["X"],
+        keyword="white sneakers",
+    ) == ["sneaker"]
+
+
+def test_rule_check_allows_glass_for_glasses():
+    assert rule_check(
+        "Ray Reading Frame",
+        "Ray Reading Frame Glass",
+        ["Ray"],
+        allowed=["reading glasses"],
+    ) == ("Ray Reading Frame Glass", "pass", [])

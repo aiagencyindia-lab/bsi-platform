@@ -57,6 +57,7 @@ All code changes are in `packages/core/bsi_core/products.py`.
 - A hyphenated word ("Flip-Flop", "2-Pack") is kept whole when any of its stems is allowed and dropped whole otherwise. Dropping a word can leave a neighbour on its own ("Sandal Size 10" → "Sandal 10"); this is accepted.
 - A title changed by this step is `adjusted` (the existing rule: it differs from the suggestion). `review` still means original words were lost; `dropped()` is unchanged.
 - Known ceiling: a real synonym the rewrite adds from nowhere ("Footwear") is removed too.
+- If the step leaves no word, the original title is used instead (Ruling R1), so a suggestion is never empty.
 
 ### 4. Testing
 
@@ -72,6 +73,9 @@ Unit, `tests/unit/test_products.py`:
 - `rule_check("Walkaroo Sandal", "Walkaroo Sandal Sale", ["Walkaroo"], allowed=["kids sandals"]) == ("Walkaroo Sandal", "adjusted", [])`.
 - `rule_check("Titan Analog Dial", "Titan Analog Dial Watch", ["Titan"], allowed=["men watches"]) == ("Titan Analog Dial Watch", "pass", [])`.
 - `rule_check("Walkaroo Sandal", "Walkaroo Leather Sandal", ["Walkaroo"], allowed=["kids sandals", "Leather"]) == ("Walkaroo Leather Sandal", "pass", [])`.
+- `rule_check("Boys Sandal", "Comfy Footwear", [], allowed=["kids sandals"]) == ("Boys Sandal", "adjusted", [])` (Ruling R1).
+- `missing("Kids Shoe", ["Taye White Sneaker", "Artie White Sneaker"], ["X"], keyword="white sneakers") == ["sneaker"]` (a noise word is skipped even when it is in the keyword).
+- `rule_check("Ray Reading Frame", "Ray Reading Frame Glass", ["Ray"], allowed=["reading glasses"]) == ("Ray Reading Frame Glass", "pass", [])`.
 - Existing `rule_check` tests whose suggestions add words pass `allowed` holding those words (the default `()` allows nothing extra), keeping their current expected values: `test_rule_check_restores_the_brand_the_original_had`, `test_rule_check_passes_an_unchanged_suggestion`, `test_rule_check_drops_a_word_that_repeats_an_earlier_token`, `test_rule_check_keeps_punctuation_only_words`, `test_rule_check_flags_dropped_words_for_review`, `test_short_stopwords_are_not_flagged_as_dropped`, and the two trim tests (`test_rule_check_trims_to_150_at_a_word_boundary`, `test_rule_check_strips_a_connector_the_trim_leaves_at_the_end`), which pass `allowed=[" ".join(words)]` so they still exercise the trim.
 - The exact `keep_present` comparison in `test_keep_present_drops_titles_absent_from_the_text` expects `"parse": 2`.
 
@@ -92,7 +96,7 @@ Asked for at that point. No migration (dev stays at 0020); the worker stays stop
 
 ## Rulings
 
-None.
+- **R1: an empty title falls back to the original.** Decided: in `rule_check`, right after the invented-word step, `title = title or original`; when every suggestion word is dropped the original title is used (status then `adjusted` by the existing rule, with no dropped words). Found by the final whole-branch review (controller ruling, 2026-09-29). Why: a rewrite made only of invented words left `suggested_title` empty with status `review`. Cost if wrong: a fully invented rewrite shows the original title instead of a blank. §3 and §4 above are updated.
 
 ## Out of scope
 

@@ -566,7 +566,8 @@ def rule_check(
     brand is prepended if the original had it and the suggestion lost it;
     a word whose stems come from none of the original title, `allowed` or
     the brand's names is dropped (function words and numbers are kept)
-    right after the brand step;
+    right after the brand step, and if that leaves no word the original
+    title is used instead (Ruling R1);
     a word that repeats an earlier word's stem is dropped whole
     (punctuation-only words are kept); trailing CONNECTORS are removed;
     the title is trimmed to MAX_TITLE_CHARS at a word boundary, and
@@ -585,6 +586,7 @@ def rule_check(
         or stems & ok
         or all(t in FUNCTION_WORDS or t.isdigit() for t in tokens(w))
     )
+    title = title or original  # R1: never an empty title
     seen: set[str] = set()
     kept: list[str] = []
     for word in title.split():
