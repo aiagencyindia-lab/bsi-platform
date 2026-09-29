@@ -35,12 +35,12 @@ Codebase facts the design rests on:
 - `missing(product_title, titles, brand_names)` compares by stem. A ranking-title token is a candidate if its surface form is at least 3 characters, not a number and not a stopword, and its stem is not among the product title's stems or the brand's stems. Each title counts a stem at most once. A stem must appear in at least `MIN_TITLES` titles. The output is the first surface form seen for each stem, ordered by title count, then by stem; at most `MAX_MISSING`.
 - `rule_check`'s repeat check (R7) works on stems: a word whose `fold_set` overlaps the stems of earlier kept words is dropped whole; words with no stems (punctuation) are kept.
 - New tidy step after the repeat check: trailing connector words are removed from the end, repeatedly: `and`, `with`, `for`, `&`, `-`, `|` (compared casefolded). "Sandal And" becomes "Sandal".
-- Brand handling (prepend if lost) and the 150-character trim are unchanged.
+- Brand handling (prepend if lost) and the 150-character trim are unchanged. After the trim, trailing connectors are stripped again, because a cut at a word boundary can end the title on one ("…Sandal For"); ruling R2.
 
 ### 2. The dropped-word check, the `review` status and migration 0020
 
 - New `dropped(original, suggestion, brand_names) -> list[str]`: the original title's words whose stem is missing from `fold_set(suggestion)`. Ignored: stopwords, brand stems, pure numbers and 1-letter tokens. Lowercased surface forms, in original order, without repeats.
-- `rule_check(original, suggestion, brand_names) -> tuple[str, str, list[str]]` returns `(title, status, dropped_words)`, where `dropped_words = dropped(original, title, brand_names)` is computed on the final title (after the brand, repeat, tidy and trim steps). Status: `review` if `dropped_words` is non-empty; else `adjusted` if the title differs from the suggestion; else `pass`.
+- `rule_check(original, suggestion, brand_names) -> tuple[str, str, list[str]]` returns `(title, status, dropped_words)`, where `dropped_words = dropped(original, title, brand_names)` is computed on the final title (after the brand, repeat, tidy, trim and second tidy steps; R2). Status: `review` if `dropped_words` is non-empty; else `adjusted` if the title differs from the suggestion; else `pass`.
 - Migration `0020_product_review.py`:
   - drops `ck_product_rule_check` and recreates it as `rule_check IS NULL OR rule_check IN ('pass','adjusted','review')`;
   - adds nullable `product.dropped_words text[]`;
@@ -53,7 +53,7 @@ Codebase facts the design rests on:
 ### 3. The keyword step and the rewrite prompt
 
 - **Keyword prompt.** Rank 1 is a broad shopper phrase: the audience plus the product's own category, plural ("kids sandals", "men flip flops", "women slippers"). Children's products use "kids", not "boys" or "girls". Never replace the product's type with a different one. Otherwise unchanged (up to 5 keywords, generic first, no brand).
-- **Normalisation before the vote.** `keyword_key(k) = " ".join(fold(k))`. `vote` compares keys: rank 1 is the key most often at rank 1 across the samples (ties by sample order); the rest are the other keys in first-seen order. Each key's display form is the first surface form seen, cleaned by `_clean` and with possessive `'s` removed (`"men's sandals"` → `"men sandals"`). At most `MAX_KEYWORDS`.
+- **Normalisation before the vote.** `keyword_key(k) = " ".join(_stem(t) for t in tokens(_display(k)))`: the possessive `'s` is stripped first (`_display`), then every token is stemmed, and 1-letter tokens are kept (ruling R1; `fold` would drop them). `vote` compares keys: rank 1 is the key most often at rank 1 across the samples (ties by sample order); the rest are the other keys in first-seen order. Each key's display form is the first surface form seen, cleaned by `_clean` and with possessive `'s` removed (`"men's sandals"` → `"men sandals"`). At most `MAX_KEYWORDS`.
 - **Run-wide key map.** `run_products` keeps a map key → keyword for the whole run. The first product with a key sets its keyword string; later products with the same key get the same string, so they share one search and one `keyword_search` row.
 - **Fit check after the vote and `drop_brand_terms`.** New `fit_rank(keywords, title, category, description) -> list[str]`. A keyword's category word is its last word; its stem is compared with the product's stems. Keywords whose category stem is in `fold_set(title)` come first; then those whose category stem is only in `fold_set(category)` or `fold_set(description)`; keywords that fit neither are dropped. Order within a tier is kept. Rank 1 is the first keyword left; none left → keyword NULL (R13 applies).
 - **Rewrite prompt.** Keep every word of the original title (you may reorder); add the keyword and the missing terms naturally; never change the product type; repeat no word; no keyword stuffing.
@@ -69,6 +69,7 @@ Unit (`tests/unit/test_products.py`):
   - `("Walkaroo Boys Sandal Blue", "Walkaroo Blue Boys Sandal And Sandals")` → `("Walkaroo Blue Boys Sandal", "adjusted", [])`.
   - `("Men Casual Sandal Brown", "Brown Mens Sandal Shoes")` → `("Brown Mens Sandal Shoes", "review", ["casual"])`.
   - `("Men Flip Flop Navy", "Navy Men Slipper")` → `("Navy Men Slipper", "review", ["flip", "flop"])`.
+- `rule_check`, added during execution (R2): a 39-word suggestion `"w0 … w38 for tail end"` (original `"Plain"`) is cut just after `for`; the fixed title is at most 150 characters and its last word is not in `CONNECTORS` (`test_rule_check_strips_a_connector_the_trim_leaves_at_the_end`).
 - `rule_check`, existing cases whose expected value changes because every call now reports dropped words:
   - the 229-character trim case (original `"Plain"`) → status `review`, dropped `["plain"]` (the title assertions stay);
   - `("Red Tape Boots", "Tape Shoes", ("Red Tape",))` → `("Red Tape Shoes", "review", ["boots"])`.
@@ -101,7 +102,8 @@ Checked and recorded in `docs/findings-slice19.md`: no plural echo; flip flops k
 
 ## Rulings
 
-Rulings made during execution are appended here.
+- **R1: `keyword_key` keeps 1-letter tokens.** Decided: `keyword_key(k)` is `" ".join(_stem(t) for t in tokens(_display(k)))`, as the plan wrote it, not the spec's first text `" ".join(fold(k))`. The possessive `'s` is stripped first and 1-letter tokens are kept. Why: `fold` drops 1-letter tokens only to remove the `s` of "men's", and stripping the possessive already does that; keeping them preserves words such as the "a" of "a line dress" and keeps the existing `["a", "b", "c"]` vote tie test valid. Cost if wrong: none seen. `fit_rank` still uses `fold`, so it ignores a trailing 1-letter word that `keyword_key` keeps (recorded in findings-slice19 §3). §3 above is updated.
+- **R2: strip trailing connectors again after the trim.** Decided: `rule_check` removes trailing `CONNECTORS` a second time after the 150-character trim (helper `_strip_connectors`, commit 95f62ca). Why: in the spec's first order (tidy, then trim) a cut at a word boundary could leave "…Sandal For", the kind of junk §1 set out to remove. Found by the Task 2 implementer and reviewer. Cost if wrong: none. §1, §2 and §4 above are updated.
 
 ## Out of scope
 
