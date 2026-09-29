@@ -441,7 +441,11 @@ def test_rival_brands_models_and_competitors_are_not_missing_words(
     with owner() as s, s.begin():
         s.add(
             m.Competitor(
-                org_id=org.id, brand_id=bid, name="Crocs", status="suggested"
+                org_id=org.id,
+                brand_id=bid,
+                name="Deckers",
+                aliases=["Crocs"],
+                status="suggested",
             )
         )
     answer = "Picks: " + "; ".join(t for t, _b, _m in RIVAL_TITLES) + "."

@@ -142,7 +142,7 @@ This overrides §2's "Unchanged" line for `keep_present`, `missing` and the stor
 
 - `TitleItem` gains `brand: str = ""` and `model: str = ""`.
 - `titles_prompt` gains the sentence "For each title also give its brand and its model or product-line name, each as written in the title, else an empty string." Its JSON shape becomes `{"titles": [{"title": ..., "domain": ..., "brand": ..., "model": ...}]}`.
-- `keep_present` also carries `brand` and `model`: each is kept, as the stripped string the model wrote, only when `tokens(value)` is non-empty and every one of them is in `tokens(title)` (`tokens` is `[a-z0-9]+` over the casefolded text, so "XLT-2" matches "XLT 2"); otherwise it is stored as `""`. A value with no letters or digits is `""`. Each stored title is `{"title", "domain", "brand", "model"}` in the existing `keyword_search.titles` JSON. No schema change.
+- `keep_present` also carries `brand` and `model`: each is kept, as the stripped string the model wrote, only when `tokens(value)` is non-empty and every one of them is in `tokens(title)` (`tokens` is `[a-z0-9]+` over the casefolded text, so "XLT-2" matches "XLT 2"); otherwise it is stored as `""`. A value whose token set equals the title's token set is stored as `""` (Ruling R4). A value with no letters or digits is `""`. Each stored title is `{"title", "domain", "brand", "model"}` in the existing `keyword_search.titles` JSON. No schema change.
 - Unchanged: `drop_stores`, `search_query`, `rewrite_prompt`, one parse call per search.
 
 **B. What `missing` leaves out, and the cache**
@@ -160,13 +160,14 @@ Unit, `tests/unit/test_products.py`:
 - `keep_present([{"title": "Teva Hurricane XLT 2 Sandals - Kids'", "domain": "", "brand": "Teva", "model": "Hurricane XLT 2"}], text)`, with the title in `text`, stores `brand` "Teva" and `model` "Hurricane XLT 2".
 - `keep_present([{"title": "Teva Original Universal Sandals", "domain": "", "brand": "Nike", "model": "Original Universal"}], text)`, with the title in `text`, stores `brand` `""` and `model` "Original Universal".
 - `keep_present` given a title without `brand` or `model` keys stores `""` for both.
+- For the title "Teva Hurricane XLT 2 Sandals", present in `text`: `keep_present` stores `model` `""` for model "-" (no letters or digits), "XLT-2" for model "XLT-2" (tokens match across punctuation), and `""` for model "Teva Hurricane XLT 2 Sandals", the whole title (Ruling R4).
 - With `titles = ["Teva Hurricane XLT 2 Sandals - Kids'", "Teva Hurricane XLT 2 Sandals - Toddlers'", "Teva Original Universal Sandals - Kids'"]`: `missing("Blue Boys Sandal", titles, ["BSOAgentTestBrand"], exclude=["Teva", "Hurricane XLT 2", "Original Universal"]) == ["kids"]`, and the same call without `exclude` contains `teva`.
 - `titles_prompt(...)` contains "For each title also give its brand and its model or product-line name".
 - The existing `test_keep_present_drops_titles_absent_from_the_text` expects `"brand": ""` and `"model": ""` in its stored title.
 
 Integration, `tests/integration/test_products_run.py`:
 
-- New: the parse returns "Teva Hurricane Summer Sandals" and "Teva Hurricane Summer Slides" (brand "Teva", model "Hurricane") and "Crocs Summer Sandals" and "Crocs Classic Summer Sandals" (brand and model empty), all present in the answer text; the brand has a `competitor` row named "Crocs". The product's `missing_keywords == ["summer"]` (without the extension it would be `["summer", "crocs", "hurricane", "teva"]`).
+- New: the parse returns "Teva Hurricane Summer Sandals" and "Teva Hurricane Summer Slides" (brand "Teva", model "Hurricane") and "Crocs Summer Sandals" and "Crocs Classic Summer Sandals" (brand and model empty), all present in the answer text; the brand has a `suggested` `competitor` row named "Deckers" with alias "Crocs" (Ruling R5). The product's `missing_keywords == ["summer"]` (without the extension it would be `["summer", "crocs", "hurricane", "teva"]`).
 - New: a fresh, error-free row whose `query` is `search_query("kids sandals")` but whose titles have no `brand` key is searched again, and afterwards the row's titles carry `brand` and `model`.
 - New: a fresh, error-free row whose `query` is `search_query("kids sandals")` and whose `titles` is `[]` is a hit: the engine is not called.
 - `test_a_fresh_search_is_reused_and_a_stale_one_redone` seeds its titles with `brand` and `model` keys so the row stays a hit.
@@ -184,6 +185,10 @@ Gates: the backend gate and `npm run gate`, run by the controller.
 - **R2: `test_a_search_under_the_old_query_is_redone` seeds titles with brand and model keys.** Decided: its seeded row's titles carry `"brand": ""` and `"model": ""`. Found by the plan review of the extension (controller ruling, 2026-09-29). Why: once a row without a `brand` key is searched again, that test's seeded row is redone by the brand condition alone, so deleting the query-wording condition would pass every test (the same gap R1 closed for R9). It adds to §5 C's list. Cost if wrong: one test fixture.
 
 - **R3: findings §2 takes every product's results from the ledger.** Decided: the docs task records each product's missing words and suggested title from the ledger line "Live check 1 per-product results", not only the examples the plan's Task 5 Step 2 names (it omitted LC-09's "Big Nike Boots"). Found by the plan re-review of the extension (controller ruling, 2026-09-29), applied in the Task 5 brief instead of another plan commit. Cost if wrong: one findings line.
+
+- **R4: a brand or model that is the whole title is stored as `""`.** Decided: `_named_in(value, title)` returns `""` when the value's token set equals the title's token set. Found by the final whole-branch review of the extension (controller ruling, 2026-09-29). Why: a brand or model that is the whole title would exclude every generic word of the keyword. Cost if wrong: one guard; a title that is only its brand keeps no exclusion.
+
+- **R5: the rival integration test reaches "crocs" only through an alias.** Decided: `test_rival_brands_models_and_competitors_are_not_missing_words` seeds its competitor as `name="Deckers", aliases=["Crocs"], status="suggested"`. Found by the final whole-branch review of the extension (controller ruling, 2026-09-29). Why: with the competitor named "Crocs", deleting `*c.aliases` from the exclusion would pass every test. Cost if wrong: one fixture.
 
 ## Out of scope
 

@@ -346,6 +346,21 @@ def test_keep_present_blanks_a_brand_not_in_the_title():
     assert (got[0]["brand"], got[0]["model"]) == ("", "Original Universal")
 
 
+def test_keep_present_model_named_in_title_edge_cases():
+    title = "Teva Hurricane XLT 2 Sandals"
+
+    def model(value: str) -> str:
+        got = keep_present(
+            [{"title": title, "domain": "", "brand": "", "model": value}],
+            f"See {title}.",
+        )
+        return got[0]["model"]
+
+    assert model("-") == ""  # no letters or digits
+    assert model("XLT-2") == "XLT-2"  # tokens match across punctuation
+    assert model(title) == ""  # the whole title (Ruling R4)
+
+
 def test_keep_present_without_brand_or_model_keys_stores_empty():
     got = keep_present([{"title": "Kids Sandal", "domain": ""}], "Kids Sandal")
     assert (got[0]["brand"], got[0]["model"]) == ("", "")

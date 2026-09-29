@@ -549,10 +549,11 @@ def _squash(text: str) -> str:
 
 def _named_in(value: Any, title: str) -> str:
     """value, stripped, when it has a token and all its tokens are in the
-    title's tokens; else "". Keeps the parse from inventing exclusions."""
+    title's tokens, unless its tokens equal the title's (Ruling R4); else
+    "". Keeps the parse from inventing exclusions."""
     v = str(value or "").strip()
-    toks = tokens(v)
-    return v if toks and set(toks) <= set(tokens(title)) else ""
+    toks, title_toks = set(tokens(v)), set(tokens(title))
+    return v if toks and toks <= title_toks and toks != title_toks else ""
 
 
 def keep_present(
