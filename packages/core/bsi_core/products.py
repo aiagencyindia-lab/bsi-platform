@@ -328,8 +328,8 @@ STOPWORDS = frozenset(
 # and closed; a real colour phrase ("white sneakers") is never suggested;
 # a noise word is skipped even when it is in the keyword; outside
 # footwear some are product words (cream, gold, silver, orange, plus
-# size, hair color); toddler/youth/infant are not listed, and "kid" from
-# "Little Kid" is still suggested.
+# size, hair color); toddler/youth/infant are not listed: since slice 22
+# missing() suggests such a word only when the product's data backs it.
 NOISE_WORDS = frozenset(
     "white black blue red green pink grey gray brown navy beige tan silver "
     "gold purple orange yellow cream multi multicolor color colour size "
@@ -497,19 +497,29 @@ def missing(
     brand_names: Sequence[str],
     exclude: Sequence[str] = (),
     keyword: str = "",
+    backing: Sequence[str] | None = None,
 ) -> list[str]:
     """Words of the ranking titles the product title lacks, compared by
     stem (fold): at least 3 characters, not a number, not a stopword or
     a colour/size word (NOISE_STEMS), not a stem of the brand's names or
     of `exclude` (rival brands, models, competitor names) unless it is a
-    stem of the product's keyword, in at least MIN_TITLES titles. The
-    first surface form seen is reported; by title count, then stem;
-    MAX_MISSING."""
+    stem of the product's keyword. When `backing` is given (the product's
+    keyword, description, category and attribute values), only a stem of
+    it, as _allowed_stems folds it (rule 1). In more than half of the
+    titles and at least MIN_TITLES (rule 2). The first surface form seen
+    is reported; by title count, then stem; MAX_MISSING."""
     have = (
         fold_set(product_title)
         | _brand_stems(brand_names)
         | (_brand_stems(exclude) - _brand_stems([keyword]))
     )
+    # ponytail: stems match exactly apart from the -es singular
+    # ("cushioned" does not back "cushion"); a product with no
+    # description, category or attributes gets only words of its keyword;
+    # a colour or size word in the attributes is still skipped
+    # (NOISE_STEMS); a backed word in only 2 of 5 titles is not suggested.
+    backed = None if backing is None else _allowed_stems("", backing, [])
+    need = max(MIN_TITLES, len(titles) // 2 + 1)
     counts: Counter[str] = Counter()
     surface: dict[str, str] = {}
     for title in titles:
@@ -520,11 +530,13 @@ def missing(
             stem = _stem(tok)
             if stem in have or stem in NOISE_STEMS:
                 continue
+            if backed is not None and stem not in backed:
+                continue
             here.add(stem)
             surface.setdefault(stem, tok)
         counts.update(here)
     ranked = sorted(
-        (s for s, n in counts.items() if n >= MIN_TITLES),
+        (s for s, n in counts.items() if n >= need),
         key=lambda s: (-counts[s], s),
     )
     return [surface[s] for s in ranked[:MAX_MISSING]]
@@ -1028,6 +1040,12 @@ def run_products(
             for i, p in enumerate(kept):
                 p["index"] = i
                 ranking = titles_by_kw.get(p["keyword"], [])
+                p["backing"] = [
+                    p["keyword"],
+                    p["description"] or "",
+                    p["category"] or "",
+                    *(str(v) for v in (p["attributes"] or {}).values()),
+                ]
                 p["missing"] = missing(
                     p["title"],
                     [t["title"] for t in ranking],
@@ -1046,6 +1064,7 @@ def run_products(
                         ),
                     ],
                     keyword=p["keyword"],
+                    backing=p["backing"],
                 )
             raw, cost, _model = generator(
                 rewrite_prompt(brand.name, kept), RewriteSet, 0.0
@@ -1065,13 +1084,7 @@ def run_products(
                         p["title"],
                         suggestion,
                         names,
-                        allowed=[
-                            p["keyword"],
-                            *p["missing"],
-                            p["description"] or "",
-                            p["category"] or "",
-                            *(str(v) for v in (p["attributes"] or {}).values()),
-                        ],
+                        allowed=[*p["backing"], *p["missing"]],
                     )
                     bullets = [
                         b.strip()[:MAX_BULLET_CHARS]
