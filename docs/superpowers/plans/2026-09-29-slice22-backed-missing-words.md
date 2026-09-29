@@ -85,7 +85,13 @@ KSH = [
     "Nike Air Max 270 Big Kids' Shoes",
 ]
 B = ["BSOAgentTestBrand"]
-WSB = ["women sandals", "Flat sandal with a cushioned footbed", "Sandals", "7", "tan"]
+WSB = [
+    "women sandals",
+    "Flat sandal with a cushioned footbed",
+    "Sandals",
+    "7",
+    "tan",
+]
 
 
 def test_missing_needs_backing_and_more_than_half_the_titles():
@@ -174,7 +180,6 @@ def test_missing_backing_folds_es_plurals():
     ) == ["men", "watch"]
 ```
 
-ruff format may wrap `WSB` over several lines. That is expected.
 
 - [ ] **Step 2: Run the tests to see them fail**
 
@@ -269,8 +274,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 ### Task 2: `run_products` passes the backing, and the run tests
 
 **Files:**
-- Modify: `packages/core/bsi_core/products.py`: the missing-words loop (lines 1028-1048) and the `rule_check(...)` call (lines 1064-1076) in `run_products`.
-- Test: `tests/integration/test_products_run.py`: `_seed` (line 132), `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` (line 184), `RIVAL_TITLES` and the rival test (lines 465-505), and 2 new tests after the rival test.
+- Modify: `packages/core/bsi_core/products.py`: the missing-words loop (lines 1028-1049) and the `rule_check(...)` call (lines 1064-1075) in `run_products`.
+- Test: `tests/integration/test_products_run.py`: `_seed` (line 132), `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` (defined at line 179; its `_seed` call is at line 184), `RIVAL_TITLES` and the rival test (lines 465-505), and 2 new tests after the rival test.
 
 **Interfaces:**
 - Consumes: `missing(..., keyword: str = "", backing: Sequence[str] | None = None) -> list[str]` from Task 1.
@@ -382,9 +387,7 @@ def test_the_rewrite_cannot_add_an_unbacked_ranking_word(
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/integration/test_products_run.py`
 
-Expected: 2 failed, the rest passed.
-- `test_only_backed_words_are_missing_and_kept` fails because `missing_keywords` is `['lightweight', 'summer']`.
-- `test_the_rewrite_cannot_add_an_unbacked_ranking_word` fails because the same missing list lets "Lightweight" through: `('Walkaroo Boys Lightweight Summer Sandal 0', 'pass')`.
+Expected: 2 failed, the rest passed. Both new tests fail on their first assertion, `['lightweight', 'summer'] == ['summer']`: without the backing, "lightweight" is a missing word. (Their tuple assertions are not reached. Had they been, the second test would show `('Walkaroo Boys Lightweight Summer Sandal 0', 'pass')`, because "Lightweight" is then allowed.)
 
 The two reworked tests pass already: without the backing, "summer" is still the only word that clears the exclusions and rule 2.
 
@@ -435,10 +438,10 @@ Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run py
 Expected: all passed.
 
 - [ ] **Step 7: Re-prove slice 20's R5 check.**
-  1. Copy `packages/core/bsi_core/products.py` to the session scratchpad.
+  1. Copy `packages/core/bsi_core/products.py` to a path outside the repo, for example `cp packages/core/bsi_core/products.py /tmp/slice22-products-backup.py`.
   2. Change `for n in (c.name, *c.aliases)` to `for n in (c.name,)` in `run_products`.
   3. Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/integration/test_products_run.py -k rival_brands`. Expected: 1 failed, with "crocs" in the missing words (`['summer', 'crocs']`).
-  4. Restore `products.py` from the scratchpad copy. Do not re-type the line.
+  4. Restore `products.py` from that copy (`cp /tmp/slice22-products-backup.py packages/core/bsi_core/products.py`). Do not re-type the line.
   5. Run the same test again. Expected: 1 passed.
   6. Run `git diff --stat`. Expected: only `packages/core/bsi_core/products.py` and `tests/integration/test_products_run.py`.
 
@@ -489,7 +492,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   | §1 comments: `missing` docstring names both rules; `NOISE_WORDS` comment's last clause; the `# ponytail:` ceilings (four) | Task 1 Steps 3–4 |
   | §1 Unchanged list | Global Constraints |
   | §2 unit tests (7 new; 7 existing untouched) | Task 1 Steps 1–2, 5 |
-  | §2 integration: `_seed(description=None)`, test 1's description, the rival rework, the R5 re-proof, 2 new tests, the `fit_rank`/`rewrite_prompt` note | Task 2 Steps 1–7 |
+  | §2 integration: `_seed(description=None)`, test 1's description, the rival rework, the R5 re-proof, 2 new tests, the `fit_rank`/`rewrite_prompt` note | Task 2 Steps 1–7 (the `fit_rank`/`rewrite_prompt` note only through Step 6 and the gate; departure 14) |
   | §2 copy check | Global Constraints; fixtures listed below |
   | §3 dev re-check | the controller, after Task 3, with the user's OK |
   | Gates | Tasks 1–2 and the controller |
@@ -507,7 +510,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   - R5: `for n in (c.name, *c.aliases)` → `for n in (c.name,)` fails with "crocs"; restored from a backup.
   - New tests: description "Summer sandal for daily wear"; titles "Kids Summer Sandals Lightweight" and "Boys Summer Sandals Lightweight"; keyword "kids sandals" (the fake generator's default); rewrite "Walkaroo Boys Summer Sandal 0" → `["summer"]`, same title, `pass`; rewrite "Walkaroo Boys Lightweight Summer Sandal 0" → `["summer"]`, "Walkaroo Boys Summer Sandal 0", `adjusted`.
 - **Checked by running code.** Every value above was checked against a scratchpad copy of the two rules (outside the repo) by the controller and by the spec reviewer. The expected failure messages in Task 1 Step 2 and Task 2 Step 4 come from the current code: `missing` without rule 2 on `WS`, and `['lightweight', 'summer']` for the backed titles without rule 1 (counts 2 each, sorted by stem).
-- **Other integration tests.** Every other `missing_keywords` assertion is `[]` or `None`. Both rules only make `missing` stricter, so those cannot change. `test_the_rewrite_cannot_add_an_invented_word` and `test_a_failed_search_is_stored_and_the_run_goes_on` keep their titles: "Summer" was already outside `allowed` there (spec reviewer).
+- **Other integration tests.** Every other `missing_keywords` assertion is `[]` or `None`. Both rules only make `missing` stricter, so those cannot change. `test_the_rewrite_cannot_add_an_invented_word` keeps its title "Walkaroo Boys Sandal Kids" and `adjusted`: its missing list becomes `[]` (the seed has no description), but its rewrite "Walkaroo Boys Toddler Sandal Kids" has no "Summer", and "Toddler" is dropped as before. `test_a_failed_search_is_stored_and_the_run_goes_on` keeps "Walkaroo Kids Sandals": it has no titles, so its missing list was `[]` already (plan reviewer).
 - **Fixtures vs banned words:** Summer sandal, alternative, Crocs, Teva Hurricane, daily wear, Lightweight, the dev titles, Titan, Fossil, adjustable strap, wide width. None is a banned word.
 - **Types:**
   - `backing: Sequence[str] | None = None`.
@@ -525,6 +528,10 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   8. The `# ponytail:` comment sits above `backed = …` inside `missing`. The spec says only "in a `# ponytail:` comment".
   9. The `missing` docstring's wording is the plan's. The spec says only that it "names both rules".
   10. The `NOISE_WORDS` comment's new last clause is the plan's wording. The spec gives its sense: "such a word is now suggested only when the product data backs it."
+  11. Comments and a docstring the spec does not give: the unit-test header comment ("# Ranking titles stored in dev's keyword_search (slice 22 spec)."), the two unit-test comments ("Before slice 22: …" and "strap, wide and width are backed but in only 2 of the 5 titles."), and `_backed_run`'s docstring.
+  12. The spec has no docs section. Task 3's README rows and the content of `findings-slice22.md` are the plan's, in the slice 21 format.
+  13. Task 2 Step 7 expects the R5 break to give exactly `['summer', 'crocs']`. The spec says only that the test "fails with "crocs" in the missing words".
+  14. The spec's note that a description also goes to `fit_rank` and `rewrite_prompt` (with no other expected value changing) has no step of its own. Only the full product-run test run in Task 2 Step 6 and the gate check it.
 
 ## Changes made during execution
 
