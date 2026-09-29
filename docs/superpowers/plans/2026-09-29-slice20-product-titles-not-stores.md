@@ -105,7 +105,7 @@ def search_query(keyword: str) -> str:
 ```
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest tests/unit/test_products.py tests/unit/test_recommend_copy.py -q`
-Expected: only `test_titles_prompt_names_the_new_query_and_forbids_stores` fails, because the prompt still says "buy online.".
+Expected: only `test_titles_prompt_names_the_new_query_and_forbids_stores` fails, on `search_query("kids sandals") in tp`, because `titles_prompt` still uses the old wording.
 
 Then replace `titles_prompt`'s body with:
 
