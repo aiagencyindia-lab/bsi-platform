@@ -127,7 +127,7 @@ Run only with the user's OK, asked at that point.
 
 ### 5. Extension after the first live check: rival brand and model names
 
-The first dev live check (findings §2) removed store names, but `missing` then suggested rival brand and model words from the ranking product titles: LC-01 and LC-02 got "Teva Hurricane XLT", LC-03 "Big Nike Boots", LC-06 "Birkenstock". `missing` excludes only the brand's own name. The user chose to fix this in slice 20 before merge.
+The first dev live check (job `d73eaefa`, 2026-09-29, `cost_micros = 313,103`; dev spend on jobs then totalled 1,168,067 micros, about $10.25 of the $15 cap in the spend tally) removed store names: its 8 searches each stored 5 titles, all of them product names. But `missing` then suggested rival brand and model words from those titles, observed: LC-01 and LC-02 got "Teva Hurricane XLT", LC-03 "Big Nike Boots", LC-06 "Birkenstock". `missing` excludes only the brand's own name. The user chose to fix this in slice 20 before merge. Findings §2 records the full run in the docs task.
 
 Classification, said in chat as the first line of the reply that re-opened brainstorming: **bounded**. This extends slice 20's existing `missing` step in `products.py` so it drops rival brand and model words, with no schema, API or UI change.
 
@@ -136,19 +136,21 @@ Decisions approved in chat (brainstorming on Opus 5.5, 2026-09-29). Sections A, 
 - **Scope:** exclude rival brand names and model or product-line names. Generic shopper words still count, including attribute words such as "Gender Inclusive" or "Color" when 2 or more titles use them.
 - **Approach A:** the parse step returns each title's brand and model. Rejected: B, the title's generic part only (a model the parse misses in one title still counts); C, dropping each title's first word (misses model names, drops real first words).
 
+This overrides §2's "Unchanged" line for `keep_present`, `missing` and the stored shape of `titles`, and adds a second condition to §1's cache hit.
+
 **A. The parse step returns brand and model**
 
 - `TitleItem` gains `brand: str = ""` and `model: str = ""`.
 - `titles_prompt` gains the sentence "For each title also give its brand and its model or product-line name, each as written in the title, else an empty string." Its JSON shape becomes `{"titles": [{"title": ..., "domain": ..., "brand": ..., "model": ...}]}`.
-- `keep_present` also carries `brand` and `model`: each is kept (stripped) only when it has at least one token and every token of it is among the title's tokens; otherwise it is stored as `""`. Each stored title is `{"title", "domain", "brand", "model"}` in the existing `keyword_search.titles` JSON. No schema change.
+- `keep_present` also carries `brand` and `model`: each is kept, as the stripped string the model wrote, only when `tokens(value)` is non-empty and every one of them is in `tokens(title)` (`tokens` is `[a-z0-9]+` over the casefolded text, so "XLT-2" matches "XLT 2"); otherwise it is stored as `""`. A value with no letters or digits is `""`. Each stored title is `{"title", "domain", "brand", "model"}` in the existing `keyword_search.titles` JSON. No schema change.
 - Unchanged: `drop_stores`, `search_query`, `rewrite_prompt`, one parse call per search.
 
 **B. What `missing` leaves out, and the cache**
 
-- `missing(product_title, titles, brand_names, exclude=())` gains `exclude: Sequence[str]`. Each name is folded to stems (as `_brand_stems` does for brand names), and a ranking-title word whose stem is among them is not counted, exactly as the brand's own stems are not.
-- `run_products` passes as `exclude`: every non-empty `brand` and `model` of all ranking titles for the product's keyword, plus the `name` and `aliases` of every `competitor` row of the brand (status `active` or `suggested`). Competitors are loaded in the same tenant session that loads the brand.
-- Known ceiling, stated in a code comment: a generic word inside a model name is excluded for that keyword (model "Classic" for "Crocs Kids' Classic Slipper" stops "classic" being suggested).
-- A cached row is a hit only when its `query` equals `search_query(row.keyword)` (§1) and every stored title has a `brand` key. A row with no titles counts as a hit. The rows written before this extension lack the key, so their keywords are searched again.
+- `missing(product_title, titles, brand_names, exclude=())` gains `exclude: Sequence[str]`: its `have` set becomes `fold_set(product_title) | _brand_stems([*brand_names, *exclude])`, so a ranking-title word whose stem is among the excluded names' stems is not counted, exactly as the brand's own stems are not.
+- `run_products` builds `exclude` per product, in the loop that calls `missing`, from `titles_by_kw.get(p["keyword"], [])`: every non-empty `t.get("brand")` and `t.get("model")`, plus the `name` and `aliases` of every `competitor` row of the brand. Including `suggested` (unconfirmed) competitors is deliberate: leaving a rival's name out of a suggestion is harmless. The competitors are loaded once, with `select(m.Competitor).where(m.Competitor.brand_id == brand_id)`, in the same tenant session that loads the brand.
+- Known ceiling, stated in a code comment: a generic word inside a model name is excluded for that keyword (model "Classic" for "Crocs Kids' Classic Slipper" stops "classic" being suggested), and a generic word in a competitor's name or alias is excluded for every keyword.
+- A cached row is a hit only when its `query` equals `search_query(row.keyword)` (§1) and every stored title has a `brand` key. A row with no titles counts as a hit. The rows written before this extension lack the key: the 8 new-query rows written by the first live check each hold 5 titles, so all 8 keywords are searched again.
 - Unchanged: `MIN_TITLES`, `MAX_MISSING`, `STOPWORDS`, `rule_check`, `rewrite_prompt`.
 
 **C. Testing**
@@ -165,13 +167,14 @@ Unit, `tests/unit/test_products.py`:
 Integration, `tests/integration/test_products_run.py`:
 
 - New: the parse returns "Teva Hurricane Summer Sandals" and "Teva Hurricane Summer Slides" (brand "Teva", model "Hurricane") and "Crocs Summer Sandals" and "Crocs Classic Summer Sandals" (brand and model empty), all present in the answer text; the brand has a `competitor` row named "Crocs". The product's `missing_keywords == ["summer"]` (without the extension it would be `["summer", "crocs", "hurricane", "teva"]`).
-- New: a fresh, error-free row whose `query` is `search_query("kids sandals")` but whose titles have no `brand` key is searched again.
+- New: a fresh, error-free row whose `query` is `search_query("kids sandals")` but whose titles have no `brand` key is searched again, and afterwards the row's titles carry `brand` and `model`.
+- New: a fresh, error-free row whose `query` is `search_query("kids sandals")` and whose `titles` is `[]` is a hit: the engine is not called.
 - `test_a_fresh_search_is_reused_and_a_stale_one_redone` seeds its titles with `brand` and `model` keys so the row stays a hit.
-- Every exact assertion on stored titles gains `"brand": ""` and `"model": ""` (the default fake parse returns neither).
+- Every exact assertion on stored titles gains `"brand": ""` and `"model": ""` (the default fake parse returns neither): in `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked`, `test_an_error_search_is_not_reused`, `test_a_search_under_the_old_query_is_redone` and `test_store_names_are_not_stored_as_titles`.
 
 Gates: the backend gate and `npm run gate`, run by the controller.
 
-**Second dev live check.** Under the user's earlier OK ("live check, then merge"), with the steps of §4. The 8 keywords are searched again (today's rows lack `brand`). Cost, derived: 8 × 37,500 + 6,000 = 306,000 micros (about $0.31); 10 × 37,500 + 6,000 = 381,000 (about $0.38) with 10 keywords. Spend would go from about $10.25 to about $10.56–$10.63 of the $15 cap. Writes: the job row, 10 `product` rows, up to 10 `keyword_search` rows, `api_key.last_used_at`. Reported as observed: per product, whether its missing words or suggestion still carry a rival brand or model word. Findings §2 records both live checks.
+**Second dev live check.** Under the user's earlier OK ("live check, then merge"), with the steps of §4. The 8 keywords are searched again (today's rows lack `brand`). Cost, derived: 8 × 37,500 + 6,000 = 306,000 micros (about $0.31); 10 × 37,500 + 6,000 = 381,000 (about $0.38) with 10 keywords. *Inferred:* asking for brand and model lengthens the parse output a little, so the per-search figure may rise. Spend would go from about $10.25 to about $10.56–$10.63 of the $15 cap. Writes: the job row, 10 `product` rows, up to 10 `keyword_search` rows, `api_key.last_used_at`. Reported as observed: per product, whether its missing words or suggestion still carry a rival brand or model word. Findings §2 records both live checks.
 
 ## Rulings
 
