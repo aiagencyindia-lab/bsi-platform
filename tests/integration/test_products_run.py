@@ -51,7 +51,9 @@ class FakeEngine:
         return 60
 
 
-def _generator(owner=None, fail_on=None, keywords=None, by_index=None):
+def _generator(
+    owner=None, fail_on=None, keywords=None, by_index=None, titles=None
+):
     """Answers each schema with fixed JSON; records the call kinds and,
     when `owner` is given, how many products had a keyword at call time."""
     calls = []
@@ -93,7 +95,9 @@ def _generator(owner=None, fail_on=None, keywords=None, by_index=None):
             }
         elif kind == "titles":
             body = {
-                "titles": [
+                "titles": titles
+                if titles is not None
+                else [
                     {
                         "title": "Kids Sandals for Boys Summer",
                         "domain": "amazon.in",
@@ -309,6 +313,30 @@ def test_a_search_under_the_old_query_is_redone(owner, make_org, make_brand):
     assert searches[0].titles == [
         {"title": "Kids Sandals for Boys Summer", "domain": "amazon.in"},
         {"title": "Boys Summer Sandals Lightweight", "domain": ""},
+    ]
+
+
+def test_store_names_are_not_stored_as_titles(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    answer = "Shop **Kids Classic Sandal** and more at Zappos.com."
+    engine = FakeEngine(
+        [
+            EngineResult(
+                "ok", raw={"text": answer}, model="fake-1", cost_micros=35_000
+            )
+        ]
+    )
+    gen = _generator(
+        titles=[
+            {"title": "Zappos.com", "domain": "zappos.com"},
+            {"title": "Kids Classic Sandal", "domain": ""},
+        ]
+    )
+    _, _rows, searches = _run(owner, org, bid, gen, engine)
+    assert searches[0].titles == [
+        {"title": "Kids Classic Sandal", "domain": ""}
     ]
 
 

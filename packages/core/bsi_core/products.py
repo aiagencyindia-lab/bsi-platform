@@ -31,6 +31,7 @@ from . import models as m
 from .crawl import Fetch, http_fetch
 from .db import tenant_session
 from .judge import JudgeFailed
+from .matching import normalize_domain
 from .providers.base import EngineAdapter
 from .rivals import _stem
 from .scheduling import budget_fits
@@ -318,7 +319,7 @@ _TOKEN = re.compile(r"[a-z0-9]+")
 STOPWORDS = frozenset(
     "and for the with from your our this that are you all any buy online "
     "free shop shopping sale offer offers price prices deal deals off "
-    "new a an in of on to by at or".split()
+    "new a an in of on to by at or com".split()
 )
 
 
@@ -555,6 +556,35 @@ def keep_present(
             domain = str(t.get("domain") or "").strip().lower()
             out.append({"title": title, "domain": domain})
     return out[:TOP_TITLES]
+
+
+def drop_stores(
+    titles: list[dict[str, Any]], domains: Sequence[str]
+) -> list[dict[str, Any]]:
+    """Titles that are not a store: a title is dropped when its letters
+    and digits, joined, equal a known domain's name or joined form
+    ("Famous Footwear" = famousfootwear.com, "Zappos.com" = zappos.com),
+    or it contains a known dotted domain ("Buy at ShopWSS.com"). Known
+    domains are the title's own plus the cited ones, normalised. Order
+    kept."""
+    # ponytail: a subdomain's name is its first label (shop.nike.com ->
+    # "shop"), and a store named unlike its domain ("Journeys Kidz",
+    # journeys.com) is left to titles_prompt; a store list would catch it.
+    cited = [normalize_domain(d) for d in domains]
+    out: list[dict[str, Any]] = []
+    for t in titles:
+        title = str(t.get("title") or "")
+        squashed = "".join(tokens(title))
+        low = title.casefold()
+        own = normalize_domain(str(t.get("domain") or ""))
+        if not any(
+            squashed in (d.split(".")[0], "".join(tokens(d)))
+            or ("." in d and d in low)
+            for d in (own, *cited)
+            if d
+        ):
+            out.append(t)
+    return out
 
 
 class KeywordItem(BaseModel):
@@ -855,10 +885,15 @@ def run_products(
                     spent += cost
                     row["cost_micros"] += cost
                     row["titles"] = keep_present(
-                        [
-                            t.model_dump()
-                            for t in TitleSet.model_validate_json(raw).titles
-                        ],
+                        drop_stores(
+                            [
+                                t.model_dump()
+                                for t in TitleSet.model_validate_json(
+                                    raw
+                                ).titles
+                            ],
+                            domains,
+                        ),
                         parsed.text,
                     )
                 with tenant_session(org_id) as s:

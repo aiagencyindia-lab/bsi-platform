@@ -4,6 +4,7 @@ import gzip
 import hashlib
 from types import SimpleNamespace
 
+import pytest
 from bsi_core.products import (
     CONNECTORS,
     EXPORT_COLUMNS,
@@ -11,6 +12,7 @@ from bsi_core.products import (
     RewriteSet,
     TitleSet,
     drop_brand_terms,
+    drop_stores,
     dropped,
     export_rows,
     fit_rank,
@@ -468,3 +470,46 @@ def test_titles_prompt_names_the_new_query_and_forbids_stores():
         "never list a store, retailer, marketplace or brand name on its own"
         in tp
     )
+
+
+@pytest.mark.parametrize(
+    ("title", "domains"),
+    [
+        ({"title": "Famous Footwear", "domain": "famousfootwear.com"}, []),
+        ({"title": "Zappos.com", "domain": "zappos.com"}, []),
+        ({"title": "REEF", "domain": "reef.com"}, []),
+        ({"title": "Kids Foot Locker", "domain": "www.kidsfootlocker.com"}, []),
+        ({"title": "Zappos.com", "domain": ""}, ["zappos.com"]),
+        ({"title": "Buy at ShopWSS.com", "domain": "shopwss.com"}, []),
+        ({"title": "Zappos", "domain": "https://www.zappos.com/kids"}, []),
+    ],
+)
+def test_drop_stores_drops_a_store_name(title, domains):
+    assert drop_stores([title], domains) == []
+
+
+def test_drop_stores_keeps_product_titles_in_order():
+    titles = [
+        {"title": "Crocs Classic Clog", "domain": "crocs.com"},
+        {"title": "Zappos Kids Sandal", "domain": ""},
+        {"title": "Amazon Essentials Sandal", "domain": "amazon"},
+        {"title": "Kids Lanner Ridge II Slipper", "domain": ""},
+        # The documented ceiling: a store named unlike its domain is left
+        # to the prompt. A later fix that catches it flips this case.
+        {"title": "Journeys Kidz", "domain": "journeys.com"},
+    ]
+    assert drop_stores(titles, ["zappos.com"]) == titles
+
+
+def test_drop_stores_keeps_order_around_a_dropped_title():
+    crocs = {"title": "Crocs Classic Clog", "domain": "crocs.com"}
+    reef = {"title": "REEF", "domain": "reef.com"}
+    lanner = {"title": "Kids Lanner Ridge II Slipper", "domain": ""}
+    assert drop_stores([crocs, reef, lanner], []) == [crocs, lanner]
+
+
+def test_missing_never_suggests_com():
+    got = missing(
+        "Blue Sandal", ["Zappos com sandal", "ShopWSS com sandal"], []
+    )
+    assert "com" not in got
