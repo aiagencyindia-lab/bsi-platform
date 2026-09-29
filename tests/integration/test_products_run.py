@@ -52,7 +52,12 @@ class FakeEngine:
 
 
 def _generator(
-    owner=None, fail_on=None, keywords=None, by_index=None, titles=None
+    owner=None,
+    fail_on=None,
+    keywords=None,
+    by_index=None,
+    titles=None,
+    rewrite=None,
 ):
     """Answers each schema with fixed JSON; records the call kinds and,
     when `owner` is given, how many products had a keyword at call time."""
@@ -111,7 +116,8 @@ def _generator(
                 "products": [
                     {
                         "index": i,
-                        "title": "Walkaroo Kids Summer Sandals Sandals",
+                        "title": rewrite
+                        or "Walkaroo Kids Summer Sandals Sandals",
                         "bullets": ["Light", "Washable", "Soft", "Extra"],
                     }
                     for i in indexes
@@ -191,12 +197,14 @@ def test_one_search_per_distinct_keyword_and_the_rewrite_is_checked(
             "domain": "amazon.in",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
         {
             "title": "Boys Summer Sandals Lightweight",
             "domain": "",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
     ]
     assert searches[0].cost_micros == 35_700 and searches[0].error is None
@@ -239,6 +247,7 @@ def test_a_fresh_search_is_reused_and_a_stale_one_redone(
                         "domain": "c",
                         "brand": "",
                         "model": "",
+                        "parse": 2,
                     }
                 ],
                 searched_at=datetime.now(UTC) - timedelta(days=6),
@@ -307,12 +316,14 @@ def test_an_error_search_is_not_reused(owner, make_org, make_brand):
             "domain": "amazon.in",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
         {
             "title": "Boys Summer Sandals Lightweight",
             "domain": "",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
     ]
 
@@ -334,6 +345,7 @@ def test_a_search_under_the_old_query_is_redone(owner, make_org, make_brand):
                         "domain": "c",
                         "brand": "",
                         "model": "",
+                        "parse": 2,
                     }
                 ],
                 searched_at=datetime.now(UTC) - timedelta(days=1),
@@ -350,12 +362,14 @@ def test_a_search_under_the_old_query_is_redone(owner, make_org, make_brand):
             "domain": "amazon.in",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
         {
             "title": "Boys Summer Sandals Lightweight",
             "domain": "",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
     ]
 
@@ -380,7 +394,13 @@ def test_store_names_are_not_stored_as_titles(owner, make_org, make_brand):
     )
     _, _rows, searches = _run(owner, org, bid, gen, engine)
     assert searches[0].titles == [
-        {"title": "Kids Classic Sandal", "domain": "", "brand": "", "model": ""}
+        {
+            "title": "Kids Classic Sandal",
+            "domain": "",
+            "brand": "",
+            "model": "",
+            "parse": 2,
+        }
     ]
 
 
@@ -398,11 +418,16 @@ def _fresh_row(owner, org, bid, titles):
         )
 
 
-def test_a_row_parsed_without_brand_is_redone(owner, make_org, make_brand):
+def test_a_row_parsed_before_parse_2_is_redone(owner, make_org, make_brand):
     org = make_org()
     bid = make_brand(org, "Walkaroo")
     _seed(owner, org, bid, 1)
-    _fresh_row(owner, org, bid, [{"title": "Old Sandals", "domain": ""}])
+    _fresh_row(
+        owner,
+        org,
+        bid,
+        [{"title": "Old Sandals", "domain": "", "brand": "", "model": ""}],
+    )
     engine = FakeEngine()
     _, _rows, searches = _run(owner, org, bid, _generator(), engine)
     assert len(engine.prompts) == 1 and len(searches) == 1
@@ -411,6 +436,7 @@ def test_a_row_parsed_without_brand_is_redone(owner, make_org, make_brand):
         "domain": "amazon.in",
         "brand": "",
         "model": "",
+        "parse": 2,
     }
 
 
@@ -422,6 +448,18 @@ def test_a_row_with_no_titles_is_a_hit(owner, make_org, make_brand):
     engine = FakeEngine()
     _, rows, _searches = _run(owner, org, bid, _generator(), engine)
     assert engine.prompts == [] and rows[0].missing_keywords == []
+
+
+def test_the_rewrite_cannot_add_an_invented_word(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    gen = _generator(rewrite="Walkaroo Boys Toddler Sandal Kids")
+    _, rows, _searches = _run(owner, org, bid, gen)
+    assert (rows[0].suggested_title, rows[0].rule_check) == (
+        "Walkaroo Boys Sandal Kids",
+        "adjusted",
+    )
 
 
 RIVAL_TITLES = [
@@ -502,7 +540,7 @@ def test_a_failed_search_is_stored_and_the_run_goes_on(
     assert job.status == "done"
     assert searches[0].error == "400 bad" and searches[0].titles == []
     assert rows[0].missing_keywords == []
-    assert rows[0].suggested_title == "Walkaroo Kids Summer Sandals"
+    assert rows[0].suggested_title == "Walkaroo Kids Sandals"
 
 
 def test_a_model_failure_in_batch_two_keeps_batch_one(

@@ -1,0 +1,172 @@
+# Findings: slice 21 — product-suggestion quality
+
+## 1. What was built
+
+This slice targets the three problems that slice 20's second live check recorded (findings-slice20 §2 and §3):
+- Model names that carried the product type excluded generic words such as "sneaker".
+- Size and colour words ("Little", "White") were suggested.
+- The rewrite added "Boys" to LC-06, a men's sandal.
+
+All code changes are in `packages/core/bsi_core/products.py`. No schema, API or web change.
+
+**Constants.**
+- `TITLES_PARSE = 2`, next to `TOP_TITLES`. Its comment carries the ceiling: a bump searches every cached keyword again (about $0.04 each).
+- `NOISE_WORDS`: white, black, blue, red, green, pink, grey, gray, brown, navy, beige, tan, silver, gold, purple, orange, yellow, cream, multi, multicolor, color, colour, size, little, big. `NOISE_STEMS` holds their stems. The comment above `NOISE_WORDS` (`# missing() never suggests these…`, with a `ponytail:` part) carries spec §2's ceiling in shortened wording.
+- `FUNCTION_WORDS`: and, for, with, of, the, a, an, in, on, to, by, or.
+
+**The model prompt.** `titles_prompt`'s brand-and-model sentence now asks for "its model or product-line name without the product type (for example "Taye 2.0", not "Taye 2.0 Sneaker")".
+
+**`missing(..., keyword="")`.** The `have` set is now `fold_set(product_title) | _brand_stems(brand_names) | (_brand_stems(exclude) - _brand_stems([keyword]))`. So a rival brand, model or competitor name never removes a stem of the product's own keyword, and the brand's own names are still excluded in full. `run_products` passes `keyword=p["keyword"]`. The `# ponytail:` comment at that call now says a competitor's generic word is excluded "for every keyword that does not contain it".
+
+**The noise filter.** `missing` skips a ranking-title token whose stem is in `NOISE_STEMS`, as it skips stopwords. Nothing else uses it: `dropped()` still reports a lost original colour.
+
+**The parse version.** `keep_present` now returns `list[dict[str, Any]]` and adds `"parse": TITLES_PARSE` to every stored title. A cached row is a hit only when two things hold:
+- Its query matches `search_query(row.keyword)`, as before.
+- Every stored title has `parse == TITLES_PARSE`. This replaces slice 20's rule that every title has a `brand` key.
+
+A row with no titles is still a hit. Rows written before this slice lack the key, so they are searched again.
+
+**`rule_check(..., allowed=())`.** A new step runs right after the brand is prepended and before the repeat check. It drops a suggestion word when all three hold:
+- The word has at least one stem.
+- None of its stems is in `_allowed_stems(original, allowed, brand_names)`.
+- Not every token of it is a function word or a number.
+
+`_allowed_stems` is a helper the spec does not name. It returns the stems of the original title, the allowed texts and the brand's names. It also adds, for each allowed token that is longer than 3 characters and ends in "es", the stem without the "es" ("watches" allows "watch").
+
+`run_products` passes `allowed=[keyword, *missing, description or "", category or "", *attribute values as str]`. A title changed by this step is `adjusted`; `review` still means original words were lost.
+
+Ruling R1 (final whole-branch review): if the step leaves no word, `rule_check` uses the original title instead. Such a title is `adjusted`, with no dropped words.
+
+Ruling R2 (re-review of the final fix wave, approved by the user): the fallback also applies when the step leaves nothing but CONNECTORS ("Comfy Footwear for", "Comfy and Footwear"). The line is now `title = title if _strip_connectors(title.split()) else original`. So this step never makes a suggestion empty. A title can still be empty when the original title is itself empty or only connectors, or when the 150-character trim leaves only connectors before a word longer than 150 characters (both seen in a direct call, untested).
+
+**Tests.**
+- `tests/unit/test_products.py`:
+  - The prompt contains "without the product type".
+  - The Chase/Paley `missing` call gives `["kids"]` with `keyword` and `[]` without it.
+  - The Taye/Artie call gives `["sneaker"]`.
+  - `dropped("Black Shoe", "Shoe", [])` gives `["black"]`. It is a pin and passed before Task 1.
+  - In the LC-06 case, "Boys" is dropped and the status is `adjusted`.
+  - The Blue Boys "Kids" case and "for Kids 3" are `pass`.
+  - "Sale" is dropped (`adjusted`).
+  - "Watch" with "men watches", and "Leather" with `allowed` "Leather", are `pass`.
+  - The eight named `rule_check` tests pass `allowed=` and keep their expected values.
+  - The `keep_present` expectation gains `"parse": 2`.
+  - R1: "Comfy Footwear" for "Boys Sandal" gives "Boys Sandal", `adjusted`, no dropped words. It failed first (`''`, `review`).
+  - R2: "Comfy Footwear for" and "Comfy and Footwear" for "Boys Sandal" each give "Boys Sandal", `adjusted`, no dropped words (two tests). Both failed first (`''`, `review`).
+  - Two pins, both passing when written: "White" is skipped even with keyword "white sneakers" (`["sneaker"]`), and "Glass" with allowed "reading glasses" is `pass`.
+- `tests/integration/test_products_run.py`:
+  - Every exact stored-title assertion and the two seeds gain `"parse": 2`.
+  - `test_a_row_parsed_without_brand_is_redone` is renamed `test_a_row_parsed_before_parse_2_is_redone`. It checks that a row whose titles have brand and model keys but no `parse` key is searched again.
+  - `_generator` gains `rewrite=`.
+  - The failed-search test expects "Walkaroo Kids Sandals".
+  - New `test_the_rewrite_cannot_add_an_invented_word`: "Walkaroo Boys Toddler Sandal Kids" is stored as "Walkaroo Boys Sandal Kids", with status `adjusted`.
+- Delete-and-fail checks, each restored from a backup afterwards:
+  - Without the parse clause, `test_a_row_parsed_before_parse_2_is_redone` failed (`assert (0 == 1)`).
+  - With `allowed=[p["keyword"]]` at the call, `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` failed, because "Summer", a missing word, was dropped.
+- Backend gate: 1499 passed after Task 1 and 1506 after Task 2, and metrics coverage was 100%. Each run reported 2 warnings.
+  - Task 1's report names both: Starlette's `StarletteDeprecationWarning` for its test client and anyio's `BlockingPortal` alias `DeprecationWarning`.
+  - Task 2's report names only the anyio one.
+  - The controller's own gate run at 1e10fa4 (1506 passed) named both, the same two deprecations as on `main`. Run with `-W default`, it also showed a psycopg `ResourceWarning` for a connection deleted while still open (§3).
+  - The R1 fix wave (81301e2) reported 1509 passed, with the Starlette and anyio warnings.
+  - The final gate run, with R1 and R2 in, had 1511 passed, 2 deselected and 2 warnings (the same two deprecations), and metrics coverage was 100%.
+  - The controller's own final gate at 47939f1: ruff, format and mypy clean; backend 1511 passed, 2 deselected, 2 warnings; web 6 files / 42 tests, compiled.
+
+**Commits** (`git log --oneline main..HEAD`, oldest first):
+
+| Commit | Subject |
+|---|---|
+| 33ebd8c | docs: slice 21 spec (product-suggestion quality) |
+| 27cfc97 | docs: slice 21 spec review fixes (allowed sources, function words, -es plurals, named tests) |
+| cc087b7 | docs: slice 21 spec: category fact, description ceiling, LC-06 dev data |
+| ba9ead5 | docs: slice 21 implementation plan |
+| d8df741 | docs: slice 21 plan review fixes |
+| e16a389 | docs: slice 21 plan: wrapped ponytail comment, ruff note out of the code block |
+| 24c5726 | fix(products): keyword guard, colour/size noise and parse version for missing words |
+| 4e3f668 | fix(products): the rule check drops words the rewrite invents |
+| 1e10fa4 | docs: slice 21 findings, index and rulings |
+| a1e3bba | docs: slice 21 findings: gate warnings as observed; wording |
+| 81301e2 | fix(products): an empty rule-check title falls back to the original (R1) |
+| 47939f1 | fix(products): the empty-title fallback also covers connector-only rewrites (R2) |
+| 38991a4 | docs: slice 21 live check and remaining findings |
+| (this commit) | docs: slice 21 findings: colour words come from the original titles |
+
+## 2. Live check on dev
+
+Run on 2026-09-29 by the controller, with the user's OK.
+
+- Job `f9de4eb9`, done: `cost_micros = 310,292` (about $0.31), 13:10:33–13:12:09 UTC. Spend went from about $10.56 to about $10.87 of $15.
+- 8 keywords were searched again, 5 titles each, all stored with `parse: 2`, 0 errors.
+
+**What improved.**
+- Models mostly come back without the product type ("Moc", "Monster", "Flow", "CozyChic", "Free Ride"). Two still carry it: "Cars Lighted Sandal" and "Colby Gore Moc".
+- No missing list contains a noise word, rival name or invented word, and no suggestion adds one. Every colour word in the suggestions ("Blue", "Pink", "Black", "Grey", "Navy", "Brown", "Beige", "Tan") is in that product's original title, per the controller's read-only query after the job (for example LC-01's original is "BSOAgentTestBrand Boys Sandal Blue").
+- No suggestion ends in a connector or a number.
+
+**Per product** (missing words as recorded; the suggestion's end only):
+
+| Product | Keyword | Missing words | End of suggestion | Status |
+|---|---|---|---|---|
+| LC-01 | kids sandals | kid, toddler | …Blue Sandal Boys Kids Toddler | adjusted |
+| LC-02 | kids sandals | kid, toddler | …Pink Sandal Girls Kid Toddler | adjusted |
+| LC-03 | kids shoes | boots | …Black Sports Shoe Kids Boots | pass |
+| LC-04 | kids slippers | (none) | …Grey Slipper Kids | adjusted |
+| LC-05 | navy flip flops | (none) | …Navy Flip Flop | review (dropped: men) |
+| LC-06 | men sandals | slide | …Brown Casual Sandal Men Slide | pass |
+| LC-07 | women slippers | (none) | …Beige Casual Slipper Women | pass |
+| LC-08 | men shoes | (none) | …Grey Sports Shoe Men | pass |
+| LC-09 | kids shoes | kids, boots | …Black School Shoe Boys Kids Boots | pass |
+| LC-10 | women sandals | footbed, available, slide, strap, wide, width | …Tan Sandal Women Footbed Available Slide Strap Wide Width | pass |
+
+**What remains.**
+- Category drift: "Boots" is suggested for the LC-03 and LC-09 shoes, and "Slide" for the LC-06 sandal.
+- Retailer phrasing is stuffed into LC-10: "Footbed Available Slide Strap Wide Width" (from phrasing such as "Wide Width Available").
+- "Toddler" is suggested as a size marker (LC-01, LC-02). This is a known ceiling (§3).
+- LC-05's keyword is a colour phrase ("navy flip flops"). The keyword vote is out of scope (§3).
+
+**Writes:** the job, 10 product rows, 8 `keyword_search` rows and `api_key.last_used_at`. The worker and the API were stopped afterwards, with 0 jobs queued.
+
+## 3. Deferred and untested
+
+From the task reviews:
+- `keyword=p["keyword"]` in `run_products`'s `missing` call has no integration test (plan departure 7). The unit test pins the guard inside `missing`, and the spec asks for none.
+- A drop can leave a function word that is not a connector at the end ("Walkaroo Sandal in"), because only CONNECTORS are stripped from the end.
+- Kept numbers can leave promotional scraps ("Walkaroo Sandal 50%"). The plan keeps numbers by design.
+- The `-es` fix is one-sided: it applies to allowed texts only, so an original "Watches" or "Boxes" is not folded. `-es` folding is out of scope.
+- The description, category and attribute sources of `allowed` are untested end to end, because the seeded products have none.
+- Gate warnings:
+  - Task 1's gate output carries 2 third-party deprecation warnings, the same as on `main`.
+  - Task 2's report names only one of its 2 warnings (the anyio `BlockingPortal` alias). The controller's own gate run at 1e10fa4 has since named both (§1).
+- With `-W default`, the backend suite also shows a psycopg `ResourceWarning` ("Connection ... deleted while still open"). It has not been checked against `main`.
+- Task 1's implementer ran the full suite twice, one after the other. The second run was only to read the warning names.
+
+From the final whole-branch review:
+- `FUNCTION_WORDS` lacks "from" and "at" (both are in `STOPWORDS`), so an added "from" or "at" is dropped as invented. The list is fixed by the spec.
+- The keyword guard lets a rival's name through when the keyword itself contains it (for example keyword "campus sandals" with the competitor Campus).
+- Words that are not connectors can survive as a near-blank suggestion flagged `review`: "Comfy for Footwear the" gives "for the", and "Comfy Footwear ." gives ".".
+- Spec §4's "the R2 old-query test" means slice 20's R2. It now sits beside slice 21's Ruling R2, so the label clashes.
+
+Next slice (from the live check, §2):
+- Category drift in missing words ("Boots" for shoes, "Slide" for a sandal).
+- Retailer-phrasing stuffing (LC-10): cap the words added, or require an added word to be generic.
+- Size markers: "toddler", "youth", "infant".
+- The keyword vote choosing a colour phrase (LC-05, "navy flip flops").
+
+Known ceilings (spec §1–§3, in `# ponytail:` comments where the spec asks):
+- The keyword guard fixes slice 20's R6 ("Campus Shoes" excluding "shoe") only for keywords containing "shoe". For sandal, slipper and sneaker keywords, "shoe" stays excluded.
+- Bumping `TITLES_PARSE` makes every cached keyword be searched again (about $0.04 each).
+- `NOISE_WORDS` is English only and closed:
+  - A real colour phrase ("white sneakers") is never suggested.
+  - A noise word is skipped even when it is in the keyword.
+  - Outside footwear, some are product words ("cream", "gold", "silver", "orange", "plus size", hair "color").
+  - "toddler", "youth" and "infant" are not in the list, and "kid" from "Little Kid" is still suggested.
+- Promotional words in the product's own description, attributes or category are allowed ("new arrival on sale" allows "New" and "Sale").
+- Dropping a word can leave a neighbour on its own ("Sandal Size 10" gives "Sandal 10").
+- A real synonym the rewrite adds from nowhere ("Footwear") is removed too.
+
+Untested against real answers:
+- The tests use fixed judge output, so they do not show whether the parse returns models without the product type. The dev re-check (§2) observed it mostly does, with two exceptions.
+
+Out of scope (spec):
+- The keyword vote choosing a colour phrase ("navy flip flops", slice 20's first live check).
+- Answer commentary kept inside a verbatim title.
+- Locale in the query; storing the answer text; `-es` plural folding.
