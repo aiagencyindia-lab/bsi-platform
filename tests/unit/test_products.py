@@ -11,6 +11,7 @@ from bsi_core.products import (
     KeywordSet,
     RewriteSet,
     TitleSet,
+    _type_word,
     drop_brand_terms,
     drop_stores,
     dropped,
@@ -27,6 +28,7 @@ from bsi_core.products import (
     rewrite_prompt,
     rule_check,
     search_query,
+    title_first,
     titles_prompt,
     vote,
 )
@@ -859,3 +861,123 @@ def test_missing_backing_folds_es_plurals():
         keyword="men watches",
         backing=["men watches"],
     ) == ["men", "watch"]
+
+
+T = "BSOAgentTestBrand Men Flip Flop Navy"
+W = "Walkaroo Boys Sandal 0"
+CASUAL = "BSOAgentTestBrand Men Casual Sandal Brown"
+
+
+def test_type_word_is_the_category_word_fit_rank_reads():
+    keywords = (
+        "men slippers",
+        "slippers for men",
+        "men slip on shoes",
+        "for",
+        "",
+    )
+    assert [_type_word(k) for k in keywords] == [
+        "slipper",
+        "slipper",
+        "shoe",
+        "for",
+        None,
+    ]
+
+
+def test_title_first_builds_the_audience_plus_the_title_type():
+    assert title_first(["men slippers", "cushioned flip flops"], T) == [
+        "men flip flops",
+        "men slippers",
+        "cushioned flip flops",
+    ]
+    assert title_first(["slippers for men", "daily wear flip flops"], T) == [
+        "men flip flops",
+        "slippers for men",
+        "daily wear flip flops",
+    ]
+
+
+def test_title_first_uses_an_offered_keyword_in_its_own_spelling():
+    assert title_first(
+        ["men slippers", "cushioned flip flops", "mens flip flops"], T
+    ) == ["mens flip flops", "men slippers", "cushioned flip flops"]
+
+
+def test_title_first_leaves_the_keywords_when_it_cannot_build():
+    # The first keyword fits the title.
+    assert title_first(
+        ["kids slippers", "kids flip flops"],
+        "BSOAgentTestBrand Kids Slipper Grey",
+    ) == ["kids slippers", "kids flip flops"]
+    # No keyword fits the title.
+    assert title_first(
+        ["men slippers", "cushioned slippers"],
+        "BSOAgentTestBrand Men Thong Navy",
+    ) == ["men slippers", "cushioned slippers"]
+    # No audience word.
+    assert title_first(["slippers", "flip flops"], T) == [
+        "slippers",
+        "flip flops",
+    ]
+    assert title_first([], T) == []
+
+
+def test_title_first_caps_at_max_keywords():
+    assert title_first(
+        ["men slippers", "a", "b", "c", "cushioned flip flops"], T
+    ) == ["men flip flops", "men slippers", "a", "b", "c"]
+
+
+def test_title_first_keeps_audience_words_out_of_the_type():
+    assert title_first(["kids slippers", "boys sandals"], W) == [
+        "kids sandals",
+        "kids slippers",
+        "boys sandals",
+    ]
+    assert title_first(["kids slippers", "sandals for boys"], W) == [
+        "kids sandals",
+        "kids slippers",
+        "sandals for boys",
+    ]
+
+
+def test_title_first_keeps_only_words_every_fitting_keyword_shares():
+    assert title_first(
+        ["men floaters", "casual sandals", "floater sandals"], CASUAL
+    ) == ["men sandals", "men floaters", "casual sandals", "floater sandals"]
+    # ponytail ceiling: with one fitting keyword its style word stays.
+    assert title_first(["men floaters", "casual sandals"], CASUAL) == [
+        "men casual sandals",
+        "men floaters",
+        "casual sandals",
+    ]
+
+
+def test_title_first_ignores_a_keyword_that_fits_only_by_an_audience_word():
+    assert title_first(["kids slippers", "slippers boys"], W) == [
+        "kids slippers",
+        "slippers boys",
+    ]
+    assert title_first(
+        ["men slippers", "cushioned flip flops", "casual men"], T
+    ) == [
+        "men flip flops",
+        "men slippers",
+        "cushioned flip flops",
+        "casual men",
+    ]
+
+
+def test_title_first_builds_nothing_for_two_title_types():
+    assert title_first(
+        ["men slippers", "flip flops", "men thongs"], "X Men Flip Flop Thong"
+    ) == ["men slippers", "flip flops", "men thongs"]
+
+
+def test_title_first_never_builds_in_a_colour_word():
+    assert title_first(["men slippers", "navy flip flops"], T) == [
+        "men flip flops",
+        "men slippers",
+        "navy flip flops",
+    ]
