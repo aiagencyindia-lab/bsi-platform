@@ -56,7 +56,7 @@ Run on 2026-09-29 against the dev database, with the user's approval for both th
 - **Ill-fitting keyword:** LC-05 "Men Flip Flop Navy" got `men flip flops` and became "BSOAgentTestBrand Navy Men Flip Flop"; slice 18 gave `men slipper` and "…Navy Men Slipper".
 - **Dropped words:** none. "Casual" (LC-06, LC-07) and "School" (LC-09) are kept. Every product's `dropped_words` is `[]`, so no product was flagged `review`.
 - **Shared searches:** 10 products used 8 keywords (`kids sandals` for LC-01 and LC-02, `kids shoes` for LC-03 and LC-09), so 8 grounded searches instead of 10.
-- All ten suggestions are `adjusted`; most only move the colour forward.
+- All ten suggestions are `adjusted`. Six only move the colour forward; besides the two "Com Kids" additions, LC-04 gained "Classic" (from `missing_keywords`) and LC-09 gained "Kids" (the keyword's audience word).
 
 **New problem found by this re-check.** Two suggestions gained the junk word "Com": LC-01 "…Blue Boys Sandal Com Kids" and LC-02 "…Pink Girls Sandal Com Kids". The titles-parse step for `kids sandals` returned store names, not product titles: "Famous Footwear", "Zappos.com", "Next USA", "Journeys Kidz", "ShopWSS.com". They pass `keep_present` because they appear in the answer text, and "com" is in two of them, so `missing` reported it and the rewrite worked it in. Two searches (`women sandals`, `women slippers`) stored 0 titles. The search results are US stores although the locale is IN/en (*inferred* from the domains; the locale is recorded, not enforced). Recorded in §3.
 
@@ -66,7 +66,7 @@ Run on 2026-09-29 against the dev database, with the user's approval for both th
 
 ## 3. Deferred and untested
 
-- **Store names parsed as product titles (found by the re-check, §2).** For `kids sandals` the titles-parse step returned retailer names ("Zappos.com", "ShopWSS.com"), and `missing` then suggested "com", which the rewrite put into two titles. Likely fixes: tell `titles_prompt` to return product titles only, drop titles that equal or contain their own domain, and treat domain-like tokens (com, in, co) as stopwords in `missing`.
+- **Store names parsed as product titles (found by the re-check, §2).** For `kids sandals` the titles-parse step returned retailer names ("Zappos.com", "ShopWSS.com"), and `missing` then suggested "com", which the rewrite put into two titles. Likely fixes: tell `titles_prompt` to return product titles only, drop titles that equal or contain their own domain, and add "com" to `STOPWORDS` (`in` is already one under R4, and `missing` skips tokens under 3 letters, so `co` never reaches it).
 - **Grounded search results ignore the locale (found by the re-check, §2).** US stores came back for an IN/en brand; the locale is recorded, not enforced (slice 1 design).
 
 Decisions with a cost (rulings, spec `## Rulings`):
@@ -90,14 +90,14 @@ Folding, `dropped` and the rule check:
 - No tests for mixed surface forms in `missing` (e.g. "Sandals" in one title and "sandal" in another) or for several connectors in a row at the end of a title.
 
 The keyword step:
-- `fit_rank` drops most lower-rank keywords, because they often end in an attribute rather than the category word (*inferred* from the reviews, not observed on a live run), so the stored `keywords` list often shrinks to the generic phrase. This is what the spec asks for; watch it in the dev re-check.
+- The worry that `fit_rank` would drop most lower-rank keywords did not happen in the re-check (§2): every product kept 4–5 keywords, e.g. LC-01 `kids sandals, boys sandals, eva sandals, blue sandals, kids strap sandals`, because the model's longer phrases still end in the category word.
 - The key map lives for one run only. A variant of a keyword that an earlier run cached (for example `men sandals` when `mens sandal` is cached) is a new string, misses the cache and pays for a new search.
 - `fit_rank` ignores a trailing 1-letter word: it uses `fold`, which drops 1-letter tokens, so a keyword ending in one (for example "size a") is judged by the word before it, while `keyword_key` keeps that letter (R1).
 - The R3 fallback uses the last folded word of the whole keyword, so a keyword that starts with a stopword and has another later ("a line dress for women") is read by "women", not "dress"; the old last-word rule gave the same result, so this is not a regression. No test covers the fallback. The fallback also applies when the words before the stopword are all 1-letter tokens ("x for men" is read by "men"), because `fold` drops them.
 
 Web:
 - `droppedNote` is called twice per row in the Check cell (the plan's snippet); the call is cheap.
-- Only the `droppedNote` helper is tested, not the rendered Check cell. The dev live check (§2) is meant to cover the rendered cell; it has not run yet.
+- Only the `droppedNote` helper is tested, not the rendered Check cell. The dev re-check (§2) ran, but no product was `review`, so the `review` badge and the `dropped:` line are still unverified in a browser or production build.
 
 Out of scope (spec):
 - Irregular plurals (feet, children) and non-English titles: `_stem` does not fold them.
