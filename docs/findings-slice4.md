@@ -433,6 +433,12 @@ Carried from the build, in the order they would bite:
    twice.
 9. **The "at most eight topics" instruction is advisory**, and the model
    sometimes answers with an intent name as a topic (§2).
+10. **The API cannot write `daily_budget_usd`.** Migration 0002 revokes
+    UPDATE on `organization` from `bsi_app`, so the column is readable
+    but not writable by the API; `scripts/set_budget.py` uses the owner
+    session, as planned.
+11. **No automated test pins `FOR UPDATE SKIP LOCKED` in `claim_job`.**
+    It was verified by hand in the Task 1 review.
 
 Deliberately out of scope, for a later slice:
 

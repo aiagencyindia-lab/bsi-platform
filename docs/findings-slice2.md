@@ -208,8 +208,76 @@ The cap is $15 (spec §7). The spend guard counts ledger entries plus the engine
   - `SpendCapReached` loses the results JSON.
   - The unpriced-model failure path records no cost.
   - mypy does not cover `scripts/`.
-- Earlier deferred minors (Tasks 3, 4, 5, 8) are listed in the SDD ledger:
+- Earlier deferred minors (Tasks 3, 4, 5, 8) are listed in full under "Ledger records" below:
   - Abbreviation splitting.
   - A new client per judge call.
   - A retry overwrites the first engine cost.
   - A reservation leaks if a paid call raises before `record`.
+
+## Ledger records (copied 2026-09-29)
+
+Copied from the slice 2 SDD ledger (`.superpowers/sdd/2026-09-19-slice2-cost-and-trust/`: `progress.md`, `final-review.md` and `hash-remap-2026-09-20.txt`), which is git-ignored and is being deleted. Commit hashes are the post-reword ones.
+
+### Rulings
+
+- **R1:** the step-0 model probes (~$0.05, made before the spend ledger existed) and Task 1's fixture re-record (~$0.10, made before Task 8) are not in the ledger. Task 1's report records the fixture cost and the findings add it by hand. If wrong, the cap is understated by cents. Discussed in section 6 ("Outside the guard (R1)").
+- **R2:** `JUDGE_PRICES` lives in `judge.py`, as the plan says, not in `extraction.py` as spec §3 says. `judge.py` already imports `extraction`, so putting it in `extraction.py` would create a circular import. If wrong, only the location of one constant changes.
+- **R3 (Task 1):** `gemini-3.8-flash` may answer without searching even when the `google_search` tool is set; the CRM prompt went ungrounded 6 times out of 6. Discussed in the headline risk and in section 7, risk 1.
+- **R4 (Task 2):** `mention.evidence_sentence` is `sa.String()` (unbounded VARCHAR, like every other `Mapped[str]` column), not `sa.Text` as in the plan, so the models and migrations stay free of drift. If wrong, nothing changes, since Postgres treats VARCHAR with no length the same as TEXT.
+- **R5 (Task 4):** a judge failure after paid calls keeps the cost it already spent. `JudgeFailed(RuntimeError)` carries `.cost_micros`, and the batched, isolated and legacy judges raise it when validation fails or a later isolated call fails; the test that expected `ValidationError` now expects `JudgeFailed`. Task 5's `Extractor.prepare` records `getattr(e, "cost_micros", 0)` into `Prepared.cost_micros` on `model_error`, and Task 10's `judge_eval` records it in the ledger. Why: spec §10.2 says every observation records judge cost, and the spend guard would otherwise undercount. If wrong, the cost is one exception class.
+- **R6 (Task 5):** the `pipeline_version` assertions in `test_full_flow.py` and `test_metrics.py` change from "1" to "2". They follow directly from spec §4.1 step 6 (`PIPELINE_VERSION = "2"`); the plan missed them. If wrong, nothing changes.
+- **R7 (Task 8):** the race between `check` and `record` is fixed with an in-process reservation. `check(next)` runs under a `threading.Lock`, counts in-flight reservations, raises if `spent + reserved + next > cap`, and otherwise reserves `next`. `record(kind, micros, ledger=None, release=0)` releases the reservation, and the callers in Tasks 10, 11 and 12 pass `release=<the estimate they checked>`. `spend_since` became a pydantic `AwareDatetime`, so a naive `SPEND_SINCE` is rejected. The race was bounded in practice (at most workers × per-call estimate, about $0.006), but the guard should be exact. Safety across processes is out of scope, since one script runs at a time. If wrong, the spend module carries slightly more code.
+- **R8 (Task 9b):** the controller reviewed the data-only change with a deterministic diff instead of dispatching a reviewer, because the check is fully mechanical. If wrong, nothing changes.
+- **R9 (Task 10, user):** any endorsement counts as "recommended". Discussed in section 2.
+- **R10 (Task 10, user):** no judge mode passes spec §5.3; batched stays the default and `recommendation_rate` stays experimental. Discussed in section 2.
+- **R11 (Task 11, inherited from the plan):** the sampling experiment called the adapter directly, not the API and worker. Discussed in section 3.
+
+The final review found all eleven rulings still sound, and named R10 and R3 as the ones to revisit next slice.
+
+### Deferred minors
+
+- **Task 3:** abbreviations such as "e.g." and "Dr." split into fragments with no entity in them. Harmless, because the brand keeps its clause, but it inflates the sentence count. The final review adds that a brand whose name contains an abbreviation ("Dr. Scholl's", "St. Ives") would lose its label, so an abbreviation list is needed once such a brand is tracked.
+- **Task 4:** a new `genai.Client` is built for every judge call (connection churn).
+- **Task 5:** a retry after a `prepare` or `write` failure re-queries the engine and overwrites `cost_micros`, so the first engine spend is dropped (the same as v1). It could reuse the committed `raw_uri`. The final review says to fix it before production cost reporting.
+- **Task 5:** there is no test for `write()` raising in transaction 2 leading to `retry`, and none for a v1 to v2 re-extraction of a row with a stale `absence_reason` or `parsed["model"]`.
+- **Task 5:** spec §5.3 and §10 still name `test_flash_lite_judge_live` (now `test_legacy_judge_live`), and conftest's `make_observation` defaults to `"fetched"`, which the worker no longer produces.
+- **Task 8:** `check()` holds the lock during the database read, and a reservation leaks if the paid call raises before `record()`. This is conservative: it blocks early rather than overspending. The final review notes every current caller releases in `finally`.
+- **Task 12:** the v1 "before" snapshot survives only in prose (section 4).
+- **Task 12:** `reextract.py` records 0 cost if `write()` raises after a paid judge call (about $0.001).
+- **Task 12:** commit a4eca81's §10 item 1 cites `config.py` for the location, which comes from `GOOGLE_CLOUD_LOCATION` in `.env`.
+- **Final review m2:** the isolated prompt calls the first entity in the sentence "the brand". In a sentence that names only a competitor (for example "Adidas is good."), the judge is told Adidas is the brand, so `extraction.context` can describe a competitor. Labels are probably unaffected. Left for the judge rework, since isolated is not the default (R10).
+- **Final review m3:** in isolated mode, a slow judge can outlast the 10-minute stale-running reset. With several worker processes, a second worker can re-claim the row while the first is still judging, giving double engine spend and possibly a `done` row flipped back to `retry`. It needs isolated mode, several workers and repeated Vertex timeouts. Fix later with a claimed-at heartbeat or a longer window.
+- **Final review m4:** the spec says `/sov` flags `recommendation_rate` as experimental, but `/sov` has no such field. Spec wording only; correct it the next time the spec is edited.
+
+### Commit hash map (2026-09-20 reword)
+
+The 2026-09-20 reword (`git filter-branch --msg-filter` over afc128a..HEAD, tree unchanged) fixed 6 commits whose `Co-Authored-By` sat on line 2 with no blank line, so git had read it as part of the subject. 25 hashes changed and 6a4d14e was kept. The local branch `slice2-backup-before-reword` holds the old history.
+
+| Old | New |
+|---|---|
+| 6a4d14e | 6a4d14e |
+| 9b372d7 | 9fb5532 |
+| 1d0a30c | 5cc291c |
+| 166f2d4 | 2e00f6b |
+| b3997e5 | ced569a |
+| c421ed2 | 6e66817 |
+| 338e59a | 0628591 |
+| caa4b87 | d59b115 |
+| dfebc0f | df16f54 |
+| 1e6d208 | c8a9310 |
+| 0a824e8 | f65cef8 |
+| c8bf616 | cad9e03 |
+| ad92974 | 189b38b |
+| c6f31ad | 3950e21 |
+| ed126d3 | efbc77c |
+| a23c86a | 1f0c897 |
+| 9cc296e | ec46f22 |
+| efa6a0e | 2133fcc |
+| 12feb95 | a1eb818 |
+| 1198bf1 | cb046e6 |
+| df01969 | 98c5062 |
+| 5732db4 | a4eca81 |
+| e804736 | 87efd8f |
+| 50e6031 | d9bef51 |
+| e831482 | 713916a |
+| 8d3ea77 | 44928d4 |

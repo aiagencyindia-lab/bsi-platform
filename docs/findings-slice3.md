@@ -193,6 +193,15 @@ Against the **$2/org/day** default:
   of schedules firing on the same hour.
 - Deferred test coverage from Task 5, verified by hand instead: skip
   ordering, the stale-slot assertion, the cross-org id case.
+- **A stale `next_run_at` can make a scheduled run and a later on-demand
+  run land in different jobs**, that is, two paid runs (final review I3).
+  It is bounded by the budget; fixing it trades against slot idempotency
+  and needs a decision.
+- **`budget_fits` leaves `'fetched'` out of its pending count.** No code
+  produces that status.
+- **Cross-tenant `due_schedules()` depends on the owner role being
+  `BYPASSRLS`.** That is true in dev; an owner without it would silently
+  return zero rows.
 
 ## 6. Follow-ups
 
