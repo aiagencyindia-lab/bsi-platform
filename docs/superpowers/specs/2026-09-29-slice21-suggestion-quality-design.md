@@ -1,0 +1,91 @@
+# Slice 21 design: product-suggestion quality
+
+## Context
+
+Slice 20's second dev live check (docs/findings-slice20.md §2, job `89facf99`) removed store names and rival brand and model names from the product wedge's suggestions, but showed three new problems, observed:
+
+1. **Over-exclusion.** The parse step put product-type nouns inside model names ("Chase Sandal", "Moc Slipper", "Artie Shoe", "Adalyn Sneaker", "Taye 2.0 Sneaker"), and `missing` excludes every stem of every model for the keyword. "sneaker", in 3 kids-shoes titles, could not be suggested. The competitor alias "Campus Shoes" excludes "shoe" for every keyword (slice 20 ruling R6). Most of the 7 empty missing lists are otherwise correct: the kids-sandals titles were brand plus model only, with no generic word in 2 or more titles.
+2. **Size and colour noise.** Zappos-style titles ("Taye 2.0 Sneaker - Little Kid White") gave LC-03 and LC-09 the missing words `little` and `white`; LC-03's suggestion "…Little White Black Kids Sports Shoe" adds "White" to a black shoe.
+3. **Invented words.** The rewrite turned LC-06 "BSOAgentTestBrand Brown Men Casual Sandal" (a men's sandal, no missing words) into "…Brown Boys Casual Sandal Men". `rule_check` checks only for dropped words, so it passed.
+
+Classification, said in chat as the first line of the first brainstorming reply: **bounded**. Slice 21 changes existing steps in `bsi_core/products.py`: which words the model-name exclusion removes, filtering size and colour noise out of the missing words, and a rule-check flag for words the rewrite adds. It needs no schema, API or UI change beyond perhaps one existing status. (The design that followed needs no new status either.) By the user's standing rule it gets a spec, a plan and the full review cycle.
+
+Decisions approved in chat (brainstorming on Opus 5.5, 2026-09-29). Sections 1–4 each had their design text in chat before their approval:
+
+- **Scope:** all three problems.
+- **Invented words:** removed automatically by `rule_check` (status `adjusted`). Rejected: keep and flag with a stored list (needs a migration, API field and UI), and flag without storing (the operator cannot see why).
+- **Approaches:** (1) A — the parse asks for the model without the product type, plus a keyword guard on exclusions; rejected B (a model word shared by 2 or more brands is generic; fails when brands are blank) and C (keyword guard only; "sneaker" stays excluded). (2) A — a fixed `NOISE_WORDS` list; rejected B (the parse returns colour and size per title: more model output to validate for the same result). (3) the `rule_check` drop.
+
+Codebase facts (main `c81f47d`, checked 2026-09-29 with the current code):
+
+- `missing("Black Kids Sports Shoe", ["Taye Sneaker - Little Kid White", "Artie Sneaker - Little Kid White"], ["BSOAgentTestBrand"])` returns `["little", "sneaker", "white"]`.
+- `missing("Boys Sandal", ["Kids Chase Sandal", "Kids Paley Sandal"], ["X"], exclude=["Kids Chase", "Kids Paley"])` returns `[]`; without `exclude` it returns `["kids"]`.
+- `rule_check("BSOAgentTestBrand Brown Men Casual Sandal", "BSOAgentTestBrand Brown Boys Casual Sandal Men", ["BSOAgentTestBrand"])` returns the suggestion unchanged with `"pass"` and `[]`.
+- `dropped("Black Shoe", "Shoe", [])` returns `["black"]`.
+- `missing` builds `have = fold_set(product_title) | _brand_stems([*brand_names, *exclude])`; `run_products` passes `exclude` = the ranking titles' non-empty brands and models plus every competitor's name and aliases.
+- A cached `keyword_search` row is a hit only when `row.query == search_query(row.keyword)` and every stored title has a `brand` key (slice 20 §5 B); a row with no titles is a hit.
+- `rule_check(original, suggestion, brand_names)` prepends a lost brand, drops a word repeating an earlier stem, strips trailing connectors, trims to 150 characters, strips connectors again, then computes `dropped`; status `review` if anything was dropped, else `adjusted` if the title changed, else `pass`. `run_products` is its only non-test caller.
+
+## Design
+
+All code changes are in `packages/core/bsi_core/products.py`.
+
+### 1. Model words, the keyword guard, and the cache
+
+- `titles_prompt`'s brand-and-model sentence becomes exactly: "For each title also give its brand and its model or product-line name without the product type (for example "Taye 2.0", not "Taye 2.0 Sneaker"), each as written in the title, else an empty string."
+- `missing(product_title, titles, brand_names, exclude=(), keyword="")` gains `keyword: str`. Its `have` set becomes `fold_set(product_title) | _brand_stems(brand_names) | (_brand_stems(exclude) - _brand_stems([keyword]))`: a model, brand or competitor name never removes a stem of the product's own keyword; the brand's own names are excluded in full, as before.
+- `run_products` passes `keyword=p["keyword"]` to `missing`.
+- New constant `TITLES_PARSE = 2`. `keep_present` adds `"parse": TITLES_PARSE` to every stored title. A cached row is a hit only when its query matches (unchanged) and every stored title has `t.get("parse") == TITLES_PARSE`; this replaces slice 20's "every title has a `brand` key". A row with no titles is still a hit. Rows written before this slice lack the key and are searched again.
+- Known ceiling, in a code comment: bumping `TITLES_PARSE` makes every cached keyword be searched again (about $0.04 each).
+- Unchanged: `_named_in` and R4, `drop_stores`, `search_query`.
+
+### 2. Size and colour noise
+
+- New constant `NOISE_WORDS`: white, black, blue, red, green, pink, grey, gray, brown, navy, beige, tan, silver, gold, purple, orange, yellow, cream, multi, multicolor, color, colour, size, little, big. `NOISE_STEMS = frozenset(_stem(w) for w in NOISE_WORDS)`.
+- `missing` skips a ranking-title token whose stem is in `NOISE_STEMS`, as it skips stopwords. Nothing else uses it: `dropped()` still reports a lost original colour, so a rewrite that loses "Black" is still `review`.
+- Known ceiling, in a code comment: English only and closed; a real colour phrase ("white sneakers") is never suggested; a noise word is skipped even when it is in the keyword.
+
+### 3. `rule_check` drops invented words
+
+- `rule_check(original, suggestion, brand_names, allowed=())` gains `allowed: Sequence[str]`. `run_products` passes `allowed=[p["keyword"], *p["missing"]]`.
+- New step, right after the brand is prepended and before the repeat check: a word of the suggestion is dropped when it has at least one stem (`fold_set(word)` non-empty), none of its stems is in `fold_set(original) | fold_set(" ".join(allowed)) | _brand_stems(brand_names)`, and not every token of it is a stopword or a number. Punctuation-only words have no stems and are kept. A hyphenated word ("Flip-Flop") is kept when any of its stems is allowed.
+- A title changed by this step is `adjusted` (the existing rule: it differs from the suggestion). `review` still means original words were lost; `dropped()` is unchanged.
+- Known ceiling: a real synonym the rewrite adds ("Footwear") is removed too; the rewrite prompt already asks for only the keyword and missing terms.
+
+### 4. Testing
+
+Unit, `tests/unit/test_products.py`:
+
+- `titles_prompt(...)` contains "without the product type".
+- `missing("Boys Sandal", ["Kids Chase Sandal", "Kids Paley Sandal"], ["X"], exclude=["Kids Chase", "Kids Paley"], keyword="kids sandals") == ["kids"]`; the same call without `keyword` returns `[]`.
+- `missing("Black Kids Sports Shoe", ["Taye Sneaker - Little Kid White", "Artie Sneaker - Little Kid White"], ["BSOAgentTestBrand"]) == ["sneaker"]` (today `["little", "sneaker", "white"]`).
+- `dropped("Black Shoe", "Shoe", []) == ["black"]`.
+- `rule_check("BSOAgentTestBrand Brown Men Casual Sandal", "BSOAgentTestBrand Brown Boys Casual Sandal Men", ["BSOAgentTestBrand"], allowed=["men sandals"]) == ("BSOAgentTestBrand Brown Casual Sandal Men", "adjusted", [])`.
+- `rule_check("BSOAgentTestBrand Blue Boys Sandal", "BSOAgentTestBrand Blue Boys Sandal Kids", ["BSOAgentTestBrand"], allowed=["kids sandals"]) == ("BSOAgentTestBrand Blue Boys Sandal Kids", "pass", [])`.
+- `rule_check("Walkaroo Sandal 3", "Walkaroo Sandal for Kids 3", ["Walkaroo"], allowed=["kids sandals"]) == ("Walkaroo Sandal for Kids 3", "pass", [])`.
+- Existing `rule_check` tests whose suggestions add words pass `allowed` holding those words (the default `()` allows nothing extra).
+- Existing `keep_present` tests expect `"parse": 2` in stored titles.
+
+Integration, `tests/integration/test_products_run.py`:
+
+- Every exact stored-title assertion gains `"parse": 2`.
+- The reuse test (`test_a_fresh_search_is_reused_and_a_stale_one_redone`) and the R2 old-query test (`test_a_search_under_the_old_query_is_redone`) seed titles with `"parse": 2`, so each still depends only on its own condition.
+- Slice 20's `test_a_row_parsed_without_brand_is_redone` becomes a test that a fresh row with the new query whose titles have brand and model keys but no `parse` key is searched again, and that the rewritten row's first title carries `"parse": 2`.
+- New: `_generator` gains a `rewrite=` parameter; a run whose rewrite returns "Walkaroo Boys Toddler Sandal Kids" for the seeded "Walkaroo Boys Sandal 0" (keyword "kids sandals") stores the suggestion "Walkaroo Boys Sandal Kids" with `rule_check` `adjusted`.
+- The idle-in-transaction probe is unaffected (no new session or model call).
+
+Gates: the backend gate and `npm run gate`, run by the controller.
+
+### 5. Dev re-check
+
+Asked for at that point. No migration (dev stays at 0020); the worker stays stopped; one `product_run` for LC-01..LC-10 through one `process_job`. The 8 keywords are searched again (parse bump). Cost, derived: 8 × 37,500 + 6,000 = 306,000 micros (about $0.31); 10 × 37,500 + 6,000 = 381,000 (about $0.38) with 10 keywords. Spend would go from about $10.56 to about $10.87–$10.94 of the $15 cap. Writes: the job row, 10 `product` rows, up to 10 `keyword_search` rows, `api_key.last_used_at`. Reported as observed, per product: missing words, suggestion, status, and whether any colour or size word, rival name or invented word remains.
+
+## Rulings
+
+None yet. Rulings made during execution are added here with their R-number.
+
+## Out of scope
+
+- The keyword vote choosing a colour phrase ("navy flip flops", slice 20's first live check).
+- Answer commentary kept inside a verbatim title.
+- Locale in the query; storing the answer text; `-es` plural folding.
