@@ -502,4 +502,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 
 ## Changes made during execution
 
-None yet.
+- Task 1 went as written (commit cad40aa).
+- Task 2 went as written (commit a63f707), with two differences:
+  - ruff wrapped the `missing(...)` call in `test_missing_never_suggests_com` across three lines, which Task 2 allows. The `Kids Foot Locker` line was not wrapped.
+  - Step 6's check without the filter replaced `drop_stores(` in `run_products` with an identity `(lambda x, _d: x)(` rather than with its first argument, and restored the file from a backup copy. The effect is the same: the test failed with "Zappos.com" stored, and the restored diff has only the intended call.
+- Task 3: the spec's Rulings section is "None.", because the ledger records no rulings (the preflight scan was clean).

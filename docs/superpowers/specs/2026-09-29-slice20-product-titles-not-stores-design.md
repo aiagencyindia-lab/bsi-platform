@@ -126,7 +126,7 @@ Run only with the user's OK, asked at that point.
 
 ## Rulings
 
-None yet. Rulings made during execution are added here with their R-number.
+None.
 
 ## Out of scope
 
