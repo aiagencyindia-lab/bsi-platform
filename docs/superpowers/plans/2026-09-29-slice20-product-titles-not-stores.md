@@ -104,7 +104,10 @@ def search_query(keyword: str) -> str:
     )
 ```
 
-Replace `titles_prompt`'s body with:
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest tests/unit/test_products.py tests/unit/test_recommend_copy.py -q`
+Expected: only `test_titles_prompt_names_the_new_query_and_forbids_stores` fails, because the prompt still says "buy online.".
+
+Then replace `titles_prompt`'s body with:
 
 ```python
     return (
@@ -232,7 +235,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - Consumes: `search_query` (Task 1), used only by the tests.
 - Produces: `drop_stores(titles: list[dict[str, Any]], domains: Sequence[str]) -> list[dict[str, Any]]`.
 
-- [ ] **Step 1: Write the failing unit tests.** In `tests/unit/test_products.py`, add `import pytest` to the imports if it is missing, and add `drop_stores` to the `from bsi_core.products import (...)` list in alphabetical order (after `drop_brand_terms`). Then add:
+- [ ] **Step 1: Write the failing unit tests.** In `tests/unit/test_products.py`, add `import pytest` as the first line of the second import block, directly before `from bsi_core.products import (` (the file has no `import pytest` today), and add `drop_stores` to the `from bsi_core.products import (...)` list in alphabetical order (after `drop_brand_terms`). Then add:
 
 ```python
 @pytest.mark.parametrize(
@@ -264,6 +267,13 @@ def test_drop_stores_keeps_product_titles_in_order():
     assert drop_stores(titles, ["zappos.com"]) == titles
 
 
+def test_drop_stores_keeps_order_around_a_dropped_title():
+    crocs = {"title": "Crocs Classic Clog", "domain": "crocs.com"}
+    reef = {"title": "REEF", "domain": "reef.com"}
+    lanner = {"title": "Kids Lanner Ridge II Slipper", "domain": ""}
+    assert drop_stores([crocs, reef, lanner], []) == [crocs, lanner]
+
+
 def test_missing_never_suggests_com():
     got = missing("Blue Sandal", ["Zappos com sandal", "ShopWSS com sandal"], [])
     assert "com" not in got
@@ -276,17 +286,7 @@ The one list call covers the spec's kept cases: `domains=["zappos.com"]` is what
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest tests/unit/test_products.py -q`
 Expected: collection fails with `ImportError: cannot import name 'drop_stores'`.
 
-- [ ] **Step 3: Implement.** In `products.py`, add `from .matching import normalize_domain` to the relative imports in alphabetical order (after `from .judge import JudgeFailed`). Change `STOPWORDS` to:
-
-```python
-STOPWORDS = frozenset(
-    "and for the with from your our this that are you all any buy online "
-    "free shop shopping sale offer offers price prices deal deals off "
-    "new a an in of on to by at or com".split()
-)
-```
-
-Add after `keep_present`:
+- [ ] **Step 3: Implement `drop_stores`.** In `products.py`, add `from .matching import normalize_domain` to the relative imports in alphabetical order (after `from .judge import JudgeFailed`). Add after `keep_present`:
 
 ```python
 def drop_stores(
@@ -297,9 +297,10 @@ def drop_stores(
     ("Famous Footwear" = famousfootwear.com, "Zappos.com" = zappos.com),
     or it contains a known dotted domain ("Buy at ShopWSS.com"). Known
     domains are the title's own plus the cited ones, normalised. Order
-    kept. ponytail: a subdomain's name is its first label (shop.nike.com
-    -> "shop"), and a store named unlike its domain ("Journeys Kidz",
-    journeys.com) is left to titles_prompt; a store list would catch it."""
+    kept."""
+    # ponytail: a subdomain's name is its first label (shop.nike.com ->
+    # "shop"), and a store named unlike its domain ("Journeys Kidz",
+    # journeys.com) is left to titles_prompt; a store list would catch it.
     cited = [normalize_domain(d) for d in domains]
     out: list[dict[str, Any]] = []
     for t in titles:
@@ -334,7 +335,18 @@ In `run_products`, wrap the parsed list:
                     )
 ```
 
-- [ ] **Step 4: Run the unit tests to verify they pass**
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest tests/unit/test_products.py -q`
+Expected: only `test_missing_never_suggests_com` fails, returning `['com']`.
+
+- [ ] **Step 4: Make `com` a stopword and verify the unit tests pass.** Change `STOPWORDS` to:
+
+```python
+STOPWORDS = frozenset(
+    "and for the with from your our this that are you all any buy online "
+    "free shop shopping sale offer offers price prices deal deals off "
+    "new a an in of on to by at or com".split()
+)
+```
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest tests/unit/test_products.py -q`
 Expected: all pass.
@@ -353,7 +365,8 @@ and change its titles branch to:
         elif kind == "titles":
             body = {
                 "titles": titles
-                or [
+                if titles is not None
+                else [
                     {
                         "title": "Kids Sandals for Boys Summer",
                         "domain": "amazon.in",
@@ -422,7 +435,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   - `## 2. Live check on dev`: exactly "Not yet run. The controller runs it after the user approves; results are recorded here then."
   - `## 3. Deferred and untested`: every `minor (deferred)` ledger line in plain sentences, plus the spec's Out of scope.
 - [ ] **Step 2: README rows** for the spec, the plan and the findings, in the slice 19 rows' format.
-- [ ] **Step 3: Rulings.** Copy the rulings from the ledger into the spec, each with what was decided, why, and the cost if wrong. Update any spec text a ruling changed. If there are none, the section keeps "None yet." replaced by "None."
+- [ ] **Step 3: Rulings.** Copy the rulings from the ledger into the spec, each with what was decided, why, and the cost if wrong. Update any spec text a ruling changed. If there are none, replace "None yet. Rulings made during execution are added here with their R-number." with "None."
 - [ ] **Step 4: Plan changes.** List every deviation from these tasks in this plan's changes section.
 - [ ] **Step 5: Coverage check.** Run a scripted grep of the new docs for every ledger ruling ID and every `minor (deferred)` line's key phrase. Report the misses and fix them.
 - [ ] **Step 6: Commit**
@@ -447,11 +460,14 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   | §3 unit tests | Tasks 1–2 |
   | §3 copy case | Task 1 |
   | §3 integration tests | Tasks 1–2 |
+  | §3 gates (backend and `npm run gate`) | The controller, after Task 3 |
+  | §3 idle-in-transaction probe | Unchanged: `drop_stores` adds no model call or session, so the existing probe test still expects its current count |
+  | §2 0 or 1 surviving titles | No code: `missing` already needs `MIN_TITLES = 2` |
   | §4 dev re-check | The controller, after Task 3 |
 
 - **Spec §3 values, word for word:**
   - `search_query("kids sandals")` exact text.
-  - The seven dropped cases (the spec's six plus the normalised URL) and the five kept cases, all verbatim.
+  - The spec's seven dropped cases and five kept cases, all verbatim.
   - `titles_prompt("kids sandals", "answer text", ["amazon.in"])`: contains `search_query(...)`, does not contain "buy online.", and contains the store rule.
   - `missing("Blue Sandal", ["Zappos com sandal", "ShopWSS com sandal"], [])` does not contain `com`.
   - `PRODUCT_CASES` gains `search_query("kids shoes")`.
@@ -477,11 +493,12 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   - `search_query` is `str -> str` everywhere.
 - **Every place this plan's code departs from the spec text:**
   1. The spec's five kept cases are tested in one call with `domains=["zappos.com"]` rather than one call per title. The spec gives `domains=["zappos.com"]` only for "Zappos Kids Sandal"; the other four are unaffected by that domain, as traced above. The seven dropped cases are one call each, as the spec lists them.
-  2. The spec says "each passed through `matching.normalize_domain`; empty results are skipped". The code also skips an empty *own* domain, which is the same rule applied to the title's own field.
+  2. `test_drop_stores_keeps_order_around_a_dropped_title` (Crocs Classic Clog, REEF, Kids Lanner Ridge II Slipper gives the first and third) is not in spec §3. It tests the spec's "Order is kept" around a dropped title.
   3. Edge case not in the spec: a known domain that normalises to something starting with `.` (e.g. `.com`) has an empty name, so an empty title would be dropped. `keep_present` drops empty titles anyway, so what gets stored does not change.
   4. The spec's new integration test for the old query is named here `test_a_search_under_the_old_query_is_redone`, and the store-name test `test_store_names_are_not_stored_as_titles`. The spec gives no names.
   5. Task 2 Step 6 checks the failing case by temporarily removing the call. The integration test is written after the implementation, because the unit tests drive `drop_stores` first.
-  6. The docstrings and code comments are the plan's own wording. The spec requires only the ceiling comment's content (subdomain first label; store named unlike its domain).
+  6. The docstrings and code comments are the plan's own wording. The ceiling is a `# ponytail:` comment, as the spec says; its content (subdomain first label; store named unlike its domain) is the spec's.
+  7. Task 1 Step 3 and Task 2 Steps 3–4 are split so that the `titles_prompt` test and the `com` test each fail for their own reason before their change lands.
 
 ## Changes made during execution
 
