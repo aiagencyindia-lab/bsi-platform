@@ -105,9 +105,12 @@ Expected failures:
 - [ ] **Step 3: Implement the pure parts.** In `products.py`, after `STOPWORDS`, add:
 
 ```python
-# missing() never suggests these (slice 21 spec §2). ponytail:
-# English and closed; a real colour phrase ("white sneakers") is never
-# suggested, and outside footwear some are product words (cream, gold).
+# missing() never suggests these (slice 21 spec §2). ponytail: English
+# and closed; a real colour phrase ("white sneakers") is never suggested;
+# a noise word is skipped even when it is in the keyword; outside
+# footwear some are product words (cream, gold, silver, orange, plus
+# size, hair color); toddler/youth/infant are not listed, and "kid" from
+# "Little Kid" is still suggested.
 NOISE_WORDS = frozenset(
     "white black blue red green pink grey gray brown navy beige tan silver "
     "gold purple orange yellow cream multi multicolor color colour size "
@@ -153,7 +156,7 @@ In the loop, change `if stem in have:` to `if stem in have or stem in NOISE_STEM
 In `keep_present`:
 - Change the return annotation and the `out` annotation to `list[dict[str, Any]]`.
 - Add `"parse": TITLES_PARSE,` after the `"model"` entry.
-- Append to the docstring: "; each carries the parse version (TITLES_PARSE)."
+- In the docstring, replace the final "." after "(_named_in)" with "; each carries the parse version (TITLES_PARSE)."
 
 In `titles_prompt`, replace the three lines from `"on its own. For each title also give its brand and its model or "` through `"string.\n"` with:
 
@@ -199,7 +202,7 @@ Expected: `test_a_row_parsed_before_parse_2_is_redone` fails, because the row is
                     and all(t.get("parse") == TITLES_PARSE for t in row.titles)
 ```
 
-In the `missing(...)` call, add `keyword=p["keyword"],` after the `exclude=[...]` argument.
+In the `missing(...)` call, add `keyword=p["keyword"],` after the `exclude=[...]` argument. In the `ponytail:` comment above that call, change "and one in a competitor's name or alias for every keyword." to "and one in a competitor's name or alias for every keyword that does not contain it (spec §1)."
 
 - [ ] **Step 8: Run the integration and unit files**
 
@@ -216,7 +219,7 @@ Then check the parse condition:
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100`
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/products.py tests && git commit -m "fix(products): keyword guard, colour/size noise and parse version for missing words"
+cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/products.py tests && git commit -m "fix(products): keyword guard, colour/size noise and parse version for missing words" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -320,6 +323,7 @@ def _allowed_stems(
     allowed token ending in "es", its singular ("watches" -> watch).
     ponytail: rivals._stem drops only one "s"; this patches -es for
     allowed words only."""
+    # (ruff format wraps the next line; accept its layout.)
     text = " ".join(allowed)
     es = {_stem(t[:-2]) for t in tokens(text) if len(t) > 3 and t.endswith("es")}
     return (
@@ -398,7 +402,7 @@ Then check the call site:
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100`
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/products.py tests && git commit -m "fix(products): the rule check drops words the rewrite invents"
+cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/products.py tests && git commit -m "fix(products): the rule check drops words the rewrite invents" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -413,14 +417,17 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   - `## 1. What was built`: the constants, `missing(keyword=)`, the noise filter, the parse version, `rule_check(allowed=)`, and a commit table from `git log --oneline main..HEAD` with a "(this commit)" row.
   - `## 2. Live check on dev`: exactly "Not yet run. The controller runs it after the user approves; results are recorded here then."
   - `## 3. Deferred and untested`: every `minor (deferred)` and `parked` ledger line not marked fixed, the spec's known ceilings, and its Out of scope list.
-- [ ] **Step 2: README rows** for the spec, the plan and the findings, in the slice 20 rows' format.
+- [ ] **Step 2: README rows** for the spec, the plan and the findings, in the slice 20 rows' format:
+  - spec: "Design spec: product-suggestion quality after slice 20's second live check — the parse asks for models without the product type, a keyword guard on exclusions, colour and size words never suggested, a parse version on cached titles, and the rule check dropping words the rewrite invents; with the rulings made during the build."
+  - plan: "Implementation plan, Tasks 1–3, with the changes made during execution."
+  - findings: "Results: what was built, the live check on dev (not yet run), and what is deferred or untested."
 - [ ] **Step 3: Rulings.** Copy each ledger ruling into the spec in the slice 20 format (Decided / Found by / Why / Cost if wrong). If there are none, replace "None yet. Rulings made during execution are added here with their R-number." with "None."
 - [ ] **Step 4: Plan changes.** List every deviation from Tasks 1–3 in this plan's changes section.
 - [ ] **Step 5: Coverage check.** Run a scripted grep over the ledger for every ruling ID, every `minor (deferred)` line and every `parked` line. Print which of findings, the spec or this plan's changes section covers each. Report and fix misses.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "docs: slice 21 findings, index and rulings"
+cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "docs: slice 21 findings, index and rulings" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -479,6 +486,9 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   3. `test_dropped_still_flags_a_lost_colour` passes before Task 1. It pins behaviour that must not change, so it is never seen failing.
   4. Task 1 Step 8 and Task 2 Step 6 add delete-and-see-it-fail checks that the spec does not ask for.
   5. Task 1 and Task 2 each run the backend gate. The controller also runs both gates.
+  6. More tests are never seen failing, because each task implements before it edits the integration file: the integration `"parse": 2` assertions (Task 1), `test_the_rewrite_cannot_add_an_invented_word` and the failed-search test's new expected title (Task 2). The delete-and-fail checks in Task 1 Step 8 and Task 2 Step 6 cover the parse condition and the `missing` part of `allowed`.
+  7. `keyword=p["keyword"]` in `run_products`'s `missing` call has no integration test; the unit test pins the guard in `missing`. The spec asks for none.
+  8. The `NOISE_WORDS` comment carries spec §2's ceiling in shortened wording; the spec's text is the reference.
 
 ## Changes made during execution
 
