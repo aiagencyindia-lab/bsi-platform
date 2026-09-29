@@ -451,13 +451,17 @@ def fit_rank(
 
 
 def missing(
-    product_title: str, titles: Sequence[str], brand_names: Sequence[str]
+    product_title: str,
+    titles: Sequence[str],
+    brand_names: Sequence[str],
+    exclude: Sequence[str] = (),
 ) -> list[str]:
     """Words of the ranking titles the product title lacks, compared by
-    stem (fold): at least 3 characters, not a number, not a stopword or a
-    brand stem, in at least MIN_TITLES titles. The first surface form
-    seen is reported; by title count, then stem; MAX_MISSING."""
-    have = fold_set(product_title) | _brand_stems(brand_names)
+    stem (fold): at least 3 characters, not a number, not a stopword, not
+    a stem of the brand's names or of `exclude` (rival brands, models and
+    competitor names), in at least MIN_TITLES titles. The first surface
+    form seen is reported; by title count, then stem; MAX_MISSING."""
+    have = fold_set(product_title) | _brand_stems([*brand_names, *exclude])
     counts: Counter[str] = Counter()
     surface: dict[str, str] = {}
     for title in titles:
@@ -543,18 +547,34 @@ def _squash(text: str) -> str:
     return " ".join(text.casefold().split())
 
 
+def _named_in(value: Any, title: str) -> str:
+    """value, stripped, when it has a token and all its tokens are in the
+    title's tokens; else "". Keeps the parse from inventing exclusions."""
+    v = str(value or "").strip()
+    toks = tokens(v)
+    return v if toks and set(toks) <= set(tokens(title)) else ""
+
+
 def keep_present(
     titles: list[dict[str, Any]], text: str
 ) -> list[dict[str, str]]:
     """Only titles found verbatim in the answer text (case and
-    whitespace ignored), at most TOP_TITLES, domains lowercased."""
+    whitespace ignored), at most TOP_TITLES, domains lowercased; brand
+    and model kept only when named in the title (_named_in)."""
     hay = _squash(text)
     out: list[dict[str, str]] = []
     for t in titles:
         title = str(t.get("title") or "").strip()
         if title and _squash(title) in hay:
             domain = str(t.get("domain") or "").strip().lower()
-            out.append({"title": title, "domain": domain})
+            out.append(
+                {
+                    "title": title,
+                    "domain": domain,
+                    "brand": _named_in(t.get("brand"), title),
+                    "model": _named_in(t.get("model"), title),
+                }
+            )
     return out[:TOP_TITLES]
 
 
@@ -599,6 +619,8 @@ class KeywordSet(BaseModel):
 class TitleItem(BaseModel):
     title: str
     domain: str = ""
+    brand: str = ""
+    model: str = ""
 
 
 class TitleSet(BaseModel):
@@ -668,9 +690,12 @@ def titles_prompt(keyword: str, text: str, domains: Sequence[str]) -> str:
         "seller's domain when the text names it (else an empty string). "
         "Do not invent titles or shorten them. A product title names one "
         "product; never list a store, retailer, marketplace or brand name "
-        "on its own.\n"
+        "on its own. For each title also give its brand and its model or "
+        "product-line name, each as written in the title, else an empty "
+        "string.\n"
         f"Known source domains: {', '.join(domains) or 'none'}\n"
-        'Return JSON {"titles": [{"title": ..., "domain": ...}]}.\n'
+        'Return JSON {"titles": [{"title": ..., "domain": ..., '
+        '"brand": ..., "model": ...}]}.\n'
         f"Text:\n{text}"
     )
 
@@ -740,6 +765,15 @@ def run_products(
         with tenant_session(org_id) as s:
             brand = s.get_one(m.Brand, brand_id)
             names = [brand.name, *brand.aliases]
+            rivals = [
+                n
+                for c in s.scalars(
+                    select(m.Competitor).where(
+                        m.Competitor.brand_id == brand_id
+                    )
+                )
+                for n in (c.name, *c.aliases)
+            ]
             products: list[dict[str, Any]] = [
                 {
                     "id": p.id,
@@ -846,8 +880,10 @@ def run_products(
                             m.KeywordSearch.error.is_(None),
                         )
                     )
-                    # a row from an older query wording is searched again
+                    # a row from an older query wording, or parsed before
+                    # titles carried brand and model, is searched again
                     if row.query == search_query(row.keyword)
+                    and all("brand" in t for t in row.titles)
                 )
                 new = [k for k in ordered if k not in titles_by_kw]
                 new = new[: max(KEYWORD_CAP - searched, 0)]
@@ -922,10 +958,23 @@ def run_products(
             # past KEYWORD_CAP has no titles, so its missing list is [].
             for i, p in enumerate(kept):
                 p["index"] = i
+                ranking = titles_by_kw.get(p["keyword"], [])
                 p["missing"] = missing(
                     p["title"],
-                    [t["title"] for t in titles_by_kw.get(p["keyword"], [])],
+                    [t["title"] for t in ranking],
                     names,
+                    # ponytail: a generic word in a model ("Classic") is
+                    # excluded for this keyword, and one in a competitor's
+                    # name or alias for every keyword.
+                    exclude=[
+                        *rivals,
+                        *(
+                            v
+                            for t in ranking
+                            for v in (t.get("brand"), t.get("model"))
+                            if v
+                        ),
+                    ],
                 )
             raw, cost, _model = generator(
                 rewrite_prompt(brand.name, kept), RewriteSet, 0.0

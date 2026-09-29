@@ -303,8 +303,78 @@ def test_keep_present_drops_titles_absent_from_the_text():
         {"title": "Invented Sandal", "domain": "x.in"},
     ]
     assert keep_present(titles, text) == [
-        {"title": "Kids Sandals for Boys", "domain": "amazon.in"}
+        {
+            "title": "Kids Sandals for Boys",
+            "domain": "amazon.in",
+            "brand": "",
+            "model": "",
+        }
     ]
+
+
+TEVA_KIDS = "Teva Hurricane XLT 2 Sandals - Kids'"
+
+
+def test_keep_present_keeps_a_brand_and_model_named_in_the_title():
+    got = keep_present(
+        [
+            {
+                "title": TEVA_KIDS,
+                "domain": "",
+                "brand": "Teva",
+                "model": "Hurricane XLT 2",
+            }
+        ],
+        f"Try the {TEVA_KIDS} today.",
+    )
+    assert (got[0]["brand"], got[0]["model"]) == ("Teva", "Hurricane XLT 2")
+
+
+def test_keep_present_blanks_a_brand_not_in_the_title():
+    title = "Teva Original Universal Sandals"
+    got = keep_present(
+        [
+            {
+                "title": title,
+                "domain": "",
+                "brand": "Nike",
+                "model": "Original Universal",
+            }
+        ],
+        f"See {title}.",
+    )
+    assert (got[0]["brand"], got[0]["model"]) == ("", "Original Universal")
+
+
+def test_keep_present_without_brand_or_model_keys_stores_empty():
+    got = keep_present([{"title": "Kids Sandal", "domain": ""}], "Kids Sandal")
+    assert (got[0]["brand"], got[0]["model"]) == ("", "")
+
+
+TEVA_TITLES = [
+    TEVA_KIDS,
+    "Teva Hurricane XLT 2 Sandals - Toddlers'",
+    "Teva Original Universal Sandals - Kids'",
+]
+
+
+def test_missing_leaves_out_excluded_brand_and_model_words():
+    exclude = ["Teva", "Hurricane XLT 2", "Original Universal"]
+    got = missing(
+        "Blue Boys Sandal", TEVA_TITLES, ["BSOAgentTestBrand"], exclude=exclude
+    )
+    assert got == ["kids"]
+    assert "teva" in missing(
+        "Blue Boys Sandal", TEVA_TITLES, ["BSOAgentTestBrand"]
+    )
+
+
+def test_titles_prompt_asks_for_brand_and_model():
+    tp = titles_prompt("kids sandals", "answer text", ["amazon.in"])
+    assert (
+        "For each title also give its brand and its model or product-line name"
+        in tp
+    )
 
 
 def test_prompts_carry_the_inputs_and_parse_with_their_schemas():
