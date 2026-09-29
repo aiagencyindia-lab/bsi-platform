@@ -1040,6 +1040,12 @@ def run_products(
             for i, p in enumerate(kept):
                 p["index"] = i
                 ranking = titles_by_kw.get(p["keyword"], [])
+                p["backing"] = [
+                    p["keyword"],
+                    p["description"] or "",
+                    p["category"] or "",
+                    *(str(v) for v in (p["attributes"] or {}).values()),
+                ]
                 p["missing"] = missing(
                     p["title"],
                     [t["title"] for t in ranking],
@@ -1058,6 +1064,7 @@ def run_products(
                         ),
                     ],
                     keyword=p["keyword"],
+                    backing=p["backing"],
                 )
             raw, cost, _model = generator(
                 rewrite_prompt(brand.name, kept), RewriteSet, 0.0
@@ -1077,13 +1084,7 @@ def run_products(
                         p["title"],
                         suggestion,
                         names,
-                        allowed=[
-                            p["keyword"],
-                            *p["missing"],
-                            p["description"] or "",
-                            p["category"] or "",
-                            *(str(v) for v in (p["attributes"] or {}).values()),
-                        ],
+                        allowed=[*p["backing"], *p["missing"]],
                     )
                     bullets = [
                         b.strip()[:MAX_BULLET_CHARS]

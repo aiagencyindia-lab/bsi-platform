@@ -129,7 +129,7 @@ def _generator(
     return generate
 
 
-def _seed(owner, org, bid, n):
+def _seed(owner, org, bid, n, description=None):
     with owner() as s, s.begin():
         for i in range(n):
             s.add(
@@ -138,6 +138,7 @@ def _seed(owner, org, bid, n):
                     brand_id=bid,
                     external_id=f"W-{i}",
                     title=f"Walkaroo Boys Sandal {i}",
+                    description=description,
                     source="csv",
                 )
             )
@@ -181,7 +182,7 @@ def test_one_search_per_distinct_keyword_and_the_rewrite_is_checked(
 ):
     org = make_org()
     bid = make_brand(org, "Walkaroo")
-    _seed(owner, org, bid, 3)
+    _seed(owner, org, bid, 3, description="Summer sandal")
     engine = FakeEngine()
     gen = _generator()
     job, rows, searches = _run(owner, org, bid, gen, engine)
@@ -464,9 +465,8 @@ def test_the_rewrite_cannot_add_an_invented_word(owner, make_org, make_brand):
 
 RIVAL_TITLES = [
     ("Teva Hurricane Summer Sandals", "Teva", "Hurricane"),
-    ("Teva Hurricane Summer Slides", "Teva", "Hurricane"),
+    ("Crocs Teva Hurricane Summer Slides", "Teva", "Hurricane"),
     ("Crocs Summer Sandals", "", ""),
-    ("Crocs Classic Summer Sandals", "", ""),
 ]
 
 
@@ -475,7 +475,13 @@ def test_rival_brands_models_and_competitors_are_not_missing_words(
 ):
     org = make_org()
     bid = make_brand(org, "Walkaroo")
-    _seed(owner, org, bid, 1)
+    _seed(
+        owner,
+        org,
+        bid,
+        1,
+        description="Summer sandal, an alternative to Crocs and Teva Hurricane",
+    )
     with owner() as s, s.begin():
         s.add(
             m.Competitor(
@@ -503,6 +509,61 @@ def test_rival_brands_models_and_competitors_are_not_missing_words(
     _, rows, _searches = _run(owner, org, bid, gen, engine)
     # Without the exclusions: ["summer", "crocs", "hurricane", "teva"].
     assert rows[0].missing_keywords == ["summer"]
+
+
+BACKED_TITLES = [
+    "Kids Summer Sandals Lightweight",
+    "Boys Summer Sandals Lightweight",
+]
+
+
+def _backed_run(owner, make_org, make_brand, rewrite):
+    """One product described as a summer sandal; both ranking titles also
+    say "Lightweight", which its data does not back."""
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1, description="Summer sandal for daily wear")
+    answer = "Picks: " + "; ".join(BACKED_TITLES) + "."
+    engine = FakeEngine(
+        [
+            EngineResult(
+                "ok", raw={"text": answer}, model="fake-1", cost_micros=35_000
+            )
+        ]
+    )
+    gen = _generator(
+        titles=[
+            {"title": t, "domain": "", "brand": "", "model": ""}
+            for t in BACKED_TITLES
+        ],
+        rewrite=rewrite,
+    )
+    _, rows, _searches = _run(owner, org, bid, gen, engine)
+    return rows[0]
+
+
+def test_only_backed_words_are_missing_and_kept(owner, make_org, make_brand):
+    p = _backed_run(
+        owner, make_org, make_brand, "Walkaroo Boys Summer Sandal 0"
+    )
+    assert p.missing_keywords == ["summer"]
+    assert (p.suggested_title, p.rule_check) == (
+        "Walkaroo Boys Summer Sandal 0",
+        "pass",
+    )
+
+
+def test_the_rewrite_cannot_add_an_unbacked_ranking_word(
+    owner, make_org, make_brand
+):
+    p = _backed_run(
+        owner, make_org, make_brand, "Walkaroo Boys Lightweight Summer Sandal 0"
+    )
+    assert p.missing_keywords == ["summer"]
+    assert (p.suggested_title, p.rule_check) == (
+        "Walkaroo Boys Summer Sandal 0",
+        "adjusted",
+    )
 
 
 def test_keyword_spend_counts_against_the_search_budget(
