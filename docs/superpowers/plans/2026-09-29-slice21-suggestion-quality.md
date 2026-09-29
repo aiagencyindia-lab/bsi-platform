@@ -202,7 +202,14 @@ Expected: `test_a_row_parsed_before_parse_2_is_redone` fails, because the row is
                     and all(t.get("parse") == TITLES_PARSE for t in row.titles)
 ```
 
-In the `missing(...)` call, add `keyword=p["keyword"],` after the `exclude=[...]` argument. In the `ponytail:` comment above that call, change "and one in a competitor's name or alias for every keyword." to "and one in a competitor's name or alias for every keyword that does not contain it (spec §1)."
+In the `missing(...)` call, add `keyword=p["keyword"],` after the `exclude=[...]` argument. Replace the `ponytail:` comment above that call (three lines today) with exactly these four lines at the same indent:
+
+```python
+                    # ponytail: a generic word in a model ("Classic") is
+                    # excluded for this keyword, and one in a competitor's
+                    # name or alias for every keyword that does not contain
+                    # it (spec §1).
+```
 
 - [ ] **Step 8: Run the integration and unit files**
 
@@ -323,7 +330,6 @@ def _allowed_stems(
     allowed token ending in "es", its singular ("watches" -> watch).
     ponytail: rivals._stem drops only one "s"; this patches -es for
     allowed words only."""
-    # (ruff format wraps the next line; accept its layout.)
     text = " ".join(allowed)
     es = {_stem(t[:-2]) for t in tokens(text) if len(t) > 3 and t.endswith("es")}
     return (
@@ -333,6 +339,8 @@ def _allowed_stems(
         | frozenset(es)
     )
 ```
+
+ruff format wraps the `es =` line over three lines; accept its layout.
 
 Change `rule_check`'s signature to `(original: str, suggestion: str, brand_names: Sequence[str], allowed: Sequence[str] = ())`, and add to its docstring: "a word whose stems come from none of the original title, `allowed` or the brand's names is dropped (function words and numbers are kept) right after the brand step;". After the brand-prepend `if` block, insert:
 
