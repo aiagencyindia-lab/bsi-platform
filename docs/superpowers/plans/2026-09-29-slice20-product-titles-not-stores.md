@@ -791,9 +791,15 @@ def test_rival_brands_models_and_competitors_are_not_missing_words(
     bid = make_brand(org, "Walkaroo")
     _seed(owner, org, bid, 1)
     with owner() as s, s.begin():
+        # (changed by R5) name="Deckers", aliases=["Crocs"], so "crocs"
+        # is reached only through an alias.
         s.add(
             m.Competitor(
-                org_id=org.id, brand_id=bid, name="Crocs", status="suggested"
+                org_id=org.id,
+                brand_id=bid,
+                name="Deckers",
+                aliases=["Crocs"],
+                status="suggested",
             )
         )
     answer = "Picks: " + "; ".join(t for t, _b, _m in RIVAL_TITLES) + "."
@@ -933,7 +939,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
     - `drop_stores` keeps all 4 titles (the own domain is `""`, amazon.in is cited, and no title contains "amazon").
     - `keep_present` finds each title in `answer`.
     - Brand and model survive `_named_in`.
-    - The competitor "Crocs" is `suggested`, which exercises the deliberate inclusion.
+    - The competitor (changed by R5: name "Deckers", alias "Crocs") is `suggested`, which exercises the deliberate inclusion, and "crocs" is excluded only through the alias.
   - The `[]` row: `all(...)` over `[]` is True, so it is a hit. Because it has no titles, `missing` returns `[]`.
 - **Fixtures vs banned words:** the fixtures use Teva, Hurricane, XLT, Original Universal, Crocs, Classic, Summer, Slides, Picks, Old Sandals. None is a banned word. The prompt sentence has none either.
 - **Types:**
@@ -943,7 +949,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   1. The spec names no helper. The plan adds `_named_in` for the token check.
   2. The tests `test_a_row_parsed_without_brand_is_redone`, `test_a_row_with_no_titles_is_a_hit` and `test_rival_brands_models_and_competitors_are_not_missing_words`, and the helper `_fresh_row`, are the plan's names.
   3. The `keep_present` unit tests put each title inside a longer answer string. The spec says only "with the title in `text`".
-  4. The rival test's competitor is `status="suggested"`. The spec says only "a `competitor` row named Crocs".
+  4. The rival test's competitor is `status="suggested"`, with name "Deckers" and alias "Crocs" (changed by R5; spec §5 C now says the same).
   5. The ceiling comment sits at the `missing` call in `run_products`, not in `missing`'s docstring. The docstring names `exclude`'s contents.
   6. `test_a_row_with_no_titles_is_a_hit` is never seen failing: it passes before and after Step 7. It pins spec §5 B's "a row with no titles counts as a hit", so an implementation that also requires non-empty titles would fail it.
   7. Ruling R2: `test_a_search_under_the_old_query_is_redone`'s seed gains `brand` and `model` keys (Step 5 item 4). Spec §5 C now lists it.
@@ -969,3 +975,5 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   - Step 6's coverage check also covers R3.
 - Ruling R4 (final whole-branch review of the extension): `_named_in` returns `""` when the value's token set equals the title's, so a brand or model that is the whole title excludes nothing. Test-first: the new unit test `test_keep_present_model_named_in_title_edge_cases` failed on its R4 case before the guard and passed after. Spec §5 A, §5 C and `## Rulings` are updated. Commit: 1079f38.
 - Ruling R5 (final whole-branch review of the extension): `test_rival_brands_models_and_competitors_are_not_missing_words` seeds its competitor as `name="Deckers", aliases=["Crocs"], status="suggested"`. Checked by changing `for n in (c.name, *c.aliases)` to `for n in (c.name,)` in `products.py`: the test failed with "crocs" in the missing words, and passed again once the file was restored from a backup. Spec §5 C and `## Rulings` are updated. Commit: 1079f38.
+- Ruling R6 (second live check's pre-check): the competitor-alias ceiling is accepted for the second live check and before merge. The dev brand's competitor Campus has alias "Campus Shoes", so "shoe" and "shoes" are excluded for every keyword of that brand; excluding only active competitors would not help, because Campus is active. Recorded in findings §3 and the spec's `## Rulings`. No code change.
+- **Second live check docs (docs only).** Findings §2 records the second live check (job `89facf99`) and the user's decision to merge and take suggestion quality to slice 21; §3 gains R6's ceiling, R4's limit and the second check's three problems as slice 21 scope; the spec's R3 gains a "Why:" part and R6 is added; the three Task 4 lines above that named the competitor "Crocs" are marked "(changed by R5)". Task 5's minor that Task 4's difference 3 ("rather than re-typing the line") is barely a deviation is left as written.

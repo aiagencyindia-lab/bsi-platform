@@ -21,6 +21,9 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 - **Competitors.** `run_products` loads `rivals`, the `name` and `aliases` of every `competitor` row of the brand (`suggested` ones included), in the same tenant session that loads the brand. Per product, `exclude` is `rivals` plus every non-empty `brand` and `model` of that keyword's ranking titles.
 - **The ceiling** is a `# ponytail:` comment at the `missing` call: a generic word in a model ("Classic") is excluded for that keyword, and one in a competitor's name or alias for every keyword.
 - **Ruling R2** (spec `## Rulings`): `test_a_search_under_the_old_query_is_redone` seeds its titles with `brand` and `model` keys, so only the query-wording condition can force its re-search.
+- **Ruling R4** (spec `## Rulings`): `_named_in(value, title)` also returns `""` when the value's token set equals the title's token set, so a brand or model that is the whole title excludes nothing. The new unit test `test_keep_present_model_named_in_title_edge_cases` failed on its R4 case before the guard and passed after (commit 1079f38).
+- **Ruling R5** (spec `## Rulings`): the rival integration test's competitor is `name="Deckers", aliases=["Crocs"]`, so "crocs" is excluded only through the alias; with `*c.aliases` removed from `rivals`, the test failed with "crocs" in the missing words (commit 1079f38).
+- **Ruling R6** (spec `## Rulings`): the competitor-alias ceiling is accepted for the second live check and the merge (§3).
 
 **Tests.**
 - `tests/unit/test_products.py`: `search_query`'s exact text; `titles_prompt` names the new query, no longer says "buy online." and has the store rule; `drop_stores` over the spec's seven dropped cases (one parametrized call each) and five kept cases (one call); order around a dropped title; `missing` never suggests `com`.
@@ -56,7 +59,10 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 | dbd9328 | docs: slice 20 extension plan: re-review fixes (sources, R2 check, self-review) |
 | 42300cc | fix(products): keep rival brands, models and competitors out of missing words |
 | 24b5523 | docs: slice 20 extension findings and first live check |
-| (this commit) | docs: slice 20 findings: LC-07's observed suggestion |
+| 4181ae7 | docs: slice 20 findings: LC-07's observed suggestion |
+| 1079f38 | fix(products): a brand or model that is the whole title is not named in it (R4, R5) |
+| 6780fa1 | docs: slice 20 plan records rulings R4 and R5 |
+| (this commit) | docs: slice 20 second live check, R6, and review minors |
 
 ## 2. Live check on dev
 
@@ -70,7 +76,7 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 - One stored title carries answer commentary: "Teva Psyclone (Top overall recommendation for kids' sandals)". Out of scope (spec).
 - Writes: the job row, 10 `product` rows, 8 `keyword_search` rows, `api_key.last_used_at` (10:30:37 UTC). The 11 rows under the old query were untouched. Worker and API stopped afterwards; 0 jobs queued.
 
-Per product, as observed (missing words as stored; the end of each suggested title, from the ledger's per-product line or, for LC-07, the controller's note of the observed full title; rule check status):
+Per product, as observed (missing words as recorded (order not kept); the end of each suggested title, from the ledger's per-product line or, for LC-07, the controller's note of the observed full title; rule check status):
 
 | Product | Keyword | Missing words | Suggested title (end) | Status |
 |---|---|---|---|---|
@@ -85,24 +91,58 @@ Per product, as observed (missing words as stored; the end of each suggested tit
 | LC-09 | kids shoes | kids, big, nike, boots | "…Black Boys School Shoe Big Nike Boots Kids" | adjusted |
 | LC-10 | women sandals | jelly | "…Tan Women Sandal Jelly" | pass |
 
-Second live check: not yet run. The controller runs it after this task; results are recorded here then.
+**Second live check** (after the extension and rulings R4 and R5). Observed (controller's ledger):
+- Pre-check: dev at migration 0020, 0 jobs queued, worker and API stopped. The brand's competitors, all active: Bata (alias Bubblegummers), Campus (alias Campus Shoes), Crocs, Adidas, Skechers. None is a generic shopper word; the alias "Campus Shoes" is Ruling R6 (§3).
+- Job `89facf99`, done in about 1 min 40 s (11:23:04 to 11:24:44 UTC), `cost_micros = 313,238` (about $0.31). The project's model spend tally went from about $10.25 to about $10.56 of the $15 cap.
+- 8 keywords searched again (the first check's rows lacked the `brand` key, §1), each storing 5 titles with brand and model; 0 errors.
+- No rival brand or model word in any missing list or suggestion.
+- The parse put category nouns in models, such as "Chase Sandal", "Moc Slipper", "Artie Shoe", "Adalyn Sneaker" and "Kamila Sandal", so generic category words were excluded for those keywords. The kids shoes titles had brand `""` and models such as "Taye 2.0 Sneaker".
+- Writes: the job row, 10 `product` rows, 8 `keyword_search` rows, `api_key.last_used_at`. Afterwards 0 jobs queued; worker and API stopped.
+
+Per product, as observed (missing words as recorded (order not kept); the end of each suggested title from the ledger line; every status `adjusted`, with no dropped words). The ledger line gives no keyword for LC-02, LC-04, LC-07 and LC-10; the ones shown for them are the first check's keywords (*inferred*).
+
+| Product | Keyword | Missing words | Suggested title (end) | Status |
+|---|---|---|---|---|
+| LC-01 | kids sandals | (none) | "…Blue Boys Sandal Kids" | adjusted |
+| LC-02 | kids sandals (*inferred*) | (none) | "…Pink Girls Sandal Kids" | adjusted |
+| LC-03 | kids shoes | little, white | "…Little White Black Kids Sports Shoe" | adjusted |
+| LC-04 | kids slippers (*inferred*) | (none) | "…Grey Kids Slipper" | adjusted |
+| LC-05 | men flip flops | (none) | "…Navy Men Flip Flop" | adjusted |
+| LC-06 | men sandals | (none) | "…Brown Boys Casual Sandal Men" | adjusted |
+| LC-07 | women slippers (*inferred*) | (none) | "…Beige Women Casual Slipper" | adjusted |
+| LC-08 | men shoes | basketball | "…Basketball Grey Men Sports Shoe" | adjusted |
+| LC-09 | kids shoes | kid, little, white | "…Little Kid White Black Boys School Shoe" | adjusted |
+| LC-10 | women sandals (*inferred*) | (none) | "…Tan Women Sandal" | adjusted |
+
+New problems (slice 21 scope, §3):
+- 7 of 10 products get no missing words, because the parse puts category nouns in models ("Chase Sandal", "Moc Slipper", "Artie Shoe", "Adalyn Sneaker") and the alias "Campus Shoes" excludes "shoe" and "shoes" (R6).
+- Size and colour noise: "Little" and "White" are suggested; LC-03's suggestion adds "White" to a black shoe.
+- The rewrite added "Boys" to LC-06, a men's sandal, with no missing words; `rule_check` looks only for dropped words, so it did not catch this.
+
+User decision: record both live checks, merge, and take suggestion quality to slice 21.
 
 ## 3. Deferred and untested
 
 From the task reviews:
-- A cited domain with a dot is matched as a substring of the title (spec §2 asks for this). So a short cited domain such as `t.co`, or a title that starts with a marketplace domain ("Amazon.in Exclusive Kids Sandal" with amazon.in cited), would be dropped. To watch in the live check.
+- A cited domain with a dot is matched as a substring of the title (spec §2 asks for this). So a short cited domain such as `t.co`, or a title that starts with a marketplace domain ("Amazon.in Exclusive Kids Sandal" with amazon.in cited), would be dropped. Neither live check recorded a wrongly dropped title; the answer text is not stored, so a wrong drop cannot be seen directly.
 - The parametrized `drop_stores` drop cases in `tests/unit/test_products.py` have no `ids=`, so a failure is reported as `title0-domains0` and so on.
 - `com` in `STOPWORDS` also affects `dropped()`, but only the `missing()` side is tested; spec §3 asks only for `missing`.
 - Task 1's report did not name its 2 test warnings. The controller checked them: they are pre-existing library deprecations (Starlette's `TestClient` and anyio's `BlockingPortal`), the same as on `main`.
-- Competitor aliases are untested: the rival test's competitor has only a name, so dropping `*c.aliases` from `rivals` in `run_products` passes every test.
+- Competitor aliases were untested at Task 4 (the rival test's competitor had only a name); fixed by Ruling R5, which reaches "crocs" only through an alias.
 - `_named_in`'s edge cases are untested: a value with no letters or digits becoming `""`, and "XLT-2" matching "XLT 2".
 
 Known ceilings (spec §5, stated in the `# ponytail:` comment at the `missing` call):
 - A generic word inside a model name is excluded for that keyword: model "Classic" for "Crocs Kids' Classic Slipper" stops "classic" being suggested.
-- A generic word in a competitor's name or alias is excluded for every keyword.
+- A generic word in a competitor's name or alias is excluded for every keyword. Ruling R6 accepts this for now: the dev brand's alias "Campus Shoes" excludes "shoe" and "shoes" for every keyword of that brand. A follow-up could exclude only an alias's distinctive words.
+- Ruling R4 blanks only a value that is the whole title. A near-whole value still excludes a generic word: model "Hurricane XLT 2 Sandals" for "Teva Hurricane XLT 2 Sandals" excludes "sandals" for that keyword. A repeated-word title can blank a brand: "Nike Air Nike" blanks brand "Nike Air".
+
+Slice 21 scope (suggestion quality, from the second live check, §2):
+- 7 of 10 products got no missing words: the parse puts category nouns in models ("Chase Sandal", "Moc Slipper", "Artie Shoe", "Adalyn Sneaker"), plus the "Campus Shoes" alias (R6).
+- Size and colour words are suggested ("Little", "White"); LC-03's suggestion adds "White" to a black shoe.
+- The rewrite added "Boys" to LC-06, a men's sandal, with no missing words; `rule_check` looks only for dropped words.
 
 Untested against real answers:
-- The first live check (§2) observed product titles, not stores, for all 8 searches, and LC-01 and LC-02 without "Com". Whether the missing words and suggestions still carry a rival brand or model word after the extension is known only after the second live check. The unit and integration tests use fixed judge output.
+- The first live check (§2) observed product titles, not stores, for all 8 searches, and LC-01 and LC-02 without "Com". The second live check observed no rival brand or model word in any missing list or suggestion, on one run of 8 keywords. The unit and integration tests use fixed judge output.
 - `drop_stores`'s citation-domain path is covered only by unit tests: the integration test's `FakeEngine` always cites `amazon.in`, so it covers a title's own domain.
 
 Out of scope (spec):
