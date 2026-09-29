@@ -13,6 +13,8 @@ Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-29 and 2026-09-3
 - **Approach, first choice:** A, a new prompt sentence plus a colour guard. Rejected then: B (the guard only), C (build the keyword in code) and the prompt sentence only.
 - **A first Section 1 (the prompt sentence) was approved and then withdrawn**, with the user's OK, after probes 2 to 4: the prompt is not changed.
 - **Final design:** the guard plus a built fallback. Rejected: the guard only (LC-05 gets a narrower keyword when the model does not offer "men flip flops"), and stopping with a findings doc only.
+- **After the spec review, finding 4:** the guard falls back per product, not per sample. Rejected: no fallback (a product whose every keyword has a colour word gets no keyword), and keeping the per-sample fallback (a colour keyword could still be searched).
+- **After the spec review, finding 7:** the built keyword's type words follow both rules, shared words and an audience list. Rejected: either rule alone, and dropping the fallback.
 
 ### The probes
 
@@ -54,7 +56,10 @@ Codebase facts (main `0029d03`, checked 2026-09-30 by running the current code):
 - `NOISE_WORDS` (slice 21): white, black, blue, red, green, pink, grey, gray, brown, navy, beige, tan, silver, gold, purple, orange, yellow, cream, multi, multicolor, color, colour, size, little, big. `NOISE_STEMS` holds their stems.
 - `STOPWORDS` contains "for" and "with".
 - `vote` returns each key in its `_display` form, so a possessive 's is already removed.
-- In `tests/integration/test_products_run.py`, the fake generator's keywords are the default `["kids sandals", "walkaroo kids"]`, `keywords=["walkaroo sandals"]` and `by_index={0: ["mens sandal"], 1: ["men sandals"]}`. With the seeded title "Walkaroo Boys Sandal 0" and this design, each gives the same keyword list as today: `["kids sandals"]`, `[]`, `["mens sandal"]`, `["men sandals"]`.
+- In `tests/integration/test_products_run.py`, the fake generator's keywords are the default `["kids sandals", "walkaroo kids"]`, `keywords=["walkaroo sandals"]` and, in `test_plural_variants_share_one_search`, `by_index={0: ["mens sandal"], 1: ["men sandals"]}`. The first two run against the seeded title "Walkaroo Boys Sandal 0"; the third seeds its own products, "Walkaroo Men Sandal A" and "Walkaroo Men Sandal B". With this design each gives the same list as today before the run-wide `key_map`: `["kids sandals"]`, `[]`, `["mens sandal"]` and `["men sandals"]` (the `key_map` then stores both of the third test's products as `["mens sandal"]`, as today).
+- `rewrite_prompt` passes each product's `keyword` to the model, so a built keyword reaches the rewrite like any other.
+- The 9 dev products other than LC-05 share 7 distinct keywords: kids sandals, kids shoes, kids slippers, men sandals, men shoes, women slippers, women sandals. Their `keyword_search` rows were searched on 2026-09-29.
+- Measured costs: slice 21's re-check (8 grounded searches with their parse calls, 3 keyword calls, 1 rewrite) cost 310,292 micros; slice 22's (no search, 3 keyword calls, 1 rewrite) cost 5,819. So one grounded search with its parse call is about 38,000 micros. `budget_fits` reserves `SEARCH_MICROS` (45,000) per new search; that is the budget check, not the cost.
 
 ## Design
 
@@ -67,30 +72,85 @@ New function, next to `drop_brand_terms`:
 ```python
 def drop_noise_terms(keywords: Sequence[str]) -> list[str]:
     """Keep a keyword only if none of its stems is a colour or size
-    word (NOISE_STEMS). If that would leave nothing, keep them all."""
-    kept = [k for k in keywords if not fold_set(k) & NOISE_STEMS]
-    return kept or list(keywords)
+    word (NOISE_STEMS)."""
+    return [k for k in keywords if not fold_set(k) & NOISE_STEMS]
 ```
 
-- `run_products` applies it to each sample before the vote: `ranked = vote([drop_noise_terms(sm.get(i, [])) for sm in samples])`. So a colour or size keyword cannot be searched and cannot take one of `vote`'s `MAX_KEYWORDS` places.
-- If every keyword of a sample has a colour or size word, that sample is kept as it is: a product with no keyword gets no suggestion at all (R13).
-- The stored `keywords` list, which the Products tab and the CSV export show, no longer contains colour or size phrases, except in the all-colour case.
-- `vote` and `drop_brand_terms` are unchanged.
+New function, the whole keyword choice for one product:
+
+```python
+def choose_keywords(
+    samples: Sequence[Sequence[str]],
+    brand_names: Sequence[str],
+    title: str,
+    category: str | None,
+    description: str | None,
+) -> list[str]:
+    """One product's keywords, the searched one first: the vote over
+    the samples without colour and size keywords, without brand terms,
+    the title's type first (title_first), then fit_rank. If that leaves
+    nothing, the same over the samples as given."""
+
+    def pick(lists: Sequence[Sequence[str]]) -> list[str]:
+        ranked = drop_brand_terms(vote(lists), brand_names)
+        return fit_rank(
+            title_first(ranked, title), title, category, description
+        )
+
+    return pick([drop_noise_terms(s) for s in samples]) or pick(samples)
+```
+
+`run_products` replaces its `vote` and `fit_rank` lines with:
+
+```python
+fitted = choose_keywords(
+    [sm.get(i, []) for sm in samples],
+    names,
+    p["title"],
+    p["category"],
+    p["description"],
+)
+```
+
+- Colour and size keywords are removed from every sample before the vote, so they cannot take one of `vote`'s `MAX_KEYWORDS` places.
+- **The fallback is per product** (spec review, finding 4). Only when the filtered samples leave the product with no keyword at all, after the brand filter and `fit_rank` too, are the unfiltered samples used. A product with no keyword gets no suggestion (R13), so a colour keyword is better than none.
+- So a colour or size keyword is searched, and stored in `keywords`, only for a product that has no other fitting keyword.
+- `vote`, `drop_brand_terms` and the run-wide `key_map` are unchanged.
+- The existing comment above `NOISE_WORDS` says `missing()` never suggests these words. It gains one clause: the keyword choice drops keywords that contain them too.
 - Known ceilings, in a `# ponytail:` comment:
-  - A real colour phrase that shoppers type ("white sneakers") is never searched.
+  - A real colour or size phrase that shoppers type ("white sneakers", "little kids sandals", "big kids shoes") is searched only when the product has no other fitting keyword.
   - Outside footwear some of these are product words ("gold", "cream", "plus size").
   - English only.
 
 ### 2. The built fallback
 
-`fit_rank`'s lines that find a keyword's category word move into a helper, `_type_word(keyword: str) -> str | None` (`None` when nothing folds). `fit_rank` calls it and behaves as before.
-
-New function, called in `run_products` between `drop_brand_terms` and `fit_rank`:
+`fit_rank`'s lines that find a keyword's category word move into a helper. `fit_rank` calls it and behaves as before:
 
 ```python
+def _type_word(keyword: str) -> str | None:
+    """The keyword's category word: the last folded word before its
+    first CATEGORY_CUTS token, or its last folded word if nothing folds
+    before the cut; None if nothing folds."""
+    words = fold(keyword)
+    if not words:
+        return None
+    toks = tokens(keyword)
+    cut = next((i for i, t in enumerate(toks) if t in CATEGORY_CUTS), len(toks))
+    head = fold(" ".join(toks[:cut]))
+    return (head or words)[-1]
+```
+
+New constant and function:
+
+```python
+# Never part of a built keyword's type words (slice 23 spec §2).
+AUDIENCE_WORDS = frozenset("men women kids boys girls unisex baby".split())
+AUDIENCE_STEMS = frozenset(_stem(w) for w in AUDIENCE_WORDS)
+
+
 def title_first(keywords: Sequence[str], title: str) -> list[str]:
     """When the first keyword names a type the title does not, and
-    another keyword names one it does, put the first keyword's audience
+    other keywords name one it does, put the first keyword's audience
     plus the title's type first ("men slippers" and "cushioned flip
     flops" for "Men Flip Flop Navy" -> "men flip flops"); an offered
     keyword with the same key is used in its own spelling. Otherwise
@@ -101,20 +161,19 @@ def title_first(keywords: Sequence[str], title: str) -> list[str]:
     word = _type_word(keywords[0])
     if word is None or word in in_title:
         return list(keywords)
-    fit = next(
-        (k for k in keywords if (w := _type_word(k)) and w in in_title), None
-    )
-    if fit is None:
+    fits = [k for k in keywords if (w := _type_word(k)) and w in in_title]
+    if not fits:
         return list(keywords)
     audience = [
         t
         for t in tokens(keywords[0])
         if len(t) > 1 and _stem(t) != word and t not in STOPWORDS
     ]
-    stems = {_stem(t) for t in audience}
-    kind = [
-        t for t in tokens(fit) if _stem(t) in in_title and _stem(t) not in stems
-    ]
+    ok = in_title - {_stem(t) for t in audience}
+    ok = ok - AUDIENCE_STEMS - NOISE_STEMS
+    for k in fits:
+        ok &= fold_set(k)
+    kind = [t for t in tokens(fits[0]) if _stem(t) in ok]
     if not audience or not kind:
         return list(keywords)
     built = " ".join([*audience, *kind])
@@ -124,36 +183,36 @@ def title_first(keywords: Sequence[str], title: str) -> list[str]:
     return [first, *rest][:MAX_KEYWORDS]
 ```
 
-`run_products` becomes:
-
-```python
-ranked = vote([drop_noise_terms(sm.get(i, [])) for sm in samples])
-fitted = fit_rank(
-    title_first(drop_brand_terms(ranked, names), p["title"]),
-    p["title"],
-    p["category"],
-    p["description"],
-)
-```
-
 - It applies only when both conditions hold: the first keyword's type word is not in the title, and another keyword's type word is.
 - **Audience:** the first keyword's tokens, without 1-letter tokens, without its type word and without `STOPWORDS` (which hold "for" and "with").
-- **Type:** the tokens of the first title-fitting keyword whose stems are in the title, without the audience's stems.
+- **Type** (spec review, finding 7): the tokens of the first title-fitting keyword whose stems pass all of these:
+  - in the title;
+  - in every title-fitting keyword (shared words);
+  - not an audience stem of the first keyword, not in `AUDIENCE_STEMS`, not in `NOISE_STEMS`.
 - When it builds a keyword that was not offered and the list is already `MAX_KEYWORDS` long, the last keyword is cut.
 - `fit_rank` runs after it, as today, so a built keyword is kept only because its type word is in the title.
 - Known ceilings, in a `# ponytail:` comment:
   - The audience is whatever is left of the first keyword: "men house slippers" gives "men house flip flops".
   - Audience-then-type order suits English.
+  - With one title-fitting keyword, a style word in it that the title has too is kept: "men floaters" and "casual sandals" give "men casual sandals".
+  - `AUDIENCE_WORDS` is closed and English only ("ladies", "gents", "teens" are not in it).
   - Observed on footwear only.
   - It depends on the model's first keyword being the audience plus the category's type (10 of 12 LC-05 samples).
-  - A title word that is not a product type can count as one: the rule only checks that a keyword's type word is in the title.
+  - A title word that is not a product type can count as one: the rule only checks that a keyword's type word is in the title. When that word is an audience word ("slippers boys" for a "Boys Sandal"), nothing is built and the keyword step behaves as it does without `title_first`.
 
 ### 3. Testing
 
-Unit, `tests/unit/test_products.py`. `T` is "BSOAgentTestBrand Men Flip Flop Navy":
+Unit, `tests/unit/test_products.py`. `T` is "BSOAgentTestBrand Men Flip Flop Navy", `W` is "Walkaroo Boys Sandal 0", `B` is `["BSOAgentTestBrand"]`:
 
+`drop_noise_terms`:
 - `drop_noise_terms(["men slippers", "navy flip flops", "men flip flop navy"]) == ["men slippers"]`.
-- `drop_noise_terms(["navy flip flops", "blue flip flops"]) == ["navy flip flops", "blue flip flops"]`.
+- `drop_noise_terms(["navy flip flops", "blue flip flops"]) == []`.
+- Size words: `drop_noise_terms(["free size slippers", "little kids sandals", "kids sandals"]) == ["kids sandals"]`.
+
+`_type_word`:
+- `[_type_word(k) for k in ("men slippers", "slippers for men", "men slip on shoes", "for", "")] == ["slipper", "slipper", "shoe", "for", None]`.
+
+`title_first`:
 - `title_first(["men slippers", "cushioned flip flops"], T) == ["men flip flops", "men slippers", "cushioned flip flops"]`.
 - `title_first(["slippers for men", "daily wear flip flops"], T) == ["men flip flops", "slippers for men", "daily wear flip flops"]`.
 - An offered keyword with the same key keeps its spelling: `title_first(["men slippers", "cushioned flip flops", "mens flip flops"], T) == ["mens flip flops", "men slippers", "cushioned flip flops"]`.
@@ -162,7 +221,20 @@ Unit, `tests/unit/test_products.py`. `T` is "BSOAgentTestBrand Men Flip Flop Nav
 - No audience word: `title_first(["slippers", "flip flops"], T) == ["slippers", "flip flops"]`.
 - Empty: `title_first([], T) == []`.
 - The cap: `title_first(["men slippers", "a", "b", "c", "cushioned flip flops"], T) == ["men flip flops", "men slippers", "a", "b", "c"]`.
-- The three existing `fit_rank` tests, the three `vote` tests and the `drop_brand_terms` test keep their values.
+- An audience word in the title is not a type word: `title_first(["kids slippers", "boys sandals"], W) == ["kids sandals", "kids slippers", "boys sandals"]` and `title_first(["kids slippers", "sandals for boys"], W) == ["kids sandals", "kids slippers", "sandals for boys"]`.
+- Shared words: `title_first(["men floaters", "casual sandals", "floater sandals"], "BSOAgentTestBrand Men Casual Sandal Brown") == ["men sandals", "men floaters", "casual sandals", "floater sandals"]`.
+- The one-fit ceiling: `title_first(["men floaters", "casual sandals"], "BSOAgentTestBrand Men Casual Sandal Brown") == ["men casual sandals", "men floaters", "casual sandals"]`.
+- Only an audience word fits: `title_first(["kids slippers", "slippers boys"], W) == ["kids slippers", "slippers boys"]`.
+- A colour word is never built in: `title_first(["men slippers", "navy flip flops"], T) == ["men flip flops", "men slippers", "navy flip flops"]`.
+
+`choose_keywords`:
+- Probe 4's samples for LC-05, `choose_keywords(S4, B, T, "Slippers", "Cushioned flip flop for daily use") == ["men flip flops", "cushioned flip flops", "daily use flip flop", "men slippers", "cushioned slippers"]`, where `S4` is `[["men slippers", "men flip flop navy", "navy flip flops", "cushioned flip flops", "daily use flip flop"], ["men slippers", "men flip flops", "navy flip flops", "cushioned slippers"], ["men slippers", "men flip flops", "navy flip flops", "cushioned flip flops"]]`.
+- One all-colour sample does not bring colour back: `choose_keywords([["navy flip flops"], ["navy flip flops", "men slippers"], ["men slippers", "men flip flops"]], B, T, "Slippers", None) == ["men flip flops", "men slippers"]`.
+- Every keyword has a colour: `choose_keywords([["navy flip flops", "blue flip flops"]], B, T, "Slippers", None) == ["navy flip flops", "blue flip flops"]`.
+- Only a brand phrase is left after the guard: `choose_keywords([["walkaroo sandals", "navy sandals"]], ["Walkaroo"], W, None, None) == ["navy sandals"]`.
+- No samples: `choose_keywords([], B, T, None, None) == []`.
+
+The three existing `fit_rank` tests, the three `vote` tests and the `drop_brand_terms` test keep their values.
 
 Integration, `tests/integration/test_products_run.py`:
 
@@ -175,9 +247,9 @@ Copy: no prompt changes, so `PRODUCT_CASES` is unchanged. The new fixtures and c
 
 Run by the controller only with the user's OK at that point, by the live-check pattern (the worker loop is never started).
 
-- Expected cost: about 45,000 micros ($0.045). That is 4 flash-lite calls (3 keyword samples and 1 rewrite, for one batch of 10) at about 1,500 micros each, and 1 new grounded search for "men flip flops" with its parse call, about 39,000 micros.
-- The other 8 current-keyword rows were searched on 2026-09-29 and stay fresh for 7 days. The "men flip flops" row from slice 20 is in an older format and counts as a miss.
-- Each further keyword that differs from those 8 adds one grounded search, about 37,500 micros.
+- Expected cost: about 44,000 micros ($0.044). That is about 6,000 for the 4 flash-lite calls (3 keyword samples and 1 rewrite, for one batch of 10; slice 22's re-check measured 5,819) and about 38,000 for 1 new grounded search for "men flip flops" with its parse call.
+- The 7 keywords of the other 9 products were searched on 2026-09-29 and stay fresh for 7 days. The "men flip flops" row from slice 20 has no `parse` key and counts as a miss.
+- Each further keyword that is not one of those 7 adds one grounded search with its parse call, about 38,000 micros.
 - Writes: the job, 10 product rows, 1 `keyword_search` row, `api_key.last_used_at`.
 - Expected, *inferred* from the probes, to be compared with what is observed: LC-05's keyword is "men flip flops"; the other 9 keywords are unchanged; no stored `keywords` list contains a colour or size word.
 
