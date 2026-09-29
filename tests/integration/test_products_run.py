@@ -272,7 +272,7 @@ def test_an_error_search_is_not_reused(owner, make_org, make_brand):
                 org_id=org.id,
                 brand_id=bid,
                 keyword="kids sandals",
-                query="q",
+                query=products.search_query("kids sandals"),
                 titles=[],
                 error="429 quota",
                 searched_at=datetime.now(UTC) - timedelta(days=1),

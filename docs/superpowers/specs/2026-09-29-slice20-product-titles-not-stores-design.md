@@ -97,7 +97,8 @@ Integration, `tests/integration/test_products_run.py`:
 
 - The three assertions on the engine prompt use `search_query(...)`'s text: in `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` and `test_an_error_search_is_not_reused` (`kids sandals`), and in `test_plural_variants_share_one_search` (`mens sandal`).
 - `test_a_fresh_search_is_reused_and_a_stale_one_redone` seeds its fresh row with `query=search_query("kids sandals")` instead of `"q"`, so it stays a hit. It is the test that a new-query row is a hit; no separate test is added.
-- The other rows seeded with `query="q"` or a "buy online" query (`test_an_error_search_is_not_reused`, `test_isolation.py`, `test_api_products.py`, `test_rls.py`) stay as they are: they are searched either way or never read by `run_products`.
+- The other rows seeded with `query="q"` or a "buy online" query (`test_isolation.py`, `test_api_products.py`, `test_rls.py`) stay as they are: they are searched either way or never read by `run_products`.
+- `test_an_error_search_is_not_reused` seeds its error row with `query=products.search_query("kids sandals")` (R1), so only the `error IS NULL` filter makes the run search it again.
 - New: a fresh, error-free cached row whose `query` is `"kids sandals buy online"` is searched again; afterwards the row's `query` is the new text and its `titles` are the new result.
 - New: a run whose judge returns the titles "Zappos.com" (domain zappos.com) and "Kids Classic Sandal" stores only "Kids Classic Sandal". This needs a `titles=` parameter on the test file's `_generator` (its titles body is fixed today) and a `FakeEngine` whose answer text contains both titles. `FakeEngine.parse` always cites `amazon.in`, so this test covers the title's own-domain path; the citation path is covered by the unit tests.
 - The "idle in transaction" probe keeps covering the search step; session handling does not change.
@@ -126,7 +127,7 @@ Run only with the user's OK, asked at that point.
 
 ## Rulings
 
-None.
+- **R1: `test_an_error_search_is_not_reused` seeds the new query.** Decided: its error row is seeded with `query=products.search_query("kids sandals")` instead of `query="q"`. Why: §1 keeps slice 18's R9 (an error row is searched again) unchanged, and this is the only test of R9; with `query="q"` the new query check alone forces the search again, so deleting `m.KeywordSearch.error.is_(None)` would pass every test. Found by the final whole-branch review (controller ruling, 2026-09-29). This overrides the §3 line and the plan line that said this row stays as it is. Cost if wrong: one test line. §3 above is updated.
 
 ## Out of scope
 

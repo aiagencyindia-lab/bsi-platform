@@ -17,7 +17,7 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 **Tests.**
 - `tests/unit/test_products.py`: `search_query`'s exact text; `titles_prompt` names the new query, no longer says "buy online." and has the store rule; `drop_stores` over the spec's seven dropped cases (one parametrized call each) and five kept cases (one call); order around a dropped title; `missing` never suggests `com`.
 - `tests/unit/test_recommend_copy.py`: `PRODUCT_CASES` gains `search_query("kids shoes")`.
-- `tests/integration/test_products_run.py`: the three engine-prompt assertions use `search_query(...)`; the fresh-reuse test seeds `query=search_query("kids sandals")`; new `test_a_search_under_the_old_query_is_redone` (a fresh row with `"kids sandals buy online"` is searched again and overwritten); new `test_store_names_are_not_stored_as_titles` ("Zappos.com" with domain zappos.com and "Kids Classic Sandal" stores only "Kids Classic Sandal"), using a new `titles=` parameter on `_generator`.
+- `tests/integration/test_products_run.py`: the three engine-prompt assertions use `search_query(...)`; the fresh-reuse test seeds `query=search_query("kids sandals")`; new `test_a_search_under_the_old_query_is_redone` (a fresh row with `"kids sandals buy online"` is searched again and overwritten); new `test_store_names_are_not_stored_as_titles` ("Zappos.com" with domain zappos.com and "Kids Classic Sandal" stores only "Kids Classic Sandal"), using a new `titles=` parameter on `_generator`. By Ruling R1 (spec `## Rulings`), `test_an_error_search_is_not_reused` seeds its error row with `query=search_query("kids sandals")`, so it tests slice 18's R9 on its own: with `error IS NULL` removed, it fails.
 - Backend gate after Task 2: 1486 passed, with the 2 pre-existing library deprecation warnings.
 
 **Commits** (`git log --oneline main..HEAD`, oldest first):
@@ -32,7 +32,8 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 | 2452a9a | docs: slice 20 plan: name the first failing assertion |
 | cad40aa | feat(products): ask the grounded search for products; redo old-query rows |
 | a63f707 | fix(products): drop store names from parsed titles; com is a stopword |
-| (this commit) | docs: slice 20 findings, index and rulings |
+| 19fa5f8 | docs: slice 20 findings, index and rulings |
+| (this commit) | test: slice 20 final review: the R9 test seeds the new query (R1) |
 
 ## 2. Live check on dev
 
@@ -42,7 +43,6 @@ Not yet run. The controller runs it after the user approves; results are recorde
 
 From the task reviews:
 - A cited domain with a dot is matched as a substring of the title (spec §2 asks for this). So a short cited domain such as `t.co`, or a title that starts with a marketplace domain ("Amazon.in Exclusive Kids Sandal" with amazon.in cited), would be dropped. To watch in the live check.
-- `test_an_error_search_is_not_reused` (`tests/integration/test_products_run.py`) still seeds `query="q"`, so it no longer tests R9 on its own: with `error IS NULL` removed, the row would still be searched again because its query does not match. The fix is to seed `query=products.search_query("kids sandals")`. The plan said to leave the row as it was.
 - The parametrized `drop_stores` drop cases in `tests/unit/test_products.py` have no `ids=`, so a failure is reported as `title0-domains0` and so on.
 - `com` in `STOPWORDS` also affects `dropped()`, but only the `missing()` side is tested; spec §3 asks only for `missing`.
 - Task 1's report did not name its 2 test warnings. The controller checked them: they are pre-existing library deprecations (Starlette's `TestClient` and anyio's `BlockingPortal`), the same as on `main`.
