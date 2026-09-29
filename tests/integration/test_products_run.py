@@ -191,12 +191,14 @@ def test_one_search_per_distinct_keyword_and_the_rewrite_is_checked(
             "domain": "amazon.in",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
         {
             "title": "Boys Summer Sandals Lightweight",
             "domain": "",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
     ]
     assert searches[0].cost_micros == 35_700 and searches[0].error is None
@@ -239,6 +241,7 @@ def test_a_fresh_search_is_reused_and_a_stale_one_redone(
                         "domain": "c",
                         "brand": "",
                         "model": "",
+                        "parse": 2,
                     }
                 ],
                 searched_at=datetime.now(UTC) - timedelta(days=6),
@@ -307,12 +310,14 @@ def test_an_error_search_is_not_reused(owner, make_org, make_brand):
             "domain": "amazon.in",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
         {
             "title": "Boys Summer Sandals Lightweight",
             "domain": "",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
     ]
 
@@ -334,6 +339,7 @@ def test_a_search_under_the_old_query_is_redone(owner, make_org, make_brand):
                         "domain": "c",
                         "brand": "",
                         "model": "",
+                        "parse": 2,
                     }
                 ],
                 searched_at=datetime.now(UTC) - timedelta(days=1),
@@ -350,12 +356,14 @@ def test_a_search_under_the_old_query_is_redone(owner, make_org, make_brand):
             "domain": "amazon.in",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
         {
             "title": "Boys Summer Sandals Lightweight",
             "domain": "",
             "brand": "",
             "model": "",
+            "parse": 2,
         },
     ]
 
@@ -380,7 +388,13 @@ def test_store_names_are_not_stored_as_titles(owner, make_org, make_brand):
     )
     _, _rows, searches = _run(owner, org, bid, gen, engine)
     assert searches[0].titles == [
-        {"title": "Kids Classic Sandal", "domain": "", "brand": "", "model": ""}
+        {
+            "title": "Kids Classic Sandal",
+            "domain": "",
+            "brand": "",
+            "model": "",
+            "parse": 2,
+        }
     ]
 
 
@@ -398,11 +412,16 @@ def _fresh_row(owner, org, bid, titles):
         )
 
 
-def test_a_row_parsed_without_brand_is_redone(owner, make_org, make_brand):
+def test_a_row_parsed_before_parse_2_is_redone(owner, make_org, make_brand):
     org = make_org()
     bid = make_brand(org, "Walkaroo")
     _seed(owner, org, bid, 1)
-    _fresh_row(owner, org, bid, [{"title": "Old Sandals", "domain": ""}])
+    _fresh_row(
+        owner,
+        org,
+        bid,
+        [{"title": "Old Sandals", "domain": "", "brand": "", "model": ""}],
+    )
     engine = FakeEngine()
     _, _rows, searches = _run(owner, org, bid, _generator(), engine)
     assert len(engine.prompts) == 1 and len(searches) == 1
@@ -411,6 +430,7 @@ def test_a_row_parsed_without_brand_is_redone(owner, make_org, make_brand):
         "domain": "amazon.in",
         "brand": "",
         "model": "",
+        "parse": 2,
     }
 
 

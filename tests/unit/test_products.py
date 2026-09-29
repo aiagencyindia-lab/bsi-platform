@@ -308,6 +308,7 @@ def test_keep_present_drops_titles_absent_from_the_text():
             "domain": "amazon.in",
             "brand": "",
             "model": "",
+            "parse": 2,
         }
     ]
 
@@ -598,3 +599,30 @@ def test_missing_never_suggests_com():
         "Blue Sandal", ["Zappos com sandal", "ShopWSS com sandal"], []
     )
     assert "com" not in got
+
+
+def test_titles_prompt_asks_for_the_model_without_the_product_type():
+    tp = titles_prompt("kids sandals", "answer text", ["amazon.in"])
+    assert "without the product type" in tp
+
+
+def test_missing_never_excludes_a_keyword_word():
+    titles = ["Kids Chase Sandal", "Kids Paley Sandal"]
+    exclude = ["Kids Chase", "Kids Paley"]
+    assert missing(
+        "Boys Sandal", titles, ["X"], exclude=exclude, keyword="kids sandals"
+    ) == ["kids"]
+    assert missing("Boys Sandal", titles, ["X"], exclude=exclude) == []
+
+
+def test_missing_skips_colour_and_size_words():
+    titles = [
+        "Taye Sneaker - Little Kid White",
+        "Artie Sneaker - Little Kid White",
+    ]
+    got = missing("Black Kids Sports Shoe", titles, ["BSOAgentTestBrand"])
+    assert got == ["sneaker"]
+
+
+def test_dropped_still_flags_a_lost_colour():
+    assert dropped("Black Shoe", "Shoe", []) == ["black"]

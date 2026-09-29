@@ -307,6 +307,9 @@ PRODUCT_JOB_MICROS = 20_000
 # next run continues with the products whose results are oldest.
 PRODUCT_JOB_SECONDS = 480
 TOP_TITLES = 5
+# Stored titles carry this; a cached row parsed by an older prompt is
+# searched again. ponytail: a bump re-searches every keyword (~$0.04).
+TITLES_PARSE = 2
 MIN_TITLES = 2
 MAX_MISSING = 8
 MAX_TITLE_CHARS = 150
@@ -321,6 +324,18 @@ STOPWORDS = frozenset(
     "free shop shopping sale offer offers price prices deal deals off "
     "new a an in of on to by at or com".split()
 )
+# missing() never suggests these (slice 21 spec §2). ponytail: English
+# and closed; a real colour phrase ("white sneakers") is never suggested;
+# a noise word is skipped even when it is in the keyword; outside
+# footwear some are product words (cream, gold, silver, orange, plus
+# size, hair color); toddler/youth/infant are not listed, and "kid" from
+# "Little Kid" is still suggested.
+NOISE_WORDS = frozenset(
+    "white black blue red green pink grey gray brown navy beige tan silver "
+    "gold purple orange yellow cream multi multicolor color colour size "
+    "little big".split()
+)
+NOISE_STEMS = frozenset(_stem(w) for w in NOISE_WORDS)
 
 
 def tokens(text: str) -> list[str]:
@@ -455,13 +470,20 @@ def missing(
     titles: Sequence[str],
     brand_names: Sequence[str],
     exclude: Sequence[str] = (),
+    keyword: str = "",
 ) -> list[str]:
     """Words of the ranking titles the product title lacks, compared by
-    stem (fold): at least 3 characters, not a number, not a stopword, not
-    a stem of the brand's names or of `exclude` (rival brands, models and
-    competitor names), in at least MIN_TITLES titles. The first surface
-    form seen is reported; by title count, then stem; MAX_MISSING."""
-    have = fold_set(product_title) | _brand_stems([*brand_names, *exclude])
+    stem (fold): at least 3 characters, not a number, not a stopword or
+    a colour/size word (NOISE_STEMS), not a stem of the brand's names or
+    of `exclude` (rival brands, models, competitor names) unless it is a
+    stem of the product's keyword, in at least MIN_TITLES titles. The
+    first surface form seen is reported; by title count, then stem;
+    MAX_MISSING."""
+    have = (
+        fold_set(product_title)
+        | _brand_stems(brand_names)
+        | (_brand_stems(exclude) - _brand_stems([keyword]))
+    )
     counts: Counter[str] = Counter()
     surface: dict[str, str] = {}
     for title in titles:
@@ -470,7 +492,7 @@ def missing(
             if len(tok) < 3 or tok.isdigit() or tok in STOPWORDS:
                 continue
             stem = _stem(tok)
-            if stem in have:
+            if stem in have or stem in NOISE_STEMS:
                 continue
             here.add(stem)
             surface.setdefault(stem, tok)
@@ -558,12 +580,13 @@ def _named_in(value: Any, title: str) -> str:
 
 def keep_present(
     titles: list[dict[str, Any]], text: str
-) -> list[dict[str, str]]:
+) -> list[dict[str, Any]]:
     """Only titles found verbatim in the answer text (case and
     whitespace ignored), at most TOP_TITLES, domains lowercased; brand
-    and model kept only when named in the title (_named_in)."""
+    and model kept only when named in the title (_named_in); each
+    carries the parse version (TITLES_PARSE)."""
     hay = _squash(text)
-    out: list[dict[str, str]] = []
+    out: list[dict[str, Any]] = []
     for t in titles:
         title = str(t.get("title") or "").strip()
         if title and _squash(title) in hay:
@@ -574,6 +597,7 @@ def keep_present(
                     "domain": domain,
                     "brand": _named_in(t.get("brand"), title),
                     "model": _named_in(t.get("model"), title),
+                    "parse": TITLES_PARSE,
                 }
             )
     return out[:TOP_TITLES]
@@ -692,8 +716,9 @@ def titles_prompt(keyword: str, text: str, domains: Sequence[str]) -> str:
         "Do not invent titles or shorten them. A product title names one "
         "product; never list a store, retailer, marketplace or brand name "
         "on its own. For each title also give its brand and its model or "
-        "product-line name, each as written in the title, else an empty "
-        "string.\n"
+        "product-line name without the product type (for example "
+        '"Taye 2.0", not "Taye 2.0 Sneaker"), each as written in the '
+        "title, else an empty string.\n"
         f"Known source domains: {', '.join(domains) or 'none'}\n"
         'Return JSON {"titles": [{"title": ..., "domain": ..., '
         '"brand": ..., "model": ...}]}.\n'
@@ -881,10 +906,10 @@ def run_products(
                             m.KeywordSearch.error.is_(None),
                         )
                     )
-                    # a row from an older query wording, or parsed before
-                    # titles carried brand and model, is searched again
+                    # a row from an older query wording, or parsed by an
+                    # older titles_prompt (TITLES_PARSE), is searched again
                     if row.query == search_query(row.keyword)
-                    and all("brand" in t for t in row.titles)
+                    and all(t.get("parse") == TITLES_PARSE for t in row.titles)
                 )
                 new = [k for k in ordered if k not in titles_by_kw]
                 new = new[: max(KEYWORD_CAP - searched, 0)]
@@ -966,7 +991,8 @@ def run_products(
                     names,
                     # ponytail: a generic word in a model ("Classic") is
                     # excluded for this keyword, and one in a competitor's
-                    # name or alias for every keyword.
+                    # name or alias for every keyword that does not contain
+                    # it (spec §1).
                     exclude=[
                         *rivals,
                         *(
@@ -976,6 +1002,7 @@ def run_products(
                             if v
                         ),
                     ],
+                    keyword=p["keyword"],
                 )
             raw, cost, _model = generator(
                 rewrite_prompt(brand.name, kept), RewriteSet, 0.0
