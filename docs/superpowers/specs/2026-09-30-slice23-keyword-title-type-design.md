@@ -15,6 +15,7 @@ Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-29 and 2026-09-3
 - **Final design:** the guard plus a built fallback. Rejected: the guard only (LC-05 gets a narrower keyword when the model does not offer "men flip flops"), and stopping with a findings doc only.
 - **After the spec review, finding 4:** the guard falls back per product, not per sample. Rejected: no fallback (a product whose every keyword has a colour word gets no keyword), and keeping the per-sample fallback (a colour keyword could still be searched).
 - **After the spec review, finding 7:** the built keyword's type words follow both rules, shared words and an audience list. Rejected: either rule alone, and dropping the fallback.
+- **After the spec re-review, finding 1:** a keyword counts as title-fitting for `title_first` only when its type word is in the title and is not an audience word. Rejected: dropping the fallback, and listing the case as a ceiling.
 
 ### The probes
 
@@ -161,7 +162,8 @@ def title_first(keywords: Sequence[str], title: str) -> list[str]:
     word = _type_word(keywords[0])
     if word is None or word in in_title:
         return list(keywords)
-    fits = [k for k in keywords if (w := _type_word(k)) and w in in_title]
+    types = in_title - AUDIENCE_STEMS
+    fits = [k for k in keywords if _type_word(k) in types]
     if not fits:
         return list(keywords)
     audience = [
@@ -183,7 +185,8 @@ def title_first(keywords: Sequence[str], title: str) -> list[str]:
     return [first, *rest][:MAX_KEYWORDS]
 ```
 
-- It applies only when both conditions hold: the first keyword's type word is not in the title, and another keyword's type word is.
+- It applies only when both conditions hold: the first keyword's type word is not in the title, and another keyword is title-fitting.
+- **Title-fitting**, for `title_first` (spec re-review, finding 1): the keyword's type word is in the title and is not in `AUDIENCE_STEMS`. So "slippers boys" and "casual men" are not title-fitting for a "Boys Sandal" or a "Men Flip Flop". `fit_rank`'s own rule is unchanged.
 - **Audience:** the first keyword's tokens, without 1-letter tokens, without its type word and without `STOPWORDS` (which hold "for" and "with").
 - **Type** (spec review, finding 7): the tokens of the first title-fitting keyword whose stems pass all of these:
   - in the title;
@@ -192,13 +195,14 @@ def title_first(keywords: Sequence[str], title: str) -> list[str]:
 - When it builds a keyword that was not offered and the list is already `MAX_KEYWORDS` long, the last keyword is cut.
 - `fit_rank` runs after it, as today, so a built keyword is kept only because its type word is in the title.
 - Known ceilings, in a `# ponytail:` comment:
-  - The audience is whatever is left of the first keyword: "men house slippers" gives "men house flip flops".
+  - The audience is whatever is left of the first keyword, in the model's spelling: "men house slippers" gives "men house flip flops", "mens slippers" gives "mens flip flops", and "babies booties" with "baby shoes" for a "Baby Shoe" gives "babies shoes".
+  - When the title-fitting keywords name two different types that are both in the title, they share no word and nothing is built.
   - Audience-then-type order suits English.
   - With one title-fitting keyword, a style word in it that the title has too is kept: "men floaters" and "casual sandals" give "men casual sandals".
   - `AUDIENCE_WORDS` is closed and English only ("ladies", "gents", "teens" are not in it).
   - Observed on footwear only.
   - It depends on the model's first keyword being the audience plus the category's type (10 of 12 LC-05 samples).
-  - A title word that is not a product type can count as one: the rule only checks that a keyword's type word is in the title. When that word is an audience word ("slippers boys" for a "Boys Sandal"), nothing is built and the keyword step behaves as it does without `title_first`.
+  - A title word that is not a product type can count as one: the rule only checks that a keyword's type word is in the title and is not an audience word.
 
 ### 3. Testing
 
@@ -225,6 +229,8 @@ Unit, `tests/unit/test_products.py`. `T` is "BSOAgentTestBrand Men Flip Flop Nav
 - Shared words: `title_first(["men floaters", "casual sandals", "floater sandals"], "BSOAgentTestBrand Men Casual Sandal Brown") == ["men sandals", "men floaters", "casual sandals", "floater sandals"]`.
 - The one-fit ceiling: `title_first(["men floaters", "casual sandals"], "BSOAgentTestBrand Men Casual Sandal Brown") == ["men casual sandals", "men floaters", "casual sandals"]`.
 - Only an audience word fits: `title_first(["kids slippers", "slippers boys"], W) == ["kids slippers", "slippers boys"]`.
+- A good fit and an audience-word fit together: `title_first(["men slippers", "cushioned flip flops", "casual men"], T) == ["men flip flops", "men slippers", "cushioned flip flops", "casual men"]`.
+- Two title types: `title_first(["men slippers", "flip flops", "men thongs"], "X Men Flip Flop Thong") == ["men slippers", "flip flops", "men thongs"]`.
 - A colour word is never built in: `title_first(["men slippers", "navy flip flops"], T) == ["men flip flops", "men slippers", "navy flip flops"]`.
 
 `choose_keywords`:
@@ -232,6 +238,7 @@ Unit, `tests/unit/test_products.py`. `T` is "BSOAgentTestBrand Men Flip Flop Nav
 - One all-colour sample does not bring colour back: `choose_keywords([["navy flip flops"], ["navy flip flops", "men slippers"], ["men slippers", "men flip flops"]], B, T, "Slippers", None) == ["men flip flops", "men slippers"]`.
 - Every keyword has a colour: `choose_keywords([["navy flip flops", "blue flip flops"]], B, T, "Slippers", None) == ["navy flip flops", "blue flip flops"]`.
 - Only a brand phrase is left after the guard: `choose_keywords([["walkaroo sandals", "navy sandals"]], ["Walkaroo"], W, None, None) == ["navy sandals"]`.
+- An audience-word keyword does not stop the build: `choose_keywords([["kids slippers", "boys sandals", "slippers boys"]] * 3, ["Walkaroo"], W, None, None) == ["kids sandals", "boys sandals", "slippers boys"]`.
 - No samples: `choose_keywords([], B, T, None, None) == []`.
 
 The three existing `fit_rank` tests, the three `vote` tests and the `drop_brand_terms` test keep their values.
