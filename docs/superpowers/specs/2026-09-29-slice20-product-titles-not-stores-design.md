@@ -181,7 +181,7 @@ Gates: the backend gate and `npm run gate`, run by the controller.
 
 - **R1: `test_an_error_search_is_not_reused` seeds the new query.** Decided: its error row is seeded with `query=products.search_query("kids sandals")` instead of `query="q"`. Why: §1 keeps slice 18's R9 (an error row is searched again) unchanged, and this is the only test of R9; with `query="q"` the new query check alone forces the search again, so deleting `m.KeywordSearch.error.is_(None)` would pass every test. Found by the final whole-branch review (controller ruling, 2026-09-29). This overrides the §3 line and the plan line that said this row stays as it is. Cost if wrong: one test line. §3 above is updated.
 
-- **R2 (plan review of the extension).** `test_a_search_under_the_old_query_is_redone` seeds its row's titles with `"brand": ""` and `"model": ""`. Why: once a row without a `brand` key is searched again, that test's seeded row is redone by the brand condition alone, so deleting the query-wording condition would pass every test (the same gap R1 closed for R9). It adds to §5 C's list. Cost if wrong: one test fixture.
+- **R2: `test_a_search_under_the_old_query_is_redone` seeds titles with brand and model keys.** Decided: its seeded row's titles carry `"brand": ""` and `"model": ""`. Found by the plan review of the extension (controller ruling, 2026-09-29). Why: once a row without a `brand` key is searched again, that test's seeded row is redone by the brand condition alone, so deleting the query-wording condition would pass every test (the same gap R1 closed for R9). It adds to §5 C's list. Cost if wrong: one test fixture.
 
 ## Out of scope
 

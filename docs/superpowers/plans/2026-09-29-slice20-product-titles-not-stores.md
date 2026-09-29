@@ -869,7 +869,7 @@ In the `missing` loop, replace the call with:
 - [ ] **Step 8: Run the integration file and the unit files to verify they pass**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest tests/integration/test_products_run.py tests/unit/test_products.py tests/unit/test_recommend_copy.py -q`
-Expected: all pass, including `test_no_transaction_is_open_during_model_calls` (the competitors load in the existing session). Then check R2: temporarily delete `row.query == search_query(row.keyword)\n                    and ` from the cache condition, run `test_a_search_under_the_old_query_is_redone`, see it fail, restore the line, and confirm `git diff` shows only the intended changes.
+Expected: all pass, including `test_no_transaction_is_open_during_model_calls` (the competitors load in the existing session). Then check R2: temporarily delete the `row.query == search_query(row.keyword) and` clause from the cache condition, run `test_a_search_under_the_old_query_is_redone`, see it fail, restore the line, and confirm `git diff` shows only the intended changes.
 
 - [ ] **Step 9: Gate and commit**
 
@@ -887,7 +887,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - Modify: `docs/findings-slice20.md` (§1, §2, §3), `docs/README.md` (the three slice 20 rows' descriptions), the spec's `## Rulings` (only if the ledger records a new ruling), this plan's `## Changes made during execution`
 
 - [ ] **Step 1: Findings §1.** Add the extension (brand and model per title, `_named_in`, `missing`'s `exclude`, competitors, the second cache condition, Ruling R2) to §1's description, update its cache-hit paragraph and its Tests list, change the "(this commit)" row to `509b2bf`, and add every commit from `git log --oneline 509b2bf..HEAD` plus a "(this commit)" row.
-- [ ] **Step 2: Findings §2.** Replace the placeholder with the first live check. Sources: the ledger line that starts "Live check (user OK" and spec §5's first paragraph. Record: job id `d73eaefa`, `cost_micros = 313,103`, about 1 min 51 s, spend $9.9377 → about $10.25; 8 searches with 5 titles each, 0 errors, 0 store names; LC-01 and LC-02 lost "Com"; the rival-name problem with the observed titles (LC-01/LC-02 "Teva Hurricane XLT", LC-03 "Big Nike Boots", LC-06 "Birkenstock"); "Gender Inclusive" (LC-08) and "Color" (LC-05) recorded as generic attribute words, which spec §5 keeps; LC-05's keyword "navy flip flops" with `review` and dropped `men`; the commentary title; the writes (job, 10 product rows, 8 `keyword_search` rows, `api_key.last_used_at`); 11 old-query rows untouched; worker and API stopped, 0 queued. End §2 with exactly "Second live check: not yet run. The controller runs it after this task; results are recorded here then."
+- [ ] **Step 2: Findings §2.** Replace the placeholder with the first live check. Sources: the ledger lines that start "Live check (user OK" and "Live check 1 per-product results", and spec §5's first paragraph. Record: job id `d73eaefa`, `cost_micros = 313,103`, about 1 min 51 s, spend $9.9377 → about $10.25; 8 searches with 5 titles each, 0 errors, 0 store names; LC-01 and LC-02 lost "Com"; the rival-name problem with the observed titles (LC-01/LC-02 "Teva Hurricane XLT", LC-03 "Big Nike Boots", LC-06 "Birkenstock"); "Gender Inclusive" (LC-08) and "Color" (LC-05) recorded as generic attribute words, which spec §5 keeps; LC-05's keyword "navy flip flops" with `review` and dropped `men`; the commentary title; the writes (job, 10 product rows, 8 `keyword_search` rows, `api_key.last_used_at`); 11 old-query rows untouched; worker and API stopped, 0 queued. End §2 with exactly "Second live check: not yet run. The controller runs it after this task; results are recorded here then."
 - [ ] **Step 3: Findings §3.** Add every `minor (deferred)` and `parked` ledger line that the ledger does not mark fixed and that is not yet in §3 (fixed ones: the Task 1 R9 minor, fixed by R1; the Task 3 plan-changes minor, fixed by the final fix wave; both `parked` lines, fixed by the audit fix), plus spec §5's two ceilings, that competitor aliases are untested (the rival test's competitor has none), and the two new Out of scope items.
 - [ ] **Step 4: README.** Update the three slice 20 rows so they mention the rival brand and model exclusion; the plan row says "Tasks 1–5", and the findings row says both live checks (the second not yet run).
 - [ ] **Step 5: Plan changes.** Add the extension's deviations from Tasks 4–5 to this plan's changes section.
@@ -908,6 +908,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   | B: `missing(exclude)`, the exclude list, competitors, second cache condition, ceiling comment | Task 4 Steps 3 and 7 |
   | C: unit tests | Task 4 Step 1 |
   | C: integration tests | Task 4 Step 5 |
+  | Ruling R2 (old-query test seed) | Task 4 Step 5 item 4 and the Step 8 check |
   | Gates | The controller, after Task 5 |
   | Second live check | The controller, after Task 5 |
   | Findings §2 record | Task 5 Step 2 |
@@ -923,6 +924,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   - A `[]` row is a hit.
   - The four named exact assertions gain the keys.
   - The reuse test seeds the keys.
+  - The old-query test seeds the keys (R2).
 - **Traced by hand:**
   - `_named_in("Hurricane XLT 2", TEVA_KIDS)`: the tokens are hurricane, xlt, 2, and all of them are in the title's tokens, so it is kept.
   - `_named_in("Nike", "Teva Original Universal Sandals")` gives `""`.
