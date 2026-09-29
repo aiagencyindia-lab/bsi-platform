@@ -442,7 +442,7 @@ Expected: all passed.
   3. Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/integration/test_products_run.py -k rival_brands`. Expected: 1 failed, with "crocs" in the missing words (`['summer', 'crocs']`).
   4. Restore `products.py` from that copy (`cd /Users/vineet/Downloads/ADK/bsi-platform && cp /private/tmp/claude-501/-Users-vineet-Downloads-ADK-brand-search-optimization/57875675-70cf-46e9-a368-f0f1091f1ba0/scratchpad/slice22-products-backup.py packages/core/bsi_core/products.py`). Do not re-type the line.
   5. Run the same test again. Expected: 1 passed.
-  6. Run `git diff --stat`. Expected: only `packages/core/bsi_core/products.py` and `tests/integration/test_products_run.py`.
+  6. Run `cd /Users/vineet/Downloads/ADK/bsi-platform && git diff --stat`. Expected: only `packages/core/bsi_core/products.py` and `tests/integration/test_products_run.py`.
 
 - [ ] **Step 8: Run the backend gate** (Global Constraints). Expected: ruff and mypy clean, all tests pass, metrics coverage 100%. Record the pass count and the names of any warnings.
 
