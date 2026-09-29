@@ -128,6 +128,10 @@ Run by the controller only with the user's OK at that point, by the live-check p
 - Writes: the job, 10 product rows, `api_key.last_used_at`, and a `keyword_search` row for any new keyword.
 - Expected missing words, *inferred* from the stored titles and product data, to be compared with what is observed: LC-01 and LC-02 "kid"; LC-09 "kids"; LC-10 "footbed"; none for LC-03, LC-04, LC-05, LC-06, LC-07 and LC-08.
 
+## Rulings
+
+None.
+
 ## Out of scope
 
 - The keyword vote choosing a colour phrase ("navy flip flops").

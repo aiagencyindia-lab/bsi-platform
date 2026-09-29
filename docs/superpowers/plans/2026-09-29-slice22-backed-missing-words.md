@@ -534,4 +534,9 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 
 ## Changes made during execution
 
-None yet.
+- Task 1 went as written (commit 4a53c61). Its report lists no departures from the brief.
+- Task 2 went as written (commit 5be232a), with these differences (from task-2-report.md):
+  - The line numbers had shifted after Task 1: the missing-words loop was at 1040 and the `rule_check` call at 1076, not 1028-1049 and 1064-1075 as the File list says. The implementer found both regions by their text.
+  - The multi-line edits were made with a short Python replace script with exact-match asserts (each old block had to occur exactly once).
+- Task 3: the controller created the `docs/findings-slice22.md` stub after the user approved it in chat ("yes, create the stub"), as Task 3 says (plan departure 7). The implementer filled it with the Edit tool.
+- No rulings were made during execution; the spec's `## Rulings` section reads "None."
