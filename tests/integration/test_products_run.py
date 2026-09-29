@@ -51,7 +51,7 @@ class FakeEngine:
         return 60
 
 
-def _generator(owner=None, fail_on=None, keywords=None):
+def _generator(owner=None, fail_on=None, keywords=None, by_index=None):
     """Answers each schema with fixed JSON; records the call kinds and,
     when `owner` is given, how many products had a keyword at call time."""
     calls = []
@@ -84,7 +84,8 @@ def _generator(owner=None, fail_on=None, keywords=None):
                 "products": [
                     {
                         "index": i,
-                        "keywords": keywords
+                        "keywords": (by_index or {}).get(i)
+                        or keywords
                         or ["kids sandals", "walkaroo kids"],
                     }
                     for i in indexes
@@ -524,3 +525,26 @@ def test_the_database_accepts_review_and_rejects_an_unknown_status(
     with pytest.raises(IntegrityError):
         with owner() as s, s.begin():
             s.execute(update(m.Product).values(rule_check="maybe"))
+
+
+def test_plural_variants_share_one_search(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    with owner() as s, s.begin():
+        for suffix in ("A", "B"):
+            s.add(
+                m.Product(
+                    org_id=org.id,
+                    brand_id=bid,
+                    external_id=f"S-{suffix}",
+                    title=f"Walkaroo Men Sandal {suffix}",
+                    source="csv",
+                )
+            )
+    engine = FakeEngine()
+    gen = _generator(by_index={0: ["mens sandal"], 1: ["men sandals"]})
+    job, rows, searches = _run(owner, org, bid, gen, engine)
+    assert job.status == "done"
+    assert engine.prompts == [("mens sandal buy online", "IN", "en")]
+    assert len(searches) == 1
+    assert [p.keyword for p in rows] == ["mens sandal", "mens sandal"]

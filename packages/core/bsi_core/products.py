@@ -356,21 +356,49 @@ def _strip_connectors(words: list[str]) -> list[str]:
     return words
 
 
+def _clean(keyword: str) -> str:
+    return " ".join(keyword.casefold().split())
+
+
+_POSSESSIVE = re.compile(r"['\u2019]s\b")
+
+
+def _display(keyword: str) -> str:
+    """The keyword as stored and searched: lowercased, whitespace
+    collapsed, possessive 's removed ("men's sandals" -> "men sandals")."""
+    return _clean(_POSSESSIVE.sub("", keyword.casefold()))
+
+
+def keyword_key(keyword: str) -> str:
+    """Keywords with the same key are the same shopper phrase: plural,
+    possessive and mens/men variants meet ("men sandal")."""
+    return " ".join(_stem(t) for t in tokens(_display(keyword)))
+
+
 def vote(samples: Sequence[Sequence[str]]) -> list[str]:
-    """One product's ranked keywords from SAMPLES ranked lists: rank 1 is
-    the keyword most often at rank 1 (ties: sample order), then the union
-    in first-seen order, capped at MAX_KEYWORDS."""
-    firsts = [s[0] for s in samples if s]
+    """One product's ranked keywords from SAMPLES ranked lists, compared
+    by keyword_key: rank 1 is the key most often at rank 1 (ties: sample
+    order), then the other keys in first-seen order; each key shown in
+    its first surface form (_display); at most MAX_KEYWORDS."""
+    keyed = [
+        [(key, k) for k in sample if (key := keyword_key(k))]
+        for sample in samples
+    ]
+    firsts = [s[0][0] for s in keyed if s]
     if not firsts:
         return []
     counts = Counter(firsts)
     top = max(firsts, key=lambda k: (counts[k], -firsts.index(k)))
-    out = [top]
-    for sample in samples:
-        for keyword in sample:
-            if keyword not in out:
-                out.append(keyword)
-    return out[:MAX_KEYWORDS]
+    shown: dict[str, str] = {}
+    for sample_keys in keyed:
+        for key, k in sample_keys:
+            shown.setdefault(key, _display(k))
+    order = [top]
+    for sample_keys in keyed:
+        for key, _k in sample_keys:
+            if key not in order:
+                order.append(key)
+    return [shown[key] for key in order[:MAX_KEYWORDS]]
 
 
 def drop_brand_terms(
@@ -380,6 +408,32 @@ def drop_brand_terms(
     brand name or an alias."""
     bt = brand_tokens(brand_names)
     return [k for k in keywords if (t := set(tokens(k))) and not t & bt]
+
+
+def fit_rank(
+    keywords: Sequence[str],
+    title: str,
+    category: str | None,
+    description: str | None,
+) -> list[str]:
+    """Keywords whose category word (the last word) names this product:
+    first those whose category stem is in the title, then those whose
+    stem is only in the category or description; others are dropped, so
+    a flip flop is never searched as "men slippers" when a title fit
+    exists, and never as "kids shoes" at all."""
+    in_title = fold_set(title)
+    in_other = fold_set(category or "") | fold_set(description or "")
+    first: list[str] = []
+    second: list[str] = []
+    for k in keywords:
+        words = fold(k)
+        if not words:
+            continue
+        if words[-1] in in_title:
+            first.append(k)
+        elif words[-1] in in_other:
+            second.append(k)
+    return first + second
 
 
 def missing(
@@ -539,12 +593,14 @@ def keyword_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
     return (
         "You find the keywords shoppers type when looking for products "
         f"like these from the brand {brand!r}.\n"
-        "For each product give up to "
-        f"{MAX_KEYWORDS} keywords, lowercase, generic first: rank 1 is "
-        "the shortest phrase naming the audience plus the product "
-        'category (for example "kids shoes"), more specific phrases '
-        "after it. Never include the brand name. One keyword per entry. "
-        "Given the same products, choose the same rank 1.\n"
+        f"For each product give up to {MAX_KEYWORDS} keywords, lowercase, "
+        "generic first. Rank 1 is a broad shopper phrase: the audience "
+        "plus the product's own category, in the plural (for example "
+        '"kids sandals", "men flip flops", "women slippers"). Use "kids" '
+        'for children\'s products, not "boys" or "girls". Never replace '
+        "the product's type with a different one. More specific phrases "
+        "come after rank 1. Never include the brand name. One keyword per "
+        "entry. Given the same products, choose the same rank 1.\n"
         'Return JSON {"products": [{"index": <index>, '
         '"keywords": [...]}, ...]} with one entry per input index.\n'
         "Products:\n"
@@ -569,10 +625,12 @@ def titles_prompt(keyword: str, text: str, domains: Sequence[str]) -> str:
 def rewrite_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
     return (
         f"Rewrite each product title for the brand {brand!r}.\n"
-        f"Each new title: at most {MAX_TITLE_CHARS} characters; keep the "
-        "brand name if the original has it; work in the keyword and the "
-        "missing terms naturally; repeat no word; no keyword stuffing. "
-        f"Also give {MAX_BULLETS} short description bullet points.\n"
+        "Keep every word of the original title (you may reorder them); "
+        "add the keyword and the missing terms naturally; never change "
+        "the product type; repeat no word; no keyword stuffing. Each new "
+        f"title is at most {MAX_TITLE_CHARS} characters and keeps the "
+        "brand name if the original has it. Also give "
+        f"{MAX_BULLETS} short description bullet points.\n"
         'Return JSON {"products": [{"index": <index>, "title": ..., '
         '"bullets": [...]}, ...]} with one entry per input index.\n'
         "Products:\n"
@@ -594,10 +652,6 @@ class OverBudget(RuntimeError):
 
 def _batches[T](items: Sequence[T]) -> list[list[T]]:
     return [list(items[i : i + BATCH]) for i in range(0, len(items), BATCH)]
-
-
-def _clean(keyword: str) -> str:
-    return " ".join(keyword.casefold().split())
 
 
 def run_products(
@@ -651,6 +705,9 @@ def run_products(
                     )
                 )
             ]
+        # One keyword string per key for the whole run, so plural and
+        # possessive variants share one search and one cache row.
+        key_map: dict[str, str] = {}
         for batch in _batches(products):
             # R12: at least one batch, so every run makes progress.
             if done and clock() - start > PRODUCT_JOB_SECONDS:
@@ -680,7 +737,15 @@ def run_products(
                 )
             for i, p in enumerate(batch):
                 ranked = vote([sm.get(i, []) for sm in samples])
-                p["keywords"] = drop_brand_terms(ranked, names)
+                fitted = fit_rank(
+                    drop_brand_terms(ranked, names),
+                    p["title"],
+                    p["category"],
+                    p["description"],
+                )
+                p["keywords"] = [
+                    key_map.setdefault(keyword_key(k), k) for k in fitted
+                ]
                 p["keyword"] = p["keywords"][0] if p["keywords"] else None
             with tenant_session(org_id) as s:
                 for p in batch:

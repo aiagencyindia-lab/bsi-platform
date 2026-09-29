@@ -13,8 +13,10 @@ from bsi_core.products import (
     drop_brand_terms,
     dropped,
     export_rows,
+    fit_rank,
     fold,
     keep_present,
+    keyword_key,
     keyword_prompt,
     missing,
     parse_attributes,
@@ -388,3 +390,27 @@ def test_rule_check_strips_a_connector_the_trim_leaves_at_the_end():
     fixed, _status, _lost = rule_check("Plain", " ".join(words), BRAND)
     assert len(fixed) <= 150
     assert fixed.split()[-1].casefold() not in CONNECTORS
+
+
+def test_vote_groups_plural_and_possessive_variants():
+    samples = [["men's sandals"], ["mens sandal"], ["men flip flops"]]
+    assert vote(samples) == ["men sandals", "men flip flops"]
+    assert keyword_key("men's sandals") == keyword_key("mens sandal")
+
+
+def test_fit_rank_prefers_the_title_then_category_and_drops_misfits():
+    title, category = "Men Flip Flop Navy", "Slippers"
+    assert fit_rank(
+        ["men slippers", "men flip flops"], title, category, None
+    ) == [
+        "men flip flops",
+        "men slippers",
+    ]
+    assert fit_rank(["men slippers"], title, category, None) == ["men slippers"]
+    assert fit_rank(["kids shoes"], title, category, None) == []
+
+
+def test_prompts_ask_for_plural_kids_keywords_and_kept_words():
+    kp = keyword_prompt("Walkaroo", [])
+    assert "kids" in kp and "plural" in kp
+    assert "Keep every word" in rewrite_prompt("Walkaroo", [])
