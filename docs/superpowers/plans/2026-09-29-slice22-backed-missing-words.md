@@ -437,10 +437,10 @@ Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run py
 Expected: all passed.
 
 - [ ] **Step 7: Re-prove slice 20's R5 check.**
-  1. Copy `packages/core/bsi_core/products.py` to the session scratchpad, a path outside the repo: `cp packages/core/bsi_core/products.py /private/tmp/claude-501/-Users-vineet-Downloads-ADK-brand-search-optimization/57875675-70cf-46e9-a368-f0f1091f1ba0/scratchpad/slice22-products-backup.py`.
+  1. Copy `packages/core/bsi_core/products.py` to the session scratchpad, a path outside the repo: `cd /Users/vineet/Downloads/ADK/bsi-platform && cp packages/core/bsi_core/products.py /private/tmp/claude-501/-Users-vineet-Downloads-ADK-brand-search-optimization/57875675-70cf-46e9-a368-f0f1091f1ba0/scratchpad/slice22-products-backup.py`.
   2. Change `for n in (c.name, *c.aliases)` to `for n in (c.name,)` in `run_products`.
   3. Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/integration/test_products_run.py -k rival_brands`. Expected: 1 failed, with "crocs" in the missing words (`['summer', 'crocs']`).
-  4. Restore `products.py` from that copy (`cp /private/tmp/claude-501/-Users-vineet-Downloads-ADK-brand-search-optimization/57875675-70cf-46e9-a368-f0f1091f1ba0/scratchpad/slice22-products-backup.py packages/core/bsi_core/products.py`). Do not re-type the line.
+  4. Restore `products.py` from that copy (`cd /Users/vineet/Downloads/ADK/bsi-platform && cp /private/tmp/claude-501/-Users-vineet-Downloads-ADK-brand-search-optimization/57875675-70cf-46e9-a368-f0f1091f1ba0/scratchpad/slice22-products-backup.py packages/core/bsi_core/products.py`). Do not re-type the line.
   5. Run the same test again. Expected: 1 passed.
   6. Run `git diff --stat`. Expected: only `packages/core/bsi_core/products.py` and `tests/integration/test_products_run.py`.
 
