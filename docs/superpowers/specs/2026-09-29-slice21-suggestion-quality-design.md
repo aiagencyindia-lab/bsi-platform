@@ -92,7 +92,7 @@ Asked for at that point. No migration (dev stays at 0020); the worker stays stop
 
 ## Rulings
 
-None yet. Rulings made during execution are added here with their R-number.
+None.
 
 ## Out of scope
 

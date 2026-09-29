@@ -500,4 +500,14 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 
 ## Changes made during execution
 
-None yet.
+- Task 1 went as written (commit 24c5726), with these differences (from task-1-report.md):
+  - ruff format split the one-line `Kids Classic Sandal` dict in `tests/integration/test_products_run.py` over several lines once `"parse": 2` was added (line length 80). Task 1 does not mention this wrap.
+  - Step 8's parse-clause check restored the file from a scratchpad copy rather than re-typing the clause; a grep confirmed the clause was back.
+  - The implementer ran the full suite a second time, after the gate and not alongside another run, only to read the 2 warning names.
+  - The integration `"parse": 2` assertions were written after the implementation (plan departure 6), so they were never seen failing on their own.
+- Task 2 went as written (commit 4e3f668), with these differences (from task-2-report.md):
+  - ruff format wrapped the `es =` line in `_allowed_stems` over three lines, as the plan expected. It also wrapped the `rewrite or "Walkaroo Kids Summer Sandals Sandals"` line in `tests/integration/test_products_run.py` over two lines, which the plan does not mention.
+  - `test_the_rewrite_cannot_add_an_invented_word` and the failed-search test's new expected title were written after the implementation (plan departure 6), so they were never seen failing on their own. The call-site check in Step 6 covers the wiring.
+  - Step 6's call-site check restored `products.py` from a scratchpad backup; `git diff --stat` then showed only the three intended files.
+  - The report names only one of the gate's 2 warnings. The implementer captured only the tail of the output and did not run the suite again.
+- Task 3 (this commit): the spec's `## Rulings` is "None.", because the ledger records no rulings. The Write tool refused to let a subagent create `docs/findings-slice21.md`, so the controller created it as a one-line stub. The implementer then filled it with the Edit tool.
