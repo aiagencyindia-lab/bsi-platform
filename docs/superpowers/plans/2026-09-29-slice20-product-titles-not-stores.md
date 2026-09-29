@@ -500,6 +500,433 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   6. The docstrings and code comments are the plan's own wording. The ceiling is a `# ponytail:` comment, as the spec says; its content (subdomain first label; store named unlike its domain) is the spec's.
   7. Task 1 Step 3 and Task 2 Steps 3–4 are split so that the `titles_prompt` test and the `com` test each fail for their own reason before their change lands.
 
+---
+
+## Extension: rival brand and model names (spec §5)
+
+Added after the first dev live check. Tasks 1–3 are done; Tasks 4 and 5 implement spec §5. The Global Constraints above apply, plus:
+
+- The new `titles_prompt` sentence is exactly "For each title also give its brand and its model or product-line name, each as written in the title, else an empty string."
+- The prompt's JSON line becomes exactly `'Return JSON {"titles": [{"title": ..., "domain": ..., "brand": ..., "model": ...}]}.\n'`.
+
+### Task 4: Brand and model per title; `missing` leaves them and competitors out
+
+**Files:**
+- Modify: `packages/core/bsi_core/products.py`: `missing` (around line 452), `keep_present` (around line 546), `TitleItem` (around line 599), `titles_prompt` (around line 662), `run_products` (brand load around line 741, cache generator around line 838, the `missing` loop around line 922)
+- Test: `tests/unit/test_products.py`, `tests/integration/test_products_run.py`
+
+**Interfaces:**
+- Consumes: `search_query`, `drop_stores`, `keep_present`, `missing` as they are after Tasks 1–2.
+- Produces: `missing(product_title: str, titles: Sequence[str], brand_names: Sequence[str], exclude: Sequence[str] = ()) -> list[str]`; `keep_present` returns dicts with keys `title`, `domain`, `brand`, `model`; `TitleItem.brand: str = ""`, `TitleItem.model: str = ""`.
+
+- [ ] **Step 1: Write the failing unit tests.** In `tests/unit/test_products.py`, change the expected value in `test_keep_present_drops_titles_absent_from_the_text` to:
+
+```python
+    assert keep_present(titles, text) == [
+        {
+            "title": "Kids Sandals for Boys",
+            "domain": "amazon.in",
+            "brand": "",
+            "model": "",
+        }
+    ]
+```
+
+and add:
+
+```python
+TEVA_KIDS = "Teva Hurricane XLT 2 Sandals - Kids'"
+
+
+def test_keep_present_keeps_a_brand_and_model_named_in_the_title():
+    got = keep_present(
+        [
+            {
+                "title": TEVA_KIDS,
+                "domain": "",
+                "brand": "Teva",
+                "model": "Hurricane XLT 2",
+            }
+        ],
+        f"Try the {TEVA_KIDS} today.",
+    )
+    assert (got[0]["brand"], got[0]["model"]) == ("Teva", "Hurricane XLT 2")
+
+
+def test_keep_present_blanks_a_brand_not_in_the_title():
+    title = "Teva Original Universal Sandals"
+    got = keep_present(
+        [
+            {
+                "title": title,
+                "domain": "",
+                "brand": "Nike",
+                "model": "Original Universal",
+            }
+        ],
+        f"See {title}.",
+    )
+    assert (got[0]["brand"], got[0]["model"]) == ("", "Original Universal")
+
+
+def test_keep_present_without_brand_or_model_keys_stores_empty():
+    got = keep_present([{"title": "Kids Sandal", "domain": ""}], "Kids Sandal")
+    assert (got[0]["brand"], got[0]["model"]) == ("", "")
+
+
+TEVA_TITLES = [
+    TEVA_KIDS,
+    "Teva Hurricane XLT 2 Sandals - Toddlers'",
+    "Teva Original Universal Sandals - Kids'",
+]
+
+
+def test_missing_leaves_out_excluded_brand_and_model_words():
+    exclude = ["Teva", "Hurricane XLT 2", "Original Universal"]
+    got = missing(
+        "Blue Boys Sandal", TEVA_TITLES, ["BSOAgentTestBrand"], exclude=exclude
+    )
+    assert got == ["kids"]
+    assert "teva" in missing("Blue Boys Sandal", TEVA_TITLES, ["BSOAgentTestBrand"])
+
+
+def test_titles_prompt_asks_for_brand_and_model():
+    tp = titles_prompt("kids sandals", "answer text", ["amazon.in"])
+    assert (
+        "For each title also give its brand and its model or product-line name"
+        in tp
+    )
+```
+
+Accept ruff's wrapping of any line over 80 columns.
+
+- [ ] **Step 2: Run them to verify they fail**
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest tests/unit/test_products.py -q`
+Expected: the changed `keep_present` test and the three new `keep_present` tests fail on the missing `brand`/`model` keys (`KeyError` or a dict mismatch); `test_missing_leaves_out_excluded_brand_and_model_words` fails with `TypeError: missing() got an unexpected keyword argument 'exclude'`; `test_titles_prompt_asks_for_brand_and_model` fails on the missing sentence.
+
+- [ ] **Step 3: Implement the pure functions.** In `products.py`, change `missing` to:
+
+```python
+def missing(
+    product_title: str,
+    titles: Sequence[str],
+    brand_names: Sequence[str],
+    exclude: Sequence[str] = (),
+) -> list[str]:
+    """Words of the ranking titles the product title lacks, compared by
+    stem (fold): at least 3 characters, not a number, not a stopword, not
+    a stem of the brand's names or of `exclude` (rival brands, models and
+    competitor names), in at least MIN_TITLES titles. The first surface
+    form seen is reported; by title count, then stem; MAX_MISSING."""
+    have = fold_set(product_title) | _brand_stems([*brand_names, *exclude])
+```
+
+(the rest of the body is unchanged). Add above `keep_present`:
+
+```python
+def _named_in(value: Any, title: str) -> str:
+    """value, stripped, when it has a token and all its tokens are in the
+    title's tokens; else "". Keeps the parse from inventing exclusions."""
+    v = str(value or "").strip()
+    toks = tokens(v)
+    return v if toks and set(toks) <= set(tokens(title)) else ""
+```
+
+and change `keep_present`'s docstring and append line to:
+
+```python
+    """Only titles found verbatim in the answer text (case and
+    whitespace ignored), at most TOP_TITLES, domains lowercased; brand
+    and model kept only when named in the title (_named_in)."""
+```
+
+```python
+            out.append(
+                {
+                    "title": title,
+                    "domain": domain,
+                    "brand": _named_in(t.get("brand"), title),
+                    "model": _named_in(t.get("model"), title),
+                }
+            )
+```
+
+Change `TitleItem` to:
+
+```python
+class TitleItem(BaseModel):
+    title: str
+    domain: str = ""
+    brand: str = ""
+    model: str = ""
+```
+
+In `titles_prompt`, change the lines from `"on its own.\n"` to the JSON line to:
+
+```python
+        "on its own. For each title also give its brand and its model or "
+        "product-line name, each as written in the title, else an empty "
+        "string.\n"
+        f"Known source domains: {', '.join(domains) or 'none'}\n"
+        'Return JSON {"titles": [{"title": ..., "domain": ..., '
+        '"brand": ..., "model": ...}]}.\n'
+```
+
+- [ ] **Step 4: Run the unit tests to verify they pass**
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest tests/unit/test_products.py tests/unit/test_recommend_copy.py -q`
+Expected: all pass.
+
+- [ ] **Step 5: Write the failing integration changes.** In `tests/integration/test_products_run.py`:
+
+1. In `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked`, `test_an_error_search_is_not_reused` and `test_a_search_under_the_old_query_is_redone`, change the expected stored titles to:
+
+```python
+    assert searches[0].titles == [
+        {
+            "title": "Kids Sandals for Boys Summer",
+            "domain": "amazon.in",
+            "brand": "",
+            "model": "",
+        },
+        {
+            "title": "Boys Summer Sandals Lightweight",
+            "domain": "",
+            "brand": "",
+            "model": "",
+        },
+    ]
+```
+
+2. In `test_store_names_are_not_stored_as_titles`, change the expected value to:
+
+```python
+    assert searches[0].titles == [
+        {"title": "Kids Classic Sandal", "domain": "", "brand": "", "model": ""}
+    ]
+```
+
+3. In `test_a_fresh_search_is_reused_and_a_stale_one_redone`, change the seeded titles to:
+
+```python
+                titles=[
+                    {
+                        "title": "Cached Summer Sandals",
+                        "domain": "c",
+                        "brand": "",
+                        "model": "",
+                    }
+                ],
+```
+
+4. Add after `test_store_names_are_not_stored_as_titles`:
+
+```python
+def _fresh_row(owner, org, bid, titles):
+    with owner() as s, s.begin():
+        s.add(
+            m.KeywordSearch(
+                org_id=org.id,
+                brand_id=bid,
+                keyword="kids sandals",
+                query=products.search_query("kids sandals"),
+                titles=titles,
+                searched_at=datetime.now(UTC) - timedelta(days=1),
+            )
+        )
+
+
+def test_a_row_parsed_without_brand_is_redone(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    _fresh_row(owner, org, bid, [{"title": "Old Sandals", "domain": ""}])
+    engine = FakeEngine()
+    _, _rows, searches = _run(owner, org, bid, _generator(), engine)
+    assert len(engine.prompts) == 1 and len(searches) == 1
+    assert all({"brand", "model"} <= set(t) for t in searches[0].titles)
+
+
+def test_a_row_with_no_titles_is_a_hit(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    _fresh_row(owner, org, bid, [])
+    engine = FakeEngine()
+    _, rows, _searches = _run(owner, org, bid, _generator(), engine)
+    assert engine.prompts == [] and rows[0].missing_keywords == []
+
+
+RIVAL_TITLES = [
+    ("Teva Hurricane Summer Sandals", "Teva", "Hurricane"),
+    ("Teva Hurricane Summer Slides", "Teva", "Hurricane"),
+    ("Crocs Summer Sandals", "", ""),
+    ("Crocs Classic Summer Sandals", "", ""),
+]
+
+
+def test_rival_brands_models_and_competitors_are_not_missing_words(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    with owner() as s, s.begin():
+        s.add(
+            m.Competitor(
+                org_id=org.id, brand_id=bid, name="Crocs", status="suggested"
+            )
+        )
+    answer = "Picks: " + "; ".join(t for t, _b, _m in RIVAL_TITLES) + "."
+    engine = FakeEngine(
+        [
+            EngineResult(
+                "ok", raw={"text": answer}, model="fake-1", cost_micros=35_000
+            )
+        ]
+    )
+    gen = _generator(
+        titles=[
+            {"title": t, "domain": "", "brand": b, "model": mo}
+            for t, b, mo in RIVAL_TITLES
+        ]
+    )
+    _, rows, _searches = _run(owner, org, bid, gen, engine)
+    # Without the exclusions: ["summer", "crocs", "hurricane", "teva"].
+    assert rows[0].missing_keywords == ["summer"]
+```
+
+- [ ] **Step 6: Run them to verify the new tests fail**
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest tests/integration/test_products_run.py -q`
+Expected (with Step 3 in place, before Step 7): `test_a_row_parsed_without_brand_is_redone` fails (`engine.prompts == []`: the row is still a hit) and `test_rival_brands_models_and_competitors_are_not_missing_words` fails with `['summer', 'crocs', 'hurricane', 'teva']`; the others pass.
+
+- [ ] **Step 7: Implement the run changes.** In `run_products`, after `names = [brand.name, *brand.aliases]`, add:
+
+```python
+            rivals = [
+                n
+                for c in s.scalars(
+                    select(m.Competitor).where(
+                        m.Competitor.brand_id == brand_id
+                    )
+                )
+                for n in (c.name, *c.aliases)
+            ]
+```
+
+In the cache generator, replace the trailing condition with:
+
+```python
+                    # a row from an older query wording, or parsed before
+                    # titles carried brand and model, is searched again
+                    if row.query == search_query(row.keyword)
+                    and all("brand" in t for t in row.titles)
+```
+
+In the `missing` loop, replace the call with:
+
+```python
+                ranking = titles_by_kw.get(p["keyword"], [])
+                p["missing"] = missing(
+                    p["title"],
+                    [t["title"] for t in ranking],
+                    names,
+                    # ponytail: a generic word in a model ("Classic") is
+                    # excluded for this keyword, and one in a competitor's
+                    # name or alias for every keyword.
+                    exclude=[
+                        *rivals,
+                        *(
+                            v
+                            for t in ranking
+                            for v in (t.get("brand"), t.get("model"))
+                            if v
+                        ),
+                    ],
+                )
+```
+
+- [ ] **Step 8: Run the integration file and the unit files to verify they pass**
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest tests/integration/test_products_run.py tests/unit/test_products.py tests/unit/test_recommend_copy.py -q`
+Expected: all pass, including `test_no_transaction_is_open_during_model_calls` (the competitors load in the existing session).
+
+- [ ] **Step 9: Gate and commit**
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100`
+
+```bash
+cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/products.py tests && git commit -m "fix(products): keep rival brands, models and competitors out of missing words"
+```
+
+---
+
+### Task 5: Docs: both live checks, the extension, plan changes
+
+**Files:**
+- Modify: `docs/findings-slice20.md` (§1, §2, §3), `docs/README.md` (the three slice 20 rows' descriptions), the spec's `## Rulings` (only if the ledger records a new ruling), this plan's `## Changes made during execution`
+
+- [ ] **Step 1: Findings §1.** Add the extension (brand and model per title, `_named_in`, `missing`'s `exclude`, competitors, the second cache condition) and its commits to the commit table.
+- [ ] **Step 2: Findings §2.** Replace the placeholder with the first live check, from the ledger line that starts "Live check (user OK": job id, cost, duration, searches and titles, the removal of "Com", the rival-name problem with the observed LC titles, LC-05's keyword and `review`, the commentary title, and the writes. End §2 with exactly "Second live check: not yet run. The controller runs it after this task; results are recorded here then."
+- [ ] **Step 3: Findings §3.** Add every `minor (deferred)` and `parked` ledger line not yet in §3, plus spec §5's ceilings and the two new Out of scope items.
+- [ ] **Step 4: README.** Update the three slice 20 rows so they mention the rival brand and model exclusion.
+- [ ] **Step 5: Plan changes.** Add the extension's deviations from Tasks 4–5 to this plan's changes section.
+- [ ] **Step 6: Coverage check.** A scripted grep over the findings for every ledger ruling ID, every `minor (deferred)` line and every `parked` line; report and fix misses.
+- [ ] **Step 7: Commit**
+
+```bash
+cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "docs: slice 20 extension findings and first live check"
+```
+
+### Extension self-review
+
+- **Spec §5 coverage:**
+
+  | Spec §5 part | Covered by |
+  |---|---|
+  | A: `TitleItem`, prompt sentence and JSON, `keep_present` with `_named_in` | Task 4 Step 3 |
+  | B: `missing(exclude)`, the exclude list, competitors, second cache condition, ceiling comment | Task 4 Steps 3 and 7 |
+  | C: unit tests | Task 4 Step 1 |
+  | C: integration tests | Task 4 Step 5 |
+  | Gates | The controller, after Task 5 |
+  | Second live check | The controller, after Task 5 |
+  | Findings §2 record | Task 5 Step 2 |
+
+- **§5 C values, word for word:**
+  - The two `keep_present` cases: "Teva" / "Hurricane XLT 2", then `""` / "Original Universal".
+  - The no-keys case gives `""` / `""`.
+  - The `missing` call with `exclude=["Teva", "Hurricane XLT 2", "Original Universal"]` gives `["kids"]`, and without it the result contains `teva`.
+  - The prompt sentence.
+  - The changed `test_keep_present_drops_titles_absent_from_the_text`.
+  - The rival run gives `["summer"]`, and the comment carries `["summer", "crocs", "hurricane", "teva"]`.
+  - A no-`brand` row is redone and its new titles carry `brand` and `model`.
+  - A `[]` row is a hit.
+  - The four named exact assertions gain the keys.
+  - The reuse test seeds the keys.
+- **Traced by hand:**
+  - `_named_in("Hurricane XLT 2", TEVA_KIDS)`: the tokens are hurricane, xlt, 2, and all of them are in the title's tokens, so it is kept.
+  - `_named_in("Nike", "Teva Original Universal Sandals")` gives `""`.
+  - The `missing` values were confirmed by the spec reviewer with the real functions.
+  - In the rival run:
+    - `drop_stores` keeps all 4 titles (the own domain is `""`, amazon.in is cited, and no title contains "amazon").
+    - `keep_present` finds each title in `answer`.
+    - Brand and model survive `_named_in`.
+    - The competitor "Crocs" is `suggested`, which exercises the deliberate inclusion.
+  - The `[]` row: `all(...)` over `[]` is True, so it is a hit. Because it has no titles, `missing` returns `[]`.
+- **Fixtures vs banned words:** the fixtures use Teva, Hurricane, XLT, Original Universal, Crocs, Classic, Summer, Slides, Picks, Old Sandals. None is a banned word. The prompt sentence has none either.
+- **Types:**
+  - `_named_in` returns `str`, and `keep_present` still returns `list[dict[str, str]]`.
+  - `exclude` is `Sequence[str]`. The generator only yields truthy values, and `t.get` on `dict[str, Any]` is `Any`. `rivals` is `list[str]`.
+- **Every place this plan departs from spec §5's text:**
+  1. The spec names no helper. The plan adds `_named_in` for the token check.
+  2. The tests `test_a_row_parsed_without_brand_is_redone`, `test_a_row_with_no_titles_is_a_hit` and `test_rival_brands_models_and_competitors_are_not_missing_words`, and the helper `_fresh_row`, are the plan's names.
+  3. The `keep_present` unit tests put each title inside a longer answer string. The spec says only "with the title in `text`".
+  4. The rival test's competitor is `status="suggested"`. The spec says only "a `competitor` row named Crocs".
+  5. The ceiling comment sits at the `missing` call in `run_products`, not in `missing`'s docstring. The docstring names `exclude`'s contents.
+  6. `test_a_row_with_no_titles_is_a_hit` is never seen failing: it passes before and after Step 7. It pins spec §5 B's "a row with no titles counts as a hit", so an implementation that also requires non-empty titles would fail it.
+
 ## Changes made during execution
 
 - Task 1 went as written (commit cad40aa).
