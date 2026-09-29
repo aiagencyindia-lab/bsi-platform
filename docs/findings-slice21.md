@@ -1,8 +1,8 @@
-# Slice 21 findings: product-suggestion quality
+# Findings: slice 21 — product-suggestion quality
 
 ## 1. What was built
 
-This slice fixes the three problems that slice 20's second live check recorded (findings-slice20 §2 and §3):
+This slice targets the three problems that slice 20's second live check recorded (findings-slice20 §2 and §3):
 - Model names that carried the product type excluded generic words such as "sneaker".
 - Size and colour words ("Little", "White") were suggested.
 - The rewrite added "Boys" to LC-06, a men's sandal.
@@ -11,7 +11,7 @@ All code changes are in `packages/core/bsi_core/products.py`. No schema, API or 
 
 **Constants.**
 - `TITLES_PARSE = 2`, next to `TOP_TITLES`. Its comment carries the ceiling: a bump searches every cached keyword again (about $0.04 each).
-- `NOISE_WORDS`: white, black, blue, red, green, pink, grey, gray, brown, navy, beige, tan, silver, gold, purple, orange, yellow, cream, multi, multicolor, color, colour, size, little, big. `NOISE_STEMS` holds their stems. Its `# ponytail:` comment carries spec §2's ceiling in shortened wording.
+- `NOISE_WORDS`: white, black, blue, red, green, pink, grey, gray, brown, navy, beige, tan, silver, gold, purple, orange, yellow, cream, multi, multicolor, color, colour, size, little, big. `NOISE_STEMS` holds their stems. The comment above `NOISE_WORDS` (`# missing() never suggests these…`, with a `ponytail:` part) carries spec §2's ceiling in shortened wording.
 - `FUNCTION_WORDS`: and, for, with, of, the, a, an, in, on, to, by, or.
 
 **The model prompt.** `titles_prompt`'s brand-and-model sentence now asks for "its model or product-line name without the product type (for example "Taye 2.0", not "Taye 2.0 Sneaker")".
@@ -56,7 +56,10 @@ A row with no titles is still a hit. Rows written before this slice lack the key
 - Delete-and-fail checks, each restored from a backup afterwards:
   - Without the parse clause, `test_a_row_parsed_before_parse_2_is_redone` failed (`assert (0 == 1)`).
   - With `allowed=[p["keyword"]]` at the call, `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` failed, because "Summer", a missing word, was dropped.
-- Backend gate: 1499 passed after Task 1 and 1506 after Task 2, and metrics coverage was 100%. Each run had 2 third-party deprecation warnings, the same as on `main`: Starlette's test client and anyio's `BlockingPortal` alias.
+- Backend gate: 1499 passed after Task 1 and 1506 after Task 2, and metrics coverage was 100%. Each run reported 2 warnings.
+  - Task 1's report names both: Starlette's `StarletteDeprecationWarning` for its test client and anyio's `BlockingPortal` alias `DeprecationWarning`.
+  - Task 2's report names only the anyio one.
+  - The controller's own gate run at 1e10fa4 (1506 passed) named both, the same two deprecations as on `main`. Run with `-W default`, it also showed a psycopg `ResourceWarning` for a connection deleted while still open (§3).
 
 **Commits** (`git log --oneline main..HEAD`, oldest first):
 
@@ -70,7 +73,8 @@ A row with no titles is still a hit. Rows written before this slice lack the key
 | e16a389 | docs: slice 21 plan: wrapped ponytail comment, ruff note out of the code block |
 | 24c5726 | fix(products): keyword guard, colour/size noise and parse version for missing words |
 | 4e3f668 | fix(products): the rule check drops words the rewrite invents |
-| (this commit) | docs: slice 21 findings, index and rulings |
+| 1e10fa4 | docs: slice 21 findings, index and rulings |
+| (this commit) | docs: slice 21 findings: gate warnings as observed; wording |
 
 ## 2. Live check on dev
 
@@ -87,7 +91,8 @@ From the task reviews:
 - The description, category and attribute sources of `allowed` are untested end to end, because the seeded products have none.
 - Gate warnings:
   - Task 1's gate output carries 2 third-party deprecation warnings, the same as on `main`.
-  - Task 2's report names only one of its 2 warnings (the anyio `BlockingPortal` alias). The controller's own gate run is to name both.
+  - Task 2's report names only one of its 2 warnings (the anyio `BlockingPortal` alias). The controller's own gate run at 1e10fa4 has since named both (§1).
+- With `-W default`, the backend suite also shows a psycopg `ResourceWarning` ("Connection ... deleted while still open"). It has not been checked against `main`.
 - Task 1's implementer ran the full suite twice, one after the other. The second run was only to read the warning names.
 
 Known ceilings (spec §1–§3, in `# ponytail:` comments where the spec asks):
