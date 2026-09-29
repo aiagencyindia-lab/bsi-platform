@@ -44,7 +44,8 @@ All code changes are in `packages/core/bsi_core/products.py`. No prompt, schema,
 | cc9b670 | docs: slice 23 plan review fixes |
 | 23eb548 | feat(products): build the audience plus the title's type as a keyword |
 | d072568 | feat(products): the keyword choice drops colour keywords and searches the title's type |
-| (this commit) | docs: slice 23 findings, index and rulings |
+| 0ea1a26 | docs: slice 23 findings, index and rulings |
+| (this commit) | docs: slice 23 ruling R1 (README spec row) and plan record fixes |
 
 ## 2. The probes
 
@@ -96,7 +97,10 @@ From the task reviews:
 - Task 2: in the unfiltered fallback `pick(samples)` (products.py:584), `title_first` can build a colour into a keyword no sample offered: `choose_keywords([['men navy slippers', 'navy flip flops']], ['Brand'], 'Brand Men Flip Flop', None, None)` returns `['men navy flip flops', 'navy flip flops']`. The reviewer labelled it plan-mandated. Only when every keyword has a noise word; the result is a colour keyword either way. Possible fixes (both spec changes, the user's call): audience only from `AUDIENCE_STEMS`, or skip `title_first` in the fallback.
 - Task 2: no unit test covers `title_first` on the fallback path (test_products.py:1036-1047 has only fallback inputs where nothing is built).
 
-Parked: none. The ledger has no parked lines and no rulings.
+Parked: none. The ledger has no parked lines.
+
+Rulings (from the Task 3 review):
+- the README's slice 23 spec row ends at "…with the four probes of the keyword prompt." (the rulings clause is dropped), departing from the plan's Step 2 wording — Ruling R1: the row must not claim rulings the spec does not hold; dropping the clause stays true whatever the spec's Rulings holds, while "(none)" would become false once this ruling itself is recorded — cost if wrong: the row no longer points readers to the spec's Rulings section. Fixed in this commit: the row is changed, and the spec's Rulings records R1 (replacing "None.").
 
 From the spec review (the last spec re-review approved the spec and left two minor notes; plan, "From the spec review"):
 - `title_first`'s audience exclusion applies to the other keywords, not to the first. If the model's first keyword is itself an audience-word phrase ("casual men"), `title_first` returns the keywords as given and `fit_rank` searches it as today. The spec's last ceiling covers this loosely; "including the first keyword" would make it exact.

@@ -639,10 +639,12 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 
 ## Changes made during execution
 
-- Task 1 went as written (commit 23eb548), with one difference (from task-1-report.md): the full test suite ran twice. The gate's `tail -15` cut off the first warning's name, so the implementer re-ran pytest (with the shared-DB `pgrep` check first) to record both warning names. No code changed between the two runs. ruff did not re-wrap anything, and I001 did not fire.
-- Task 2 went as written (commit d072568), with these differences (from the ledger and task-2-report.md):
-  - The line numbers in the Files list were taken before Task 1 (`run_products` "907-913 before Task 1"); the Task 2 dispatch said to find the regions by their text.
-  - Step 9 sub-step 2's one-line edit (`return pick(samples)`) was made with `sed -i ''` rather than by hand. The file was restored from the scratchpad backup, as Step 9 says.
-  - ruff changed nothing.
+- Task 1 went as written (commit 23eb548), with one difference (from the ledger): the full suite was run twice. The first run's output was cut off, so it lacked both warning names; the pytest re-run (with the shared-DB `pgrep` check first) recorded them. No code changed between the two runs. task-1-report.md words it differently: the gate's `tail -15` cut off the first warning's name. ruff did not re-wrap anything, and I001 did not fire.
+- Task 2 went as written (commit d072568). The ledger records "No departures; ruff changed nothing", and task-2-report.md says "no departures from the brief".
+- A plan fact found in preflight (ledger, preflight scan) and handled at dispatch, not a Task 2 deviation: Task 2's line numbers in the Files list were taken before Task 1 (`run_products` "907-913 before Task 1"); the Task 2 dispatch said to find the regions by their text.
 - Task 3: the controller created the `docs/findings-slice23.md` stub after the user approved it in chat ("yes, create the stub"), as Task 3 says (plan departure 13). The implementer filled it with the Edit tool. Findings §4 also has two lists Step 1 does not name, in the style of findings-slice22 §3: "Parked: none" and an "Untested" list (the tests use fixed model output).
-- No rulings were made during Tasks 1–3; the spec's `## Rulings` reads "None.". The README's slice 23 spec row still says "with the rulings made during the build", as Task 3 Step 2 gives it.
+- No rulings were made during Tasks 1–2. Ruling R1 came from the Task 3 review (below).
+- Task 3 fix round 1 (commit "docs: slice 23 ruling R1 (README spec row) and plan record fixes"), after the Task 3 review (0 Critical, 1 Important (plan-mandated), 3 Minor):
+  - R1: the README's slice 23 spec row ends at "…with the four probes of the keyword prompt."; the rulings clause of Task 3 Step 2's wording is dropped. The spec's `## Rulings` records R1 instead of "None.", and findings §4 lists it under "Rulings".
+  - The 3 Minors fix this section: Task 1's double run in the ledger's wording; the pre-Task-1 line numbers moved out of Task 2's differences; the remark on how Step 9's one-line edit was made removed (Step 9 names no method).
+  - The findings commit table: the first findings commit row is now `0ea1a26`, and a new "(this commit)" row was added.

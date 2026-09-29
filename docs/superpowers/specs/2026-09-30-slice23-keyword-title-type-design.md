@@ -262,7 +262,7 @@ Run by the controller only with the user's OK at that point, by the live-check p
 
 ## Rulings
 
-None.
+- **R1: the README's slice 23 spec row drops the rulings clause.** Decided: the README's slice 23 spec row ends at "…with the four probes of the keyword prompt." (the rulings clause is dropped), departing from the plan's Step 2 wording. Found by the Task 3 review. Why: the row must not claim rulings the spec does not hold; dropping the clause stays true whatever the spec's Rulings holds, while "(none)" would become false once this ruling itself is recorded. Cost if wrong: the row no longer points readers to the spec's Rulings section.
 
 ## Out of scope
 
