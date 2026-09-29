@@ -720,7 +720,20 @@ Expected: all pass.
                 ],
 ```
 
-4. Add after `test_store_names_are_not_stored_as_titles`:
+4. In `test_a_search_under_the_old_query_is_redone`, change the seeded titles the same way (Ruling R2), so only the query-wording condition can force its re-search:
+
+```python
+                titles=[
+                    {
+                        "title": "Cached Summer Sandals",
+                        "domain": "c",
+                        "brand": "",
+                        "model": "",
+                    }
+                ],
+```
+
+5. Add after `test_store_names_are_not_stored_as_titles`:
 
 ```python
 def _fresh_row(owner, org, bid, titles):
@@ -745,7 +758,12 @@ def test_a_row_parsed_without_brand_is_redone(owner, make_org, make_brand):
     engine = FakeEngine()
     _, _rows, searches = _run(owner, org, bid, _generator(), engine)
     assert len(engine.prompts) == 1 and len(searches) == 1
-    assert all({"brand", "model"} <= set(t) for t in searches[0].titles)
+    assert searches[0].titles[0] == {
+        "title": "Kids Sandals for Boys Summer",
+        "domain": "amazon.in",
+        "brand": "",
+        "model": "",
+    }
 
 
 def test_a_row_with_no_titles_is_a_hit(owner, make_org, make_brand):
@@ -851,7 +869,7 @@ In the `missing` loop, replace the call with:
 - [ ] **Step 8: Run the integration file and the unit files to verify they pass**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest tests/integration/test_products_run.py tests/unit/test_products.py tests/unit/test_recommend_copy.py -q`
-Expected: all pass, including `test_no_transaction_is_open_during_model_calls` (the competitors load in the existing session).
+Expected: all pass, including `test_no_transaction_is_open_during_model_calls` (the competitors load in the existing session). Then check R2: temporarily delete `row.query == search_query(row.keyword)\n                    and ` from the cache condition, run `test_a_search_under_the_old_query_is_redone`, see it fail, restore the line, and confirm `git diff` shows only the intended changes.
 
 - [ ] **Step 9: Gate and commit**
 
@@ -868,12 +886,12 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 **Files:**
 - Modify: `docs/findings-slice20.md` (§1, §2, §3), `docs/README.md` (the three slice 20 rows' descriptions), the spec's `## Rulings` (only if the ledger records a new ruling), this plan's `## Changes made during execution`
 
-- [ ] **Step 1: Findings §1.** Add the extension (brand and model per title, `_named_in`, `missing`'s `exclude`, competitors, the second cache condition) and its commits to the commit table.
-- [ ] **Step 2: Findings §2.** Replace the placeholder with the first live check, from the ledger line that starts "Live check (user OK": job id, cost, duration, searches and titles, the removal of "Com", the rival-name problem with the observed LC titles, LC-05's keyword and `review`, the commentary title, and the writes. End §2 with exactly "Second live check: not yet run. The controller runs it after this task; results are recorded here then."
-- [ ] **Step 3: Findings §3.** Add every `minor (deferred)` and `parked` ledger line not yet in §3, plus spec §5's ceilings and the two new Out of scope items.
-- [ ] **Step 4: README.** Update the three slice 20 rows so they mention the rival brand and model exclusion.
+- [ ] **Step 1: Findings §1.** Add the extension (brand and model per title, `_named_in`, `missing`'s `exclude`, competitors, the second cache condition, Ruling R2) to §1's description, update its cache-hit paragraph and its Tests list, change the "(this commit)" row to `509b2bf`, and add every commit from `git log --oneline 509b2bf..HEAD` plus a "(this commit)" row.
+- [ ] **Step 2: Findings §2.** Replace the placeholder with the first live check. Sources: the ledger line that starts "Live check (user OK" and spec §5's first paragraph. Record: job id `d73eaefa`, `cost_micros = 313,103`, about 1 min 51 s, spend $9.9377 → about $10.25; 8 searches with 5 titles each, 0 errors, 0 store names; LC-01 and LC-02 lost "Com"; the rival-name problem with the observed titles (LC-01/LC-02 "Teva Hurricane XLT", LC-03 "Big Nike Boots", LC-06 "Birkenstock"); "Gender Inclusive" (LC-08) and "Color" (LC-05) recorded as generic attribute words, which spec §5 keeps; LC-05's keyword "navy flip flops" with `review` and dropped `men`; the commentary title; the writes (job, 10 product rows, 8 `keyword_search` rows, `api_key.last_used_at`); 11 old-query rows untouched; worker and API stopped, 0 queued. End §2 with exactly "Second live check: not yet run. The controller runs it after this task; results are recorded here then."
+- [ ] **Step 3: Findings §3.** Add every `minor (deferred)` and `parked` ledger line that the ledger does not mark fixed and that is not yet in §3 (fixed ones: the Task 1 R9 minor, fixed by R1; the Task 3 plan-changes minor, fixed by the final fix wave; both `parked` lines, fixed by the audit fix), plus spec §5's two ceilings, that competitor aliases are untested (the rival test's competitor has none), and the two new Out of scope items.
+- [ ] **Step 4: README.** Update the three slice 20 rows so they mention the rival brand and model exclusion; the plan row says "Tasks 1–5", and the findings row says both live checks (the second not yet run).
 - [ ] **Step 5: Plan changes.** Add the extension's deviations from Tasks 4–5 to this plan's changes section.
-- [ ] **Step 6: Coverage check.** A scripted grep over the findings for every ledger ruling ID, every `minor (deferred)` line and every `parked` line; report and fix misses.
+- [ ] **Step 6: Coverage check.** Adapt the script in `.superpowers/sdd/2026-09-29-slice20-product-titles-not-stores/task-3-report.md` (its Step 5 section) and run it over the ledger `.superpowers/sdd/2026-09-29-slice20-product-titles-not-stores/progress.md`: for every ruling ID (R1, R2), every `minor (deferred)` line and every `parked` line, print which of `docs/findings-slice20.md`, the spec and this plan's changes section contains its key phrase. A ledger item marked fixed counts as covered when the spec or plan records the fix. Report and fix misses.
 - [ ] **Step 7: Commit**
 
 ```bash
@@ -926,6 +944,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   4. The rival test's competitor is `status="suggested"`. The spec says only "a `competitor` row named Crocs".
   5. The ceiling comment sits at the `missing` call in `run_products`, not in `missing`'s docstring. The docstring names `exclude`'s contents.
   6. `test_a_row_with_no_titles_is_a_hit` is never seen failing: it passes before and after Step 7. It pins spec §5 B's "a row with no titles counts as a hit", so an implementation that also requires non-empty titles would fail it.
+  7. Ruling R2: `test_a_search_under_the_old_query_is_redone`'s seed gains `brand` and `model` keys (Step 5 item 4). Spec §5 C now lists it.
+  8. Task 4 Step 9 runs the backend gate inside the task; the controller also runs both gates after Task 5, as spec §5 C says.
 
 ## Changes made during execution
 

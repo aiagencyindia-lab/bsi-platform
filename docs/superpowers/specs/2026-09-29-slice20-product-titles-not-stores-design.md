@@ -170,6 +170,7 @@ Integration, `tests/integration/test_products_run.py`:
 - New: a fresh, error-free row whose `query` is `search_query("kids sandals")` but whose titles have no `brand` key is searched again, and afterwards the row's titles carry `brand` and `model`.
 - New: a fresh, error-free row whose `query` is `search_query("kids sandals")` and whose `titles` is `[]` is a hit: the engine is not called.
 - `test_a_fresh_search_is_reused_and_a_stale_one_redone` seeds its titles with `brand` and `model` keys so the row stays a hit.
+- `test_a_search_under_the_old_query_is_redone` seeds its titles with `brand` and `model` keys, so only the query-wording condition can force its re-search (Ruling R2).
 - Every exact assertion on stored titles gains `"brand": ""` and `"model": ""` (the default fake parse returns neither): in `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked`, `test_an_error_search_is_not_reused`, `test_a_search_under_the_old_query_is_redone` and `test_store_names_are_not_stored_as_titles`.
 
 Gates: the backend gate and `npm run gate`, run by the controller.
@@ -179,6 +180,8 @@ Gates: the backend gate and `npm run gate`, run by the controller.
 ## Rulings
 
 - **R1: `test_an_error_search_is_not_reused` seeds the new query.** Decided: its error row is seeded with `query=products.search_query("kids sandals")` instead of `query="q"`. Why: §1 keeps slice 18's R9 (an error row is searched again) unchanged, and this is the only test of R9; with `query="q"` the new query check alone forces the search again, so deleting `m.KeywordSearch.error.is_(None)` would pass every test. Found by the final whole-branch review (controller ruling, 2026-09-29). This overrides the §3 line and the plan line that said this row stays as it is. Cost if wrong: one test line. §3 above is updated.
+
+- **R2 (plan review of the extension).** `test_a_search_under_the_old_query_is_redone` seeds its row's titles with `"brand": ""` and `"model": ""`. Why: once a row without a `brand` key is searched again, that test's seeded row is redone by the brand condition alone, so deleting the query-wording condition would pass every test (the same gap R1 closed for R9). It adds to §5 C's list. Cost if wrong: one test fixture.
 
 ## Out of scope
 
