@@ -73,6 +73,7 @@ The keyword step:
 - `fit_rank` drops most lower-rank keywords, because they often end in an attribute rather than the category word (*inferred* from the reviews, not observed on a live run), so the stored `keywords` list often shrinks to the generic phrase. This is what the spec asks for; watch it in the dev re-check.
 - The key map lives for one run only. A variant of a keyword that an earlier run cached (for example `men sandals` when `mens sandal` is cached) is a new string, misses the cache and pays for a new search.
 - `fit_rank` ignores a trailing 1-letter word: it uses `fold`, which drops 1-letter tokens, so a keyword ending in one (for example "size a") is judged by the word before it, while `keyword_key` keeps that letter (R1).
+- The R3 fallback uses the last folded word of the whole keyword, so a keyword that starts with a stopword and has another later ("a line dress for women") is read by "women", not "dress"; the old last-word rule gave the same result, so this is not a regression. No test covers the fallback. The fallback also applies when the words before the stopword are all 1-letter tokens ("x for men" is read by "men"), because `fold` drops them.
 
 Web:
 - `droppedNote` is called twice per row in the Check cell (the plan's snippet); the call is cheap.
