@@ -26,12 +26,16 @@ Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-29). Each design
 - **Scope:** the parse fix plus the query wording.
 - **Locale:** stays out of the query text; it is its own later slice.
 - **Approach A with the narrowed filter:** reword the query, keep the two-step parse, filter store names in code, add `com` to `STOPWORDS`, and count a cached row as a hit only when its query matches. Rejected: B, a fixed answer format parsed with a regex (saves about 1,500 micros per search; a format slip gives zero titles); C, a second search when too few titles remain (about double the cost for most keywords).
-- **The filter is narrower than the slice 19 note** ("equal or contain their own domain"): a title that only contains the store's name is kept, so "Crocs Classic Clog" from crocs.com survives.
+- **The filter rule:** a title is dropped when it equals the store's name ("REEF" from reef.com) or contains the store's full domain ("ShopWSS.com"). A title that only contains the store's name is kept, so "Zappos Kids Sandal" survives when zappos.com is cited. The rejected rule was "drop a title that contains the store's name".
 
 Codebase facts the design rests on (read on 2026-09-29, `main` = `3f303b1`):
 
 - `run_products` builds the query inline: `query = f"{keyword} buy online"`.
-- Cached rows are loaded with `keyword IN (…)`, `searched_at > fresh_after` and `error IS NULL` (slice 18 R9), then `new = [k for k in ordered if k not in titles_by_kw]`.
+- Cached rows are loaded by the `titles_by_kw.update(...)` generator, whose select filters `brand_id`, `keyword IN (…)`, `searched_at > fresh_after` and `error IS NULL` (slice 18 R9); then `new = [k for k in ordered if k not in titles_by_kw]`.
+- `titles_prompt`'s first line is `f"The text below answers a search for {keyword!r} buy online.\n"`.
+- `matching.normalize_domain(value)` casefolds, strips a scheme, path, query, user part, port, a leading `www.` and a trailing dot.
+- A `keyword_search` row's `cost_micros` is the search plus its parse call. Slice 19's re-check estimated 8 × 37,500 + 6,000 = 306,000 micros and measured 308,958.
+- Nothing outside `run_products` reads `keyword_search.query`; the API only deletes rows.
 - A search result is written with `INSERT … ON CONFLICT (uq_keyword_search_brand_keyword) DO UPDATE`, which overwrites `query`, `titles`, `model`, `cost_micros`, `error` and `searched_at`.
 - After a search: `parsed = adapter.parse(result.raw)`; `domains = sorted({d for _, d in parsed.citations if d})`; the judge is called with `titles_prompt(keyword, parsed.text, domains)` and `TitleSet`; `row["titles"] = keep_present([...], parsed.text)`.
 - `keep_present(titles, text)` keeps titles found verbatim in the text, lowercases domains and caps at `TOP_TITLES = 5`.
@@ -47,20 +51,21 @@ All code changes are in `packages/core/bsi_core/products.py`.
 
 - New `search_query(keyword: str) -> str` returns `f"{keyword}: popular products to buy online, with each product's full title"`. `run_products` calls it in place of the inline f-string.
 - Country and language still go to `adapter.query` as now. The query text is locale-free.
-- A cached row is a hit only when `row.query == search_query(row.keyword)`. The check is done in Python on the rows the existing select returns. A row that fails it is treated as absent: its keyword stays in `new`, is searched, and the existing upsert overwrites the row.
+- A cached row is a hit only when `row.query == search_query(row.keyword)`. The check is a condition in the `titles_by_kw.update(...)` generator, on the rows the existing select returns. A row that fails it is treated as absent: its keyword stays in `new`, is searched, and the existing upsert overwrites the row.
 - Unchanged: `SEARCH_TTL_DAYS`, R9, `KEYWORD_CAP`, the R10 budget check, `SEARCH_MICROS`, the `keyword_search` schema.
 - Cost effect: the first run after this change searches every keyword again, because no existing row has the new query.
 
 ### 2. Parsing the answer
 
-- `titles_prompt` keeps its current rules and gains this sentence: "A product title names one product; never list a store, retailer, marketplace or brand name on its own."
+- `titles_prompt`'s first line names the new query: `f"The text below answers the search {search_query(keyword)!r}.\n"`. The rest keeps its current rules and gains this sentence: "A product title names one product; never list a store, retailer, marketplace or brand name on its own."
 - New `drop_stores(titles: list[dict[str, Any]], domains: Sequence[str]) -> list[dict[str, Any]]`, called on the parsed list before `keep_present`, so the cap of 5 applies to what survives. Order is kept.
-  - Known domains for a title: its own `domain` field plus `domains` (the citation domains). Each is stripped, lowercased and has a leading `www.` removed; empty ones are skipped.
+  - Each title is read as `str(t.get("title") or "")` and its domain as `str(t.get("domain") or "")`, as `keep_present` reads them.
+  - Known domains for a title: its own domain plus `domains` (the citation domains), each passed through `matching.normalize_domain`; empty results are skipped.
   - For a known domain `d`: its **name** is `d.split(".")[0]`; its **joined form** is `"".join(tokens(d))` (`zappos.com` → `zapposcom`).
   - The title's **squashed form** is `"".join(tokens(title))`.
-  - The title is dropped when, for any known domain, the squashed form equals the name or the joined form, or `d` is a substring of the casefolded title.
+  - The title is dropped when, for any known domain, the squashed form equals the name or the joined form, or `d` contains a `.` and is a substring of the casefolded title. A domain without a dot ("amazon", "x" — the field is free model text) is only compared by name, so "Amazon Essentials Sandal" is kept.
   - Known ceiling, stated in a code comment: a subdomain gives its first label as the name (`shop.nike.com` → `shop`); a store whose name differs from its domain ("Journeys Kidz", journeys.com) is not caught and is left to the prompt.
-- `STOPWORDS` gains `com`. No other ending is added.
+- `STOPWORDS` gains `com`. No other ending is added. This affects `missing` (a `com` token is never suggested) and `dropped` (a `com` token in an original title is never reported as dropped).
 - Unchanged: `keep_present`, `missing`, `dropped`, `rule_check`, `rewrite_prompt`, `keyword_prompt`, the stored shape of `titles`.
 - When 0 or 1 titles survive, nothing new happens: `missing` needs a stem in at least `MIN_TITLES = 2` titles, so it returns `[]` and the rewrite gets the keyword only.
 
@@ -76,22 +81,25 @@ Unit, `tests/unit/test_products.py`:
   - `{"title": "Kids Foot Locker", "domain": "www.kidsfootlocker.com"}`
   - `{"title": "Zappos.com", "domain": ""}` with `domains=["zappos.com"]`
   - `{"title": "Buy at ShopWSS.com", "domain": "shopwss.com"}`
+  - `{"title": "Zappos", "domain": "https://www.zappos.com/kids"}` (the domain is normalised first)
 - `drop_stores` keeps, in order:
   - `{"title": "Crocs Classic Clog", "domain": "crocs.com"}`
+  - `{"title": "Zappos Kids Sandal", "domain": ""}` with `domains=["zappos.com"]`
+  - `{"title": "Amazon Essentials Sandal", "domain": "amazon"}`
   - `{"title": "Kids Lanner Ridge II Slipper", "domain": ""}`
-  - `{"title": "Journeys Kidz", "domain": "journeys.com"}`
-- `titles_prompt("kids sandals", "answer text", ["amazon.in"])` contains "never list a store, retailer, marketplace or brand name on its own".
+  - `{"title": "Journeys Kidz", "domain": "journeys.com"}` — the documented ceiling, commented as such in the test so a later fix knows to flip it.
+- `titles_prompt("kids sandals", "answer text", ["amazon.in"])` contains `search_query("kids sandals")`, does not contain "buy online.", and contains "never list a store, retailer, marketplace or brand name on its own".
 - `missing("Blue Sandal", ["Zappos com sandal", "ShopWSS com sandal"], [])` does not contain `com`.
 
-Unit, `tests/unit/test_recommend_copy.py`: `PRODUCT_CASES` gains `search_query("kids shoes")`.
+Unit, `tests/unit/test_recommend_copy.py`: `search_query` is imported, and `PRODUCT_CASES` gains `search_query("kids shoes")`.
 
 Integration, `tests/integration/test_products_run.py`:
 
-- The three assertions on the engine prompt use `search_query(...)`'s text: for `kids sandals` (twice) and `mens sandal`.
+- The three assertions on the engine prompt use `search_query(...)`'s text: in `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` and `test_an_error_search_is_not_reused` (`kids sandals`), and in `test_plural_variants_share_one_search` (`mens sandal`).
+- `test_a_fresh_search_is_reused_and_a_stale_one_redone` seeds its fresh row with `query=search_query("kids sandals")` instead of `"q"`, so it stays a hit. It is the test that a new-query row is a hit; no separate test is added.
+- The other rows seeded with `query="q"` or a "buy online" query (`test_an_error_search_is_not_reused`, `test_isolation.py`, `test_api_products.py`, `test_rls.py`) stay as they are: they are searched either way or never read by `run_products`.
 - New: a fresh, error-free cached row whose `query` is `"kids sandals buy online"` is searched again; afterwards the row's `query` is the new text and its `titles` are the new result.
-- New: a fresh, error-free cached row whose `query` is `search_query("kids sandals")` is a hit; the engine is not called.
-- New: a run whose judge returns the titles "Zappos.com" (domain zappos.com) and "Kids Classic Sandal" (both present in the answer text) stores only "Kids Classic Sandal".
-- Existing tests that seed a cached row to be a hit seed it with the new query.
+- New: a run whose judge returns the titles "Zappos.com" (domain zappos.com) and "Kids Classic Sandal" stores only "Kids Classic Sandal". This needs a `titles=` parameter on the test file's `_generator` (its titles body is fixed today) and a `FakeEngine` whose answer text contains both titles. `FakeEngine.parse` always cites `amazon.in`, so this test covers the title's own-domain path; the citation path is covered by the unit tests.
 - The "idle in transaction" probe keeps covering the search step; session handling does not change.
 
 Gates: the backend gate and `npm run gate`, run by the controller.
@@ -107,13 +115,12 @@ Run only with the user's OK, asked at that point.
 
 | Item | Count | Each (micros) | Total (micros) |
 |---|---|---|---|
-| Grounded searches | 8 | 37,500 | 300,000 |
-| Title parse calls | 8 | 1,500 | 12,000 |
+| Grounded searches, parse call included | 8 | 37,500 | 300,000 |
 | Keyword calls (3 samples, 1 batch) | 3 | 1,500 | 4,500 |
 | Rewrite call | 1 | 1,500 | 1,500 |
-| Total | | | 318,000 (about $0.32) |
+| Total | | | 306,000 (about $0.31) |
 
-  With 10 distinct keywords: 10 × 39,000 + 6,000 = 396,000 (about $0.40). Spend would go from $9.9377 to between about $10.26 and $10.34 of the $15 cap.
+  This is the same method as slice 19's estimate, which measured 308,958. With 10 distinct keywords and slice 18's upper per-search figure: 10 × 39,000 + 6,000 = 396,000 (about $0.40). *Inferred:* asking for full titles may lengthen the answer and the parse input a little, so the per-search figure may rise. Spend would go from $9.9377 to between about $10.24 and $10.33 of the $15 cap.
 - Reported as observed: per keyword, how many stored titles are products and how many are stores; whether LC-01 and LC-02 still carry "Com"; the job's cost.
 - The slice does not promise product titles for every keyword. If the new wording still returns stores, findings record the counts.
 
