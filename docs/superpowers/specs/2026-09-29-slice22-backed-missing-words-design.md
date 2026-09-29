@@ -111,8 +111,8 @@ Integration, `tests/integration/test_products_run.py`:
   - It seeds with `description="Summer sandal, an alternative to Crocs and Teva Hurricane"`.
   - `RIVAL_TITLES` becomes 3 titles, so a word needs 2: `("Teva Hurricane Summer Sandals", "Teva", "Hurricane")`, `("Crocs Teva Hurricane Summer Slides", "Teva", "Hurricane")`, `("Crocs Summer Sandals", "", "")`.
   - Its expected value stays `["summer"]`, and its comment stays "Without the exclusions: ["summer", "crocs", "hurricane", "teva"]".
-  - The plan re-proves slice 20's R5 check: with the `exclude` argument removed from `run_products`'s `missing` call, this test fails.
-- New test, backed and unbacked words end to end. One product, seeded with `description="Summer sandal for daily wear"`; the answer text and the parsed titles hold "Kids Summer Sandals Lightweight" and "Boys Summer Sandals Lightweight"; the keyword is the fake generator's default, "kids sandals".
+  - The plan re-proves slice 20's R5 check by the same change: with `for n in (c.name, *c.aliases)` changed to `for n in (c.name,)` in `run_products`, this test fails with "crocs" in the missing words. The file is then restored from a backup.
+- Two new tests, backed and unbacked words end to end, one per rewrite below. Each seeds and runs on its own. One product, seeded with `description="Summer sandal for daily wear"`; the answer text and the parsed titles hold "Kids Summer Sandals Lightweight" and "Boys Summer Sandals Lightweight"; the keyword is the fake generator's default, "kids sandals".
   - With `rewrite="Walkaroo Boys Summer Sandal 0"`: `missing_keywords == ["summer"]`, `suggested_title == "Walkaroo Boys Summer Sandal 0"`, `rule_check == "pass"`.
   - With `rewrite="Walkaroo Boys Lightweight Summer Sandal 0"`: `missing_keywords == ["summer"]`, `suggested_title == "Walkaroo Boys Summer Sandal 0"`, `rule_check == "adjusted"`.
 - A description also goes to `fit_rank` and `rewrite_prompt`. With the keyword "kids sandals" and the fake generator's fixed output, no other expected value changes.
