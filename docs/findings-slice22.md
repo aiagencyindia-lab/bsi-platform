@@ -52,11 +52,44 @@ All code changes are in `packages/core/bsi_core/products.py`. No schema, API or 
 | dbb5d82 | docs: slice 22 findings, index and rulings |
 | 01dbca7 | docs: slice 22 plan changes: the findings Untested list |
 | 68dbe67 | docs: slice 22 findings: final-review minors |
-| (this commit) | docs: slice 22 rulings R1-R2 and last coverage items |
+| 6177f1e | docs: slice 22 rulings R1-R2 and last coverage items |
+| (this commit) | docs: slice 22 live check and last touch-ups |
 
 ## 2. Live check on dev
 
-Not yet run. The controller runs it after the user approves; results are recorded here then.
+Run on 2026-09-29 by the controller at 6177f1e, with the user's OK ("run the dev re-check first"). Dev was at migration 0020; no migration was needed.
+
+- Pre-check: no worker or uvicorn running, 0 queued or running jobs, 5 prior `product_run` jobs totalling 1,587,958 micros.
+- The API was started in the background. `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/products/run` returned HTTP 202 and queued job `d75feb1d-5c24-42f0-b88d-8b6578e4bb73`. The API was then stopped (background task exit 144, expected). Exactly 1 job was queued, and `process_job` was run once (it printed `True`). The worker loop was not started.
+- Job `d75feb1d`: status done, error null, `cost_micros = 5,819`, created 17:53:51, started 17:53:58 UTC.
+- No grounded search ran: 0 `keyword_search` rows were searched in the last 30 minutes, and all 8 keywords were cached. The keywords are the same 8 as slice 21's check.
+- Afterwards: 0 queued or running jobs, and no worker or uvicorn process.
+
+**Per product** (observed by read-only queries after the job):
+
+| Product | Keyword | Missing words | Suggested title | Status | Dropped words |
+|---|---|---|---|---|---|
+| LC-01 | kids sandals | kid | BSOAgentTestBrand Blue Kid Sandals Boys | adjusted | (none) |
+| LC-02 | kids sandals | kid | BSOAgentTestBrand Pink Kid Sandals Girls | adjusted | (none) |
+| LC-03 | kids shoes | (none) | BSOAgentTestBrand Black Kids Sports Shoe | adjusted | (none) |
+| LC-04 | kids slippers | (none) | BSOAgentTestBrand Grey Kids Slippers | adjusted | (none) |
+| LC-05 | navy flip flops | (none) | BSOAgentTestBrand Navy Flip Flop Men | adjusted | (none) |
+| LC-06 | men sandals | (none) | BSOAgentTestBrand Brown Men Casual Sandal | adjusted | (none) |
+| LC-07 | women slippers | (none) | BSOAgentTestBrand Beige Women Casual Slipper | adjusted | (none) |
+| LC-08 | men shoes | (none) | BSOAgentTestBrand Grey Men Sports Shoe | adjusted | (none) |
+| LC-09 | kids shoes | kids | BSOAgentTestBrand Black Kids School Shoe Boys | adjusted | (none) |
+| LC-10 | women sandals | footbed | BSOAgentTestBrand Tan Women Sandal Footbed | adjusted | (none) |
+
+**Against spec §3's *inferred* expectations:** all 10 match (LC-01/02 kid, LC-09 kids, LC-10 footbed, none for LC-03..LC-08).
+
+**Observations.**
+- All 10 statuses are `adjusted` (the stored title differs from the rewrite's suggestion), with 0 dropped words. The raw rewrite is not stored, so which words `rule_check` removed is *inferred* only (unbacked or repeated words).
+- LC-05 was `review` (dropped "men") in slice 21's check. It is now `adjusted`, with "Men" kept.
+- No suggestion contains Boots, Slide, Toddler, Available, Wide or Width.
+
+**Spend:** about $10.87 + $0.0058 ≈ $10.88 of the $15 cap.
+
+**Writes:** the job row, 10 product rows and `api_key.last_used_at`. No `keyword_search` writes.
 
 ## 3. Deferred and untested
 
@@ -73,11 +106,15 @@ From the final whole-branch review:
 - findings-slice22.md's commit table ends at "(this commit)" (dbb5d82) and lacks 01dbca7 "docs: slice 22 plan changes: the findings Untested list"; add the row with the live-check docs edit. Fixed in 68dbe67.
 - docs/README.md's slice 22 spec row says "with the rulings made during the build", but the spec's ## Rulings reads "None." (wording copied from the slice 21 row). Fixed in 68dbe67; the spec now has Rulings R1 and R2, so the row says "with the rulings made during the build" again.
 - spec §3's inferred LC-09 "kids" looks odd to the reviewer, on the premise that the product title already says "Kids". Controller check (read-only dev query): LC-09's title is "BSOAgentTestBrand Boys School Shoe Black" (no "Kids"; LC-03's is "BSOAgentTestBrand Kids Sports Shoe Black"), so the premise does not hold for LC-09; compare with what the live check observes.
-- plan:545 says the commit table "gains the rows dbb5d82 and 01dbca7"; dbb5d82 was relabelled from "(this commit)", and the new "(this commit)" row is not mentioned. Fixed in this commit: the plan's changes section now says so.
+- plan:545 says the commit table "gains the rows dbb5d82 and 01dbca7"; dbb5d82 was relabelled from "(this commit)", and the new "(this commit)" row is not mentioned. Fixed in 6177f1e: the plan's changes section now says so.
+
+From the re-review of 6177f1e:
+- findings §3's two "Fixed in this commit: ..." notes added by 6177f1e (R1's, requested; the plan:545 bullet's, not requested but accurate) must become "Fixed in 6177f1e" at the next commit (the live-check docs, if run). Fixed in this commit.
+- the parked bullets cite 68dbe67's findings line numbers (:67, :67-68, :72-73), which 6177f1e shifted; they follow the ledger text as asked. Fixed in this commit: each parked bullet now says "(line numbers as at 68dbe67)".
 
 Parked (with rulings):
-- findings-slice22.md:67 adds "(line numbers as at dbb5d82)" to the Task 3 minors; true for `:64`, false for `:37` (at dbb5d82 line 37 is blank; the Starlette warning line is 35) — Ruling R1: the doc line is wrong and should be corrected, but the skill allows no second fix wave; it is surfaced to the user at finishing as a one-line docs fix (drop the qualifier, keeping the ledger text) — cost if wrong: one findings bullet cites a wrong line number until fixed. Fixed in this commit: the qualifier is removed.
-- findings-slice22.md:67-68 and :72-73 carry text beyond the ledger lines (the "(line numbers as at dbb5d82)" prefixes; " Fixed in this commit." suffixes, which are accurate) — Ruling R2: the suffixes stand as accurate status notes; the prefix goes with the item above — cost if wrong: two bullets are not word-for-word ledger text.
+- (line numbers as at 68dbe67) findings-slice22.md:67 adds "(line numbers as at dbb5d82)" to the Task 3 minors; true for `:64`, false for `:37` (at dbb5d82 line 37 is blank; the Starlette warning line is 35) — Ruling R1: the doc line is wrong and should be corrected, but the skill allows no second fix wave; it is surfaced to the user at finishing as a one-line docs fix (drop the qualifier, keeping the ledger text) — cost if wrong: one findings bullet cites a wrong line number until fixed. Fixed in 6177f1e: the qualifier is removed.
+- (line numbers as at 68dbe67) findings-slice22.md:67-68 and :72-73 carry text beyond the ledger lines (the "(line numbers as at dbb5d82)" prefixes; " Fixed in this commit." suffixes, which are accurate) — Ruling R2: the suffixes stand as accurate status notes; the prefix goes with the item above — cost if wrong: two bullets are not word-for-word ledger text.
 
 Untested:
 - The two reworked integration tests were never seen failing: their fixtures changed, but their expected values pass both before and after the wiring (plan departure 4). The R5 re-proof shows the rival test still fails when the alias exclusion is removed.

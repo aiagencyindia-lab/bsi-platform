@@ -551,3 +551,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   - The spec's `## Rulings` now holds R1 and R2 instead of "None.", so the README's slice 22 spec row says "with the rulings made during the build" again, and the bullet above on rulings holds for Tasks 1–3 only.
   - The plan:545 minor, corrected here: in the findings commit table, `dbb5d82` was relabelled from "(this commit)", `01dbca7` was added, and a new "(this commit)" row was added.
   - The "Fixed in this commit." notes that 68dbe67 added to 2 final-review minors in findings §3 now say "Fixed in 68dbe67.", so they stay accurate after this commit.
+- Live check and last touch-ups, a docs commit after the controller ran the dev re-check with the user's OK (job `d75feb1d`, at 6177f1e):
+  - findings §2 records the live check in place of "Not yet run", and the README's slice 22 findings row says "(run on 2026-09-29)".
+  - The 2 re-review minors of 6177f1e, applied and listed in findings §3: the two "Fixed in this commit: …" notes that 6177f1e added now read "Fixed in 6177f1e: …", and the parked bullets, which keep the ledger's line references, now say "(line numbers as at 68dbe67)".
+  - The findings commit table relabels 6177f1e and adds a new "(this commit)" row.

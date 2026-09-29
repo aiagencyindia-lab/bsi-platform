@@ -183,7 +183,7 @@ In the order they were written:
 | [findings-slice21.md](findings-slice21.md) | Results: what was built, the live check on dev (run on 2026-09-29), and what is deferred or untested. |
 | [superpowers/specs/2026-09-29-slice22-backed-missing-words-design.md](superpowers/specs/2026-09-29-slice22-backed-missing-words-design.md) | Design spec: missing words backed by product data after slice 21's live check — a missing word must be backed by the product's keyword, description, category or attribute values and appear in more than half of the ranking titles; with the rulings made during the build. |
 | [superpowers/plans/2026-09-29-slice22-backed-missing-words.md](superpowers/plans/2026-09-29-slice22-backed-missing-words.md) | Implementation plan, Tasks 1–3, with the changes made during execution. |
-| [findings-slice22.md](findings-slice22.md) | Results: what was built, the live check on dev (not yet run), and what is deferred or untested. |
+| [findings-slice22.md](findings-slice22.md) | Results: what was built, the live check on dev (run on 2026-09-29), and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
