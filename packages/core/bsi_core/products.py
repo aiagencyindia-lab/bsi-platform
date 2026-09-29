@@ -365,6 +365,32 @@ def _brand_stems(brand_names: Sequence[str]) -> frozenset[str]:
 # Removed from the end of a fixed title: "Sandal And" -> "Sandal".
 CONNECTORS = frozenset({"and", "with", "for", "&", "-", "|"})
 
+# rule_check keeps these even when the rewrite adds them.
+FUNCTION_WORDS = frozenset(
+    {"and", "for", "with", "of", "the", "a", "an", "in", "on", "to", "by", "or"}
+)
+
+
+def _allowed_stems(
+    original: str, allowed: Sequence[str], brand_names: Sequence[str]
+) -> frozenset[str]:
+    """Stems a suggestion word may come from: the original title, the
+    allowed texts (keyword, missing words, the product's description,
+    category and attribute values), the brand's names; plus, for an
+    allowed token ending in "es", its singular ("watches" -> watch).
+    ponytail: rivals._stem drops only one "s"; this patches -es for
+    allowed words only."""
+    text = " ".join(allowed)
+    es = {
+        _stem(t[:-2]) for t in tokens(text) if len(t) > 3 and t.endswith("es")
+    }
+    return (
+        fold_set(original)
+        | fold_set(text)
+        | _brand_stems(brand_names)
+        | frozenset(es)
+    )
+
 
 def _strip_connectors(words: list[str]) -> list[str]:
     while words and words[-1].casefold() in CONNECTORS:
@@ -531,10 +557,16 @@ def dropped(
 
 
 def rule_check(
-    original: str, suggestion: str, brand_names: Sequence[str]
+    original: str,
+    suggestion: str,
+    brand_names: Sequence[str],
+    allowed: Sequence[str] = (),
 ) -> tuple[str, str, list[str]]:
     """(title, status, dropped_words). Fixes rather than retries: the
     brand is prepended if the original had it and the suggestion lost it;
+    a word whose stems come from none of the original title, `allowed` or
+    the brand's names is dropped (function words and numbers are kept)
+    right after the brand step;
     a word that repeats an earlier word's stem is dropped whole
     (punctuation-only words are kept); trailing CONNECTORS are removed;
     the title is trimmed to MAX_TITLE_CHARS at a word boundary, and
@@ -545,6 +577,14 @@ def rule_check(
     brand = _brand_in(original, brand_names)
     if brand and _brand_in(title, [brand]) is None:
         title = f"{brand} {title}".strip()
+    ok = _allowed_stems(original, allowed, brand_names)
+    title = " ".join(
+        w
+        for w in title.split()
+        if not (stems := fold_set(w))
+        or stems & ok
+        or all(t in FUNCTION_WORDS or t.isdigit() for t in tokens(w))
+    )
     seen: set[str] = set()
     kept: list[str] = []
     for word in title.split():
@@ -1019,7 +1059,16 @@ def run_products(
                         "title"
                     ]
                     title, status, lost = rule_check(
-                        p["title"], suggestion, names
+                        p["title"],
+                        suggestion,
+                        names,
+                        allowed=[
+                            p["keyword"],
+                            *p["missing"],
+                            p["description"] or "",
+                            p["category"] or "",
+                            *(str(v) for v in (p["attributes"] or {}).values()),
+                        ],
                     )
                     bullets = [
                         b.strip()[:MAX_BULLET_CHARS]

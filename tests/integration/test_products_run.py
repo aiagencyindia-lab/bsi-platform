@@ -52,7 +52,12 @@ class FakeEngine:
 
 
 def _generator(
-    owner=None, fail_on=None, keywords=None, by_index=None, titles=None
+    owner=None,
+    fail_on=None,
+    keywords=None,
+    by_index=None,
+    titles=None,
+    rewrite=None,
 ):
     """Answers each schema with fixed JSON; records the call kinds and,
     when `owner` is given, how many products had a keyword at call time."""
@@ -111,7 +116,8 @@ def _generator(
                 "products": [
                     {
                         "index": i,
-                        "title": "Walkaroo Kids Summer Sandals Sandals",
+                        "title": rewrite
+                        or "Walkaroo Kids Summer Sandals Sandals",
                         "bullets": ["Light", "Washable", "Soft", "Extra"],
                     }
                     for i in indexes
@@ -444,6 +450,18 @@ def test_a_row_with_no_titles_is_a_hit(owner, make_org, make_brand):
     assert engine.prompts == [] and rows[0].missing_keywords == []
 
 
+def test_the_rewrite_cannot_add_an_invented_word(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    gen = _generator(rewrite="Walkaroo Boys Toddler Sandal Kids")
+    _, rows, _searches = _run(owner, org, bid, gen)
+    assert (rows[0].suggested_title, rows[0].rule_check) == (
+        "Walkaroo Boys Sandal Kids",
+        "adjusted",
+    )
+
+
 RIVAL_TITLES = [
     ("Teva Hurricane Summer Sandals", "Teva", "Hurricane"),
     ("Teva Hurricane Summer Slides", "Teva", "Hurricane"),
@@ -522,7 +540,7 @@ def test_a_failed_search_is_stored_and_the_run_goes_on(
     assert job.status == "done"
     assert searches[0].error == "400 bad" and searches[0].titles == []
     assert rows[0].missing_keywords == []
-    assert rows[0].suggested_title == "Walkaroo Kids Summer Sandals"
+    assert rows[0].suggested_title == "Walkaroo Kids Sandals"
 
 
 def test_a_model_failure_in_batch_two_keeps_batch_one(

@@ -264,13 +264,20 @@ def test_rule_check_removes_repeated_tokens():
 
 
 def test_rule_check_restores_the_brand_the_original_had():
-    assert rule_check("Walkaroo Boys Sandal", "Boys Summer Sandal", BRAND) == (
+    assert rule_check(
+        "Walkaroo Boys Sandal",
+        "Boys Summer Sandal",
+        BRAND,
+        allowed=["Summer"],
+    ) == (
         "Walkaroo Boys Summer Sandal",
         "adjusted",
         [],
     )
     # The original had no brand: none is added.
-    assert rule_check("Boys Sandal", "Boys Summer Sandal", BRAND) == (
+    assert rule_check(
+        "Boys Sandal", "Boys Summer Sandal", BRAND, allowed=["Summer"]
+    ) == (
         "Boys Summer Sandal",
         "pass",
         [],
@@ -279,7 +286,9 @@ def test_rule_check_restores_the_brand_the_original_had():
 
 def test_rule_check_trims_to_150_at_a_word_boundary():
     words = [f"w{i}" for i in range(60)]  # "w0 w1 ... w59" = 229 chars
-    fixed, status, lost = rule_check("Plain", " ".join(words), BRAND)
+    fixed, status, lost = rule_check(
+        "Plain", " ".join(words), BRAND, allowed=[" ".join(words)]
+    )
     assert status == "review" and lost == ["plain"]
     assert len(fixed) <= 150
     assert fixed == " ".join(words)[: len(fixed)]
@@ -288,7 +297,10 @@ def test_rule_check_trims_to_150_at_a_word_boundary():
 
 def test_rule_check_passes_an_unchanged_suggestion():
     assert rule_check(
-        "Walkaroo Boys Sandal", "Walkaroo Boys Summer Sandal", BRAND
+        "Walkaroo Boys Sandal",
+        "Walkaroo Boys Summer Sandal",
+        BRAND,
+        allowed=["Summer"],
     ) == (
         "Walkaroo Boys Summer Sandal",
         "pass",
@@ -427,7 +439,9 @@ def test_rule_check_drops_a_word_that_repeats_an_earlier_token():
         "Walkaroo Kids-Sandal", "Walkaroo Kids-Sandal Sandal", BRAND
     ) == ("Walkaroo Kids-Sandal", "adjusted", [])
     # The brand is prepended first, then the repeated token is dropped.
-    assert rule_check("Red Tape Boots", "Tape Shoes", ("Red Tape",)) == (
+    assert rule_check(
+        "Red Tape Boots", "Tape Shoes", ("Red Tape",), allowed=["Shoes"]
+    ) == (
         "Red Tape Shoes",
         "review",
         ["boots"],
@@ -435,7 +449,9 @@ def test_rule_check_drops_a_word_that_repeats_an_earlier_token():
 
 
 def test_rule_check_keeps_punctuation_only_words():
-    assert rule_check("Walkaroo Sandal", "Walkaroo - Sandal | Kids", BRAND) == (
+    assert rule_check(
+        "Walkaroo Sandal", "Walkaroo - Sandal | Kids", BRAND, allowed=["Kids"]
+    ) == (
         "Walkaroo - Sandal | Kids",
         "pass",
         [],
@@ -457,9 +473,14 @@ def test_rule_check_folds_plurals_and_strips_a_trailing_connector():
 
 def test_rule_check_flags_dropped_words_for_review():
     assert rule_check(
-        "Men Casual Sandal Brown", "Brown Mens Sandal Shoes", BRAND
+        "Men Casual Sandal Brown",
+        "Brown Mens Sandal Shoes",
+        BRAND,
+        allowed=["Shoes"],
     ) == ("Brown Mens Sandal Shoes", "review", ["casual"])
-    assert rule_check("Men Flip Flop Navy", "Navy Men Slipper", BRAND) == (
+    assert rule_check(
+        "Men Flip Flop Navy", "Navy Men Slipper", BRAND, allowed=["Slipper"]
+    ) == (
         "Navy Men Slipper",
         "review",
         ["flip", "flop"],
@@ -476,7 +497,9 @@ def test_rule_check_strips_a_connector_the_trim_leaves_at_the_end():
     # "w0 ... w38 for" is 149 characters; " tail" would pass 150, so the
     # cut lands just after "for".
     words = [f"w{i}" for i in range(39)] + ["for", "tail", "end"]
-    fixed, _status, _lost = rule_check("Plain", " ".join(words), BRAND)
+    fixed, _status, _lost = rule_check(
+        "Plain", " ".join(words), BRAND, allowed=[" ".join(words)]
+    )
     assert len(fixed) <= 150
     assert fixed.split()[-1].casefold() not in CONNECTORS
 
@@ -533,7 +556,9 @@ def test_fit_rank_cuts_only_at_for_and_with():
 
 def test_short_stopwords_are_not_flagged_as_dropped():
     # R4: "of" and "in" are not product words.
-    assert rule_check("Kurta Set of 3 Blue", "Blue Kurta Set 3 Piece", ()) == (
+    assert rule_check(
+        "Kurta Set of 3 Blue", "Blue Kurta Set 3 Piece", (), allowed=["Piece"]
+    ) == (
         "Blue Kurta Set 3 Piece",
         "pass",
         [],
@@ -626,3 +651,57 @@ def test_missing_skips_colour_and_size_words():
 
 def test_dropped_still_flags_a_lost_colour():
     assert dropped("Black Shoe", "Shoe", []) == ["black"]
+
+
+def test_rule_check_drops_an_invented_word():
+    assert rule_check(
+        "BSOAgentTestBrand Brown Men Casual Sandal",
+        "BSOAgentTestBrand Brown Boys Casual Sandal Men",
+        ["BSOAgentTestBrand"],
+        allowed=["men sandals"],
+    ) == ("BSOAgentTestBrand Brown Casual Sandal Men", "adjusted", [])
+
+
+def test_rule_check_keeps_a_keyword_word():
+    assert rule_check(
+        "BSOAgentTestBrand Blue Boys Sandal",
+        "BSOAgentTestBrand Blue Boys Sandal Kids",
+        ["BSOAgentTestBrand"],
+        allowed=["kids sandals"],
+    ) == ("BSOAgentTestBrand Blue Boys Sandal Kids", "pass", [])
+
+
+def test_rule_check_keeps_function_words_and_numbers():
+    assert rule_check(
+        "Walkaroo Sandal 3",
+        "Walkaroo Sandal for Kids 3",
+        ["Walkaroo"],
+        allowed=["kids sandals"],
+    ) == ("Walkaroo Sandal for Kids 3", "pass", [])
+
+
+def test_rule_check_drops_an_invented_promotional_word():
+    assert rule_check(
+        "Walkaroo Sandal",
+        "Walkaroo Sandal Sale",
+        ["Walkaroo"],
+        allowed=["kids sandals"],
+    ) == ("Walkaroo Sandal", "adjusted", [])
+
+
+def test_rule_check_allows_the_singular_of_an_es_plural():
+    assert rule_check(
+        "Titan Analog Dial",
+        "Titan Analog Dial Watch",
+        ["Titan"],
+        allowed=["men watches"],
+    ) == ("Titan Analog Dial Watch", "pass", [])
+
+
+def test_rule_check_allows_attribute_words():
+    assert rule_check(
+        "Walkaroo Sandal",
+        "Walkaroo Leather Sandal",
+        ["Walkaroo"],
+        allowed=["kids sandals", "Leather"],
+    ) == ("Walkaroo Leather Sandal", "pass", [])
