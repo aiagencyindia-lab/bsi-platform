@@ -174,7 +174,7 @@ In the order they were written:
 | [findings-slice18.md](findings-slice18.md) | Results: what was built, a section for the live check on dev, and what is deferred or untested. |
 | [superpowers/specs/2026-09-29-slice19-product-quality-design.md](superpowers/specs/2026-09-29-slice19-product-quality-design.md) | Design spec: product-title quality fixes for the slice 18 wedge, from its live check: singular and plural folded in `missing` and the rule check, trailing connectors removed, dropped original words flagged with a new `review` status and stored (migration 0020), and a key-based keyword vote with a run-wide key map and a fit check so products share searches; with the rulings made during the build. |
 | [superpowers/plans/2026-09-29-slice19-product-quality.md](superpowers/plans/2026-09-29-slice19-product-quality.md) | Implementation plan, Tasks 1–5, with the changes made during execution. |
-| [findings-slice19.md](findings-slice19.md) | Results: what was built, a section for the live check on dev (not yet run), and what is deferred or untested. |
+| [findings-slice19.md](findings-slice19.md) | Results: what was built, the live check on dev (run on 2026-09-29: migration 0020 and the ten-product re-check), and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

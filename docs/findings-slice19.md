@@ -15,7 +15,7 @@ The four quality problems found by slice 18's live check (findings-slice18 §2 a
 **The keyword step.**
 - `keyword_key(k)` is `" ".join(_stem(t) for t in tokens(_display(k)))`. `_display` lowercases, collapses whitespace and removes the possessive `'s` (straight or curly apostrophe, `_POSSESSIVE`). 1-letter tokens are kept (ruling R1).
 - `vote(samples)` compares keys: rank 1 is the key most often at rank 1 (ties by sample order), then the other keys in first-seen order, each shown in its first surface form. `vote([["men's sandals"], ["mens sandal"], ["men flip flops"]]) == ["men sandals", "men flip flops"]`.
-- `fit_rank(keywords, title, category, description)` runs after `drop_brand_terms`. A keyword's category word is the last folded word before its first `STOPWORDS` token, or its last folded word when nothing comes before that token (ruling R3): "slippers for men" is read by `slipper`, not `men`. Keywords whose category stem is in the title come first, then those whose stem is only in the category or description; the rest are dropped. With none left the keyword is NULL and R13 applies.
+- `fit_rank(keywords, title, category, description)` runs after `drop_brand_terms`. A keyword is cut at its first `CATEGORY_CUTS` token (`for` or `with`; rulings R3 and R6). Its category word is the last folded word before the cut, or the last folded word of the whole keyword when nothing folds before the cut (R3): "slippers for men" is read by `slipper`, not `men`, and "men slip on shoes" by `shoe`. Keywords whose category stem is in the title come first, then those whose stem is only in the category or description; the rest are dropped. With none left the keyword is NULL and R13 applies.
 - **Run-wide key map.** `run_products` keeps `key_map: dict[str, str]` for the whole run. The first product with a key sets the keyword string, and later products with the same key reuse it, so `mens sandal` and `men sandals` share one search and one `keyword_search` row.
 
 **Prompts.** `keyword_prompt` asks for rank 1 as a broad plural shopper phrase (audience plus the product's own category, e.g. "kids sandals", "men flip flops"), "kids" rather than "boys" or "girls", and never a different product type. `rewrite_prompt` says to keep every word of the original title (reordering allowed), add the keyword and missing terms naturally, never change the product type, repeat no word and avoid keyword stuffing.
@@ -28,7 +28,7 @@ The four quality problems found by slice 18's live check (findings-slice18 §2 a
 
 **Products tab.** `format.ts` gains `droppedNote(words)`, which returns `dropped: a, b` or `null` for an empty or missing list. The Check cell shows the `rule_check` tag (now including `review`) and under it a muted line with the dropped words. `PRODUCT_CASES` in `test_recommend_copy.py` gains `review` and `dropped: `.
 
-**Commits** (`git log --oneline main..HEAD`, oldest first; the docs commit for the final-review fixes follows them):
+**Commits** (`git log --oneline main..HEAD`, oldest first):
 
 | Commit | Subject |
 |---|---|
@@ -42,6 +42,14 @@ The four quality problems found by slice 18's live check (findings-slice18 §2 a
 | e0d349c | docs: slice 19 findings, index and rulings |
 | e1c1260 | docs: show the RUF001 fix as the escape text in the plan |
 | 8cfa6fa | fix(products): read the category word before a stopword; add short stopwords |
+| 0c98e29 | docs: slice 19 rulings R3 and R4 and final-review deferrals |
+| fb41c4a | docs: record the R3 fallback limit in slice 19 findings |
+| 5763bfe | docs: slice 19 dev re-check results |
+| 02e0f0a | docs: align slice 19 findings with the re-check |
+| e7cf869 | docs: mark the LC-09 cause as inferred; correct the kept-keywords reason |
+| 3983fb4 | docs: record ruling R5 (store names as titles deferred) in the slice 19 spec |
+| d1bc876 | fix(products): cut a keyword only at for/with in fit_rank (R6) |
+| (this commit) | docs: slice 19 audit fixes: ruling R6, R4's cost, R5's cause, test lists |
 
 ## 2. Live check on dev
 
@@ -72,8 +80,10 @@ Run on 2026-09-29 against the dev database, with the user's approval for both th
 Decisions with a cost (rulings, spec `## Rulings`):
 - `keyword_key` keeps 1-letter tokens and strips the possessive first, where the spec's first text used `fold` (R1). Cost: none seen.
 - Trailing connectors are stripped a second time, after the 150-character trim (R2). Cost: none.
-- `fit_rank` reads the category word before the keyword's first stopword (R3). Cost: a phrase whose category genuinely follows a stopword is read by the earlier word.
-- `a an in of on to by at or` are stopwords (R4). Cost: none.
+- `fit_rank` reads the category word before the keyword's first cut word, `for` or `with` since R6 (R3). Cost: a phrase whose category genuinely follows `for` or `with` is read by the earlier word.
+- `a an in of on to by at or` are stopwords (R4). Cost: not none, as first recorded. From commit 8cfa6fa until R6, R3 cut at these words too, so "men slip on shoes" (read by `slip`) and "women pull on boots" (read by `pull`) were dropped. R6 fixed that.
+- Store names parsed as product titles are deferred to the next slice (R5). The root cause is upstream, in `titles_prompt` and `keep_present`; the stop-gap of adding "com" to `STOPWORDS` was deferred too. Cost: until then a run can add a domain fragment such as "Com" to suggestions; on dev, LC-01 and LC-02 carry it.
+- `fit_rank` cuts a keyword only at `CATEGORY_CUTS` (`for`, `with`), not at every stopword (R6). Cost: a category after another joining word ("sandals in black") is read by the last word (`black`), as it was before R3.
 
 Migration and export:
 - `dropped_words` export cells cannot start with a formula character: the values come from `tokens()`, which yields only `[a-z0-9]+`, so the risk cannot occur. The generic `cell()` in `export_rows` (R6) still covers the column.
@@ -93,7 +103,7 @@ The keyword step:
 - The worry that `fit_rank` would drop most lower-rank keywords did not happen in the re-check (§2): every product kept 4–5 keywords, e.g. LC-01 `kids sandals, boys sandals, eva sandals, blue sandals, kids strap sandals`. Some of them fit only through the category or description tier: LC-05 "Men Flip Flop Navy" (category "Slippers") kept `men slippers` and `daily wear slippers` below its rank-1 `men flip flops`, and LC-04 "Kids Slipper Grey" kept `kids flip flops` from its description.
 - The key map lives for one run only. A variant of a keyword that an earlier run cached (for example `men sandals` when `mens sandal` is cached) is a new string, misses the cache and pays for a new search.
 - `fit_rank` ignores a trailing 1-letter word: it uses `fold`, which drops 1-letter tokens, so a keyword ending in one (for example "size a") is judged by the word before it, while `keyword_key` keeps that letter (R1).
-- The R3 fallback uses the last folded word of the whole keyword, so a keyword that starts with a stopword and has another later ("a line dress for women") is read by "women", not "dress"; the old last-word rule gave the same result, so this is not a regression. No test covers the fallback. The fallback also applies when the words before the stopword are all 1-letter tokens ("x for men" is read by "men"), because `fold` drops them.
+- The R3 fallback uses the last folded word of the whole keyword when nothing folds before the cut: a keyword that starts with a cut word ("for men") or whose head has only 1-letter tokens ("x for men") is read by "men", because `fold` drops 1-letter tokens. No test covers the fallback. Since R6, "a" is not a cut word, so "a line dress for women" is read by `dres` (dress), not by the fallback (`test_fit_rank_cuts_only_at_for_and_with`).
 
 Web:
 - `droppedNote` is called twice per row in the Check cell (the plan's snippet); the call is cheap.
