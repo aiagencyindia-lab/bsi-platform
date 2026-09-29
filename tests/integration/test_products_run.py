@@ -5,11 +5,13 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import bsi_workers.worker as worker
+import pytest
 from bsi_core import models as m
 from bsi_core import products
 from bsi_core.crawl import Response
 from bsi_core.providers.base import EngineResult, ParsedAnswer
 from sqlalchemy import select, text, update
+from sqlalchemy.exc import IntegrityError
 
 from tests.integration.test_worker import _job, _load_job
 
@@ -498,3 +500,23 @@ def test_import_feed_failures(owner, make_org, make_brand, monkeypatch):
     monkeypatch.setattr(products, "MAX_PRODUCTS", 0)
     job = _feed_job(owner, org, bid, lambda u, ua: Response(200, RSS.decode()))
     assert (job.status, job.error) == ("failed", "cap")
+
+
+def test_the_database_accepts_review_and_rejects_an_unknown_status(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Product).values(
+                rule_check="review", dropped_words=["casual"]
+            )
+        )
+    with owner() as s:
+        p = s.scalars(select(m.Product)).one()
+        assert (p.rule_check, p.dropped_words) == ("review", ["casual"])
+    with pytest.raises(IntegrityError):
+        with owner() as s, s.begin():
+            s.execute(update(m.Product).values(rule_check="maybe"))

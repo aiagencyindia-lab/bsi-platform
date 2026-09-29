@@ -131,10 +131,13 @@ def test_list_and_export(client, owner, make_org, make_brand):
         p.missing_keywords = ["summer", "kids"]
         p.suggested_title = "Walkaroo Kids Summer Sandal for Boys"
         p.suggested_bullets = ["Light", "Washable"]
-        p.rule_check = "adjusted"
+        p.rule_check = "review"
+        p.dropped_words = ["casual"]
     r = client.get(f"/v1/brands/{bid}/products", headers=org.headers)
     assert [p["external_id"] for p in r.json()] == ["W-1", "W-2"]
     assert r.json()[0]["missing_keywords"] == ["summer", "kids"]
+    assert r.json()[0]["dropped_words"] == ["casual"]
+    assert r.json()[1]["dropped_words"] is None
     r = client.get(f"/v1/brands/{bid}/products/export.csv", headers=org.headers)
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/csv")
@@ -144,14 +147,14 @@ def test_list_and_export(client, owner, make_org, make_brand):
     lines = r.text.splitlines()
     assert lines[0] == (
         "external_id,url,title,keyword,missing_keywords,"
-        "suggested_title,suggested_bullets,rule_check"
+        "suggested_title,suggested_bullets,rule_check,dropped_words"
     )
     assert lines[1] == (
         "W-1,https://walkaroo.in/p/1,Walkaroo Boys Sandal,kids sandals,"
         "summer|kids,Walkaroo Kids Summer Sandal for Boys,Light|Washable,"
-        "adjusted"
+        "review,casual"
     )
-    assert lines[2] == "W-2,,Walkaroo Kids Shoe,,,,,"
+    assert lines[2] == "W-2,,Walkaroo Kids Shoe,,,,,,"
 
 
 def test_delete_clears_products_and_searches(

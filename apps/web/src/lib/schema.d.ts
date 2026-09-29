@@ -2091,6 +2091,8 @@ export interface components {
             created_at: string;
             /** Description */
             description: string | null;
+            /** Dropped Words */
+            dropped_words: string[] | null;
             /** External Id */
             external_id: string;
             /**

@@ -133,6 +133,7 @@ def test_export_rows_joins_lists_and_blanks_none():
         suggested_title="Walkaroo Kids Summer Sandal for Boys",
         suggested_bullets=["Light EVA sole", "Washable"],
         rule_check="pass",
+        dropped_words=["casual"],
     )
     q = SimpleNamespace(
         external_id="W-2",
@@ -143,6 +144,7 @@ def test_export_rows_joins_lists_and_blanks_none():
         suggested_title=None,
         suggested_bullets=None,
         rule_check=None,
+        dropped_words=None,
     )
     assert EXPORT_COLUMNS == [
         "external_id",
@@ -153,6 +155,7 @@ def test_export_rows_joins_lists_and_blanks_none():
         "suggested_title",
         "suggested_bullets",
         "rule_check",
+        "dropped_words",
     ]
     assert export_rows([p, q]) == [
         [
@@ -164,8 +167,9 @@ def test_export_rows_joins_lists_and_blanks_none():
             "Walkaroo Kids Summer Sandal for Boys",
             "Light EVA sole|Washable",
             "pass",
+            "casual",
         ],
-        ["W-2", "https://walkaroo.in/p/2", "Other", "", "", "", "", ""],
+        ["W-2", "https://walkaroo.in/p/2", "Other", "", "", "", "", "", ""],
     ]
 
 
@@ -179,6 +183,7 @@ def test_export_rows_neutralises_formula_cells():
         suggested_title="+cmd",
         suggested_bullets=None,
         rule_check=None,
+        dropped_words=None,
     )
     row = export_rows([p])[0]
     assert row[2] == "'=HYPERLINK(1)"

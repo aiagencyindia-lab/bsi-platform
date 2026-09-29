@@ -69,6 +69,7 @@ EXPORT_COLUMNS = [
     "suggested_title",
     "suggested_bullets",
     "rule_check",
+    "dropped_words",
 ]
 
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r")

@@ -62,7 +62,7 @@ REPORT_TYPES = ("cmo", "seo", "content", "pr", "agency")
 REPORT_CADENCES = ("off", "weekly", "monthly")
 RUN_SOURCES = ("scheduled", "manual")
 PRODUCT_SOURCES = ("csv", "feed")
-RULE_CHECKS = ("pass", "adjusted")
+RULE_CHECKS = ("pass", "adjusted", "review")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -550,6 +550,9 @@ class Product(Tenant, Base):
     suggested_title: Mapped[str | None]
     suggested_bullets: Mapped[list[str] | None]
     rule_check: Mapped[str | None]
+    # Original-title words the suggestion lost (plurals folded); set
+    # whenever rule_check is "review" (slice 19).
+    dropped_words: Mapped[list[str] | None]
     job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job.id"))
     result_at: Mapped[datetime | None] = mapped_column(TSZ)
     __table_args__ = (

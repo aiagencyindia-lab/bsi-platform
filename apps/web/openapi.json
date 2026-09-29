@@ -2872,6 +2872,20 @@
             ],
             "title": "Description"
           },
+          "dropped_words": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dropped Words"
+          },
           "external_id": {
             "title": "External Id",
             "type": "string"
@@ -3035,6 +3049,7 @@
           "suggested_title",
           "suggested_bullets",
           "rule_check",
+          "dropped_words",
           "job_id",
           "result_at"
         ],

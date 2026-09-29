@@ -538,6 +538,7 @@ class ProductOut(BaseModel):
     suggested_title: str | None
     suggested_bullets: list[str] | None
     rule_check: str | None
+    dropped_words: list[str] | None
     job_id: uuid.UUID | None
     result_at: datetime | None
 
