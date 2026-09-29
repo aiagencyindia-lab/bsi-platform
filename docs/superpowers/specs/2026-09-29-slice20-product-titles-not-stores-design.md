@@ -183,6 +183,8 @@ Gates: the backend gate and `npm run gate`, run by the controller.
 
 - **R2: `test_a_search_under_the_old_query_is_redone` seeds titles with brand and model keys.** Decided: its seeded row's titles carry `"brand": ""` and `"model": ""`. Found by the plan review of the extension (controller ruling, 2026-09-29). Why: once a row without a `brand` key is searched again, that test's seeded row is redone by the brand condition alone, so deleting the query-wording condition would pass every test (the same gap R1 closed for R9). It adds to §5 C's list. Cost if wrong: one test fixture.
 
+- **R3: findings §2 takes every product's results from the ledger.** Decided: the docs task records each product's missing words and suggested title from the ledger line "Live check 1 per-product results", not only the examples the plan's Task 5 Step 2 names (it omitted LC-09's "Big Nike Boots"). Found by the plan re-review of the extension (controller ruling, 2026-09-29), applied in the Task 5 brief instead of another plan commit. Cost if wrong: one findings line.
+
 ## Out of scope
 
 - Locale in the query text, and enforcing the locale on results.
