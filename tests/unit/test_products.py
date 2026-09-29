@@ -24,6 +24,7 @@ from bsi_core.products import (
     parse_feed,
     rewrite_prompt,
     rule_check,
+    search_query,
     titles_prompt,
     vote,
 )
@@ -450,3 +451,20 @@ def test_short_stopwords_are_not_flagged_as_dropped():
         [],
     )
     assert dropped("Made in India Sandal", "Sandal Made India", ()) == []
+
+
+def test_search_query_asks_for_products_with_full_titles():
+    assert search_query("kids sandals") == (
+        "kids sandals: popular products to buy online, "
+        "with each product's full title"
+    )
+
+
+def test_titles_prompt_names_the_new_query_and_forbids_stores():
+    tp = titles_prompt("kids sandals", "answer text", ["amazon.in"])
+    assert search_query("kids sandals") in tp
+    assert "buy online." not in tp
+    assert (
+        "never list a store, retailer, marketplace or brand name on its own"
+        in tp
+    )

@@ -176,7 +176,9 @@ def test_one_search_per_distinct_keyword_and_the_rewrite_is_checked(
     gen = _generator()
     job, rows, searches = _run(owner, org, bid, gen, engine)
     assert job.status == "done"
-    assert engine.prompts == [("kids sandals buy online", "IN", "en")]
+    assert engine.prompts == [
+        (products.search_query("kids sandals"), "IN", "en")
+    ]
     assert len(searches) == 1
     assert searches[0].keyword == "kids sandals"
     assert searches[0].titles == [
@@ -216,7 +218,7 @@ def test_a_fresh_search_is_reused_and_a_stale_one_redone(
                 org_id=org.id,
                 brand_id=bid,
                 keyword="kids sandals",
-                query="q",
+                query=products.search_query("kids sandals"),
                 titles=[{"title": "Cached Summer Sandals", "domain": "c"}],
                 searched_at=datetime.now(UTC) - timedelta(days=6),
             )
@@ -274,8 +276,36 @@ def test_an_error_search_is_not_reused(owner, make_org, make_brand):
         )
     engine = FakeEngine()
     _, _rows, searches = _run(owner, org, bid, _generator(), engine)
-    assert engine.prompts == [("kids sandals buy online", "IN", "en")]
+    assert engine.prompts == [
+        (products.search_query("kids sandals"), "IN", "en")
+    ]
     assert len(searches) == 1 and searches[0].error is None
+    assert searches[0].titles == [
+        {"title": "Kids Sandals for Boys Summer", "domain": "amazon.in"},
+        {"title": "Boys Summer Sandals Lightweight", "domain": ""},
+    ]
+
+
+def test_a_search_under_the_old_query_is_redone(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    with owner() as s, s.begin():
+        s.add(
+            m.KeywordSearch(
+                org_id=org.id,
+                brand_id=bid,
+                keyword="kids sandals",
+                query="kids sandals buy online",
+                titles=[{"title": "Cached Summer Sandals", "domain": "c"}],
+                searched_at=datetime.now(UTC) - timedelta(days=1),
+            )
+        )
+    engine = FakeEngine()
+    _, _rows, searches = _run(owner, org, bid, _generator(), engine)
+    query = products.search_query("kids sandals")
+    assert engine.prompts == [(query, "IN", "en")]
+    assert len(searches) == 1 and searches[0].query == query
     assert searches[0].titles == [
         {"title": "Kids Sandals for Boys Summer", "domain": "amazon.in"},
         {"title": "Boys Summer Sandals Lightweight", "domain": ""},
@@ -545,6 +575,8 @@ def test_plural_variants_share_one_search(owner, make_org, make_brand):
     gen = _generator(by_index={0: ["mens sandal"], 1: ["men sandals"]})
     job, rows, searches = _run(owner, org, bid, gen, engine)
     assert job.status == "done"
-    assert engine.prompts == [("mens sandal buy online", "IN", "en")]
+    assert engine.prompts == [
+        (products.search_query("mens sandal"), "IN", "en")
+    ]
     assert len(searches) == 1
     assert [p.keyword for p in rows] == ["mens sandal", "mens sandal"]

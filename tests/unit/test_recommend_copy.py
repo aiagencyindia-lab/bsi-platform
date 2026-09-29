@@ -2,7 +2,12 @@ import pytest
 from bsi_core import entity
 from bsi_core.alerts import drop_copy, shift_copy, source_copy
 from bsi_core.crawl import SEVERITY
-from bsi_core.products import keyword_prompt, rewrite_prompt, titles_prompt
+from bsi_core.products import (
+    keyword_prompt,
+    rewrite_prompt,
+    search_query,
+    titles_prompt,
+)
 from bsi_core.recommend import (
     citation_copy,
     cluster_copy,
@@ -286,6 +291,7 @@ PRODUCT_CASES = [
 PRODUCT_CASES += [
     keyword_prompt("Acme", []),
     titles_prompt("kids shoes", "", []),
+    search_query("kids shoes"),
     rewrite_prompt("Acme", []),
 ]
 

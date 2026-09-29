@@ -621,14 +621,24 @@ def keyword_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
     )
 
 
+def search_query(keyword: str) -> str:
+    """The grounded search that should list products, not stores."""
+    return (
+        f"{keyword}: popular products to buy online, "
+        "with each product's full title"
+    )
+
+
 def titles_prompt(keyword: str, text: str, domains: Sequence[str]) -> str:
     """Parse a grounded answer into the product titles it names."""
     return (
-        f"The text below answers a search for {keyword!r} buy online.\n"
+        f"The text below answers the search {search_query(keyword)!r}.\n"
         f"List up to {TOP_TITLES} distinct product titles that appear "
         "verbatim in the text, in the order they appear, each with the "
         "seller's domain when the text names it (else an empty string). "
-        "Do not invent titles or shorten them.\n"
+        "Do not invent titles or shorten them. A product title names one "
+        "product; never list a store, retailer, marketplace or brand name "
+        "on its own.\n"
         f"Known source domains: {', '.join(domains) or 'none'}\n"
         'Return JSON {"titles": [{"title": ..., "domain": ...}]}.\n'
         f"Text:\n{text}"
@@ -806,6 +816,8 @@ def run_products(
                             m.KeywordSearch.error.is_(None),
                         )
                     )
+                    # a row from an older query wording is searched again
+                    if row.query == search_query(row.keyword)
                 )
                 new = [k for k in ordered if k not in titles_by_kw]
                 new = new[: max(KEYWORD_CAP - searched, 0)]
@@ -820,7 +832,7 @@ def run_products(
             if not fits:
                 raise OverBudget(spent)
             for keyword in new:
-                query = f"{keyword} buy online"
+                query = search_query(keyword)
                 result = adapter.query(query, country, language)
                 spent += result.cost_micros
                 row: dict[str, Any] = {
