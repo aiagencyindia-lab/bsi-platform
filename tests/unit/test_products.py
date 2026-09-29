@@ -741,3 +741,121 @@ def test_rule_check_allows_glass_for_glasses():
         ["Ray"],
         allowed=["reading glasses"],
     ) == ("Ray Reading Frame Glass", "pass", [])
+
+
+# Ranking titles stored in dev's keyword_search (slice 22 spec).
+WS = [
+    "Women's Double Strap Footbed Sandals",
+    "Women's Footbed Slide Sandals, Wide Width Available",
+    "Men's and Women's Unisex Baya II Slide Sandals",
+    "Women's Faux Suede Thong Footbed Sandals",
+    "Women's Asymmetric Strap Footbed Sandals, Wide Width Available",
+]
+KS = [
+    "MIA - Lolli (Toddler/Little Kid)",
+    "Josmo - Cars Lighted Sandal (Toddler/Little Kid)",
+    "Naturino - Flower Mountain Nazca 2 Junior (Little Kid)",
+    "Teva - Toachi Hydratrek (Toddler/Little Kid/Big Kid)",
+    "Josmo - Spiderman Sandals (Toddler/Little Kid)",
+]
+KSH = [
+    "Nike A'Two A'ja Wilson Big Kids' Basketball Shoes",
+    "Nike Free Ride Little Kids' Running Shoes",
+    "Nike Woodside 2 High Big Kids' Boots",
+    "Nike Manoa 17 Big Kids' Boots",
+    "Nike Air Max 270 Big Kids' Shoes",
+]
+B = ["BSOAgentTestBrand"]
+WSB = [
+    "women sandals",
+    "Flat sandal with a cushioned footbed",
+    "Sandals",
+    "7",
+    "tan",
+]
+
+
+def test_missing_needs_backing_and_more_than_half_the_titles():
+    assert missing(
+        "BSOAgentTestBrand Women Sandal Tan",
+        WS,
+        B,
+        keyword="women sandals",
+        backing=WSB,
+    ) == ["footbed"]
+
+
+def test_missing_drops_an_unbacked_size_marker():
+    assert missing(
+        "BSOAgentTestBrand Boys Sandal Blue",
+        KS,
+        B,
+        keyword="kids sandals",
+        backing=[
+            "kids sandals",
+            "Lightweight EVA sandal with a hook-and-loop strap",
+            "Sandals",
+            "3",
+            "blue",
+        ],
+    ) == ["kid"]
+
+
+def test_missing_drops_a_different_product_type():
+    assert (
+        missing(
+            "BSOAgentTestBrand Kids Sports Shoe Black",
+            KSH,
+            B,
+            keyword="kids shoes",
+            backing=[
+                "kids shoes",
+                "Breathable mesh running shoe for school and play",
+                "Shoes",
+                "4",
+                "black",
+            ],
+        )
+        == []
+    )
+
+
+def test_missing_with_empty_backing_suggests_nothing():
+    assert (
+        missing(
+            "BSOAgentTestBrand Women Sandal Tan",
+            WS,
+            B,
+            keyword="women sandals",
+            backing=[],
+        )
+        == []
+    )
+
+
+def test_missing_needs_more_than_half_the_titles_without_backing():
+    # Before slice 22: footbed, available, slide, strap, wide, width.
+    assert missing(
+        "BSOAgentTestBrand Women Sandal Tan", WS, B, keyword="women sandals"
+    ) == ["footbed"]
+
+
+def test_missing_needs_more_than_half_the_titles_even_when_backed():
+    # strap, wide and width are backed but in only 2 of the 5 titles.
+    assert missing(
+        "BSOAgentTestBrand Women Sandal Tan",
+        WS,
+        B,
+        keyword="women sandals",
+        backing=[*WSB, "adjustable strap, wide width"],
+    ) == ["footbed"]
+
+
+def test_missing_backing_folds_es_plurals():
+    assert missing(
+        "Titan Analog Dial",
+        ["Titan Men Watch", "Fossil Men Watch"],
+        ["Titan"],
+        keyword="men watches",
+        backing=["men watches"],
+    ) == ["men", "watch"]
