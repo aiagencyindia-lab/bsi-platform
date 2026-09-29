@@ -53,7 +53,7 @@ The four quality problems found by slice 18's live check (findings-slice18 §2 a
 
 ## 2. Live check on dev
 
-Run on 2026-09-29 against the dev database, with the user's approval for both the migration and the re-check. Everything below was observed unless it is marked *inferred*.
+Run on 2026-09-29 against the dev database, with the user's approval for both the migration and the re-check. The code was the branch at fb41c4a, which includes R1–R4 but not R6 (d1bc876, made later in the audit). R6 changes only where `fit_rank` cuts a keyword containing "for" or "with" versus other stopwords; none of the ten products' stored keywords contains `on`, `in`, `a` or another stopword that R6 no longer cuts at (checked on dev). *Inferred:* the rank-1 keywords would not change under R6; keywords the model offered but R3/R4 dropped (such as a "slip on" phrase) are not stored, so that part could not be checked without a re-run. Everything below was observed unless it is marked *inferred*.
 
 **Migration.** `alembic current` read `0019` before and `0020 (head)` after `alembic upgrade head`. `pg_get_constraintdef` shows `ck_product_rule_check` allowing `pass`, `adjusted` and `review`, and `product.dropped_words` exists. No existing rows were changed.
 
