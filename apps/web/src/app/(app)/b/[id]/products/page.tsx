@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import { productNote, type Params } from "@/lib/format";
+import { droppedNote, productNote, type Params } from "@/lib/format";
 import type { Product, ProductRuns } from "@/lib/types";
 import { clearProducts, importCsv, importFeed, runProducts } from "./actions";
 
@@ -127,6 +127,9 @@ export default async function Products({
                 </td>
                 <td>
                   {p.rule_check && <span className="tag">{p.rule_check}</span>}
+                  {droppedNote(p.dropped_words) && (
+                    <div className="muted">{droppedNote(p.dropped_words)}</div>
+                  )}
                 </td>
               </tr>
             ))}

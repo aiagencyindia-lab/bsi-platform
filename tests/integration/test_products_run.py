@@ -5,11 +5,13 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import bsi_workers.worker as worker
+import pytest
 from bsi_core import models as m
 from bsi_core import products
 from bsi_core.crawl import Response
 from bsi_core.providers.base import EngineResult, ParsedAnswer
 from sqlalchemy import select, text, update
+from sqlalchemy.exc import IntegrityError
 
 from tests.integration.test_worker import _job, _load_job
 
@@ -49,7 +51,7 @@ class FakeEngine:
         return 60
 
 
-def _generator(owner=None, fail_on=None, keywords=None):
+def _generator(owner=None, fail_on=None, keywords=None, by_index=None):
     """Answers each schema with fixed JSON; records the call kinds and,
     when `owner` is given, how many products had a keyword at call time."""
     calls = []
@@ -82,7 +84,8 @@ def _generator(owner=None, fail_on=None, keywords=None):
                 "products": [
                     {
                         "index": i,
-                        "keywords": keywords
+                        "keywords": (by_index or {}).get(i)
+                        or keywords
                         or ["kids sandals", "walkaroo kids"],
                     }
                     for i in indexes
@@ -182,11 +185,13 @@ def test_one_search_per_distinct_keyword_and_the_rewrite_is_checked(
     ]
     assert searches[0].cost_micros == 35_700 and searches[0].error is None
     p = rows[0]
-    # "sandals" and "summer" are in both ranking titles and absent from
-    # "Walkaroo Boys Sandal 0"; "kids" and "lightweight" are in one only.
-    assert p.missing_keywords == ["sandals", "summer"]
+    # Stems fold plurals: "sandals" matches the product's "sandal", so only
+    # "summer" is in both ranking titles and absent from the product.
+    assert p.missing_keywords == ["summer"]
     assert p.suggested_title == "Walkaroo Kids Summer Sandals"
-    assert p.rule_check == "adjusted"
+    # "Walkaroo Boys Sandal 0" rewritten as "…Kids Summer Sandals" loses
+    # "boys", so the suggestion is flagged for review.
+    assert (p.rule_check, p.dropped_words) == ("review", ["boys"])
     assert p.suggested_bullets == ["Light", "Washable", "Soft"]
     assert p.job_id == job.id and p.result_at is not None
     assert [c[0] for c in gen.calls] == [
@@ -414,6 +419,7 @@ def test_a_product_whose_keyword_drops_loses_its_old_suggestion(
                 missing_keywords=["x"],
                 suggested_title="Old",
                 rule_check="pass",
+                dropped_words=["x"],
             )
         )
     gen = _generator(keywords=["walkaroo sandals"])
@@ -422,6 +428,7 @@ def test_a_product_whose_keyword_drops_loses_its_old_suggestion(
     p = rows[0]
     assert (p.keyword, p.suggested_title, p.rule_check) == (None, None, None)
     assert p.missing_keywords is None and p.job_id == job.id
+    assert p.dropped_words is None
 
 
 def test_no_transaction_is_open_during_model_calls(owner, make_org, make_brand):
@@ -498,3 +505,46 @@ def test_import_feed_failures(owner, make_org, make_brand, monkeypatch):
     monkeypatch.setattr(products, "MAX_PRODUCTS", 0)
     job = _feed_job(owner, org, bid, lambda u, ua: Response(200, RSS.decode()))
     assert (job.status, job.error) == ("failed", "cap")
+
+
+def test_the_database_accepts_review_and_rejects_an_unknown_status(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Product).values(
+                rule_check="review", dropped_words=["casual"]
+            )
+        )
+    with owner() as s:
+        p = s.scalars(select(m.Product)).one()
+        assert (p.rule_check, p.dropped_words) == ("review", ["casual"])
+    with pytest.raises(IntegrityError):
+        with owner() as s, s.begin():
+            s.execute(update(m.Product).values(rule_check="maybe"))
+
+
+def test_plural_variants_share_one_search(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    with owner() as s, s.begin():
+        for suffix in ("A", "B"):
+            s.add(
+                m.Product(
+                    org_id=org.id,
+                    brand_id=bid,
+                    external_id=f"S-{suffix}",
+                    title=f"Walkaroo Men Sandal {suffix}",
+                    source="csv",
+                )
+            )
+    engine = FakeEngine()
+    gen = _generator(by_index={0: ["mens sandal"], 1: ["men sandals"]})
+    job, rows, searches = _run(owner, org, bid, gen, engine)
+    assert job.status == "done"
+    assert engine.prompts == [("mens sandal buy online", "IN", "en")]
+    assert len(searches) == 1
+    assert [p.keyword for p in rows] == ["mens sandal", "mens sandal"]
