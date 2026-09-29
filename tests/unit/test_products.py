@@ -12,7 +12,9 @@ from bsi_core.products import (
     RewriteSet,
     TitleSet,
     _type_word,
+    choose_keywords,
     drop_brand_terms,
+    drop_noise_terms,
     drop_stores,
     dropped,
     export_rows,
@@ -981,3 +983,78 @@ def test_title_first_never_builds_in_a_colour_word():
         "men slippers",
         "navy flip flops",
     ]
+
+
+def test_drop_noise_terms_removes_colour_and_size_keywords():
+    assert drop_noise_terms(
+        ["men slippers", "navy flip flops", "men flip flop navy"]
+    ) == ["men slippers"]
+    assert drop_noise_terms(["navy flip flops", "blue flip flops"]) == []
+    assert drop_noise_terms(
+        ["free size slippers", "little kids sandals", "kids sandals"]
+    ) == ["kids sandals"]
+
+
+# Probe 4's samples for LC-05 (slice 23 spec).
+S4 = [
+    [
+        "men slippers",
+        "men flip flop navy",
+        "navy flip flops",
+        "cushioned flip flops",
+        "daily use flip flop",
+    ],
+    ["men slippers", "men flip flops", "navy flip flops", "cushioned slippers"],
+    [
+        "men slippers",
+        "men flip flops",
+        "navy flip flops",
+        "cushioned flip flops",
+    ],
+]
+
+
+def test_choose_keywords_searches_the_audience_plus_the_title_type():
+    assert choose_keywords(
+        S4, B, T, "Slippers", "Cushioned flip flop for daily use"
+    ) == [
+        "men flip flops",
+        "cushioned flip flops",
+        "daily use flip flop",
+        "men slippers",
+        "cushioned slippers",
+    ]
+
+
+def test_choose_keywords_one_all_colour_sample_brings_no_colour_back():
+    samples = [
+        ["navy flip flops"],
+        ["navy flip flops", "men slippers"],
+        ["men slippers", "men flip flops"],
+    ]
+    assert choose_keywords(samples, B, T, "Slippers", None) == [
+        "men flip flops",
+        "men slippers",
+    ]
+
+
+def test_choose_keywords_falls_back_when_the_product_has_no_other_keyword():
+    # Every keyword has a colour.
+    assert choose_keywords(
+        [["navy flip flops", "blue flip flops"]], B, T, "Slippers", None
+    ) == ["navy flip flops", "blue flip flops"]
+    # Only a brand phrase is left after the guard.
+    assert choose_keywords(
+        [["walkaroo sandals", "navy sandals"]], ["Walkaroo"], W, None, None
+    ) == ["navy sandals"]
+    assert choose_keywords([], B, T, None, None) == []
+
+
+def test_choose_keywords_an_audience_word_keyword_does_not_stop_the_build():
+    assert choose_keywords(
+        [["kids slippers", "boys sandals", "slippers boys"]] * 3,
+        ["Walkaroo"],
+        W,
+        None,
+        None,
+    ) == ["kids sandals", "boys sandals", "slippers boys"]

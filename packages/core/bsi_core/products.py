@@ -324,12 +324,14 @@ STOPWORDS = frozenset(
     "free shop shopping sale offer offers price prices deal deals off "
     "new a an in of on to by at or com".split()
 )
-# missing() never suggests these (slice 21 spec §2). ponytail: English
-# and closed; a real colour phrase ("white sneakers") is never suggested;
-# a noise word is skipped even when it is in the keyword; outside
-# footwear some are product words (cream, gold, silver, orange, plus
-# size, hair color); toddler/youth/infant are not listed: since slice 22
-# missing() suggests such a word only when the product's data backs it.
+# missing() never suggests these (slice 21 spec §2), and the keyword
+# choice drops keywords that contain them (slice 23 spec §1). ponytail:
+# English and closed; a real colour phrase ("white sneakers") is never
+# suggested; a noise word is skipped even when it is in the keyword;
+# outside footwear some are product words (cream, gold, silver, orange,
+# plus size, hair color); toddler/youth/infant are not listed: since
+# slice 22 missing() suggests such a word only when the product's data
+# backs it.
 NOISE_WORDS = frozenset(
     "white black blue red green pink grey gray brown navy beige tan silver "
     "gold purple orange yellow cream multi multicolor color colour size "
@@ -452,6 +454,17 @@ def drop_brand_terms(
     return [k for k in keywords if (t := set(tokens(k))) and not t & bt]
 
 
+# ponytail: a real colour or size phrase that shoppers type ("white
+# sneakers", "little kids sandals", "big kids shoes") is searched only
+# when the product has no other fitting keyword (choose_keywords);
+# outside footwear some are product words (gold, cream, plus size);
+# English only.
+def drop_noise_terms(keywords: Sequence[str]) -> list[str]:
+    """Keep a keyword only if none of its stems is a colour or size
+    word (NOISE_STEMS)."""
+    return [k for k in keywords if not fold_set(k) & NOISE_STEMS]
+
+
 # fit_rank cuts a keyword here (R6); "slip on shoes" keeps its "on".
 CATEGORY_CUTS = frozenset({"for", "with"})
 
@@ -548,6 +561,27 @@ def title_first(keywords: Sequence[str], title: str) -> list[str]:
     first = next((k for k in keywords if keyword_key(k) == key), built)
     rest = [k for k in keywords if keyword_key(k) != key]
     return [first, *rest][:MAX_KEYWORDS]
+
+
+def choose_keywords(
+    samples: Sequence[Sequence[str]],
+    brand_names: Sequence[str],
+    title: str,
+    category: str | None,
+    description: str | None,
+) -> list[str]:
+    """One product's keywords, the searched one first: the vote over
+    the samples without colour and size keywords, without brand terms,
+    the title's type first (title_first), then fit_rank. If that leaves
+    nothing, the same over the samples as given."""
+
+    def pick(lists: Sequence[Sequence[str]]) -> list[str]:
+        ranked = drop_brand_terms(vote(lists), brand_names)
+        return fit_rank(
+            title_first(ranked, title), title, category, description
+        )
+
+    return pick([drop_noise_terms(s) for s in samples]) or pick(samples)
 
 
 def missing(
@@ -963,9 +997,9 @@ def run_products(
                     }
                 )
             for i, p in enumerate(batch):
-                ranked = vote([sm.get(i, []) for sm in samples])
-                fitted = fit_rank(
-                    drop_brand_terms(ranked, names),
+                fitted = choose_keywords(
+                    [sm.get(i, []) for sm in samples],
+                    names,
                     p["title"],
                     p["category"],
                     p["description"],
