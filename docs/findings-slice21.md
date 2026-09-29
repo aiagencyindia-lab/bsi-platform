@@ -35,7 +35,9 @@ A row with no titles is still a hit. Rows written before this slice lack the key
 
 `run_products` passes `allowed=[keyword, *missing, description or "", category or "", *attribute values as str]`. A title changed by this step is `adjusted`; `review` still means original words were lost.
 
-Ruling R1 (final whole-branch review): if the step leaves no word, `rule_check` uses the original title instead (`title = title or original`), so `suggested_title` is never stored empty. Such a title is `adjusted`, with no dropped words.
+Ruling R1 (final whole-branch review): if the step leaves no word, `rule_check` uses the original title instead. Such a title is `adjusted`, with no dropped words.
+
+Ruling R2 (re-review of the final fix wave, approved by the user): the fallback also applies when the step leaves nothing but CONNECTORS ("Comfy Footwear for", "Comfy and Footwear"). The line is now `title = title if _strip_connectors(title.split()) else original`. So this step never makes a suggestion empty. A title can still be empty when the original title is itself empty or only connectors, or when the 150-character trim leaves only connectors before a word longer than 150 characters (both seen in a direct call, untested).
 
 **Tests.**
 - `tests/unit/test_products.py`:
@@ -50,6 +52,7 @@ Ruling R1 (final whole-branch review): if the step leaves no word, `rule_check` 
   - The eight named `rule_check` tests pass `allowed=` and keep their expected values.
   - The `keep_present` expectation gains `"parse": 2`.
   - R1: "Comfy Footwear" for "Boys Sandal" gives "Boys Sandal", `adjusted`, no dropped words. It failed first (`''`, `review`).
+  - R2: "Comfy Footwear for" and "Comfy and Footwear" for "Boys Sandal" each give "Boys Sandal", `adjusted`, no dropped words (two tests). Both failed first (`''`, `review`).
   - Two pins, both passing when written: "White" is skipped even with keyword "white sneakers" (`["sneaker"]`), and "Glass" with allowed "reading glasses" is `pass`.
 - `tests/integration/test_products_run.py`:
   - Every exact stored-title assertion and the two seeds gain `"parse": 2`.
@@ -64,6 +67,7 @@ Ruling R1 (final whole-branch review): if the step leaves no word, `rule_check` 
   - Task 1's report names both: Starlette's `StarletteDeprecationWarning` for its test client and anyio's `BlockingPortal` alias `DeprecationWarning`.
   - Task 2's report names only the anyio one.
   - The controller's own gate run at 1e10fa4 (1506 passed) named both, the same two deprecations as on `main`. Run with `-W default`, it also showed a psycopg `ResourceWarning` for a connection deleted while still open (§3).
+  - The final gate run, with R1 and R2 in, had 1511 passed, 2 deselected and 2 warnings (the same two deprecations), and metrics coverage was 100%.
 
 **Commits** (`git log --oneline main..HEAD`, oldest first):
 
@@ -79,7 +83,8 @@ Ruling R1 (final whole-branch review): if the step leaves no word, `rule_check` 
 | 4e3f668 | fix(products): the rule check drops words the rewrite invents |
 | 1e10fa4 | docs: slice 21 findings, index and rulings |
 | a1e3bba | docs: slice 21 findings: gate warnings as observed; wording |
-| (this commit) | fix(products): an empty rule-check title falls back to the original (R1) |
+| 81301e2 | fix(products): an empty rule-check title falls back to the original (R1) |
+| (this commit) | fix(products): the empty-title fallback also covers connector-only rewrites (R2) |
 
 ## 2. Live check on dev
 

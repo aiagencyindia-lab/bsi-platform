@@ -57,7 +57,7 @@ All code changes are in `packages/core/bsi_core/products.py`.
 - A hyphenated word ("Flip-Flop", "2-Pack") is kept whole when any of its stems is allowed and dropped whole otherwise. Dropping a word can leave a neighbour on its own ("Sandal Size 10" → "Sandal 10"); this is accepted.
 - A title changed by this step is `adjusted` (the existing rule: it differs from the suggestion). `review` still means original words were lost; `dropped()` is unchanged.
 - Known ceiling: a real synonym the rewrite adds from nowhere ("Footwear") is removed too.
-- If the step leaves no word, the original title is used instead (Ruling R1), so a suggestion is never empty.
+- If the step leaves no word, or nothing but CONNECTORS, the original title is used instead (Rulings R1 and R2), so this step never makes a suggestion empty. A title can still end up empty when the original title is itself empty or only connectors, or when the 150-character trim leaves only connectors before a word longer than 150 characters.
 
 ### 4. Testing
 
@@ -74,6 +74,7 @@ Unit, `tests/unit/test_products.py`:
 - `rule_check("Titan Analog Dial", "Titan Analog Dial Watch", ["Titan"], allowed=["men watches"]) == ("Titan Analog Dial Watch", "pass", [])`.
 - `rule_check("Walkaroo Sandal", "Walkaroo Leather Sandal", ["Walkaroo"], allowed=["kids sandals", "Leather"]) == ("Walkaroo Leather Sandal", "pass", [])`.
 - `rule_check("Boys Sandal", "Comfy Footwear", [], allowed=["kids sandals"]) == ("Boys Sandal", "adjusted", [])` (Ruling R1).
+- `rule_check("Boys Sandal", "Comfy Footwear for", [], allowed=["kids sandals"]) == ("Boys Sandal", "adjusted", [])` and `rule_check("Boys Sandal", "Comfy and Footwear", [], allowed=["kids sandals"]) == ("Boys Sandal", "adjusted", [])` (Ruling R2).
 - `missing("Kids Shoe", ["Taye White Sneaker", "Artie White Sneaker"], ["X"], keyword="white sneakers") == ["sneaker"]` (a noise word is skipped even when it is in the keyword).
 - `rule_check("Ray Reading Frame", "Ray Reading Frame Glass", ["Ray"], allowed=["reading glasses"]) == ("Ray Reading Frame Glass", "pass", [])`.
 - Existing `rule_check` tests whose suggestions add words pass `allowed` holding those words (the default `()` allows nothing extra), keeping their current expected values: `test_rule_check_restores_the_brand_the_original_had`, `test_rule_check_passes_an_unchanged_suggestion`, `test_rule_check_drops_a_word_that_repeats_an_earlier_token`, `test_rule_check_keeps_punctuation_only_words`, `test_rule_check_flags_dropped_words_for_review`, `test_short_stopwords_are_not_flagged_as_dropped`, and the two trim tests (`test_rule_check_trims_to_150_at_a_word_boundary`, `test_rule_check_strips_a_connector_the_trim_leaves_at_the_end`), which pass `allowed=[" ".join(words)]` so they still exercise the trim.
@@ -96,7 +97,9 @@ Asked for at that point. No migration (dev stays at 0020); the worker stays stop
 
 ## Rulings
 
-- **R1: an empty title falls back to the original.** Decided: in `rule_check`, right after the invented-word step, `title = title or original`; when every suggestion word is dropped the original title is used (status then `adjusted` by the existing rule, with no dropped words). Found by the final whole-branch review (controller ruling, 2026-09-29). Why: a rewrite made only of invented words left `suggested_title` empty with status `review`. Cost if wrong: a fully invented rewrite shows the original title instead of a blank. §3 and §4 above are updated.
+- **R1: an empty title falls back to the original.** Decided: in `rule_check`, right after the invented-word step, `title = title or original`; when every suggestion word is dropped the original title is used (status then `adjusted` by the existing rule, with no dropped words). Found by the final whole-branch review (controller ruling, 2026-09-29). Why: a rewrite made only of invented words left `suggested_title` empty with status `review`. Cost if wrong: a fully invented rewrite shows the original title instead of a blank. §3 and §4 above are updated. R2 widens the check.
+
+- **R2: the fallback also covers connector-only rewrites.** Decided: R1's line becomes `title = title if _strip_connectors(title.split()) else original`; when the invented-word step leaves nothing but CONNECTORS ("Comfy Footwear for", "Comfy and Footwear"), the original title is used (status `adjusted`, no dropped words). Found by the re-review of the final fix wave, approved by the user (2026-09-29). Why: with R1 alone a kept connector made the title non-empty, so the later connector strip still left `suggested_title` empty with status `review`. Not covered: an original title that is itself empty or only connectors, and a 150-character trim that leaves only connectors before a word longer than 150 characters, can still give an empty title. Cost if wrong: a rewrite whose only kept words are connectors shows the original title instead of a blank. §3 and §4 above are updated.
 
 ## Out of scope
 

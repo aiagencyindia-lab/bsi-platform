@@ -713,6 +713,18 @@ def test_rule_check_falls_back_to_the_original_when_every_word_is_invented():
     ) == ("Boys Sandal", "adjusted", [])
 
 
+def test_rule_check_falls_back_when_only_a_trailing_connector_is_left():
+    assert rule_check(
+        "Boys Sandal", "Comfy Footwear for", [], allowed=["kids sandals"]
+    ) == ("Boys Sandal", "adjusted", [])
+
+
+def test_rule_check_falls_back_when_only_an_inner_connector_is_left():
+    assert rule_check(
+        "Boys Sandal", "Comfy and Footwear", [], allowed=["kids sandals"]
+    ) == ("Boys Sandal", "adjusted", [])
+
+
 def test_missing_skips_a_noise_word_even_in_the_keyword():
     assert missing(
         "Kids Shoe",
