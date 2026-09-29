@@ -539,9 +539,15 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   - The line numbers had shifted after Task 1: the missing-words loop was at 1040 and the `rule_check` call at 1076, not 1028-1049 and 1064-1075 as the File list says. The implementer found both regions by their text.
   - The multi-line edits were made with a short Python replace script with exact-match asserts (each old block had to occur exactly once).
 - Task 3: the controller created the `docs/findings-slice22.md` stub after the user approved it in chat ("yes, create the stub"), as Task 3 says (plan departure 7). The implementer filled it with the Edit tool. Findings §3 also has an "Untested" list (plan departures 4 and 14, fixed judge output), which Step 1 does not name, in the style of findings-slice21 §3.
-- No rulings were made during execution; the spec's `## Rulings` section reads "None."
+- No rulings were made during Tasks 1–3. Rulings R1 and R2 came later, from the re-review of the final-review fix wave (below).
 - Final whole-branch review: ready to merge, 0 Critical, 0 Important, 4 Minor (all deferred in the ledger). A docs-only fix wave after it:
   - `findings-slice22.md` §3 gains a "From the final whole-branch review:" list with the 4 minors, and the 2 Task 3 review minors under "From the task reviews:".
   - The findings commit table gains the rows dbb5d82 and 01dbca7.
   - The README's slice 22 spec row now says "no rulings were made during the build".
   - No code change: the duplicate-titles minor and the LC-09 note stay deferred.
+- Last coverage items, a docs commit approved by the user after the scoped re-review of the fix wave above (commit 68dbe67), which parked 2 items with Rulings R1 and R2 and found 1 new minor:
+  - R1: the "(line numbers as at dbb5d82)" qualifier is removed from the 2 Task 3 minors in findings §3.
+  - findings §3 gains a "Parked (with rulings):" list (R1, R2) and the plan:545 minor in the final-review list.
+  - The spec's `## Rulings` now holds R1 and R2 instead of "None.", so the README's slice 22 spec row says "with the rulings made during the build" again, and the bullet above on rulings holds for Tasks 1–3 only.
+  - The plan:545 minor, corrected here: in the findings commit table, `dbb5d82` was relabelled from "(this commit)", `01dbca7` was added, and a new "(this commit)" row was added.
+  - The "Fixed in this commit." notes that 68dbe67 added to 2 final-review minors in findings §3 now say "Fixed in 68dbe67.", so they stay accurate after this commit.

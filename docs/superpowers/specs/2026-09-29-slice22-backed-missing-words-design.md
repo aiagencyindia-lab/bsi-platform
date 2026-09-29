@@ -130,7 +130,9 @@ Run by the controller only with the user's OK at that point, by the live-check p
 
 ## Rulings
 
-None.
+- **R1: the "(line numbers as at dbb5d82)" qualifier is wrong.** Decided: the doc line is wrong and should be corrected; the qualifier is dropped and the ledger text kept. The skill allows no second fix wave, so it was surfaced to the user at finishing as a one-line docs fix; with the user's OK the qualifier was removed in commit "docs: slice 22 rulings R1-R2 and last coverage items". Found by the scoped re-review of the final-review fix wave (commit 68dbe67). Why: findings-slice22.md:67 added "(line numbers as at dbb5d82)" to the Task 3 minors; that is true for `:64`, false for `:37` (at dbb5d82 line 37 is blank; the Starlette warning line is 35). Cost if wrong: one findings bullet cites a wrong line number until fixed.
+
+- **R2: the "Fixed in this commit." suffixes stand.** Decided: the suffixes stand as accurate status notes; the "(line numbers as at dbb5d82)" prefix goes with R1. Found by the scoped re-review of the final-review fix wave (commit 68dbe67). Why: findings-slice22.md:67-68 and :72-73 carry text beyond the ledger lines (the prefixes, and " Fixed in this commit." suffixes, which are accurate). Cost if wrong: two bullets are not word-for-word ledger text.
 
 ## Out of scope
 

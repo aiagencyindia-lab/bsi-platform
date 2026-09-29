@@ -51,7 +51,8 @@ All code changes are in `packages/core/bsi_core/products.py`. No schema, API or 
 | 5be232a | fix(products): the run passes the product's data as backing for missing words |
 | dbb5d82 | docs: slice 22 findings, index and rulings |
 | 01dbca7 | docs: slice 22 plan changes: the findings Untested list |
-| (this commit) | docs: slice 22 findings: final-review minors |
+| 68dbe67 | docs: slice 22 findings: final-review minors |
+| (this commit) | docs: slice 22 rulings R1-R2 and last coverage items |
 
 ## 2. Live check on dev
 
@@ -64,14 +65,19 @@ From the task reviews:
 - Task 1: the `missing` docstring's "In more than half of the titles and at least MIN_TITLES (rule 2)." is a sentence fragment. It is the plan's text.
 - Task 2: the rival test's comment (tests/integration/test_products_run.py:510, "Without the exclusions: [...]") now also depends on the seeded description backing crocs, teva and hurricane, and does not say so. The brief kept the comment unchanged.
 - Task 2: the gate output carries the same 2 third-party warnings as Task 1's. They are not from this diff.
-- Task 3 (line numbers as at dbb5d82): findings-slice22.md:37 gives Task 1's Starlette warning location as `fastapi/testclient.py:1`; ledger line 27 has no line number; task-1-report.md does say `:1`.
-- Task 3 (line numbers as at dbb5d82): findings-slice22.md:64 drops the ledger's "(see Task 1's minor)" (progress.md:36); meaning kept.
+- Task 3: findings-slice22.md:37 gives Task 1's Starlette warning location as `fastapi/testclient.py:1`; ledger line 27 has no line number; task-1-report.md does say `:1`.
+- Task 3: findings-slice22.md:64 drops the ledger's "(see Task 1's minor)" (progress.md:36); meaning kept.
 
 From the final whole-branch review:
 - duplicate ranking titles count twice toward rule 2 (products.py:523-536; `["X Summer", "X Summer", "Y Other"]` with backing ["summer"] gives ["summer"]); pre-existing with `n >= MIN_TITLES`; dedupe with dict.fromkeys(titles) if stored titles are seen to repeat.
-- findings-slice22.md's commit table ends at "(this commit)" (dbb5d82) and lacks 01dbca7 "docs: slice 22 plan changes: the findings Untested list"; add the row with the live-check docs edit. Fixed in this commit.
-- docs/README.md's slice 22 spec row says "with the rulings made during the build", but the spec's ## Rulings reads "None." (wording copied from the slice 21 row). Fixed in this commit.
+- findings-slice22.md's commit table ends at "(this commit)" (dbb5d82) and lacks 01dbca7 "docs: slice 22 plan changes: the findings Untested list"; add the row with the live-check docs edit. Fixed in 68dbe67.
+- docs/README.md's slice 22 spec row says "with the rulings made during the build", but the spec's ## Rulings reads "None." (wording copied from the slice 21 row). Fixed in 68dbe67; the spec now has Rulings R1 and R2, so the row says "with the rulings made during the build" again.
 - spec §3's inferred LC-09 "kids" looks odd to the reviewer, on the premise that the product title already says "Kids". Controller check (read-only dev query): LC-09's title is "BSOAgentTestBrand Boys School Shoe Black" (no "Kids"; LC-03's is "BSOAgentTestBrand Kids Sports Shoe Black"), so the premise does not hold for LC-09; compare with what the live check observes.
+- plan:545 says the commit table "gains the rows dbb5d82 and 01dbca7"; dbb5d82 was relabelled from "(this commit)", and the new "(this commit)" row is not mentioned. Fixed in this commit: the plan's changes section now says so.
+
+Parked (with rulings):
+- findings-slice22.md:67 adds "(line numbers as at dbb5d82)" to the Task 3 minors; true for `:64`, false for `:37` (at dbb5d82 line 37 is blank; the Starlette warning line is 35) — Ruling R1: the doc line is wrong and should be corrected, but the skill allows no second fix wave; it is surfaced to the user at finishing as a one-line docs fix (drop the qualifier, keeping the ledger text) — cost if wrong: one findings bullet cites a wrong line number until fixed. Fixed in this commit: the qualifier is removed.
+- findings-slice22.md:67-68 and :72-73 carry text beyond the ledger lines (the "(line numbers as at dbb5d82)" prefixes; " Fixed in this commit." suffixes, which are accurate) — Ruling R2: the suffixes stand as accurate status notes; the prefix goes with the item above — cost if wrong: two bullets are not word-for-word ledger text.
 
 Untested:
 - The two reworked integration tests were never seen failing: their fixtures changed, but their expected values pass both before and after the wiring (plan departure 4). The R5 re-proof shows the rival test still fails when the alias exclusion is removed.
