@@ -67,7 +67,9 @@ Ruling R2 (re-review of the final fix wave, approved by the user): the fallback 
   - Task 1's report names both: Starlette's `StarletteDeprecationWarning` for its test client and anyio's `BlockingPortal` alias `DeprecationWarning`.
   - Task 2's report names only the anyio one.
   - The controller's own gate run at 1e10fa4 (1506 passed) named both, the same two deprecations as on `main`. Run with `-W default`, it also showed a psycopg `ResourceWarning` for a connection deleted while still open (§3).
+  - The R1 fix wave (81301e2) reported 1509 passed, with the Starlette and anyio warnings.
   - The final gate run, with R1 and R2 in, had 1511 passed, 2 deselected and 2 warnings (the same two deprecations), and metrics coverage was 100%.
+  - The controller's own final gate at 47939f1: ruff, format and mypy clean; backend 1511 passed, 2 deselected, 2 warnings; web 6 files / 42 tests, compiled.
 
 **Commits** (`git log --oneline main..HEAD`, oldest first):
 
@@ -84,11 +86,43 @@ Ruling R2 (re-review of the final fix wave, approved by the user): the fallback 
 | 1e10fa4 | docs: slice 21 findings, index and rulings |
 | a1e3bba | docs: slice 21 findings: gate warnings as observed; wording |
 | 81301e2 | fix(products): an empty rule-check title falls back to the original (R1) |
-| (this commit) | fix(products): the empty-title fallback also covers connector-only rewrites (R2) |
+| 47939f1 | fix(products): the empty-title fallback also covers connector-only rewrites (R2) |
+| (this commit) | docs: slice 21 live check and remaining findings |
 
 ## 2. Live check on dev
 
-Not yet run. The controller runs it after the user approves; results are recorded here then.
+Run on 2026-09-29 by the controller, with the user's OK.
+
+- Job `f9de4eb9`, done: `cost_micros = 310,292` (about $0.31), 13:10:33–13:12:09 UTC. Spend went from about $10.56 to about $10.87 of $15.
+- 8 keywords were searched again, 5 titles each, all stored with `parse: 2`, 0 errors.
+
+**What improved.**
+- Models mostly come back without the product type ("Moc", "Monster", "Flow", "CozyChic", "Free Ride"). Two still carry it: "Cars Lighted Sandal" and "Colby Gore Moc".
+- No noise word, rival name or invented word appears in any missing list or suggestion.
+- No suggestion ends in a connector or a number.
+
+**Per product** (missing words as recorded; the suggestion's end only):
+
+| Product | Keyword | Missing words | End of suggestion | Status |
+|---|---|---|---|---|
+| LC-01 | kids sandals | kid, toddler | …Blue Sandal Boys Kids Toddler | adjusted |
+| LC-02 | kids sandals | kid, toddler | …Pink Sandal Girls Kid Toddler | adjusted |
+| LC-03 | kids shoes | boots | …Black Sports Shoe Kids Boots | pass |
+| LC-04 | kids slippers | (none) | …Grey Slipper Kids | adjusted |
+| LC-05 | navy flip flops | (none) | …Navy Flip Flop | review (dropped: men) |
+| LC-06 | men sandals | slide | …Brown Casual Sandal Men Slide | pass |
+| LC-07 | women slippers | (none) | …Beige Casual Slipper Women | pass |
+| LC-08 | men shoes | (none) | …Grey Sports Shoe Men | pass |
+| LC-09 | kids shoes | kids, boots | …Black School Shoe Boys Kids Boots | pass |
+| LC-10 | women sandals | footbed, available, slide, strap, wide, width | …Tan Sandal Women Footbed Available Slide Strap Wide Width | pass |
+
+**What remains.**
+- Category drift: "Boots" is suggested for the LC-03 and LC-09 shoes, and "Slide" for the LC-06 sandal.
+- Retailer phrasing is stuffed into LC-10: "Footbed Available Slide Strap Wide Width" (from phrasing such as "Wide Width Available").
+- "Toddler" is suggested as a size marker (LC-01, LC-02). This is a known ceiling (§3).
+- LC-05's keyword is a colour phrase ("navy flip flops"). The keyword vote is out of scope (§3).
+
+**Writes:** the job, 10 product rows, 8 `keyword_search` rows and `api_key.last_used_at`. The worker and the API were stopped afterwards, with 0 jobs queued.
 
 ## 3. Deferred and untested
 
@@ -107,6 +141,14 @@ From the task reviews:
 From the final whole-branch review:
 - `FUNCTION_WORDS` lacks "from" and "at" (both are in `STOPWORDS`), so an added "from" or "at" is dropped as invented. The list is fixed by the spec.
 - The keyword guard lets a rival's name through when the keyword itself contains it (for example keyword "campus sandals" with the competitor Campus).
+- Words that are not connectors can survive as a near-blank suggestion flagged `review`: "Comfy for Footwear the" gives "for the", and "Comfy Footwear ." gives ".".
+- Spec §4's "the R2 old-query test" means slice 20's R2. It now sits beside slice 21's Ruling R2, so the label clashes.
+
+Next slice (from the live check, §2):
+- Category drift in missing words ("Boots" for shoes, "Slide" for a sandal).
+- Retailer-phrasing stuffing (LC-10): cap the words added, or require an added word to be generic.
+- Size markers: "toddler", "youth", "infant".
+- The keyword vote choosing a colour phrase (LC-05, "navy flip flops").
 
 Known ceilings (spec §1–§3, in `# ponytail:` comments where the spec asks):
 - The keyword guard fixes slice 20's R6 ("Campus Shoes" excluding "shoe") only for keywords containing "shoe". For sandal, slipper and sneaker keywords, "shoe" stays excluded.
@@ -121,7 +163,7 @@ Known ceilings (spec §1–§3, in `# ponytail:` comments where the spec asks):
 - A real synonym the rewrite adds from nowhere ("Footwear") is removed too.
 
 Untested against real answers:
-- It is not yet observed whether the parse now returns models without the product type, because the tests use fixed judge output. *Inferred*: the dev re-check (§2) is where this shows.
+- The tests use fixed judge output, so they do not show whether the parse returns models without the product type. The dev re-check (§2) observed it mostly does, with two exceptions.
 
 Out of scope (spec):
 - The keyword vote choosing a colour phrase ("navy flip flops", slice 20's first live check).

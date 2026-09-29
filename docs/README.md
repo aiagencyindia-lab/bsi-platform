@@ -180,7 +180,7 @@ In the order they were written:
 | [findings-slice20.md](findings-slice20.md) | Results: what was built (including the rival brand and model exclusion), both live checks on dev (both run on 2026-09-29), and what is deferred or untested. |
 | [superpowers/specs/2026-09-29-slice21-suggestion-quality-design.md](superpowers/specs/2026-09-29-slice21-suggestion-quality-design.md) | Design spec: product-suggestion quality after slice 20's second live check — the parse asks for models without the product type, a keyword guard on exclusions, colour and size words never suggested, a parse version on cached titles, and the rule check dropping words the rewrite invents; with the rulings made during the build. |
 | [superpowers/plans/2026-09-29-slice21-suggestion-quality.md](superpowers/plans/2026-09-29-slice21-suggestion-quality.md) | Implementation plan, Tasks 1–3, with the changes made during execution. |
-| [findings-slice21.md](findings-slice21.md) | Results: what was built, the live check on dev (not yet run), and what is deferred or untested. |
+| [findings-slice21.md](findings-slice21.md) | Results: what was built, the live check on dev (run on 2026-09-29), and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
