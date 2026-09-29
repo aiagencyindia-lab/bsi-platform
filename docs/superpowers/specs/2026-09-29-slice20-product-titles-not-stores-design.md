@@ -34,7 +34,7 @@ Codebase facts the design rests on (read on 2026-09-29, `main` = `3f303b1`):
 - Cached rows are loaded by the `titles_by_kw.update(...)` generator, whose select filters `brand_id`, `keyword IN (…)`, `searched_at > fresh_after` and `error IS NULL` (slice 18 R9); then `new = [k for k in ordered if k not in titles_by_kw]`.
 - `titles_prompt`'s first line is `f"The text below answers a search for {keyword!r} buy online.\n"`.
 - `matching.normalize_domain(value)` casefolds, strips a scheme, path, query, user part, port, a leading `www.` and a trailing dot.
-- A `keyword_search` row's `cost_micros` is the search plus its parse call. Slice 19's re-check estimated 8 × 37,500 + 6,000 = 306,000 micros and measured 308,958.
+- A `keyword_search` row's `cost_micros` is the search plus its parse call. Slice 19 estimated $0.27–$0.38 at 37,500 per search; its 8-search run measured 308,958, close to 8 × 37,500 + 6,000 = 306,000.
 - Nothing outside `run_products` reads `keyword_search.query`; the API only deletes rows.
 - A search result is written with `INSERT … ON CONFLICT (uq_keyword_search_brand_keyword) DO UPDATE`, which overwrites `query`, `titles`, `model`, `cost_micros`, `error` and `searched_at`.
 - After a search: `parsed = adapter.parse(result.raw)`; `domains = sorted({d for _, d in parsed.citations if d})`; the judge is called with `titles_prompt(keyword, parsed.text, domains)` and `TitleSet`; `row["titles"] = keep_present([...], parsed.text)`.
@@ -120,7 +120,7 @@ Run only with the user's OK, asked at that point.
 | Rewrite call | 1 | 1,500 | 1,500 |
 | Total | | | 306,000 (about $0.31) |
 
-  This is the same method as slice 19's estimate, which measured 308,958. With 10 distinct keywords and slice 18's upper per-search figure: 10 × 39,000 + 6,000 = 396,000 (about $0.40). *Inferred:* asking for full titles may lengthen the answer and the parse input a little, so the per-search figure may rise. Spend would go from $9.9377 to between about $10.24 and $10.33 of the $15 cap.
+  Slice 19's 8-search run measured 308,958 against the same arithmetic. With 10 distinct keywords: 10 × 37,500 + 6,000 = 381,000 (about $0.38). *Inferred:* asking for full titles may lengthen the answer and the parse input a little, so the per-search figure may rise. Spend would go from $9.9377 to between about $10.24 and $10.32 of the $15 cap.
 - Reported as observed: per keyword, how many stored titles are products and how many are stores; whether LC-01 and LC-02 still carry "Com"; the job's cost.
 - The slice does not promise product titles for every keyword. If the new wording still returns stores, findings record the counts.
 
