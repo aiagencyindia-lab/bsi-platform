@@ -32,9 +32,9 @@
 
 None. The three `fit_rank` tests, the three `vote` tests, the `drop_brand_terms` test and every existing integration test keep their values.
 
-## From the spec review (for findings §3)
+## From the spec review (for findings §4)
 
-The last spec re-review approved the spec and left two minor notes. Task 3 records both in findings §3:
+The last spec re-review approved the spec and left two minor notes. Task 3 records both in findings §4:
 
 - `title_first`'s audience exclusion applies to the other keywords, not to the first. If the model's first keyword is itself an audience-word phrase ("casual men"), `title_first` returns the keywords as given and `fit_rank` searches it as today. The spec's last ceiling covers this loosely; "including the first keyword" would make it exact.
 - `types` removes audience stems but not colour stems, so in `choose_keywords`' unfiltered fallback a phrase such as "flip flop navy" counts as title-fitting. The colour stays out of the built keyword (`ok - NOISE_STEMS`): "men slippers", "flip flop navy" and "cushioned flip flops" give "men flip flop".
@@ -63,7 +63,7 @@ The last spec re-review approved the spec and left two minor notes. Task 3 recor
   - `AUDIENCE_WORDS: frozenset[str]`, `AUDIENCE_STEMS: frozenset[str]`
   - `title_first(keywords: Sequence[str], title: str) -> list[str]`
 
-- [ ] **Step 1: Write the failing tests.** In `tests/unit/test_products.py`, add `_type_word` and `title_first` to the names imported from `bsi_core.products`. Then append at the end of the file:
+- [ ] **Step 1: Write the failing tests.** In `tests/unit/test_products.py`, add `_type_word` and `title_first` to the names imported from `bsi_core.products`, each in its sorted position: `_type_word` right after `TitleSet` (it sorts first among the functions), and `title_first` right after `search_query`. Then append at the end of the file:
 
 ```python
 T = "BSOAgentTestBrand Men Flip Flop Navy"
@@ -327,7 +327,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   - `drop_noise_terms(keywords: Sequence[str]) -> list[str]`
   - `choose_keywords(samples: Sequence[Sequence[str]], brand_names: Sequence[str], title: str, category: str | None, description: str | None) -> list[str]`
 
-- [ ] **Step 1: Write the failing unit tests.** In `tests/unit/test_products.py`, add `choose_keywords` and `drop_noise_terms` to the names imported from `bsi_core.products`. Then append at the end of the file (`T`, `W` and `B` already exist at module level, from Task 1 and slice 22):
+- [ ] **Step 1: Write the failing unit tests.** In `tests/unit/test_products.py`, add `choose_keywords` and `drop_noise_terms` to the names imported from `bsi_core.products`, each in its sorted position: `choose_keywords` right after `_type_word`, and `drop_noise_terms` right after `drop_brand_terms`. Then append at the end of the file (`T`, `W` and `B` already exist at module level, from Task 1 and slice 22):
 
 ```python
 def test_drop_noise_terms_removes_colour_and_size_keywords():
@@ -532,9 +532,9 @@ Leave the `p["keywords"] = [...]` and `p["keyword"] = ...` lines that follow as 
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py tests/integration/test_products_run.py`
 
-Expected: all passed.
+Expected: 113 passed (88 unit, 25 integration).
 
-- [ ] **Step 9: Check that the guard and the build are both wired.**
+- [ ] **Step 9: Check that the guard is wired.** (Step 3's failure, `'blue sandals' == 'kids sandals'`, already shows the build is not wired before Step 7.)
   1. Copy the file to the session scratchpad, a path outside the repo: `cd /Users/vineet/Downloads/ADK/bsi-platform && cp packages/core/bsi_core/products.py /private/tmp/claude-501/-Users-vineet-Downloads-ADK-brand-search-optimization/57875675-70cf-46e9-a368-f0f1091f1ba0/scratchpad/slice23-products-backup.py`.
   2. In `choose_keywords`, change `return pick([drop_noise_terms(s) for s in samples]) or pick(samples)` to `return pick(samples)`.
   3. Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/integration/test_products_run.py -k searched_keyword_has`. Expected: 1 failed on the `keywords` assertion, with `At index 1 diff: 'blue sandals' != 'strap sandals'` (the list is `['kids sandals', 'blue sandals', 'strap sandals']`).
@@ -601,7 +601,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 - **§3 values, word for word against the spec:**
   - `drop_noise_terms`: `["men slippers"]`; `[]`; `["kids sandals"]`.
   - `_type_word`: `["slipper", "slipper", "shoe", "for", None]`.
-  - `title_first`, 14 values: the two builds; the offered spelling; first keyword fits; no keyword fits; no audience; empty; the cap; "boys sandals" and "sandals for boys"; shared words; the one-fit ceiling; only an audience word fits; a good fit with an audience-word fit; two title types; no colour built in.
+  - `title_first`, 16 values in 14 cases (the two builds and the two "boys" cases hold 2 values each): the two builds; the offered spelling; first keyword fits; no keyword fits; no audience; empty; the cap; "boys sandals" and "sandals for boys"; shared words; the one-fit ceiling; only an audience word fits; a good fit with an audience-word fit; two title types; no colour built in.
   - `choose_keywords`, 6 values: probe 4's samples; one all-colour sample; every keyword has a colour; only a brand phrase left; the audience-word keyword; no samples.
   - Integration: `keyword == "kids sandals"`, `keywords == ["kids sandals", "strap sandals"]`, one search for "kids sandals".
 - **Checked by running code.** The spec reviewer checked the spec's 27 values against its own copy of the functions (0 mismatches). The controller built scratch copies of the three files from this plan's code blocks, outside the repo, and ran them:
@@ -626,7 +626,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   4. Task order is the spec's §2 first, then §1, because `choose_keywords` (§1) calls `title_first` (§2).
   5. The spec puts `drop_noise_terms` "next to `drop_brand_terms`" and does not place the other functions. The plan places `_type_word` before `fit_rank`, and `AUDIENCE_WORDS`, `title_first` and `choose_keywords` after it.
   6. The two `# ponytail:` comments sit above `drop_noise_terms` and above `title_first`. Their wording is the plan's, shortened from the spec's ceiling lists. The spec's text is the reference.
-  7. The `title_first` ponytail comment leaves out the spec's example "babies booties" with "baby shoes"; it keeps "mens slippers".
+  7. The `title_first` ponytail comment leaves out three things the spec's §2 ceilings have: the example "babies booties" with "baby shoes" (it keeps "mens slippers"), the examples "ladies", "gents" and "teens" for the closed `AUDIENCE_WORDS`, and "(10 of 12 LC-05 samples)".
   8. The `NOISE_WORDS` comment's new clause is the plan's wording. The spec gives its sense: "the keyword choice drops keywords that contain them too."
   9. Task 2 Step 9 adds a remove-and-see-it-fail check that the spec does not ask for.
   10. The new integration test is written before the code and is seen failing (Task 2 Step 3). The spec does not ask for that.
@@ -635,6 +635,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   13. Task 3's findings file needs the user's OK and a controller-made stub, because of the Write tool's refusal for subagents.
   14. Task 3 records the spec re-review's two minor notes in findings §4. The spec does not contain them.
   15. The tests import the private helper `_type_word`, because the spec asks for a test of it.
+  16. The new integration test also asserts `job.status == "done"` and carries a three-line comment. The spec's integration bullet lists neither.
 
 ## Changes made during execution
 
