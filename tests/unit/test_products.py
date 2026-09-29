@@ -5,6 +5,7 @@ import hashlib
 from types import SimpleNamespace
 
 from bsi_core.products import (
+    CONNECTORS,
     EXPORT_COLUMNS,
     KeywordSet,
     RewriteSet,
@@ -378,3 +379,12 @@ def test_dropped_ignores_stopwords_brand_numbers_and_short_tokens():
     assert dropped(
         "Walkaroo Boys Sandal 3 for x", "Walkaroo Sandal", BRAND
     ) == ["boys"]
+
+
+def test_rule_check_strips_a_connector_the_trim_leaves_at_the_end():
+    # "w0 ... w38 for" is 149 characters; " tail" would pass 150, so the
+    # cut lands just after "for".
+    words = [f"w{i}" for i in range(39)] + ["for", "tail", "end"]
+    fixed, _status, _lost = rule_check("Plain", " ".join(words), BRAND)
+    assert len(fixed) <= 150
+    assert fixed.split()[-1].casefold() not in CONNECTORS

@@ -350,6 +350,12 @@ def _brand_stems(brand_names: Sequence[str]) -> frozenset[str]:
 CONNECTORS = frozenset({"and", "with", "for", "&", "-", "|"})
 
 
+def _strip_connectors(words: list[str]) -> list[str]:
+    while words and words[-1].casefold() in CONNECTORS:
+        words = words[:-1]
+    return words
+
+
 def vote(samples: Sequence[Sequence[str]]) -> list[str]:
     """One product's ranked keywords from SAMPLES ranked lists: rank 1 is
     the keyword most often at rank 1 (ties: sample order), then the union
@@ -437,7 +443,8 @@ def rule_check(
     brand is prepended if the original had it and the suggestion lost it;
     a word that repeats an earlier word's stem is dropped whole
     (punctuation-only words are kept); trailing CONNECTORS are removed;
-    the title is trimmed to MAX_TITLE_CHARS at a word boundary. Status:
+    the title is trimmed to MAX_TITLE_CHARS at a word boundary, and
+    trailing CONNECTORS are removed again. Status:
     "review" if the final title lost any of the original's words, else
     "adjusted" if it differs from the suggestion, else "pass"."""
     title = suggestion
@@ -452,13 +459,12 @@ def rule_check(
             continue
         seen |= stems
         kept.append(word)
-    while kept and kept[-1].casefold() in CONNECTORS:
-        kept.pop()
-    title = " ".join(kept)
+    title = " ".join(_strip_connectors(kept))
     if len(title) > MAX_TITLE_CHARS:
         cut = title[: MAX_TITLE_CHARS + 1]
         space = cut.rfind(" ")
         title = cut[:space].rstrip() if space > 0 else title[:MAX_TITLE_CHARS]
+        title = " ".join(_strip_connectors(title.split()))
     lost = dropped(original, title, brand_names)
     if lost:
         return title, "review", lost
