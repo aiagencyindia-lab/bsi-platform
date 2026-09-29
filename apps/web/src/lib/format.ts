@@ -203,3 +203,7 @@ const PRODUCT_NOTES: Record<string, string> = {
 /** What the products forms did. */
 export const productNote = (status: Params[string]) =>
   note(PRODUCT_NOTES, status);
+
+/** The original-title words a suggestion lost (rule_check "review"). */
+export const droppedNote = (words: string[] | null | undefined) =>
+  words && words.length > 0 ? `dropped: ${words.join(", ")}` : null;

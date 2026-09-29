@@ -268,6 +268,8 @@ PRODUCT_CASES = [
     "Feed import",
     "pass",
     "adjusted",
+    "review",
+    "dropped: ",
     "Catalogue cap is 1,000 products",
     "CSV too large",
     "Only http(s) feed URLs",

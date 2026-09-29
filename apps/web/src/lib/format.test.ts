@@ -6,6 +6,7 @@ import {
   auditNote,
   ciText,
   crawlNote,
+  droppedNote,
   highlight,
   KIND,
   labelNote,
@@ -207,4 +208,11 @@ test("productNote says what the products forms did", () => {
   expect(productNote("empty")).toBe("No products to run.");
   expect(productNote(undefined)).toBeNull();
   expect(productNote("constructor")).toBeNull();
+});
+
+test("droppedNote lists the words a suggestion lost", () => {
+  expect(droppedNote(["casual", "school"])).toBe("dropped: casual, school");
+  expect(droppedNote([])).toBeNull();
+  expect(droppedNote(null)).toBeNull();
+  expect(droppedNote(undefined)).toBeNull();
 });
