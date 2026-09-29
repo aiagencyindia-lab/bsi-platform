@@ -21,7 +21,7 @@ Four searches stored only store or brand names, two stored nothing, two stored p
 
 Classification, said in chat as the first line of the first brainstorming reply: **bounded** — a quality fix confined to the titles-parse step in `bsi_core/products.py` (prompt wording, a domain filter on parsed titles, one stopword), with no schema, API or UI change. The scope then grew, by the user's choice, to include the query wording; it is still a change to one existing flow in one file. By the user's standing rule it gets a spec, a plan and the full review cycle.
 
-Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-29). Each design section's text was shown in chat before its approval:
+Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-29). Sections 2 and 3 had their design text in chat before their approval. Section 1 (query and cache) did not: its approval was asked without its own text, and its query wording and cache rule had appeared only in the approaches message (found in the slice 20 audit):
 
 - **Scope:** the parse fix plus the query wording.
 - **Locale:** stays out of the query text; it is its own later slice.
@@ -97,7 +97,7 @@ Integration, `tests/integration/test_products_run.py`:
 
 - The three assertions on the engine prompt use `search_query(...)`'s text: in `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` and `test_an_error_search_is_not_reused` (`kids sandals`), and in `test_plural_variants_share_one_search` (`mens sandal`).
 - `test_a_fresh_search_is_reused_and_a_stale_one_redone` seeds its fresh row with `query=search_query("kids sandals")` instead of `"q"`, so it stays a hit. It is the test that a new-query row is a hit; no separate test is added.
-- The other rows seeded with `query="q"` or a "buy online" query (`test_isolation.py`, `test_api_products.py`, `test_rls.py`) stay as they are: they are searched either way or never read by `run_products`.
+- The other rows seeded with `query="q"` or a "buy online" query (`test_isolation.py`, `test_api_products.py`, `test_rls.py`) stay as they are: `run_products` never reads them.
 - `test_an_error_search_is_not_reused` seeds its error row with `query=products.search_query("kids sandals")` (R1), so only the `error IS NULL` filter makes the run search it again.
 - New: a fresh, error-free cached row whose `query` is `"kids sandals buy online"` is searched again; afterwards the row's `query` is the new text and its `titles` are the new result.
 - New: a run whose judge returns the titles "Zappos.com" (domain zappos.com) and "Kids Classic Sandal" stores only "Kids Classic Sandal". This needs a `titles=` parameter on the test file's `_generator` (its titles body is fixed today) and a `FakeEngine` whose answer text contains both titles. `FakeEngine.parse` always cites `amazon.in`, so this test covers the title's own-domain path; the citation path is covered by the unit tests.

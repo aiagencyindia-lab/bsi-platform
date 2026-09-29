@@ -33,7 +33,8 @@ The fix for slice 19's deferred ruling R5 (findings-slice19 §2 and §3): the ti
 | cad40aa | feat(products): ask the grounded search for products; redo old-query rows |
 | a63f707 | fix(products): drop store names from parsed titles; com is a stopword |
 | 19fa5f8 | docs: slice 20 findings, index and rulings |
-| (this commit) | test: slice 20 final review: the R9 test seeds the new query (R1) |
+| 9ecbb33 | test: slice 20 final review: the R9 test seeds the new query (R1) |
+| (this commit) | docs: slice 20 audit fixes (section-approval record, stale reasons) |
 
 ## 2. Live check on dev
 

@@ -27,7 +27,7 @@
 | Test | Change | Task |
 |---|---|---|
 | `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` (integration) | the engine prompt is `products.search_query("kids sandals")` | 1 |
-| `test_an_error_search_is_not_reused` (integration) | the engine prompt is `products.search_query("kids sandals")`; its seeded `query="q"` row stays (changed by R1: seeds the new query) | 1 |
+| `test_an_error_search_is_not_reused` (integration) | the engine prompt is `products.search_query("kids sandals")`; its seeded error row uses `query=products.search_query("kids sandals")` (Ruling R1) | 1 |
 | `test_plural_variants_share_one_search` (integration) | the engine prompt is `products.search_query("mens sandal")` | 1 |
 | `test_a_fresh_search_is_reused_and_a_stale_one_redone` (integration) | the fresh row is seeded with `query=products.search_query("kids sandals")` instead of `"q"` | 1 |
 | `PRODUCT_CASES` (`tests/unit/test_recommend_copy.py`) | imports `search_query` and gains `search_query("kids shoes")` | 1 |
@@ -510,3 +510,4 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   - `docs/findings-slice20.md` and the task report were written with a shell heredoc, because the Write tool refused to create `.md` files from a subagent.
   - The Step 5 coverage grep excluded `R9`, because the ledger's R9 is slice 18's ruling.
 - Ruling R1 (final whole-branch review): `test_an_error_search_is_not_reused` seeds its error row with `query=products.search_query("kids sandals")` instead of `query="q"`, so it tests slice 18's R9 on its own again. This overrides the "stays" in the table above; the spec's §3 and `## Rulings` are updated. Checked by deleting `m.KeywordSearch.error.is_(None)` in `products.py`: the test failed, and passed again once the line was restored. Commit: this commit, "test: slice 20 final review: the R9 test seeds the new query (R1)" (listed in findings-slice20 §1).
+- **Slice 20 audit (docs only).** The spec's line on section approvals now says Section 1 was approved without its own text in chat; spec §3's reason for the rows left unchanged is now only that `run_products` never reads them; this plan's changes-table row for `test_an_error_search_is_not_reused` states R1's seed instead of old and new state together.
