@@ -10,7 +10,9 @@ from bsi_core.products import (
     RewriteSet,
     TitleSet,
     drop_brand_terms,
+    dropped,
     export_rows,
+    fold,
     keep_present,
     keyword_prompt,
     missing,
@@ -227,7 +229,6 @@ TITLES = [
 
 def test_missing_keywords_need_two_titles_and_skip_present_tokens():
     assert missing("Walkaroo Boys Sandal Blue", TITLES, BRAND) == [
-        "sandals",
         "summer",
         "kids",
     ]
@@ -252,6 +253,7 @@ def test_rule_check_removes_repeated_tokens():
     ) == (
         "Walkaroo Kids Shoes",
         "adjusted",
+        [],
     )
 
 
@@ -259,18 +261,20 @@ def test_rule_check_restores_the_brand_the_original_had():
     assert rule_check("Walkaroo Boys Sandal", "Boys Summer Sandal", BRAND) == (
         "Walkaroo Boys Summer Sandal",
         "adjusted",
+        [],
     )
     # The original had no brand: none is added.
     assert rule_check("Boys Sandal", "Boys Summer Sandal", BRAND) == (
         "Boys Summer Sandal",
         "pass",
+        [],
     )
 
 
 def test_rule_check_trims_to_150_at_a_word_boundary():
     words = [f"w{i}" for i in range(60)]  # "w0 w1 ... w59" = 229 chars
-    fixed, status = rule_check("Plain", " ".join(words), BRAND)
-    assert status == "adjusted"
+    fixed, status, lost = rule_check("Plain", " ".join(words), BRAND)
+    assert status == "review" and lost == ["plain"]
     assert len(fixed) <= 150
     assert fixed == " ".join(words)[: len(fixed)]
     assert not fixed.endswith(" ") and fixed.split()[-1] in words
@@ -282,6 +286,7 @@ def test_rule_check_passes_an_unchanged_suggestion():
     ) == (
         "Walkaroo Boys Summer Sandal",
         "pass",
+        [],
     )
 
 
@@ -328,11 +333,12 @@ def test_prompts_carry_the_inputs_and_parse_with_their_schemas():
 def test_rule_check_drops_a_word_that_repeats_an_earlier_token():
     assert rule_check(
         "Walkaroo Kids-Sandal", "Walkaroo Kids-Sandal Sandal", BRAND
-    ) == ("Walkaroo Kids-Sandal", "adjusted")
+    ) == ("Walkaroo Kids-Sandal", "adjusted", [])
     # The brand is prepended first, then the repeated token is dropped.
     assert rule_check("Red Tape Boots", "Tape Shoes", ("Red Tape",)) == (
         "Red Tape Shoes",
-        "adjusted",
+        "review",
+        ["boots"],
     )
 
 
@@ -340,4 +346,35 @@ def test_rule_check_keeps_punctuation_only_words():
     assert rule_check("Walkaroo Sandal", "Walkaroo - Sandal | Kids", BRAND) == (
         "Walkaroo - Sandal | Kids",
         "pass",
+        [],
     )
+
+
+def test_fold_drops_one_letter_tokens_and_trailing_s():
+    assert fold("Men's Sandals") == ["men", "sandal"]
+    assert fold("Flip-Flops") == ["flip", "flop"]
+
+
+def test_rule_check_folds_plurals_and_strips_a_trailing_connector():
+    assert rule_check(
+        "Walkaroo Boys Sandal Blue",
+        "Walkaroo Blue Boys Sandal And Sandals",
+        BRAND,
+    ) == ("Walkaroo Blue Boys Sandal", "adjusted", [])
+
+
+def test_rule_check_flags_dropped_words_for_review():
+    assert rule_check(
+        "Men Casual Sandal Brown", "Brown Mens Sandal Shoes", BRAND
+    ) == ("Brown Mens Sandal Shoes", "review", ["casual"])
+    assert rule_check("Men Flip Flop Navy", "Navy Men Slipper", BRAND) == (
+        "Navy Men Slipper",
+        "review",
+        ["flip", "flop"],
+    )
+
+
+def test_dropped_ignores_stopwords_brand_numbers_and_short_tokens():
+    assert dropped(
+        "Walkaroo Boys Sandal 3 for x", "Walkaroo Sandal", BRAND
+    ) == ["boys"]

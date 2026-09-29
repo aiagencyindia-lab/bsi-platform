@@ -32,6 +32,7 @@ from .crawl import Fetch, http_fetch
 from .db import tenant_session
 from .judge import JudgeFailed
 from .providers.base import EngineAdapter
+from .rivals import _stem
 from .scheduling import budget_fits
 from .suggest import Generator
 
@@ -329,6 +330,26 @@ def brand_tokens(names: Sequence[str]) -> frozenset[str]:
     return frozenset(t for n in names for t in tokens(n))
 
 
+def fold(text: str) -> list[str]:
+    """The text's tokens without 1-letter ones (the s of "men's"), each
+    with one trailing s dropped (rivals._stem): sandals and sandal, mens
+    and men meet. ponytail: crude on purpose; irregular plurals (feet)
+    do not fold. The one place to swap in a real lemmatiser."""
+    return [_stem(t) for t in tokens(text) if len(t) > 1]
+
+
+def fold_set(text: str) -> frozenset[str]:
+    return frozenset(fold(text))
+
+
+def _brand_stems(brand_names: Sequence[str]) -> frozenset[str]:
+    return frozenset(_stem(t) for t in brand_tokens(brand_names))
+
+
+# Removed from the end of a fixed title: "Sandal And" -> "Sandal".
+CONNECTORS = frozenset({"and", "with", "for", "&", "-", "|"})
+
+
 def vote(samples: Sequence[Sequence[str]]) -> list[str]:
     """One product's ranked keywords from SAMPLES ranked lists: rank 1 is
     the keyword most often at rank 1 (ties: sample order), then the union
@@ -358,25 +379,29 @@ def drop_brand_terms(
 def missing(
     product_title: str, titles: Sequence[str], brand_names: Sequence[str]
 ) -> list[str]:
-    """Tokens of the ranking titles the product title lacks: at least 3
-    characters, not a number, not a stopword or brand token, in at least
-    MIN_TITLES titles; by title count then alphabetically; MAX_MISSING."""
-    have = set(tokens(product_title)) | brand_tokens(brand_names)
+    """Words of the ranking titles the product title lacks, compared by
+    stem (fold): at least 3 characters, not a number, not a stopword or a
+    brand stem, in at least MIN_TITLES titles. The first surface form
+    seen is reported; by title count, then stem; MAX_MISSING."""
+    have = fold_set(product_title) | _brand_stems(brand_names)
     counts: Counter[str] = Counter()
+    surface: dict[str, str] = {}
     for title in titles:
-        for tok in set(tokens(title)):
-            if (
-                len(tok) >= 3
-                and not tok.isdigit()
-                and tok not in STOPWORDS
-                and tok not in have
-            ):
-                counts[tok] += 1
+        here: set[str] = set()
+        for tok in tokens(title):
+            if len(tok) < 3 or tok.isdigit() or tok in STOPWORDS:
+                continue
+            stem = _stem(tok)
+            if stem in have:
+                continue
+            here.add(stem)
+            surface.setdefault(stem, tok)
+        counts.update(here)
     ranked = sorted(
-        (tok for tok, n in counts.items() if n >= MIN_TITLES),
-        key=lambda tok: (-counts[tok], tok),
+        (s for s, n in counts.items() if n >= MIN_TITLES),
+        key=lambda s: (-counts[s], s),
     )
-    return ranked[:MAX_MISSING]
+    return [surface[s] for s in ranked[:MAX_MISSING]]
 
 
 def _brand_in(text: str, brand_names: Sequence[str]) -> str | None:
@@ -389,14 +414,32 @@ def _brand_in(text: str, brand_names: Sequence[str]) -> str | None:
     return None
 
 
+def dropped(
+    original: str, suggestion: str, brand_names: Sequence[str]
+) -> list[str]:
+    """The original title's words whose stem is not in the suggestion:
+    stopwords, brand stems, pure numbers and 1-letter tokens ignored;
+    lowercased, in original order, without repeats."""
+    have = fold_set(suggestion) | _brand_stems(brand_names)
+    out: list[str] = []
+    for tok in tokens(original):
+        if len(tok) < 2 or tok.isdigit() or tok in STOPWORDS:
+            continue
+        if _stem(tok) not in have and tok not in out:
+            out.append(tok)
+    return out
+
+
 def rule_check(
     original: str, suggestion: str, brand_names: Sequence[str]
-) -> tuple[str, str]:
-    """(title, "pass" | "adjusted"). Fixes rather than retries: the brand
-    is prepended if the original had it and the suggestion lost it; then
-    repeated tokens are removed: a word that repeats an earlier token is
-    dropped whole (punctuation-only words are kept); then the title is
-    trimmed to MAX_TITLE_CHARS at a word boundary."""
+) -> tuple[str, str, list[str]]:
+    """(title, status, dropped_words). Fixes rather than retries: the
+    brand is prepended if the original had it and the suggestion lost it;
+    a word that repeats an earlier word's stem is dropped whole
+    (punctuation-only words are kept); trailing CONNECTORS are removed;
+    the title is trimmed to MAX_TITLE_CHARS at a word boundary. Status:
+    "review" if the final title lost any of the original's words, else
+    "adjusted" if it differs from the suggestion, else "pass"."""
     title = suggestion
     brand = _brand_in(original, brand_names)
     if brand and _brand_in(title, [brand]) is None:
@@ -404,17 +447,22 @@ def rule_check(
     seen: set[str] = set()
     kept: list[str] = []
     for word in title.split():
-        toks = set(tokens(word))
-        if toks & seen:
+        stems = fold_set(word)
+        if stems & seen:
             continue
-        seen |= toks
+        seen |= stems
         kept.append(word)
+    while kept and kept[-1].casefold() in CONNECTORS:
+        kept.pop()
     title = " ".join(kept)
     if len(title) > MAX_TITLE_CHARS:
         cut = title[: MAX_TITLE_CHARS + 1]
         space = cut.rfind(" ")
         title = cut[:space].rstrip() if space > 0 else title[:MAX_TITLE_CHARS]
-    return title, ("pass" if title == suggestion else "adjusted")
+    lost = dropped(original, title, brand_names)
+    if lost:
+        return title, "review", lost
+    return title, ("pass" if title == suggestion else "adjusted"), []
 
 
 def _squash(text: str) -> str:
@@ -639,6 +687,7 @@ def run_products(
                             "suggested_title": None,
                             "suggested_bullets": None,
                             "rule_check": None,
+                            "dropped_words": None,
                             "job_id": job_id,
                             "result_at": now,
                         }
@@ -761,7 +810,9 @@ def run_products(
                     suggestion = (item.title.strip() if item else "") or p[
                         "title"
                     ]
-                    title, status = rule_check(p["title"], suggestion, names)
+                    title, status, lost = rule_check(
+                        p["title"], suggestion, names
+                    )
                     bullets = [
                         b.strip()[:MAX_BULLET_CHARS]
                         for b in (item.bullets if item else [])
@@ -775,6 +826,7 @@ def run_products(
                             suggested_title=title,
                             suggested_bullets=bullets,
                             rule_check=status,
+                            dropped_words=lost,
                             job_id=job_id,
                             result_at=now,
                         )

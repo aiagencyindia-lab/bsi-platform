@@ -184,11 +184,13 @@ def test_one_search_per_distinct_keyword_and_the_rewrite_is_checked(
     ]
     assert searches[0].cost_micros == 35_700 and searches[0].error is None
     p = rows[0]
-    # "sandals" and "summer" are in both ranking titles and absent from
-    # "Walkaroo Boys Sandal 0"; "kids" and "lightweight" are in one only.
-    assert p.missing_keywords == ["sandals", "summer"]
+    # Stems fold plurals: "sandals" matches the product's "sandal", so only
+    # "summer" is in both ranking titles and absent from the product.
+    assert p.missing_keywords == ["summer"]
     assert p.suggested_title == "Walkaroo Kids Summer Sandals"
-    assert p.rule_check == "adjusted"
+    # "Walkaroo Boys Sandal 0" rewritten as "…Kids Summer Sandals" loses
+    # "boys", so the suggestion is flagged for review.
+    assert (p.rule_check, p.dropped_words) == ("review", ["boys"])
     assert p.suggested_bullets == ["Light", "Washable", "Soft"]
     assert p.job_id == job.id and p.result_at is not None
     assert [c[0] for c in gen.calls] == [
@@ -416,6 +418,7 @@ def test_a_product_whose_keyword_drops_loses_its_old_suggestion(
                 missing_keywords=["x"],
                 suggested_title="Old",
                 rule_check="pass",
+                dropped_words=["x"],
             )
         )
     gen = _generator(keywords=["walkaroo sandals"])
@@ -424,6 +427,7 @@ def test_a_product_whose_keyword_drops_loses_its_old_suggestion(
     p = rows[0]
     assert (p.keyword, p.suggested_title, p.rule_check) == (None, None, None)
     assert p.missing_keywords is None and p.job_id == job.id
+    assert p.dropped_words is None
 
 
 def test_no_transaction_is_open_during_model_calls(owner, make_org, make_brand):
