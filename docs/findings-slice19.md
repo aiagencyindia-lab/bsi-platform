@@ -86,7 +86,7 @@ Decisions with a cost (rulings, spec `## Rulings`):
 - `fit_rank` cuts a keyword only at `CATEGORY_CUTS` (`for`, `with`), not at every stopword (R6). Cost: a category after another joining word ("sandals in black") is read by the last word (`black`), as it was before R3.
 
 Migration and export:
-- `dropped_words` export cells cannot start with a formula character: the values come from `tokens()`, which yields only `[a-z0-9]+`, so the risk cannot occur. The generic `cell()` in `export_rows` (R6) still covers the column.
+- `dropped_words` export cells cannot start with a formula character: the values come from `tokens()`, which yields only `[a-z0-9]+`, so the risk cannot occur. The generic `cell()` in `export_rows` (slice 18 R6) still covers the column.
 - The CSV export gained a 9th column, `dropped_words`, so a consumer that checks the column count strictly will see a change.
 - The downgrade of migration 0020 was never exercised, by a test or against a database.
 

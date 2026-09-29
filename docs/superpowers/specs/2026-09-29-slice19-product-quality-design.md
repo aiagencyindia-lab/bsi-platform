@@ -47,7 +47,7 @@ Codebase facts the design rests on:
   - downgrade: `UPDATE product SET rule_check = 'adjusted' WHERE rule_check = 'review'`, drop the column, restore the two-value CHECK.
 - `models.RULE_CHECKS = ("pass", "adjusted", "review")`; `Product.dropped_words: Mapped[list[str] | None]`.
 - `run_products` writes `dropped_words` with the other result columns; R13's clearing sets it to NULL too.
-- API: `ProductOut` gains `dropped_words: list[str] | None`. The CSV export gains a last column `dropped_words` (`|`-joined, formula-neutralised like every cell, R6). Regenerate `openapi.json` and `schema.d.ts`.
+- API: `ProductOut` gains `dropped_words: list[str] | None`. The CSV export gains a last column `dropped_words` (`|`-joined, formula-neutralised like every cell, slice 18 R6). Regenerate `openapi.json` and `schema.d.ts`.
 - Web: the Check column shows the `review` badge, and under it a muted line `dropped: casual` (comma-separated) when `dropped_words` is non-empty. `PRODUCT_CASES` gains `review` and `dropped:`.
 
 ### 3. The keyword step and the rewrite prompt
