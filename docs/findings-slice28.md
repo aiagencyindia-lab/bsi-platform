@@ -28,7 +28,7 @@ Results, as the Task 1 report records them:
 | b30923f | docs: slice 28 plan re-review fixes |
 | 50a3649 | test: pin the slice 24 seed's error filter, order and non-first keywords |
 | 0b4ff59 | docs: slice 28 findings, index and notes |
-| (this commit) | docs: slice 28 final review fixes |
+| 780b7d1 | docs: slice 28 final review fixes |
 
 ## 2. Live check on dev
 
@@ -52,7 +52,16 @@ From the final whole-branch review (ledger lines tagged `minor (deferred)`):
 
 The final review's triage, as recorded: "Final triage of the deferred minors: Task 1 :537 joined assert — leave deferred; Task 2 findings-slice27.md:129 bare "(R1)" — fix before merge ("(slice 28 spec, R1)"); Task 2 findings-slice28.md:58 paraphrase/date — leave deferred; Task 2 findings-slice28.md:9 "seeds" — leave deferred"
 
+From the fix wave's scoped re-review (recorded after merge, R10 and R11). The result, as recorded: "Fix wave re-review (a2ecc422a355defc4, 0b4ff59..780b7d1): "All findings addressed: Yes"; new breakage 2 Minor, 0 Critical, 0 Important; 2 out-of-scope observations."
+- "Fix wave: parked — findings-slice28.md:44-45 and R8 at :67 quote the ledger pointer "findings-slice28.md:58" for the stale-rows item, now at :78, with no note giving the new line (unlike :129→138 at :43) — Ruling: R11 — there is no second fix wave; record the new line in the post-merge docs commit — cost if wrong: one stale line pointer until then"
+  - Noted here (R11): at merge (a4f1d3f) the stale-rows item was at line 78 of this file, in §3 under "Carried forward"; R8 names it by section.
+- "Fix wave: parked — plan :235 still quotes "go into the post-merge docs commit" and findings :49 says only "Fixed in the fix wave (R10)", with no note that the final-review and fix-wave bullets landed before merge — Ruling: R11 — same: note it in the post-merge docs commit — cost if wrong: a reader may think those bullets came after merge"
+  - Noted here (R11): the plan's final-review and fix-wave bullets and this section's Task 2 and Final quotes landed before merge, in 780b7d1; only this block and R11 came after merge.
+- "Fix wave: minor (deferred): out of scope: the R9 correction at findings-slice28.md:41 lists five `and` asserts (264, 293, 459, 484, 694); the file has more (e.g. 213, 226, 272, 292, 318, 364, 442, 706); accurate, not complete"
+- "Fix wave: minor (deferred): out of scope: spec R7/R8 wording departs slightly from ledger lines 36-37 (R7 says §3 where the ledger says :129; R8 names spots by section, not :58/:9); disclosed in the fix-wave ledger line; R7–R10 in findings §3 have no "ledger line, as recorded" quote beside them, unlike R6"
+
 Parked: none. The ledger has no parked lines.
+  - Correction (2026-10-01, after merge): the fix wave's re-review led to the two parked lines quoted above.
 
 Rulings (spec `## Rulings`, quoted in full):
 - **R1: the seed's keyword tie-break is out of scope.** Decided: no test for two rows with the same `searched_at`, where the seed's second sort key, `keyword`, picks the spelling. Found by the controller writing the spec (it was not raised in chat). Why: findings-slice24 does not list it, and all real rows written in one run share one `searched_at` only when they are different keys. Cost if wrong: the tie-break stays unpinned. Named in chat when made.
@@ -67,6 +76,7 @@ Rulings (spec `## Rulings`, quoted in full):
 - **R8: three deferred minors stay deferred.** Decided: leave the joined assert at tests/integration/test_products_run.py:537, the paraphrase and date in docs/findings-slice28.md §3's stale-rows item, and "each seeds one product" in its §1 as they are. Found by the Task 1 and Task 2 reviews; triaged by the final review. Why: per the final review's triage: house style and a listed plan departure, accurate wording that points to its source, and a literal description of `_seed`. Cost if wrong: three small wording or style points stay. Named in chat when made.
 - **R9: Task 1's ledger minor keeps its "separate asserts" claim, corrected beside it.** Decided: no fix for the final review's minor that Task 1's ledger minor wrongly says "the sibling tests use separate asserts"; the ledger line stays as the record, and docs/findings-slice28.md §3 quotes the final review's correction next to it. Found by the final review. Why: the ledger is a record, not a doc to rewrite. Cost if wrong: a slightly wrong claim stays in the quoted ledger line, corrected beside it. Named in chat when made.
 - **R10: the one fix wave also completes the docs.** Decided: the fix wave quotes every Task 2 and Final `minor (deferred)` line in findings §3, gives the plan's changes section bullets for the Task 2 review, the final review and the fix wave, adds R7–R10 to this spec and findings §3, and updates the README spec row's ruling range; the fix wave's re-review result goes into the post-merge docs commit. Found by the final review (findings §3 and the plan's changes section were incomplete). Why: the final review asked for these before merge, and a controller commit is not allowed. Cost if wrong: the re-review result is recorded only after merge. Named in chat when made.
+- **R11: the fix wave's re-review minors are parked for the post-merge docs commit.** Decided: no second fix wave; the two new minors the re-review found in the fix diff (the ledger pointer "findings-slice28.md:58" for the stale-rows item, which moved; and no note that the final-review and fix-wave bullets landed before merge) are recorded in the post-merge docs commit. Found by the scoped re-review of 0b4ff59..780b7d1. Why: the process allows one fix wave, and the controller does not fix findings on the branch. Cost if wrong: a stale line pointer and a missing note until the post-merge docs commit. Named in chat when made; recorded here after merge.
 
 Out of scope (spec):
 - Any change to the seed, the cache lookup or `products.py`.
