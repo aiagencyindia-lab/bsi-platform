@@ -14,6 +14,7 @@ Decisions approved in chat (brainstorming on Opus 5.5, 2026-09-30). Each questio
 - **Success test:** probe 3 + 3 rewrite calls on dev's 10 products before building (current prompt, then the new prompt). Rejected: judging on the post-merge live check only; 5 + 5 calls.
 - **Probe criteria (from the spec review, put to the user as a question and approved in chat):** only singular/plural repeats count against the pass rule (other repeats are recorded); a baseline with no singular/plural repeat makes the probe inconclusive.
 - **Approach A:** reword the prompt's keep rule. Approaches B (the code gives each product a per-product "use X in place of Y" hint) and C (A and B together) were described in chat with trade-offs; A was recommended and chosen, with B to be put to the user if A fails the probe.
+- **After probe 1 failed (§2), approach C:** the user chose "Probe C: sentence + hint" over B alone, accepting A as is, or stopping. The revised §1 design text (the sentence plus per-product swaps, probe 2, the tests) was put in chat and approved.
 
 Codebase facts (main `aa62285`, checked 2026-09-30):
 
@@ -23,7 +24,7 @@ Codebase facts (main `aa62285`, checked 2026-09-30):
 
 ## Design
 
-### 1. The prompt change
+### 1. The prompt change (approach C: sentence plus per-product swaps)
 
 In `rewrite_prompt`, the sentence
 
@@ -31,9 +32,32 @@ In `rewrite_prompt`, the sentence
 
 becomes
 
-> Keep every word of the original title (you may reorder them); a word may switch between singular and plural (for example Sandal to Sandals), which counts as the same word, so write only one of the two forms; add the keyword and the missing terms naturally; never change the product type; repeat no word in any form; no keyword stuffing.
+> Keep every word of the original title (you may reorder them); a word may switch between singular and plural (for example Sandal to Sandals), which counts as the same word, so write only one of the two forms; where a product lists swaps, write the first form of each swap in place of the second ("Sandals for Sandal" means write Sandals, not Sandal); add the keyword and the missing terms naturally; never change the product type; repeat no word in any form; no keyword stuffing.
 
-Nothing else changes: `rule_check`, `run_products`, the stored columns, the other prompts, the API, and the web app. If the probe (§2) leads to a different wording, the new wording is put to the user before it is built.
+New function in `products.py`:
+
+```python
+def form_swaps(title: str, keyword: str) -> list[str]:
+    """Hints for the rewrite: "Sandals for Sandal" when a title word and a
+    keyword word share a folded stem but differ as written, so the model
+    writes one form. The first matching keyword word per title word; no
+    duplicates; none without a keyword."""
+    out: list[str] = []
+    words = keyword.split()
+    for w in title.split():
+        stems = fold_set(w)
+        for k in words:
+            if stems & fold_set(k) and w.casefold() != k.casefold():
+                hint = f"{k[:1].upper()}{k[1:]} for {w}"
+                if hint not in out:
+                    out.append(hint)
+                break
+    return out
+```
+
+`rewrite_prompt` passes each product with a `swaps` field, `[{**p, "swaps": form_swaps(p["title"], p.get("keyword") or "")} for p in products]`, and `_product_lines(..., "keyword", "missing", "swaps", "description", "attributes")`; `_product_lines` already leaves out an empty list. On dev's products (checked 2026-09-30 with the same stem rule): LC-01 "kids sandals" gives "Sandals for Sandal"; LC-05 "mens flip flops" gives "Mens for Men" and "Flops for Flop"; LC-09 "kids shoes" gives "Shoes for Shoe"; LC-07 "women slippers" gives "Slippers for Slipper". LC-05's hint asks for "Mens" in place of the original "Men" because the stored keyword is spelled "mens" (the cache spelling); the clean rewrites in probe 1 already wrote "Mens".
+
+Nothing else changes: `rule_check`, `run_products`, the stored columns, the other prompts, the API, and the web app. If probe 2 leads to a different wording, the new wording is put to the user before it is built.
 
 ### 2. The probe (before building; the user approves the spend first)
 
@@ -45,9 +69,15 @@ Nothing else changes: `rule_check`, `run_products`, the stored columns, the othe
 - **Cost:** 6 calls at about 1,650 micros each (slice 25's 6,587-micro job made 4 calls), about 10,000 micros ($0.01).
 - **If it fails:** stop, report the raw titles, and ask the user about approach B before building.
 
+**Probe 1 result (run 2026-09-30 with the user's OK; 6 calls, 11,211 micros; the model reported `gemini-3.5-flash-lite`):** failed. Baseline (current prompt): singular/plural repeats in 10, 9 and 10 of 10 titles, so the probe was conclusive. The first-proposed sentence alone: 10 of 10 titles repeated in call 4 (the model wrote the original type word first and appended the keyword, for example "BSOAgentTestBrand Blue Kid Sandal Boys Kids Sandals"); 0 of 10 in calls 5 and 6, but call 6 gave LC-07 `review` (the raw title "BSOAgentTestBrand Beige Women Slippers" dropped "Casual"). Non-sandal products behaved like the sandal products. Temperature 0.0 did not make the calls repeatable.
+
+**Probe 2 (approach C; the user approves the spend first):** the same script and read-only queries, 3 calls with the §1 prompt built from a scratch copy of the planned `form_swaps` and `rewrite_prompt` (the baseline is probe 1's). The same pass rule. About 5,000 micros (3 calls at about 1,650). If it fails: stop and report to the user before building.
+
 ### 3. Testing
 
-- `tests/unit/test_products.py`, new test `test_rewrite_prompt_keeps_one_form_of_each_word`: asserts `"singular and plural" in rp`, `"write only one of the two forms" in rp` and `"repeat no word in any form" in rp`, where `rp = rewrite_prompt("Walkaroo", [])`.
+- `tests/unit/test_products.py`, new test `test_rewrite_prompt_keeps_one_form_of_each_word`: asserts `"singular and plural" in rp`, `"write only one of the two forms" in rp`, `"lists swaps" in rp` and `"repeat no word in any form" in rp`, where `rp = rewrite_prompt("Walkaroo", [])`.
+- New test `test_form_swaps`: `form_swaps("BSOAgentTestBrand Boys Sandal Blue", "kids sandals") == ["Sandals for Sandal"]`; `form_swaps("BSOAgentTestBrand Men Flip Flop Navy", "mens flip flops") == ["Mens for Men", "Flops for Flop"]`; `form_swaps("BSOAgentTestBrand Boys School Shoe Black", "kids shoes") == ["Shoes for Shoe"]`; `form_swaps("BSOAgentTestBrand Women Casual Slipper Beige", "women slippers") == ["Slippers for Slipper"]`; `form_swaps("Walkaroo Kids Sandals", "kids sandals") == []` (same forms); `form_swaps("Walkaroo Boys Sandal", "") == []`.
+- New test `test_rewrite_prompt_lists_swaps`: `rewrite_prompt("Walkaroo", [{"index": 0, "title": "Walkaroo Boys Sandal", "keyword": "kids sandals"}])` contains `"swaps": ["Sandals for Sandal"]`, and `rewrite_prompt("Walkaroo", [{"index": 0, "title": "Walkaroo Kids Sandals", "keyword": "kids sandals"}])` does not contain `"swaps"`.
 - The existing "Keep every word" and "summer"/"150" assertions stay and still pass.
 - `tests/unit/test_recommend_copy.py` already scans `rewrite_prompt`; no change.
 - No integration test: the fake generator returns a fixed title, so it cannot show the model's behaviour. The probe and the live check are the evidence.
@@ -65,6 +95,6 @@ None.
 ## Out of scope
 
 - Any change to `rule_check`, the status rules, or the stored columns.
-- Per-product swap hints (approach B), unless the probe fails and the user chooses it.
+- Swaps from missing words or other words than the keyword's.
 - Other repeats the model may make that are not singular/plural forms.
 - The deferred items in docs/findings-slice25.md §3.
