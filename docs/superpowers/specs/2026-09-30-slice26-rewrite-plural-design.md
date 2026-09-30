@@ -36,7 +36,7 @@ Nothing else changes: `rule_check`, `run_products`, the stored columns, the othe
 
 ### 2. The probe (before building; the user approves the spend first)
 
-- A scratch script outside the repo reads dev's 10 products with one read-only query (title, keyword, missing words, description, attributes), and builds the product dicts that `run_products` passes to `rewrite_prompt` (`index`, `title`, `keyword`, `missing`, `description`, `attributes`).
+- A scratch script outside the repo reads dev's 10 products with one read-only query (title, keyword, missing words, description, category, attributes), and builds the product dicts that `run_products` passes to `rewrite_prompt` (`index`, `title`, `keyword`, `missing`, `description`, `attributes`).
 - It calls `judge.generate(prompt, RewriteSet, 0.0)` 3 times with the current `rewrite_prompt` and 3 times with the §1 prompt (from a patched copy of `products.py` in the scratch directory). There are no database writes and no job.
 - For each call and product it records the raw title, whether any word's stems repeat an earlier word's stems (`fold_set`, as `rule_check` does), and `rule_check`'s status and dropped words (with `allowed = [keyword, description, category, attribute values, missing words]`, as `run_products` passes).
 - **Pass:** in all 3 calls with the §1 prompt, no raw title repeats a stem and no product's status is `review`. The current prompt's 3 calls are the baseline.
