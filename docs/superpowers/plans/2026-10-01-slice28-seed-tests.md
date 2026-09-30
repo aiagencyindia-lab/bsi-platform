@@ -180,7 +180,7 @@ Expected: `33 passed` (the file's 30 tests and the 3 new ones). If the count or 
 
   Then the same command with `PYTHONPATH=.` (main's code): `3 passed, 30 deselected`. If any result differs, stop and report it; do not change a test's expected values.
 
-- [ ] **Step 6: Gate.** `pgrep -fl pytest` (expect nothing), then the Backend gate from Global Constraints, once, as a command of its own, and record the exit code the tool result reports for it (the output file holds no exit code). Expected: exit code 0, `1552 passed, 2 deselected`, metrics coverage 100%, and the 2 known third-party warnings. Grep the diff (`git diff`) for the banned words: no match.
+- [ ] **Step 6: Gate.** `pgrep -fl pytest` (expect nothing), then the Backend gate from Global Constraints, once, with `; echo "gate exit $?"` appended after the redirect (it prints to the terminal, not to a file), and record the printed exit code (the output file holds none). Expected: `gate exit 0`, `1552 passed, 2 deselected`, metrics coverage 100%, and the 2 known third-party warnings. Grep the diff (`git diff`) for the banned words: no match.
 
 - [ ] **Step 7: Commit.** `git add tests/integration/test_products_run.py && git commit -m "test: pin the slice 24 seed's error filter, order and non-first keywords" -m "<trailer>"`. The `<workspace>/red/` copies are not committed (the workspace is gitignored).
 
@@ -195,7 +195,7 @@ Expected: `33 passed` (the file's 30 tests and the 3 new ones). If the count or 
 - [ ] **Step 1: Findings.** Fill `docs/findings-slice28.md` in the style of `docs/findings-slice27.md`, with sections:
   - `## 1. What was built`: the `_fresh_row` parameters, the three tests and what each pins; the Step 3 GREEN count, the Step 5 RED and GREEN results and the Step 6 gate result and exit code as the Task 1 report records them; and a commit table from `git log --oneline --reverse main..HEAD` with a "(this commit)" row.
   - `## 2. Live check on dev`: exactly "None: the slice adds tests only and changes no behaviour, so there is no spend and no dev write (spec §2)."
-  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger, quoted as recorded ("Parked: none" if none); the spec's rulings R1–R4 quoted in full, plus any the ledger records; the spec's Out of scope list; the items under "Carried forward from docs/findings-slice26.md §4 (still open):" in docs/findings-slice27.md §3 that are still open; and "Untested: the seed's secondary sort key (`keyword`) for two rows with the same `searched_at` (R1)."
+  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger, quoted as recorded ("Parked: none" if none); the spec's rulings R1–R5 quoted in full, plus any the ledger records; the spec's Out of scope list; the items under "Carried forward from docs/findings-slice26.md §4 (still open):" in docs/findings-slice27.md §3 that are still open; and "Untested: the seed's secondary sort key (`keyword`) for two rows with the same `searched_at` (R1)."
 - [ ] **Step 2: Dated updates, originals kept.** Add a sub-bullet starting "Update 2026-10-01 (slice 28):" under each of:
   - docs/findings-slice24.md §3, the Task 1 minor that begins "Task 1: the spec §1 order rule": `.desc()` is now pinned by `test_the_newest_cached_spelling_wins`; the secondary sort key is still unpinned (docs/superpowers/specs/2026-10-01-slice28-seed-tests-design.md, R1).
   - docs/findings-slice24.md §3, the Untested bullet "An accepted gap: no test pins the seed's `error.is_(None)` filter on its own": pinned by `test_an_error_row_is_not_seeded`.
@@ -203,7 +203,7 @@ Expected: `33 passed` (the file's 30 tests and the 3 new ones). If the count or 
   - docs/findings-slice24.md §3, the Untested sub-bullet "Adoption of a non-first keyword": pinned by `test_a_non_first_keyword_adopts_a_cached_spelling` (its own update).
   - docs/findings-slice27.md §3, the carried-forward bullet "The slice 24 seed's untested cases": all three pinned by slice 28 (docs/findings-slice28.md); the secondary sort key stays unpinned (R1).
 - [ ] **Step 3: README rows** for the spec, the plan and the findings, after the row for `superpowers/specs/2026-10-01-keyword-search-cleanup-design.md`, in the slice 27 rows' format.
-- [ ] **Step 4: Rulings.** The spec's `## Rulings` holds R1–R4. If the ledger records more rulings, add each after R3 in the same format (Decided / Found by / Why / Cost if wrong), and quote it in findings §3.
+- [ ] **Step 4: Rulings.** The spec's `## Rulings` holds R1–R5. If the ledger records more rulings, add each after R5 in the same format (Decided / Found by / Why / Cost if wrong), and quote it in findings §3.
 - [ ] **Step 5: Plan changes.** Fill this plan's `## Changes made during execution` from the ledger: one bullet per task, plus one each for the final review and any fix wave, quoting departures as recorded; the bullet for the commit that fills this section ends "(this commit)".
 - [ ] **Step 6: Grep** the changed docs files (findings-slice28, findings-slice24, findings-slice27, README, the spec, this plan) for the banned words; expected: no match except this plan's own Global Constraints list.
 - [ ] **Step 7: Commit** `git add docs && git commit -m "docs: slice 28 findings, index and notes" -m "<trailer>"`.
@@ -224,8 +224,8 @@ Expected: `33 passed` (the file's 30 tests and the 3 new ones). If the count or 
   5. Findings §3 also carries the spec's Out of scope list and the slice 27 carried-forward items, and Task 2 also updates the spec's Rulings and this plan's changes section; spec §2's docs list names neither.
   6. Task 2 Step 2 adds dated updates under two more findings-slice24 Untested bullets (newest-wins and non-first) as well as the error-filter one; the spec says "under the Untested items" without naming them.
   7. Task 1 Step 4 writes m3's replacement over two lines (`... if n == 0 else k`, then `for n, k in enumerate(fitted)`); the spec gives it as one line. Same code.
-  8. Task 1 Step 6 asks for the gate's exit code from the tool result; the spec does not say how the exit code is recorded.
-- Verified before committing this plan: the Step 1, Step 2 and Step 4 replacements were applied, from this file's own code blocks, to scratch copies of main (each old string found exactly once). Main's code: 33 passed for the whole edited file; the three new tests pass. m1, m2 and m3 each gave `1 failed, 2 passed`, failing only the test named in Step 5. ruff check and ruff format --check are clean on the edited test file.
+  8. Task 1 Step 6 prints the gate's exit code with `echo "gate exit $?"` after the redirect; the spec does not say how the exit code is recorded.
+- Verified before committing this plan: the Step 1, Step 2 and Step 4 replacements were applied, from this file's own code blocks, to scratch copies of main (each old string found exactly once). Main's code: 33 passed for the whole edited file; the three new tests pass. m1, m2 and m3 each gave `1 failed, 2 passed, 30 deselected`, failing only the test named in Step 5. ruff check and ruff format --check are clean on the edited test file.
 - Placeholders: none (`<trailer>` and `<workspace>` are per-session values).
 - Type consistency: `_fresh_row`'s signature is the same in Interfaces, Step 1 and Step 2.
 
