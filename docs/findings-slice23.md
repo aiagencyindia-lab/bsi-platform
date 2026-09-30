@@ -62,7 +62,8 @@ All code changes are in `packages/core/bsi_core/products.py`. No prompt, schema,
 | 0d99220 | fix(products): search the title's type when the guard would leave the category's |
 | 9e8504f | docs: slice 23 findings quote R2 and R3 as recorded |
 | 17d3162 | docs: slice 23 findings quote R1 as recorded |
-| (this commit) | docs: slice 23 live check |
+| 45cacc0 | docs: slice 23 live check |
+| (this commit) | docs: slice 23 README plan row names Task 4 |
 
 ## 2. The probes
 
