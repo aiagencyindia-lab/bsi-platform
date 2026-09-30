@@ -135,6 +135,7 @@ Carried forward from docs/findings-slice26.md §4 (still open):
     - **R12: the spec re-review's minor point was applied.** Decided: remove the blank line between R10 and R11. Found by the re-review of 28bef34. Why: it split the Rulings list. Cost if wrong: none. Named in chat when made.
     - **R13: the quoted rulings in docs/findings-slice27.md got a lead-in.** Decided: say they are numbered separately from slice 27's own R1 and R2, and that "this file" and "this spec" in them mean this spec; the copy is kept word for word. Found by the review of e25bdb9. Why: two R1s and two R2s in one findings file were ambiguous, and "this file" read as the findings file. Cost if wrong: none. Named in chat when made.
 - The slice 24 seed's untested cases (docs/findings-slice24.md §3, Untested): no test pins the seed's `error.is_(None)` filter on its own; newest-wins between two valid rows that share a key; adoption of a non-first keyword.
+  - Update 2026-10-01 (slice 28): all three pinned by slice 28 (docs/findings-slice28.md); the secondary sort key stays unpinned (R1).
 - The judge-agreement question, waiting on the user.
 
 Untested (spec §2 examples no test pins; checked with grep against tests/unit/test_products.py and tests/integration/test_products_run.py):

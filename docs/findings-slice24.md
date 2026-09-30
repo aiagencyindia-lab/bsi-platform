@@ -93,6 +93,7 @@ Run on 2026-09-30 by the controller at fb0bfb1, with the user's OK ("yes, do the
 From the task reviews (ledger lines tagged `minor (deferred)`):
 - Task 1: the spec §1 order rule (newest valid row wins; with equal searched_at the first keyword string) has no test; dropping `.desc()` or the secondary sort key would fail no test (test_products_run.py:454-510).
   - Note (not ledger text; from the final review): the range is test_products_run.py:454-503. The new tests end at line 503, and line 506 starts `test_the_rewrite_cannot_add_an_invented_word`.
+  - Update 2026-10-01 (slice 28): `.desc()` is now pinned by `test_the_newest_cached_spelling_wins`; the secondary sort key is still unpinned (docs/superpowers/specs/2026-10-01-slice28-seed-tests-design.md, R1).
 - Task 1: the gate output carries 2 third-party warnings (StarletteDeprecationWarning from fastapi/testclient.py:1; DeprecationWarning from starlette/testclient.py:53, the anyio BlockingPortal alias); pre-existing on main; not caused by this diff.
 
 From the final whole-branch review (ledger lines tagged `minor (deferred)`):
@@ -108,9 +109,12 @@ Rulings: none. The ledger records no ruling.
 
 Untested:
 - An accepted gap: no test pins the seed's `error.is_(None)` filter on its own. An error row with an empty title list passes `_current`, so the SQL filter is what keeps it out of the seed.
+  - Update 2026-10-01 (slice 28): pinned by `test_an_error_row_is_not_seeded`.
 - Two seed cases that the spec reviewer noted and the spec does not list (plan, Task 2 Step 1):
   - Newest-wins between two valid rows that share a key. This is the gap in the first Task 1 minor above.
+    - Update 2026-10-01 (slice 28): pinned by `test_the_newest_cached_spelling_wins`.
   - Adoption of a non-first keyword: in the three new tests each product has one keyword (`["kid sandal"]`), so none shows a seeded spelling taken by a product's second or later keyword.
+    - Update 2026-10-01 (slice 28): pinned by `test_a_non_first_keyword_adopts_a_cached_spelling`.
 - The tests use fixed model output, so they do not show which spellings real samples give. The dev re-check (§2) is where that is observed.
 
 Known ceilings, spec §1 (in the `# ponytail:` comment above `key_map`, in shorter wording):
