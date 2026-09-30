@@ -37,7 +37,8 @@ The findings for slices 23 and 24 marked every statement about which keyword sam
 | 05ad185 | feat(products): store the keyword samples and the raw rewrite |
 | 4b27e20 | docs: slice 25 findings, index and hashes |
 | 69d3245 | docs: slice 25 findings: final-review minors |
-| (this commit) | docs: slice 25 process audit corrections |
+| e880c1a | docs: slice 25 process audit corrections |
+| (this commit) | docs: slice 25 audit corrections: review fixes |
 
 ## 2. Live check on dev
 
@@ -82,10 +83,10 @@ Out of scope (spec):
 On 2026-09-30, after the finishing menu, the user asked "check if you have done all task correctly and follow each step" and then said "fix it". The audit found:
 - The classification was never said in chat before the first brainstorming question; the spec said it was. Corrected in the spec's Context.
 - All four design sections were approved through questions with only option labels, no section text in chat, and there was no approaches message with trade-offs; the spec said each section's text was shown. Corrected in the spec; each section's text, as built, was then put in chat in its own message and the user confirmed all four unchanged.
-- The session started on Fable 5.1 and the user was not told at the start (the handoff allows planning on Fable; the user switched to Opus 5.5 before execution).
+- The session started on Fable 5.1 and the user was not told at the start (planning on Fable 5.1 is allowed when the user says so; the user switched to Opus 5.5 before execution).
 - Reviewer prompts carried rulings or pre-empted findings: the Task 2 review prompt stated the controller's gate-path decision (R1); the Task 3 review prompt listed the controller's resolutions, including where R1 goes; the final review prompt exempted the plan's own banned-word list from the copy check; the controller's spec re-review request argued for the 9-row count before asking the reviewer to confirm it.
 - The plan's code blocks were checked on a scratch copy with ruff and mypy only; the plan's tests were first run by the implementers (their red and green runs matched the plan's expected values).
-- The controller created the task report stubs before any tool refusal; the findings stub was in the plan.
+- The controller created the task report stubs itself before any implementer's tool had refused (the process rule is to create a stub for a subagent only after a refusal, and to ask the user first); this is not in the ledger. The findings stub was in the plan (ledger: "controller created the one-line stub docs/findings-slice25.md").
 - One controller ledger line holds two NUL bytes (zsh `echo` read the escaped backslash-u); a note appended to the ledger gives the intended text.
 - The controller's first findings-coverage grep was wrong (zsh read the parentheses in its pattern as a glob group and reported every line missing); a Python check then found all 10 deferred lines quoted and none parked.
 
