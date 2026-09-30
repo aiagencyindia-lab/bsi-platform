@@ -116,6 +116,7 @@ Untested:
 Known ceilings, spec §1 (in the `# ponytail:` comment above `key_map`, in shorter wording):
 - Spellings that do not share a key ("man slippers" against "men slippers") are not merged.
 - Rows under an old spelling stay in the table once stale; nothing deletes them.
+  - Correction to "nothing deletes them" (2026-10-01): `DELETE /v1/brands/{id}/products` (`clear` in apps/api/bsi_api/routers/products.py) deletes every `keyword_search` row of the brand along with its products. No run removes an old spelling on its own.
 - The seed query loads every fresh valid row for the brand, that is every distinct keyword the brand searched in the last `SEARCH_TTL_DAYS` days (bounded by the products per brand, `MAX_PRODUCTS`, since only first keywords are searched).
 - `drop_brand_terms` runs on the voted spelling before `key_map`, so a cached spelling that contains a brand token (a "crocs sandals" row from before "Crocs" became an alias) can be adopted by a voted "croc sandals" within the TTL.
 
