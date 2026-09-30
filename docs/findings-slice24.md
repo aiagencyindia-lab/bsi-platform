@@ -45,7 +45,7 @@ All code changes are in `packages/core/bsi_core/products.py`. No migration, sche
 | 0530ecc | docs: slice 24 findings, index and rulings |
 | 20c907b | docs: slice 24 findings wording fixes |
 | fb0bfb1 | docs: slice 24 findings: final-review minors |
-| (this commit) | docs: slice 24 live check |
+| e315b44 | docs: slice 24 live check |
 
 ## 2. Live check on dev
 
@@ -100,7 +100,7 @@ From the final whole-branch review (ledger lines tagged `minor (deferred)`):
   - Corrected in fb0bfb1 (note above): the range is 454-503.
 - the spec's §1 prose says the run-start session loads the seed while its parenthetical allows a second session; plan departure 3 records the choice (a second session). Spec wording only.
 - the live check is not yet run; findings §2 and the README row say so; they must be updated if it runs before merge.
-  - Run on 2026-09-30, recorded in §2 (this commit).
+  - Run on 2026-09-30, recorded in §2 (e315b44).
 
 Parked: none. The ledger has no parked lines.
 

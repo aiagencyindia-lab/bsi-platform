@@ -1052,8 +1052,9 @@ def run_products(
                     }
                 )
             for i, p in enumerate(batch):
+                p["samples"] = [sm.get(i, []) for sm in samples]
                 fitted = choose_keywords(
-                    [sm.get(i, []) for sm in samples],
+                    p["samples"],
                     names,
                     p["title"],
                     p["category"],
@@ -1075,6 +1076,7 @@ def run_products(
                             "suggested_bullets": None,
                             "rule_check": None,
                             "dropped_words": None,
+                            "raw_title": None,
                             "job_id": job_id,
                             "result_at": now,
                         }
@@ -1085,6 +1087,7 @@ def run_products(
                         .values(
                             keyword=p["keyword"],
                             keywords=p["keywords"],
+                            keyword_samples=p["samples"],
                             **cleared,
                         )
                     )
@@ -1224,9 +1227,9 @@ def run_products(
             with tenant_session(org_id) as s:
                 for i, p in enumerate(kept):
                     item = rewrites.get(i)
-                    suggestion = (item.title.strip() if item else "") or p[
-                        "title"
-                    ]
+                    title_in = item.title.strip() if item else ""
+                    p["raw_title"] = title_in or None
+                    suggestion = title_in or p["title"]
                     title, status, lost = rule_check(
                         p["title"],
                         suggestion,
@@ -1244,6 +1247,7 @@ def run_products(
                         .values(
                             missing_keywords=p["missing"],
                             suggested_title=title,
+                            raw_title=p["raw_title"],
                             suggested_bullets=bullets,
                             rule_check=status,
                             dropped_words=lost,

@@ -195,5 +195,6 @@ Known ceilings, spec §2 (the built fallback, in the `# ponytail:` comment above
 Out of scope (spec):
 - `vote`'s first-seen ordering and its `MAX_KEYWORDS` cap.
 - Storing the raw keyword samples or the raw rewrite.
+  - Done in slice 25.
 - Any prompt change.
 - The deferred minors in docs/findings-slice21.md §3 and docs/findings-slice22.md §3.

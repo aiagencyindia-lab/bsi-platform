@@ -58,6 +58,7 @@ def _generator(
     by_index=None,
     titles=None,
     rewrite=None,
+    skip_rewrite=(),
 ):
     """Answers each schema with fixed JSON; records the call kinds and,
     when `owner` is given, how many products had a keyword at call time."""
@@ -121,6 +122,7 @@ def _generator(
                         "bullets": ["Light", "Washable", "Soft", "Extra"],
                     }
                     for i in indexes
+                    if i not in skip_rewrite
                 ]
             }
         return json.dumps(body), 700, "fake-model"
@@ -218,6 +220,9 @@ def test_one_search_per_distinct_keyword_and_the_rewrite_is_checked(
     # "boys", so the suggestion is flagged for review.
     assert (p.rule_check, p.dropped_words) == ("review", ["boys"])
     assert p.suggested_bullets == ["Light", "Washable", "Soft"]
+    # Slice 25: the samples choose_keywords saw and the raw rewrite.
+    assert p.keyword_samples == [["kids sandals", "walkaroo kids"]] * 3
+    assert p.raw_title == "Walkaroo Kids Summer Sandals Sandals"
     assert p.job_id == job.id and p.result_at is not None
     assert [c[0] for c in gen.calls] == [
         "keywords",
@@ -756,6 +761,7 @@ def test_a_product_whose_keyword_drops_loses_its_old_suggestion(
                 suggested_title="Old",
                 rule_check="pass",
                 dropped_words=["x"],
+                raw_title="Old raw",
             )
         )
     gen = _generator(keywords=["walkaroo sandals"])
@@ -765,6 +771,25 @@ def test_a_product_whose_keyword_drops_loses_its_old_suggestion(
     assert (p.keyword, p.suggested_title, p.rule_check) == (None, None, None)
     assert p.missing_keywords is None and p.job_id == job.id
     assert p.dropped_words is None
+    assert p.raw_title is None
+    assert p.keyword_samples == [["walkaroo sandals"]] * 3
+
+
+def test_a_product_without_a_rewrite_keeps_its_title_and_no_raw_title(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    gen = _generator(skip_rewrite={0})
+    job, rows, _searches = _run(owner, org, bid, gen)
+    assert job.status == "done"
+    p = rows[0]
+    assert p.raw_title is None
+    assert p.suggested_title == "Walkaroo Boys Sandal 0"
+    assert (p.rule_check, p.dropped_words) == ("pass", [])
+    assert p.suggested_bullets == []
+    assert p.keyword_samples == [["kids sandals", "walkaroo kids"]] * 3
 
 
 def test_no_transaction_is_open_during_model_calls(owner, make_org, make_brand):
@@ -861,6 +886,32 @@ def test_the_database_accepts_review_and_rejects_an_unknown_status(
     with pytest.raises(IntegrityError):
         with owner() as s, s.begin():
             s.execute(update(m.Product).values(rule_check="maybe"))
+
+
+def test_keyword_samples_round_trip(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    samples = [
+        ["kids sandals", "men\u2019s chappals"],
+        [],
+        ["b\u00fcbchen sandalen"],
+    ]
+    with owner() as s, s.begin():
+        s.add(
+            m.Product(
+                org_id=org.id,
+                brand_id=bid,
+                external_id="W-0",
+                title="Walkaroo Boys Sandal",
+                source="csv",
+                keyword_samples=samples,
+                raw_title="Kids Sandals \u2014 Summer",
+            )
+        )
+    with owner() as s:
+        p = s.scalars(select(m.Product)).one()
+        assert p.keyword_samples == samples
+        assert p.raw_title == "Kids Sandals \u2014 Summer"
 
 
 def test_plural_variants_share_one_search(owner, make_org, make_brand):
