@@ -553,6 +553,11 @@ class Product(Tenant, Base):
     # Original-title words the suggestion lost (plurals folded); set
     # whenever rule_check is "review" (slice 19).
     dropped_words: Mapped[list[str] | None]
+    # The three keyword-prompt sample lists choose_keywords received
+    # (after _clean), and the rewrite call's title before rule_check
+    # (slice 25). Read with psql; not exposed by the API.
+    keyword_samples: Mapped[list[list[str]] | None] = mapped_column(JSONB)
+    raw_title: Mapped[str | None]
     job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job.id"))
     result_at: Mapped[datetime | None] = mapped_column(TSZ)
     __table_args__ = (

@@ -863,6 +863,32 @@ def test_the_database_accepts_review_and_rejects_an_unknown_status(
             s.execute(update(m.Product).values(rule_check="maybe"))
 
 
+def test_keyword_samples_round_trip(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    samples = [
+        ["kids sandals", "men\u2019s chappals"],
+        [],
+        ["b\u00fcbchen sandalen"],
+    ]
+    with owner() as s, s.begin():
+        s.add(
+            m.Product(
+                org_id=org.id,
+                brand_id=bid,
+                external_id="W-0",
+                title="Walkaroo Boys Sandal",
+                source="csv",
+                keyword_samples=samples,
+                raw_title="Kids Sandals \u2014 Summer",
+            )
+        )
+    with owner() as s:
+        p = s.scalars(select(m.Product)).one()
+        assert p.keyword_samples == samples
+        assert p.raw_title == "Kids Sandals \u2014 Summer"
+
+
 def test_plural_variants_share_one_search(owner, make_org, make_brand):
     org = make_org()
     bid = make_brand(org, "Walkaroo")
