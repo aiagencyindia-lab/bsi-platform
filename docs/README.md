@@ -195,7 +195,7 @@ In the order they were written:
 | [findings-slice25.md](findings-slice25.md) | Results: what was built, the live check on dev (run on 2026-09-30), and what is deferred or untested. |
 | [superpowers/specs/2026-09-30-slice26-rewrite-plural-design.md](superpowers/specs/2026-09-30-slice26-rewrite-plural-design.md) | Design spec: a removed repeat no longer counts as an adjustment — `rule_check` gives `pass` when the only change to the suggestion is removing words that repeat an earlier word's stem; the rewrite prompt is unchanged, with the two failed prompt probes in the appendix. |
 | [superpowers/plans/2026-09-30-slice26-rewrite-plural.md](superpowers/plans/2026-09-30-slice26-rewrite-plural.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
-| [findings-slice26.md](findings-slice26.md) | Results: what was built, the two prompt probes, the live check on dev (not yet run), and what is deferred or untested. |
+| [findings-slice26.md](findings-slice26.md) | Results: what was built, the two prompt probes, the live check on dev (run on 2026-09-30), and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
