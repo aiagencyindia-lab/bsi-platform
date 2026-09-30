@@ -118,6 +118,7 @@ Out of scope (spec):
 
 Carried forward from docs/findings-slice26.md §4 (still open):
 - Stale duplicate `keyword_search` rows: rows under an old spelling stay in the table; nothing deletes them (docs/findings-slice24.md §3, ceilings and Out of scope).
+  - Update 2026-10-01: on dev, the user chose to delete the 11 rows searched before 2026-09-29 13:10 UTC, as a one-off `DELETE` run as `bsi_owner` inside a `DO` block that aborts unless exactly 11 rows go. It removed the 7 duplicates of a newer row with the same `keyword_key` ("kids shoe", "kids slipper", "men flip flops", "men shoe", "mens sandal", "women slipper", "womens sandal") and 4 old spellings with no newer row ("boys sandal", "boys shoe", "girls sandal", "men slipper"). All 11 were still under 7 days old (searched 2026-09-25 18:36 UTC, except "men flip flops" at 2026-09-29 11:23 UTC). 9 rows remain: the 8 current first keywords, and "navy flip flops", which no current product uses. The code is unchanged, so later runs can leave old spellings behind again.
 - The slice 24 seed's untested cases (docs/findings-slice24.md §3, Untested): no test pins the seed's `error.is_(None)` filter on its own; newest-wins between two valid rows that share a key; adoption of a non-first keyword.
 - The judge-agreement question, waiting on the user.
 
