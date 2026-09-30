@@ -42,12 +42,13 @@ From the task reviews (ledger lines tagged `minor (deferred)`):
 - "Task 2: minor (deferred): docs/findings-slice27.md:129, the new update ends "(R1)" (plan-mandated text); that file also holds slice 27's own R1 and the cleanup spec's quoted R1, so the bare "(R1)" is ambiguous; suggested "(slice 28 spec, R1)""
   - Fixed in the fix wave (R7). The update is at line 138 of that file.
 - "Task 2: minor (deferred): docs/findings-slice28.md:58 paraphrases the stale-rows carried-forward item ("no run removes them" for "nothing deletes them") and gives "the one-off dev cleanup of 2026-10-01" without the IST zone, where the source reads "2026-10-01 IST (2026-09-30 about 20:20 UTC)""
-  - Noted after merge (R11): this item moved; at merge (a4f1d3f) it was at line 78, in §3 under "Carried forward".
+  - Note (2026-10-01, after merge, R11): this item moved; at merge (a4f1d3f) it was at line 78, in §3 under "Carried forward".
 - "Task 2: minor (deferred): docs/findings-slice28.md:9, "each seeds one product" clashes with the doc's term "the seed"; "each creates one product" reads more clearly"
 
 From the final whole-branch review (ledger lines tagged `minor (deferred)`):
 - "Final: minor (deferred): findings-slice28 §3 and the plan's changes section are incomplete until a final docs commit: §3 quotes only Task 1's deferred minor (the three Task 2 minors were ledgered after 0b4ff59), and the changes section has no final-review or fix-wave bullet; ledger line "post-merge docs commit" should read pre-merge for these"
-  - Fixed in the fix wave (R10), before merge, in 780b7d1 (noted after merge, R11).
+  - Fixed in the fix wave (R10).
+  - Note (2026-10-01, after merge, R11): fixed before merge, in 780b7d1.
 - "Final: minor (deferred): Task 1's deferred minor says "the sibling tests use separate asserts", but test_products_run.py already joins checks with `and` at lines 264, 293, 459, 484 and 694 (484 in the same seed group); no code fix"
   - No fix; the correction is noted beside the Task 1 minor above (R9).
 
@@ -55,9 +56,9 @@ The final review's triage, as recorded: "Final triage of the deferred minors: Ta
 
 From the fix wave's scoped re-review (recorded after merge, R10 and R11). The result, as recorded: "Fix wave re-review (a2ecc422a355defc4, 0b4ff59..780b7d1): "All findings addressed: Yes"; new breakage 2 Minor, 0 Critical, 0 Important; 2 out-of-scope observations."
 - "Fix wave: parked — findings-slice28.md:44-45 and R8 at :67 quote the ledger pointer "findings-slice28.md:58" for the stale-rows item, now at :78, with no note giving the new line (unlike :129→138 at :43) — Ruling: R11 — there is no second fix wave; record the new line in the post-merge docs commit — cost if wrong: one stale line pointer until then"
-  - Noted here (R11): at merge (a4f1d3f) the stale-rows item was at line 78 of this file, in §3 under "Carried forward"; R8 names it by section.
+  - Note (2026-10-01, after merge, R11): at merge (a4f1d3f) the stale-rows item was at line 78 of this file, in §3 under "Carried forward"; R8 names it by section.
 - "Fix wave: parked — plan :235 still quotes "go into the post-merge docs commit" and findings :49 says only "Fixed in the fix wave (R10)", with no note that the final-review and fix-wave bullets landed before merge — Ruling: R11 — same: note it in the post-merge docs commit — cost if wrong: a reader may think those bullets came after merge"
-  - Noted here (R11): the plan's final-review and fix-wave bullets and this section's Task 2 and Final quotes landed before merge, in 780b7d1; after merge came only this block, R11, R12, the §1 row's hash (780b7d1), the dated note under "Parked: none.", and the notes marked "after merge".
+  - Note (2026-10-01, after merge, R11): the plan's final-review and fix-wave bullets and this section's Task 2 and Final quotes landed before merge, in 780b7d1; after merge came this block, R11–R13, the §1 row's hash (780b7d1), the dated notes marked "after merge", the plan's "(780b7d1)" fill, its Task 2 note and its "Fix-wave re-review" bullet, and the README ruling range.
 - "Fix wave: minor (deferred): out of scope: the R9 correction at findings-slice28.md:41 lists five `and` asserts (264, 293, 459, 484, 694); the file has more (e.g. 213, 226, 272, 292, 318, 364, 442, 706); accurate, not complete"
 - "Fix wave: minor (deferred): out of scope: spec R7/R8 wording departs slightly from ledger lines 36-37 (R7 says §3 where the ledger says :129; R8 names spots by section, not :58/:9); disclosed in the fix-wave ledger line; R7–R10 in findings §3 have no "ledger line, as recorded" quote beside them, unlike R6"
 
@@ -79,6 +80,7 @@ Rulings (spec `## Rulings`, quoted in full):
 - **R10: the one fix wave also completes the docs.** Decided: the fix wave quotes every Task 2 and Final `minor (deferred)` line in findings §3, gives the plan's changes section bullets for the Task 2 review, the final review and the fix wave, adds R7–R10 to this spec and findings §3, and updates the README spec row's ruling range; the fix wave's re-review result goes into the post-merge docs commit. Found by the final review (findings §3 and the plan's changes section were incomplete). Why: the final review asked for these before merge, and a controller commit is not allowed. Cost if wrong: the re-review result is recorded only after merge. Named in chat when made.
 - **R11: the fix wave's re-review minors are parked for the post-merge docs commit.** Decided: no second fix wave; the two new minors the re-review found in the fix diff (the ledger pointer "findings-slice28.md:58" for the stale-rows item, which moved; and no note that the final-review and fix-wave bullets landed before merge) are recorded in the post-merge docs commit. Found by the scoped re-review of 0b4ff59..780b7d1. Why: the process allows one fix wave, and the controller does not fix findings on the branch. Cost if wrong: a stale line pointer and a missing note until the post-merge docs commit. Named in chat when made; recorded here after merge.
 - **R12: the post-merge docs review's points 1, 3 and 4 were applied; point 2 was not.** Decided: fill the plan's stale "(this commit)" with 780b7d1, correct the list of what came after merge, and add notes in place beside the moved pointer and the "Fixed in the fix wave" line and in the plan's Task 2 bullet; keep R11's "Named in chat when made", since the controller named R11 in chat when it parked the two minors. Found by the review of 227470f. Why: accuracy and in-place notes, as the earlier :129→138 note did. Cost if wrong: none. Named in chat when made.
+- **R13: the post-merge re-review's three minor points were applied.** Decided: complete the list of what came after merge (without "only"), restore the original "Fixed in the fix wave (R10)." line with a separate dated note, date the "after merge" notes, and record the post-merge review, R11's chat naming, R12 and R13 in the ledger. Found by the re-review of f19f2e9. Why: accuracy and the dated-note convention. Cost if wrong: none. Named in chat when made.
 
 Out of scope (spec):
 - Any change to the seed, the cache lookup or `products.py`.
