@@ -293,10 +293,19 @@ def test_rule_check_trims_to_150_at_a_word_boundary():
     fixed, status, lost = rule_check(
         "Plain", " ".join(words), BRAND, allowed=[" ".join(words)]
     )
-    assert status == "review" and lost == ["plain"]
+    # The lost "Plain" is restored at the start, then the trim applies.
+    assert status == "adjusted" and lost == []
     assert len(fixed) <= 150
-    assert fixed == " ".join(words)[: len(fixed)]
+    assert fixed.removeprefix("Plain ") == " ".join(words)[: len(fixed) - 6]
     assert not fixed.endswith(" ") and fixed.split()[-1] in words
+
+
+def test_rule_check_trim_can_still_lose_a_restored_word():
+    words = [f"w{i}" for i in range(60)]
+    fixed, status, lost = rule_check(
+        "w59 Plain", " ".join(words), BRAND, allowed=[" ".join(words)]
+    )
+    assert (status, lost, len(fixed)) == ("review", ["w59", "plain"], 149)
 
 
 def test_rule_check_passes_an_unchanged_suggestion():
@@ -446,10 +455,31 @@ def test_rule_check_drops_a_word_that_repeats_an_earlier_token():
     assert rule_check(
         "Red Tape Boots", "Tape Shoes", ("Red Tape",), allowed=["Shoes"]
     ) == (
-        "Red Tape Shoes",
-        "review",
-        ["boots"],
+        "Red Tape Boots Shoes",
+        "adjusted",
+        [],
     )
+
+
+def test_rule_check_repeat_step_can_drop_a_restored_hyphenated_word():
+    # "Anti" is kept first, so the restored "Anti-Skid" repeats it and is
+    # dropped again: a spec ceiling, the same result as before the restore.
+    assert rule_check(
+        "Walkaroo Boys Anti-Skid Sandal",
+        "Walkaroo Anti Boys Sandal",
+        ["Walkaroo"],
+    ) == ("Walkaroo Anti Boys Sandal", "review", ["skid"])
+
+
+def test_rule_check_restore_does_not_bring_back_a_repeat():
+    assert rule_check(
+        "Walkaroo Anti-Skid Sandal", "Walkaroo Anti Sandal", ["Walkaroo"]
+    ) == ("Walkaroo Anti-Skid Sandal", "adjusted", [])
+    assert rule_check(
+        "Walkaroo Casual Sandal Casual Wear",
+        "Walkaroo Sandal Wear",
+        ["Walkaroo"],
+    ) == ("Walkaroo Casual Sandal Wear", "adjusted", [])
 
 
 def test_rule_check_does_not_count_a_removed_repeat():
@@ -470,13 +500,13 @@ def test_rule_check_does_not_count_a_removed_repeat():
     assert rule_check(
         "Walkaroo Kids Shoes", "Walkaroo Kids Shoes Shoes Sale", ["Walkaroo"]
     ) == ("Walkaroo Kids Shoes", "adjusted", [])
-    # A repeat plus a lost word is still flagged for review.
+    # A repeat plus a lost word: the word is restored.
     assert rule_check(
         "Walkaroo Boys Sandal",
         "Walkaroo Kids Sandal Sandal",
         ["Walkaroo"],
         allowed=["kids sandals"],
-    ) == ("Walkaroo Kids Sandal", "review", ["boys"])
+    ) == ("Walkaroo Boys Kids Sandal", "adjusted", [])
 
 
 def test_rule_check_keeps_punctuation_only_words():
@@ -502,19 +532,20 @@ def test_rule_check_folds_plurals_and_strips_a_trailing_connector():
     ) == ("Walkaroo Blue Boys Sandal", "adjusted", [])
 
 
-def test_rule_check_flags_dropped_words_for_review():
+def test_rule_check_restores_dropped_words():
     assert rule_check(
         "Men Casual Sandal Brown",
         "Brown Mens Sandal Shoes",
         BRAND,
         allowed=["Shoes"],
-    ) == ("Brown Mens Sandal Shoes", "review", ["casual"])
+    ) == ("Brown Mens Casual Sandal Shoes", "adjusted", [])
+    # A replaced product type ends up as both types (spec ceiling).
     assert rule_check(
         "Men Flip Flop Navy", "Navy Men Slipper", BRAND, allowed=["Slipper"]
     ) == (
-        "Navy Men Slipper",
-        "review",
-        ["flip", "flop"],
+        "Navy Men Flip Flop Slipper",
+        "adjusted",
+        [],
     )
 
 
@@ -528,8 +559,9 @@ def test_rule_check_strips_a_connector_the_trim_leaves_at_the_end():
     # "w0 ... w38 for" is 149 characters; " tail" would pass 150, so the
     # cut lands just after "for".
     words = [f"w{i}" for i in range(39)] + ["for", "tail", "end"]
+    # The original "w0" is kept, so nothing is restored ahead of the cut.
     fixed, _status, _lost = rule_check(
-        "Plain", " ".join(words), BRAND, allowed=[" ".join(words)]
+        "w0", " ".join(words), BRAND, allowed=[" ".join(words)]
     )
     assert len(fixed) <= 150
     assert fixed.split()[-1].casefold() not in CONNECTORS
@@ -557,6 +589,40 @@ def test_prompts_ask_for_plural_kids_keywords_and_kept_words():
     kp = keyword_prompt("Walkaroo", [])
     assert "kids" in kp and "plural" in kp
     assert "Keep every word" in rewrite_prompt("Walkaroo", [])
+
+
+def test_rewrite_prompt_leaves_keyword_words_out_of_missing():
+    rp = rewrite_prompt(
+        "Walkaroo",
+        [
+            {
+                "index": 0,
+                "title": "Walkaroo Boys Sandal",
+                "keyword": "kids sandals",
+                "missing": ["kid", "summer"],
+            },
+            {
+                "index": 1,
+                "title": "Titan Analog Dial",
+                "keyword": "men watches",
+                "missing": ["men", "watch", "analog"],
+            },
+        ],
+    )
+    assert '"missing": ["summer"]' in rp
+    assert '"missing": ["analog"]' in rp
+    rp = rewrite_prompt(
+        "Walkaroo",
+        [
+            {
+                "index": 0,
+                "title": "Walkaroo Boys Sandal",
+                "keyword": "kids sandals",
+                "missing": ["kid"],
+            }
+        ],
+    )
+    assert '"missing"' not in rp
 
 
 def test_fit_rank_reads_the_category_word_before_a_stopword():

@@ -215,10 +215,10 @@ def test_one_search_per_distinct_keyword_and_the_rewrite_is_checked(
     # Stems fold plurals: "sandals" matches the product's "sandal", so only
     # "summer" is in both ranking titles and absent from the product.
     assert p.missing_keywords == ["summer"]
-    assert p.suggested_title == "Walkaroo Kids Summer Sandals"
+    assert p.suggested_title == "Walkaroo Boys Kids Summer Sandals"
     # "Walkaroo Boys Sandal 0" rewritten as "…Kids Summer Sandals" loses
-    # "boys", so the suggestion is flagged for review.
-    assert (p.rule_check, p.dropped_words) == ("review", ["boys"])
+    # "boys"; the rule check puts it back after "Walkaroo".
+    assert (p.rule_check, p.dropped_words) == ("adjusted", [])
     assert p.suggested_bullets == ["Light", "Washable", "Soft"]
     # Slice 25: the samples choose_keywords saw and the raw rewrite.
     assert p.keyword_samples == [["kids sandals", "walkaroo kids"]] * 3
@@ -658,7 +658,7 @@ def test_a_failed_search_is_stored_and_the_run_goes_on(
     assert job.status == "done"
     assert searches[0].error == "400 bad" and searches[0].titles == []
     assert rows[0].missing_keywords == []
-    assert rows[0].suggested_title == "Walkaroo Kids Sandals"
+    assert rows[0].suggested_title == "Walkaroo Boys Kids Sandals"
 
 
 def test_a_model_failure_in_batch_two_keeps_batch_one(
