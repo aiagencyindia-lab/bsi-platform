@@ -199,4 +199,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 
 ## Changes made during execution
 
-(filled by Task 2 from the ledger)
+- Task 1 went as written (commit 9a0a537; review: spec ✅, quality Approved, 0 Critical, 0 Important, 2 Minor, both deferred and quoted in findings §4). As the ledger records it:
+  - Implementer concern: "a suggestion whose only faults are a repeat and a trailing connector still gets adjusted (as the spec says: the connector strip counts)."
+  - "⚠️ resolved by controller: RED: the controller's scratch run of the plan's test file against main's code (before dispatch) failed exactly these 3 tests (3 failed, 89 passed); 1545 = main's 1544 (post-merge gate after PR #47, aa62285) + the new test."
+  - Controller note: "a Task 1 report stub was created pre-emptively against the process rule (stubs only when the plan says so or after a refusal, asking the user first); it was deleted before dispatch. The implementer creates its own report."
+- Task 2 (this commit): "controller created the one-line stub docs/findings-slice26.md (the plan says so; uncommitted)", as Task 2's Files list says; the subagent filled it. The ledger records no ruling, so the spec's `## Rulings` stays "None."
