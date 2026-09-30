@@ -199,7 +199,7 @@ In the order they were written:
 | [superpowers/specs/2026-09-30-slice27-overlap-restore-design.md](superpowers/specs/2026-09-30-slice27-overlap-restore-design.md) | Design spec: the rewrite prompt's `missing` field leaves out words already in the product's keyword, and `rule_check` puts back original-title words the rewrite dropped (status `adjusted`), with the approved ceilings. |
 | [superpowers/plans/2026-09-30-slice27-overlap-restore.md](superpowers/plans/2026-09-30-slice27-overlap-restore.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
 | [findings-slice27.md](findings-slice27.md) | Results: what was built, the live check on dev (run on 2026-10-01), and what is deferred or untested. |
-| [superpowers/specs/2026-10-01-keyword-search-cleanup-design.md](superpowers/specs/2026-10-01-keyword-search-cleanup-design.md) | Design spec, written after the fact: the one-off delete of the 11 `keyword_search` rows on dev that no run could use, with rulings R1–R12. |
+| [superpowers/specs/2026-10-01-keyword-search-cleanup-design.md](superpowers/specs/2026-10-01-keyword-search-cleanup-design.md) | Design spec, written after the fact: the one-off delete of the 11 `keyword_search` rows on dev that no run could use, with rulings R1–R13. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

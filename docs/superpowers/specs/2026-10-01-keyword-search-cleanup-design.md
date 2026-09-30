@@ -49,6 +49,7 @@ Observed: `NOTICE: deleted 11 rows`; 9 rows remain (the 8 current first keywords
 - **R10: this spec, the findings link and the README row go on the same branch, `keyword-search-cleanup`.** Decided: add them to the open branch rather than a new one. Found by the controller at the process audit. Why: the fixes belong to the same change. Cost if wrong: none. Named in chat when made.
 - **R11: the spec review's two minor points were applied.** Decided: correct the one stale time given for all 11 rows, and give R10 the "Decided / Found by" form. Found by the review of b53150c. Why: one was a factual error, the other a format gap. Cost if wrong: none. Named in chat when made.
 - **R12: the spec re-review's minor point was applied.** Decided: remove the blank line between R10 and R11. Found by the re-review of 28bef34. Why: it split the Rulings list. Cost if wrong: none. Named in chat when made.
+- **R13: the quoted rulings in docs/findings-slice27.md got a lead-in.** Decided: say they are numbered separately from slice 27's own R1 and R2, and that "this file" and "this spec" in them mean this spec; the copy is kept word for word. Found by the review of e25bdb9. Why: two R1s and two R2s in one findings file were ambiguous, and "this file" read as the findings file. Cost if wrong: none. Named in chat when made.
 
 ## Out of scope
 
