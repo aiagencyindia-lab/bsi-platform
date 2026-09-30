@@ -34,7 +34,8 @@ Slice 25's live check stored the rewrite call's raw titles: all 10 ended with th
 | f4427be | docs: slice 26 plan review fixes |
 | f7d215f | docs: slice 26 plan: list the carried-forward items as a departure |
 | 9a0a537 | feat(products): a removed repeat is not an adjustment |
-| (this commit) | docs: slice 26 findings, index and notes |
+| e8b2589 | docs: slice 26 findings, index and notes |
+| (this commit) | docs: slice 26 findings: final-review minors |
 
 ## 2. Probes
 
@@ -56,6 +57,14 @@ Not yet run. The controller runs it after the user approves; results are recorde
 From the task reviews (ledger lines tagged `minor (deferred)`):
 - "Task 1: minor (deferred): no test pins the spacing-only case (a suggestion that differs only in spacing now gives pass because plain is re-joined with single spaces; spec §1 states it)."
 - "Task 1: minor (deferred): a suggestion whose only faults are a repeat and a trailing connector still gives adjusted (plain is not connector-stripped; spec §1 states the connector strip counts)."
+- "Task 2: minor (deferred): findings-slice26 §2's "Why the prompt route was not built" paragraph copies the spec's decisions list almost word for word without quotation marks."
+- "Task 2: minor (deferred): the plan's Task 1 changes bullet opens "Task 1 went as written" and then lists a controller process note (the pre-emptive report stub)."
+- "Task 2: minor (deferred): the README spec row describes pass as "the only change to the suggestion is removing words that repeat an earlier word's stem" and leaves out the spacing-only case."
+- "Final review: minor (deferred): no test pins brand prepend plus a repeat, or trim plus a repeat, giving adjusted (title != plain there, but no assertion checks the plain comparison against a prepended brand)."
+- "Final review: minor (deferred): pass also covers a rewrite that keeps the original singular and drops the keyword's plural (probe 1 call 4's pattern "Kid Sandal Boys Kids Sandals" -> "Kid Sandal Boys"), since _drop_repeats keeps the first form; follows from the approved "any repeat" scope; the spec does not spell it out; note it in the live-check read-back."
+- "Final review: minor (deferred): when a product has no rewrite item, suggestion is the original title; an original title that itself repeats a stem used to give adjusted and now gives pass; consistent with the rule, not in the spec."
+
+The final review triaged the 5 earlier deferred minors as "keep deferred": "Final review: Ready to merge "With fixes"; 0 Critical, 2 Important, 3 Minor; all 5 earlier deferred minors triaged "keep deferred"."
 
 Parked: none. The ledger has no parked lines.
 
