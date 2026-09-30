@@ -16,6 +16,7 @@ Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-29 and 2026-09-3
 - **After the spec review, finding 4:** the guard falls back per product, not per sample. Rejected: no fallback (a product whose every keyword has a colour word gets no keyword), and keeping the per-sample fallback (a colour keyword could still be searched).
 - **After the spec review, finding 7:** the built keyword's type words follow both rules, shared words and an audience list. Rejected: either rule alone, and dropping the fallback.
 - **After the spec re-review, finding 1:** a keyword counts as title-fitting for `title_first` only when its type word is in the title and is not an audience word. Rejected: dropping the fallback, and listing the case as a ceiling.
+- **After the final whole-branch review (Ruling R2):** the user asked for the review's wrong-type regression to be fixed without fix (a)'s singular "men flip flop" on probe 4's samples ("fix it"). The controller chose option (b): a second fallback in `choose_keywords`, and no colour or size word in `title_first`'s audience.
 
 ### The probes
 
@@ -89,8 +90,10 @@ def choose_keywords(
 ) -> list[str]:
     """One product's keywords, the searched one first: the vote over
     the samples without colour and size keywords, without brand terms,
-    the title's type first (title_first), then fit_rank. If that leaves
-    nothing, the same over the samples as given."""
+    the title's type first (title_first), then fit_rank. The same over
+    the samples as given is used instead when the first leaves nothing,
+    or when its first keyword names a type the title does not and the
+    second's first keyword names one the title does."""
 
     def pick(lists: Sequence[Sequence[str]]) -> list[str]:
         ranked = drop_brand_terms(vote(lists), brand_names)
@@ -98,7 +101,16 @@ def choose_keywords(
             title_first(ranked, title), title, category, description
         )
 
-    return pick([drop_noise_terms(s) for s in samples]) or pick(samples)
+    in_title = fold_set(title)
+
+    def fits(keywords: Sequence[str]) -> bool:
+        return bool(keywords) and _type_word(keywords[0]) in in_title
+
+    guarded = pick([drop_noise_terms(s) for s in samples])
+    if fits(guarded):
+        return guarded
+    raw = pick(samples)
+    return raw if fits(raw) or not guarded else guarded
 ```
 
 `run_products` replaces its `vote` and `fit_rank` lines with:
@@ -114,8 +126,9 @@ fitted = choose_keywords(
 ```
 
 - Colour and size keywords are removed from every sample before the vote, so they cannot take one of `vote`'s `MAX_KEYWORDS` places.
-- **The fallback is per product** (spec review, finding 4). Only when the filtered samples leave the product with no keyword at all, after the brand filter and `fit_rank` too, are the unfiltered samples used. A product with no keyword gets no suggestion (R13), so a colour keyword is better than none.
-- So a colour or size keyword is searched, and stored in `keywords`, only for a product that has no other fitting keyword.
+- **The fallback is per product** (spec review, finding 4). The unfiltered samples are used when the filtered samples leave the product with no keyword at all, after the brand filter and `fit_rank` too. A product with no keyword gets no suggestion (R13), so a colour keyword is better than none.
+- **The wrong-type fallback** (final review, Important 1; Ruling R2). The unfiltered samples are also used when the filtered result's first keyword names a type the title does not, and the unfiltered result's first keyword names one the title does. Without it, when every title-fitting keyword has a colour word, the guard removes them all and `fit_rank` searches the category's type: for LC-05's title and category, samples `[["men slippers", "navy flip flops", "cushioned slippers"]] * 3` gave "men slippers" (main: "navy flip flops"). With it they give "men flip flops", built by `title_first` from "navy flip flops" with the colour kept out.
+- So a colour or size keyword is searched only for a product that has no other fitting keyword. It is stored in `keywords` whenever an unfiltered path is used: after the searched keyword, in the wrong-type fallback ("navy flip flops" in the example above).
 - `vote`, `drop_brand_terms` and the run-wide `key_map` are unchanged.
 - The existing comment above `NOISE_WORDS` says `missing()` never suggests these words. It gains one clause: the keyword choice drops keywords that contain them too.
 - Known ceilings, in a `# ponytail:` comment:
@@ -169,7 +182,10 @@ def title_first(keywords: Sequence[str], title: str) -> list[str]:
     audience = [
         t
         for t in tokens(keywords[0])
-        if len(t) > 1 and _stem(t) != word and t not in STOPWORDS
+        if len(t) > 1
+        and _stem(t) != word
+        and t not in STOPWORDS
+        and _stem(t) not in NOISE_STEMS
     ]
     ok = in_title - {_stem(t) for t in audience}
     ok = ok - AUDIENCE_STEMS - NOISE_STEMS
@@ -187,7 +203,7 @@ def title_first(keywords: Sequence[str], title: str) -> list[str]:
 
 - It applies only when both conditions hold: the first keyword's type word is not in the title, and another keyword is title-fitting.
 - **Title-fitting**, for `title_first` (spec re-review, finding 1): the keyword's type word is in the title and is not in `AUDIENCE_STEMS`. So "slippers boys" and "casual men" are not title-fitting for a "Boys Sandal" or a "Men Flip Flop". `fit_rank`'s own rule is unchanged.
-- **Audience:** the first keyword's tokens, without 1-letter tokens, without its type word and without `STOPWORDS` (which hold "for" and "with").
+- **Audience:** the first keyword's tokens, without 1-letter tokens, without its type word, without `STOPWORDS` (which hold "for" and "with") and without `NOISE_STEMS` words (Ruling R2; before it, "men navy slippers" built "men navy flip flops" on the unfiltered path).
 - **Type** (spec review, finding 7): the tokens of the first title-fitting keyword whose stems pass all of these:
   - in the title;
   - in every title-fitting keyword (shared words);
@@ -232,6 +248,7 @@ Unit, `tests/unit/test_products.py`. `T` is "BSOAgentTestBrand Men Flip Flop Nav
 - A good fit and an audience-word fit together: `title_first(["men slippers", "cushioned flip flops", "casual men"], T) == ["men flip flops", "men slippers", "cushioned flip flops", "casual men"]`.
 - Two title types: `title_first(["men slippers", "flip flops", "men thongs"], "X Men Flip Flop Thong") == ["men slippers", "flip flops", "men thongs"]`.
 - A colour word is never built in: `title_first(["men slippers", "navy flip flops"], T) == ["men flip flops", "men slippers", "navy flip flops"]`.
+- Nor from the first keyword (R2): `title_first(["men navy slippers", "navy flip flops"], T) == ["men flip flops", "men navy slippers", "navy flip flops"]`.
 
 `choose_keywords`:
 - Probe 4's samples for LC-05, `choose_keywords(S4, B, T, "Slippers", "Cushioned flip flop for daily use") == ["men flip flops", "cushioned flip flops", "daily use flip flop", "men slippers", "cushioned slippers"]`, where `S4` is `[["men slippers", "men flip flop navy", "navy flip flops", "cushioned flip flops", "daily use flip flop"], ["men slippers", "men flip flops", "navy flip flops", "cushioned slippers"], ["men slippers", "men flip flops", "navy flip flops", "cushioned flip flops"]]`.
@@ -240,6 +257,9 @@ Unit, `tests/unit/test_products.py`. `T` is "BSOAgentTestBrand Men Flip Flop Nav
 - Only a brand phrase is left after the guard: `choose_keywords([["walkaroo sandals", "navy sandals"]], ["Walkaroo"], W, None, None) == ["navy sandals"]`.
 - An audience-word keyword does not stop the build: `choose_keywords([["kids slippers", "boys sandals", "slippers boys"]] * 3, ["Walkaroo"], W, None, None) == ["kids sandals", "boys sandals", "slippers boys"]`.
 - No samples: `choose_keywords([], B, T, None, None) == []`.
+- The wrong-type fallback (R2): `choose_keywords([["men slippers", "navy flip flops", "cushioned slippers"]] * 3, B, T, "Slippers", None) == ["men flip flops", "navy flip flops", "men slippers", "cushioned slippers"]`.
+- A category fit alone keeps the guarded result: `choose_keywords([["men slippers", "navy slippers"]], B, "X Men Thong Navy", "Slippers", None) == ["men slippers"]`.
+- No colour in a built keyword on the unfiltered path (R2): `choose_keywords([["men navy slippers", "navy flip flops", "cushioned slippers"]], B, T, None, None) == ["men flip flops", "navy flip flops"]`.
 
 The three existing `fit_rank` tests, the three `vote` tests and the `drop_brand_terms` test keep their values.
 
@@ -263,6 +283,7 @@ Run by the controller only with the user's OK at that point, by the live-check p
 ## Rulings
 
 - **R1: the README's slice 23 spec row drops the rulings clause.** Decided: the README's slice 23 spec row ends at "…with the four probes of the keyword prompt." (the rulings clause is dropped), departing from the plan's Step 2 wording. Found by the Task 3 review. Why: the row must not claim rulings the spec does not hold; dropping the clause stays true whatever the spec's Rulings holds, while "(none)" would become false once this ruling itself is recorded. Cost if wrong: the row no longer points readers to the spec's Rulings section.
+- **R2: the wrong-type fallback in `choose_keywords`, and no colour in the audience.** Decided: fix the final review's Important 1 with option (b), not fix (a): `choose_keywords` keeps the guarded path, and uses the unguarded path instead when the guarded result's first keyword names a type the title does not and the unguarded result's first keyword names one the title does; `title_first`'s audience also leaves out `NOISE_STEMS` words (§1, §2). Found by the final whole-branch review (Important 1) and the Task 2 review (the fallback-colour minor). Why: the user asked for the regression to be fixed without fix (a)'s singular "men flip flop" on probe 4's samples; option (b) keeps probe 4's "men flip flops" and every other value in §3, and gives "men flip flops" for the regression case (main: "navy flip flops"; before R2: "men slippers"). Cost if wrong: in that case the stored `keywords` list keeps colour keywords after the searched one (for example "navy flip flops"), because the unguarded vote is used.
 
 ## Out of scope
 

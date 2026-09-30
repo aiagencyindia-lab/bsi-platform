@@ -578,6 +578,97 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 
 ---
 
+### Task 4: The wrong-type fallback (Ruling R2)
+
+Added after the final whole-branch review. The spec's §1, §2, §3 and Rulings (R2) are the requirements.
+
+**Files:**
+- Modify: `packages/core/bsi_core/products.py`: the `audience` list in `title_first`, and `choose_keywords`.
+- Test: `tests/unit/test_products.py` (new tests at the end), `docs/findings-slice23.md`, the spec's Rulings (already has R2), this plan's changes section.
+
+**Interfaces:**
+- Consumes: `_type_word`, `title_first`, `drop_noise_terms`, `fold_set` (unchanged names and signatures).
+- Produces: `choose_keywords` with the same signature and the spec's new behaviour.
+
+- [ ] **Step 1: Write the failing tests.** Append at the end of `tests/unit/test_products.py` (`T` and `B` exist):
+
+```python
+def test_title_first_never_takes_a_colour_from_the_first_keyword():
+    assert title_first(["men navy slippers", "navy flip flops"], T) == [
+        "men flip flops",
+        "men navy slippers",
+        "navy flip flops",
+    ]
+
+
+def test_choose_keywords_falls_back_when_the_guard_leaves_the_wrong_type():
+    # Every title-fitting keyword has a colour: the guarded vote would
+    # search the category's type ("men slippers").
+    assert choose_keywords(
+        [["men slippers", "navy flip flops", "cushioned slippers"]] * 3,
+        B,
+        T,
+        "Slippers",
+        None,
+    ) == [
+        "men flip flops",
+        "navy flip flops",
+        "men slippers",
+        "cushioned slippers",
+    ]
+    # A category fit alone keeps the guarded result.
+    assert choose_keywords(
+        [["men slippers", "navy slippers"]],
+        B,
+        "X Men Thong Navy",
+        "Slippers",
+        None,
+    ) == ["men slippers"]
+    # No colour in a keyword built on the unfiltered path.
+    assert choose_keywords(
+        [["men navy slippers", "navy flip flops", "cushioned slippers"]],
+        B,
+        T,
+        None,
+        None,
+    ) == ["men flip flops", "navy flip flops"]
+```
+
+- [ ] **Step 2: Run the tests to see them fail.** Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py -k "colour_from_the_first or wrong_type"`. Expected: 2 failed. The `title_first` test gets `['men navy flip flops', 'men navy slippers', 'navy flip flops']`; the `choose_keywords` test fails on its first assertion with `['men slippers', 'cushioned slippers']`.
+
+- [ ] **Step 3: The audience.** In `title_first`, replace:
+
+```python
+        if len(t) > 1 and _stem(t) != word and t not in STOPWORDS
+    ]
+```
+
+with:
+
+```python
+        if len(t) > 1
+        and _stem(t) != word
+        and t not in STOPWORDS
+        and _stem(t) not in NOISE_STEMS
+    ]
+```
+
+- [ ] **Step 4: `choose_keywords`.** Replace its docstring and body (keep the signature) with the spec's §1 code block: the new docstring, `pick` unchanged, then `in_title`, `fits`, `guarded`, `raw` and the return line.
+
+- [ ] **Step 5: Run the product tests.** Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py tests/integration/test_products_run.py`. Expected: 115 passed (90 unit, 25 integration).
+
+- [ ] **Step 6: Run the backend gate** (Global Constraints). Expected: ruff and mypy clean, all tests pass, metrics coverage 100%. Record the pass count and the names of any warnings.
+
+- [ ] **Step 7: Docs.** In `docs/findings-slice23.md`: §1 describes the wrong-type fallback and the audience change, and the commit table gets a row for this task's commit; §4 lists Ruling R2 under "Rulings"; the Task 2 deferred minor about the fallback building a colour and the one about its missing test are marked fixed by R2 (their ledger text kept); the final review's Minor 2 (the fallback's premise) and Minor 3 ("placed after `fit_rank`") are corrected in the text they name. In this plan's changes section add one bullet for Task 4. Every line tagged `minor (deferred…)`, every `parked` line and every ruling in the ledger must stay covered; run the coverage script again.
+
+- [ ] **Step 8: Commit.**
+
+```bash
+cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/products.py tests/unit/test_products.py docs && git commit -m "fix(products): search the title's type when the guard would leave the category's" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+```
+
+---
+
 ## Self-review
 
 - **Spec coverage:**
@@ -638,6 +729,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   16. The new integration test also asserts `job.status == "done"` and carries a three-line comment. The spec's integration bullet lists neither.
 
 ## Changes made during execution
+
+- Task 4 was added after the final whole-branch review, by Ruling R2 (spec §1, §2, §3 and Rulings). Its values were checked by the controller on a scratch copy outside the repo before it was written: ruff and mypy --strict clean; the current unit file 88 passed and the product-run file 25 passed against the patched module; the new values as in Task 4 Step 1.
 
 - Task 1 went as written (commit 23eb548), with one difference (from the ledger): the full suite was run twice. The first run's output was cut off, so it lacked both warning names; the pytest re-run (with the shared-DB `pgrep` check first) recorded them. No code changed between the two runs. task-1-report.md words it differently: the gate's `tail -15` cut off the first warning's name. ruff did not re-wrap anything, and I001 did not fire.
 - Task 2 went as written (commit d072568). The ledger records "No departures; ruff changed nothing", and task-2-report.md says "no departures from the brief".
