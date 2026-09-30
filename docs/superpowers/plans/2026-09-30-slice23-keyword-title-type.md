@@ -583,7 +583,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 Added after the final whole-branch review. The spec's §1, §2, §3 and Rulings (R2) are the requirements.
 
 **Files:**
-- Modify: `packages/core/bsi_core/products.py`: the `audience` list in `title_first`, and `choose_keywords`.
+- Modify: `packages/core/bsi_core/products.py`: the `audience` list (Step 3) and the `kind` line (Step 3b) in `title_first`, `choose_keywords` (Step 4), and the `ponytail:` comments above `drop_noise_terms` and `title_first` (Step 4b).
 - Test: `tests/unit/test_products.py` (new tests at the end).
 - Docs: `docs/findings-slice23.md`, this plan's changes section. The spec already holds R2 and R3.
 
@@ -758,7 +758,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   |---|---|
   | §1 `drop_noise_terms` | Task 2 Step 5 |
   | §1 the wrong-type fallback in `choose_keywords` (R2) | Task 4 Step 4 |
-  | §2 the audience without colour and size words (R2); the comments (R3) | Task 4 Steps 3 and 4b |
+  | §2 the audience without colour and size words (R2); the plural spelling (R3); the comments (R3) | Task 4 Steps 3, 3b and 4b |
   | §1 `choose_keywords`, the per-product fallback | Task 2 Step 6 |
   | §1 `run_products` calling `choose_keywords` | Task 2 Step 7 |
   | §1 the `NOISE_WORDS` comment's new clause | Task 2 Step 4 |
@@ -813,7 +813,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 
 ## Changes made during execution
 
-- Task 4 was added after the final whole-branch review, by Ruling R2 (spec §1, §2, §3 and Rulings). The review of that spec change (b0c0cb0) found R2's side effects (a colour keyword searched or stored; a singular type word on a close variant of probe 4); the controller accepted them as ceilings (Ruling R3) and fixed the texts that R2 had made untrue. Its re-review showed that a plural-spelling rule does help on probe 4's unfiltered samples, so R3 was revised to add it (Task 4 Step 3b and a third test); (the Goal and Architecture lines above, Task 4's Files and Step 7, the two `ponytail:` comments in a new Step 4b, and the self-review). Its values were checked by the controller on a scratch copy outside the repo before it was written: ruff and mypy --strict clean; the current unit file 88 passed and the product-run file 25 passed against the patched module; the new values as in Task 4 Step 1.
+- Task 4 was added after the final whole-branch review, by Ruling R2 (spec §1, §2, §3 and Rulings). The review of that spec change (b0c0cb0) found R2's side effects (a colour keyword searched or stored; a singular type word on a close variant of probe 4). The controller accepted them as ceilings (Ruling R3) and fixed the texts that R2 had made untrue: the Goal and Architecture lines above, Task 4's Files and Step 7, the two `ponytail:` comments in a new Step 4b, and the self-review (c93232d). The re-review of c93232d showed that a plural-spelling rule does help on probe 4's unfiltered samples, so R3 was revised to add it: Task 4 Step 3b and a third test (53a3646). Values were checked by the controller on scratch copies outside the repo: ruff and mypy --strict clean; with R2 and the plural rule, the current unit file plus Task 4's 3 tests 91 passed and the product-run file 25 passed; Task 4's 3 tests fail on the branch (3 failed).
 
 - Task 1 went as written (commit 23eb548), with one difference (from the ledger): the full suite was run twice. The first run's output was cut off, so it lacked both warning names; the pytest re-run (with the shared-DB `pgrep` check first) recorded them. No code changed between the two runs. task-1-report.md words it differently: the gate's `tail -15` cut off the first warning's name. ruff did not re-wrap anything, and I001 did not fire.
 - Task 2 went as written (commit d072568). The ledger records "No departures; ruff changed nothing", and task-2-report.md says "no departures from the brief".
