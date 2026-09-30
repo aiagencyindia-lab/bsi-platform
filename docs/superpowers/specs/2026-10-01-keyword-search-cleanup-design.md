@@ -47,8 +47,8 @@ Observed: `NOTICE: deleted 11 rows`; 9 rows remain (the 8 current first keywords
 - **R8: the re-review's Important finding was fixed.** Decided: afc15b1 replaced "the run-start seed could still load the valid ones" with "none could be seeded or reused", citing the slice 24 spec. Found by the re-review of 41f2235. Why: the text was wrong, and R1's wording had introduced it. Cost if wrong: none. Not named when made; named at the process audit.
 - **R9: the user's "option 1, delete all 11" was taken as the go-ahead for the dev write.** Decided: run the delete on that reply. Found by the controller. Why: the approaches message said the answer would also be the go-ahead. Cost if wrong: an unapproved dev write. Said in chat, but not named as a ruling until the process audit.
 - **R10: this spec, the findings link and the README row go on the same branch, `keyword-search-cleanup`.** Decided: add them to the open branch rather than a new one. Found by the controller at the process audit. Why: the fixes belong to the same change. Cost if wrong: none. Named in chat when made.
-
 - **R11: the spec review's two minor points were applied.** Decided: correct the one stale time given for all 11 rows, and give R10 the "Decided / Found by" form. Found by the review of b53150c. Why: one was a factual error, the other a format gap. Cost if wrong: none. Named in chat when made.
+- **R12: the spec re-review's minor point was applied.** Decided: remove the blank line between R10 and R11. Found by the re-review of 28bef34. Why: it split the Rulings list. Cost if wrong: none. Named in chat when made.
 
 ## Out of scope
 
