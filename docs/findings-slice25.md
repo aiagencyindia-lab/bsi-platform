@@ -38,7 +38,8 @@ The findings for slices 23 and 24 marked every statement about which keyword sam
 | 4b27e20 | docs: slice 25 findings, index and hashes |
 | 69d3245 | docs: slice 25 findings: final-review minors |
 | e880c1a | docs: slice 25 process audit corrections |
-| (this commit) | docs: slice 25 audit corrections: review fixes |
+| 4e284ec | docs: slice 25 audit corrections: review fixes |
+| (this commit) | docs: slice 25 spec: unsplice the audit corrections |
 
 ## 2. Live check on dev
 

@@ -6,14 +6,16 @@
 
 Classification, said in chat as the first line of the first brainstorming reply: **architectural** — "it adds columns (migration 0021) and touches the run loop, the API schema and the docs, so it gets the full spec-and-plan process like slices 22–24." (After the visibility decision below, the API schema is untouched.)
 
-Correction to the paragraph above (process audit, 2026-09-30): "said in chat as the first line of the first brainstorming reply" is not true. The classification was written into the planning notes and this spec but never said in chat; the first Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-30). Sections 1 to 4 each had their design text in chat before their approval:
+Correction to the paragraph above (process audit, 2026-09-30): "said in chat as the first line of the first brainstorming reply" is not true. The classification was written into the planning notes and this spec but never said in chat; the first brainstorming reply went straight to a codebase exploration and the first question.
 
-Correction to the sentence above (process audit, 2026-09-30): "Sections 1 to 4 each had their design text in chat before their approval" is not true. Sections 1 to 4 were first approved through questions that carried only option labels, with no section text in chat, and the approaches appeared only as option descriptions, with no message comparing them. After the audit, each section's design text, as built, was put in chat in its own message and the user confirmed all four unchanged (on Opus 5.5, 2026-09-30). The decisions: its own message and the user confirmed all four unchanged (on Opus 5.5, 2026-09-30).
+Decisions approved in chat (brainstorming on Fable 5.1, 2026-09-30). Sections 1 to 4 each had their design text in chat before their approval:
 
 - **Visibility:** database only. Read with psql during live checks. No API, web or CSV change. Rejected: exposing the fields on `GET /v1/brands/{id}/products`; exposing them there and in the Products tab and `export.csv`.
 - **Retention:** latest run only, two columns on `product` with the lifetime of `keyword`, `suggested_title` and `dropped_words`. Rejected: a table keyed by (product, job) that keeps every run.
 - **Approach 1:** `keyword_samples` JSONB and `raw_title` text on `product`, migration 0021. Rejected: stashing both in `job.params`.
 - **Testing:** the user added a JSONB round-trip test to §2.
+
+Correction to the "Sections 1 to 4" sentence above the list (process audit, 2026-09-30): "Sections 1 to 4 each had their design text in chat before their approval" is not true. Sections 1 to 4 were first approved through questions that carried only option labels, with no section text in chat, and the approaches appeared only as option descriptions, with no message comparing them. After the audit, each section's design text, as built, was put in chat in its own message and the user confirmed all four unchanged (on Opus 5.5, 2026-09-30).
 
 Codebase facts (main `0f6824c`, checked 2026-09-30):
 
