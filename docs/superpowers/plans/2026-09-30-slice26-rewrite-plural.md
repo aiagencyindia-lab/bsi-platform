@@ -175,10 +175,10 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - Modify: `docs/README.md` (three rows after the slice 25 rows), `docs/findings-slice25.md` §2 (a dated note), the spec's `## Rulings`, this plan's `## Changes made during execution`.
 
 - [ ] **Step 1: Findings.** Fill `docs/findings-slice26.md` in the style of `docs/findings-slice25.md`, with sections:
-  - `## 1. What was built`: `_drop_repeats`, the status rule and docstring, the two changed test expectations and the new test, the gate result as Task 1 recorded it, and a commit table from `git log --oneline main..HEAD` with a "(this commit)" row.
-  - `## 2. Probes`: probe 1 and probe 2 as recorded in the spec's Appendix A2 (calls, costs, pass/fail, the example raw titles), and why the prompt route was not built (the spec's decisions list).
+  - `## 1. What was built`: `_drop_repeats`, the status rule and docstring, the two changed test expectations and the new test, the gate result as Task 1 recorded it, and a commit table from `git log --oneline --reverse main..HEAD` (oldest first, as in findings-slice25.md §1) with a "(this commit)" row.
+  - `## 2. Probes`: probe 1 and probe 2 as recorded in the spec's Appendix A2 (calls, costs, pass/fail, the example raw titles), and why the prompt route was not built (the spec's decisions list); the probes' total, 11,211 + 6,757 = 17,968 micros, and the spend so far, about $10.97 of the $15 cap (spec §3).
   - `## 3. Live check on dev`: exactly "Not yet run. The controller runs it after the user approves; results are recorded here then."
-  - `## 4. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger, quoted as recorded; "Parked: none" if none; the spec's Out of scope list.
+  - `## 4. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger, quoted as recorded; "Parked: none" if none; the spec's Out of scope list; and the "Carried forward (still open)" items from docs/findings-slice25.md §3 that are still open.
 - [ ] **Step 2: README rows** for the spec, the plan and the findings, in the slice 25 rows' format.
 - [ ] **Step 3: Slice 25 note.** In `docs/findings-slice25.md` §2, under the bullet that contains "(slice 24's unrounded $10.9464 + $0.0066 = $10.9530)", add the nested bullet: "  - Correction (2026-09-30, slice 26): $10.9464 is the sum, before rounding, of slice 24's approximate figures ("about $10.94 + $0.0064", docs/findings-slice24.md §2), not an unrounded total." The bullet itself is not edited.
 - [ ] **Step 4: Rulings.** The spec's `## Rulings` stays "None." unless the ledger records one; if it does, add it in the slice 25 spec's format (Decided / Found by / Why / Cost if wrong) and quote it in full in findings §4.
@@ -190,10 +190,10 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 
 ## Self-review against the spec
 
-- §1 status rule: Task 1 Steps 4-6. The docstring edit comes from the spec review's finding 8 (the spec says the Status sentence says so).
+- §1 status rule: Task 1 Steps 4-6. The docstring edit is §1's "The docstring's Status sentence says so".
 - §2 testing: Task 1 Steps 1-2 (the two changed expectations, the new test with §1's four cases). Unchanged tests: Global Constraints.
 - §3 live check: controller work after merge, with the user's OK; not a task. Docs: Task 2.
-- Departures from the spec: (1) the new test's name and its local `lc` are the plan's; the spec names the test and its four cases, and the plan writes them as code; (2) the gate command redirects the whole chain (slice 25's deferred minor on the gate file), which the spec does not mention.
+- Departures from the spec: (1) the new test's local `lc` and its two comments are the plan's; the spec names the test and its four cases, and the plan writes them as code; (2) the gate command redirects the whole chain (slice 25's deferred minor on the gate file), which the spec does not mention; (3) findings §3 is written before the live check as a placeholder, and the results are added after merge, while the spec lists the live check among the findings' contents; (4) Task 2 also updates the spec's `## Rulings` and this plan's changes section, and findings §4 also carries the spec's Out of scope list; spec §3's docs list names neither.
 - Placeholders: none (the `<trailer>` and `<workspace>` are per-session values).
 - Type consistency: `_drop_repeats(words: Sequence[str]) -> list[str]` used the same way in Steps 4-5.
 
