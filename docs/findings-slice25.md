@@ -40,7 +40,8 @@ The findings for slices 23 and 24 marked every statement about which keyword sam
 | e880c1a | docs: slice 25 process audit corrections |
 | 4e284ec | docs: slice 25 audit corrections: review fixes |
 | a41d358 | docs: slice 25 spec: unsplice the audit corrections |
-| (this commit) | docs: slice 25 live check |
+| 25494a0 | docs: slice 25 live check |
+| (this commit) | docs: slice 25 live check: review fixes |
 
 ## 2. Live check on dev
 
@@ -51,7 +52,7 @@ Run on 2026-09-30 by the controller on main at 28ccb30 (after PR #46 merged), wi
 - The API was started in the background. `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/products/run` returned HTTP 202 and queued job `08939d2b-1629-41e4-aaae-90ab09207e16`. The API was then stopped (background task exit 144, as expected); exactly one job was queued. `process_job` ran once and returned `True`; the worker loop was not started.
 - Job `08939d2b`: status done, error null, `cost_micros = 6,587` (the spec's estimate was about 6,400), created 14:35:19, started 14:35:26 UTC.
 - No grounded search ran: `keyword_search` still has 20 rows and its newest `searched_at` is still 2026-09-30 09:27:13.
-- Writes observed: the job row, the 10 product rows (each now has `job_id` 08939d2b), and `api_key.last_used_at` = 14:35:19 UTC. Afterwards: 0 queued or running jobs, no uvicorn or worker process; 9 `product_run` jobs totalling 1,650,561 micros. Spend is about $10.96 of the $15 cap.
+- Writes observed: the job row, the 10 product rows (each now has `job_id` 08939d2b), and `api_key.last_used_at` = 14:35:19 UTC. Afterwards: 0 queued or running jobs, no uvicorn or worker process; 9 `product_run` jobs totalling 1,650,561 micros. Spend is about $10.95 of the $15 cap (slice 24's unrounded $10.9464 + $0.0066 = $10.9530).
 
 **Per product** (observed by read-only queries after the job; samples abbreviated to each sample's first keyword):
 
@@ -68,13 +69,13 @@ Run on 2026-09-30 by the controller on main at 28ccb30 (after PR #46 merged), wi
 | LC-09 | BSOAgentTestBrand Boys School Shoe Black | kids shoes / kids shoes / kids shoes | kids shoes | BSOAgentTestBrand Black Kids School Shoe Boys Shoes | BSOAgentTestBrand Black Kids School Shoe Boys | adjusted | (none) | kids |
 | LC-10 | BSOAgentTestBrand Women Sandal Tan | women sandals / women sandals / women sandals | women sandals | BSOAgentTestBrand Tan Footbed Women Sandals Sandal | BSOAgentTestBrand Tan Footbed Women Sandals | adjusted | (none) | footbed |
 
-All 10 first keywords and all 10 missing-word lists are the same as before the run (docs/findings-slice24.md §2).
+All 10 stored keywords and all 10 missing-word lists are the same as after slice 24's run (docs/findings-slice24.md §2).
 
 What the stored values show, first observed and then inferred:
-- Keywords, observed: for 9 products the stored keyword is the first keyword of all three samples. For LC-05 no sample offers "mens flip flops" or "men flip flops": all three samples start with "men slippers", whose type word is not in the title "Men Flip Flop Navy", and samples 2 and 3 offer "navy flip flops".
-- Keywords, *inferred* from the code: LC-05's keyword was built by `title_first` (the first keyword's audience "men" plus the title's type words, plural from "navy flip flops"), and its spelling "mens flip flops" came from the cache seed (slice 24), since no sample offers that spelling. Before this slice, which path produced LC-05's keyword was not known (docs/findings-slice23.md §3).
-- Rewrite, observed: in all 10 raw titles the model ends with the original title's type word ("Sandal", "Shoe", "Shoes", "Slipper", "Flip Flop") after a plural or singular form of it earlier in the title. Each suggested title is its raw title with that final word or phrase removed; no original-title word was lost (dropped words empty), so every status is `adjusted`.
-- Rewrite, *inferred* from the code: the removal is `rule_check`'s repeat-stem drop, the only step that removes a word whose stem is allowed (every removed word's stem is in the product's keyword).
+- Keywords, observed: for 9 products the stored keyword is the first keyword of all three samples. For LC-05 no sample offers "mens flip flops" or "men flip flops": all three samples start with "men slippers", whose type word is not in the title "Men Flip Flop Navy"; samples 1 and 3 offer "cushioned flip flops" and samples 2 and 3 "flip flops" (samples 2 and 3 also offer "navy flip flops", and sample 1 "men navy flip flops", colour keywords).
+- Keywords, *inferred* from the code: LC-05's keyword was built by `title_first` (the first keyword's audience "men" plus the title's type words, plural from "cushioned flip flops", the first title-fitting keyword left after `drop_noise_terms` removed the colour keywords "men navy flip flops" and "navy flip flops"; a replay of `choose_keywords` on the stored samples, with no model call, returns "men flip flops" first), and its spelling "mens flip flops" came from the cache seed (slice 24), since no sample offers that spelling. Before this slice, which path produced LC-05's keyword was not known (docs/findings-slice23.md §3).
+- Rewrite, observed: in all 10 raw titles the model ends with the original title's type word or its plural ("Sandal", "Shoe", "Slipper", "Flip Flop"; LC-09 ends with "Shoes", its original has "Shoe") after a plural or singular form of it earlier in the title. Each suggested title is its raw title with that final word or phrase removed; no original-title word was lost (dropped words empty) and each suggested title differs from its raw title, so every status is `adjusted`.
+- Rewrite, *inferred* from the code: the removal is `rule_check`'s repeat-stem drop, the only step that removes an allowed-stem word from these titles (every removed word's stem is in the product's keyword; the 150-character trim does not apply, since the raw titles are 44 to 53 characters; no removed word is a connector).
 - Recorded, not changed in this slice: the rewrite call repeats the type word in 10 of 10 titles on this run.
 
 
