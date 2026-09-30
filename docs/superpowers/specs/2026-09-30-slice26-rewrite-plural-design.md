@@ -1,4 +1,4 @@
-# Slice 26 design: the rewrite keeps one form of each word
+# Slice 26 design: a removed repeat no longer counts as an adjustment
 
 ## Context
 
@@ -16,8 +16,13 @@ Decisions approved in chat (brainstorming on Opus 5.5, 2026-09-30). Each questio
 - **Approach A:** reword the prompt's keep rule. Approaches B (the code gives each product a per-product "use X in place of Y" hint) and C (A and B together) were described in chat with trade-offs; A was recommended and chosen, with B to be put to the user if A fails the probe.
 - **After probe 1 failed (§2), approach C:** the user chose "Probe C: sentence + hint" over B alone, accepting A as is, or stopping. The revised §1 design text (the sentence plus per-product swaps, probe 2, the tests) was put in chat and approved.
 - **Swap rule (from the spec review, put to the user as a question and approved in chat):** a hint only when the title word and the keyword word have the same folded stems and different tokens, so a hyphenated word such as "Flip-Flop" gets no hint that would lose a word.
+- **After probe 2 failed (Appendix A2), the goal was asked again**, because the fact behind "clean raw rewrite" (that a prompt change could reach it reliably) had turned out wrong. The user chose "Honest status, code only" over one more prompt fix with probe 3, and over stopping the slice. The status design (§1), the testing (§2), and the live check and docs (§3) were each put in chat in their own message and approved.
+- **Repeat scope (§1's approval question):** any word removed only because it repeats an earlier word's stem stops counting as an adjustment. Rejected: singular/plural repeats only, under which LC-05's "Flip Flops Flip Flop" stays `adjusted`.
 
 Codebase facts (main `aa62285`, checked 2026-09-30):
+
+- `rule_check` (products.py) drops a word whose `fold_set` stems overlap an earlier kept word's stems, in a loop inline in the function, and returns status `"pass"` only when the final title equals the suggestion (`"review"` when an original word is lost). Today `rule_check("BSOAgentTestBrand Boys Sandal Blue", "BSOAgentTestBrand Blue Kid Sandals Boys Sandal", ["BSOAgentTestBrand"], allowed=["kids sandals", "kid"])` and `rule_check("BSOAgentTestBrand Men Flip Flop Navy", "BSOAgentTestBrand Navy Mens Flip Flops Flip Flop", ["BSOAgentTestBrand"], allowed=["mens flip flops"])` both return status `"adjusted"`.
+- `apps/web` and `apps/api` show the status value and have no copy that explains `adjusted`.
 
 - `rewrite_prompt(brand, products)` returns one string, and `run_products` sends it with `RewriteSet` at temperature 0.0, once per batch.
 - `rule_check("BSOAgentTestBrand Boys Sandal Blue", "BSOAgentTestBrand Blue Kid Sandals Boys", ["BSOAgentTestBrand"], allowed=["kids sandals", "kid"])` returns `("BSOAgentTestBrand Blue Kid Sandals Boys", "pass", [])`. The same call with a trailing " Sandal" on the suggestion returns the same title with `"adjusted"`. `rule_check("BSOAgentTestBrand Boys School Shoe Black", "BSOAgentTestBrand Black Kids School Shoes Boys", ...)` returns `"pass"` (with `["BSOAgentTestBrand"], allowed=["kids sandals", "kid"]`, the same arguments as the first call). So swapping a word for its plural is neither a lost word nor an adjustment (checked 2026-09-30).
@@ -25,7 +30,68 @@ Codebase facts (main `aa62285`, checked 2026-09-30):
 
 ## Design
 
-### 1. The prompt change (approach C: sentence plus per-product swaps)
+The rewrite prompt stays as it is on main. Only `rule_check`'s status changes.
+
+### 1. The status rule
+
+- The repeat loop inside `rule_check` moves into a helper that `rule_check` uses for the title:
+
+```python
+def _drop_repeats(words: Sequence[str]) -> list[str]:
+    """The words without any whose folded stems repeat an earlier kept
+    word's stems (punctuation-only words are kept)."""
+    seen: set[str] = set()
+    kept: list[str] = []
+    for word in words:
+        stems = fold_set(word)
+        if stems & seen:
+            continue
+        seen |= stems
+        kept.append(word)
+    return kept
+```
+
+- In `rule_check`, `title = " ".join(_strip_connectors(_drop_repeats(title.split())))` replaces the inline loop, and the last line becomes:
+
+```python
+    plain = " ".join(_drop_repeats(suggestion.split()))
+    return title, ("pass" if title in (suggestion, plain) else "adjusted"), []
+```
+
+- So the status is `pass` when the final title equals the suggestion, or the suggestion with only its repeats removed. Prepending the brand, dropping an unbacked word, the connector strip, the trim, or the fallback to the original still give `adjusted`; a lost original word still gives `review`. The docstring's Status sentence says so.
+- Checked on a scratch copy of `products.py` (2026-09-30): LC-01's pattern gives `("BSOAgentTestBrand Blue Kid Sandals Boys", "pass", [])`; LC-05's gives `("BSOAgentTestBrand Navy Mens Flip Flops", "pass", [])`; `rule_check("Walkaroo Kids Shoes", "Walkaroo Kids Shoes Shoes Sale", ["Walkaroo"])` gives `("Walkaroo Kids Shoes", "adjusted", [])`; `rule_check("Walkaroo Boys Sandal", "Walkaroo Kids Sandal Sandal", ["Walkaroo"], allowed=["kids sandals"])` gives `("Walkaroo Kids Sandal", "review", ["boys"])`. Ruff check and format pass on the patched file; `tests/unit/test_products.py` against it fails exactly the two tests §2 changes (89 passed); `tests/integration/test_products_run.py` against it passes (30).
+- Unchanged: `rewrite_prompt`, the final titles, `dropped_words`, the stored columns, the API and the web app.
+
+### 2. Testing
+
+`tests/unit/test_products.py`:
+
+- `test_rule_check_removes_repeated_tokens`: the expected status for `rule_check("Walkaroo Kids Shoes", "Walkaroo Kids Shoes Shoes", BRAND)` changes from `"adjusted"` to `"pass"`.
+- `test_rule_check_drops_a_word_that_repeats_an_earlier_token`: the first case's expected status (`"Walkaroo Kids-Sandal Sandal"`) changes from `"adjusted"` to `"pass"`; the second case (the brand is prepended first) is unchanged.
+- New test `test_rule_check_does_not_count_a_removed_repeat`, with the four cases in §1's check: the LC-01 and LC-05 patterns give `pass`; a repeat plus an unbacked word gives `adjusted`; a repeat plus a lost word gives `review`.
+- Unchanged: the connector-strip, invented-word, fallback and brand tests, and the integration tests (the main run test's "Walkaroo Kids Summer Sandals Sandals" stays `review`; the Toddler and unbacked-word tests stay `adjusted`).
+- No model call and no probe: the rule is deterministic.
+
+### 3. Live check and docs
+
+- **Live check, after merge, with the user's OK at that point:** one `product_run` on dev by the live-check pattern (API queues, `process_job` once, the worker loop never started). Dev is at 0021; no migration. The 8 stored keywords' `keyword_search` rows are fresh: 7 searched 2026-09-29 13:10:34 UTC, fresh until 2026-10-06 13:10 (docs/findings-slice23.md §3), and "mens flip flops" searched 2026-09-30 09:27:13 (docs/findings-slice23.md §3), fresh until 2026-10-07 09:27 (`SEARCH_TTL_DAYS` = 7). So with the same keywords there is no grounded search. Expected cost about 6,600 micros (slice 25's check: 6,587), plus about 38,000 per keyword with no fresh valid row. Writes: the job, the 10 product rows, `api_key.last_used_at`, any new `keyword_search` row.
+- **Read-back:** per product, the raw title, the suggested title, the status and the dropped words, stated as observed. *Inferred* expectation: a product whose raw title differs from its final title only by repeats shows `pass`; a product that loses a word shows `review`.
+- **Docs:** this spec; the plan; `docs/findings-slice26.md` (probes 1 and 2 from Appendix A2, the live check, every `minor (deferred)` and `parked` ledger line); docs/README.md rows; the `(this commit)` hash convention; a dated correction note in docs/findings-slice25.md §2 for the slice 25 live-check reviewer's optional nit ($10.9464 is called "slice 24's unrounded" figure, though slice 24 wrote "about $10.94 + $0.0064"), with the original sentence kept.
+- **Spend so far:** probes 1 and 2 cost 11,211 + 6,757 = 17,968 micros; spend is about $10.97 of the $15 cap.
+
+## Rulings
+
+None.
+
+## Out of scope
+
+- Any change to `rewrite_prompt` (Appendix A1 was designed and probed, not built).
+- Overlap between the keyword and the missing words (probe 2's "kids kid"), and the model's word dropping and lower-case appends seen in the probes.
+- The deferred items in docs/findings-slice25.md §3.
+
+## Appendix: the prompt route (designed and probed, not built)
+
+### A1. The approach C prompt (designed, not built)
 
 In `rewrite_prompt`, the sentence
 
@@ -60,7 +126,7 @@ def form_swaps(title: str, keyword: str) -> list[str]:
 
 Nothing else changes: `rule_check`, `run_products`, the stored columns, the other prompts, the API, and the web app. If probe 2 leads to a different wording, the new wording is put to the user before it is built.
 
-### 2. Probe 1 (run 2026-09-30) and probe 2
+### A2. Probes 1 and 2
 
 - A scratch script outside the repo reads the brand's name and aliases and dev's 10 products (title, keyword, missing words, description, category, attributes) with read-only queries, in `run_products`' order (`result_at NULLS FIRST, title, id`), sets `index` to 0-9 in that order, and builds the product dicts that `run_products` passes to `rewrite_prompt` (`index`, `title`, `keyword`, `missing`, `description`, `attributes`).
 - It calls `judge.generate(prompt, RewriteSet, 0.0)` 3 times with the current `rewrite_prompt` and 3 times with the first-proposed prompt, built as `rewrite_prompt(name, products).replace(<old sentence>, <new sentence>)` so the rest of the prompt is identical. The first-proposed sentence was: "Keep every word of the original title (you may reorder them); a word may switch between singular and plural (for example Sandal to Sandals), which counts as the same word, so write only one of the two forms; add the keyword and the missing terms naturally; never change the product type; repeat no word in any form; no keyword stuffing." There are no database writes and no job.
@@ -73,29 +139,3 @@ Nothing else changes: `rule_check`, `run_products`, the stored columns, the othe
 **Probe 1 result (run 2026-09-30 with the user's OK; 6 calls, 11,211 micros, estimate about 10,000; the model reported `gemini-3.5-flash-lite`):** failed. Baseline (current prompt): singular/plural repeats in 10, 9 and 10 of 10 titles, so the probe was conclusive. The first-proposed sentence alone: 10 of 10 titles repeated in call 4 (the model wrote the original type word first and appended the keyword, for example "BSOAgentTestBrand Blue Kid Sandal Boys Kids Sandals"); 0 of 10 in calls 5 and 6, but call 6 gave LC-07 `review` (the raw title "BSOAgentTestBrand Beige Women Slippers" dropped "Casual"). Non-sandal products behaved like the sandal products. Temperature 0.0 did not make the calls repeatable.
 
 **Probe 2 (approach C; the user approves the spend first):** the same script and read-only queries, 3 calls with the §1 prompt built from a scratch copy of the planned `form_swaps` and `rewrite_prompt` (the baseline is probe 1's). The same pass rule. About 5,000 to 6,000 micros (probe 1's new-prompt calls cost 1,392 to 2,002 each). If it fails: stop and report to the user before building.
-
-### 3. Testing
-
-- `tests/unit/test_products.py`, new test `test_rewrite_prompt_keeps_one_form_of_each_word`: asserts `"singular and plural" in rp`, `"write only one of the two forms" in rp`, `"lists swaps" in rp` and `"repeat no word in any form" in rp`, where `rp = rewrite_prompt("Walkaroo", [])`.
-- New test `test_form_swaps`: `form_swaps("BSOAgentTestBrand Boys Sandal Blue", "kids sandals") == ["Sandals for Sandal"]`; `form_swaps("BSOAgentTestBrand Men Flip Flop Navy", "mens flip flops") == ["Mens for Men", "Flops for Flop"]`; `form_swaps("BSOAgentTestBrand Boys School Shoe Black", "kids shoes") == ["Shoes for Shoe"]`; `form_swaps("BSOAgentTestBrand Women Casual Slipper Beige", "women slippers") == ["Slippers for Slipper"]`; `form_swaps("Walkaroo Kids Sandals", "kids sandals") == []` (same forms); `form_swaps("Walkaroo Boys Sandal", "") == []`; `form_swaps("Walkaroo Flip-Flop Navy", "flip flops") == []` (a hyphenated word with two stems).
-- New test `test_rewrite_prompt_lists_swaps`: `rewrite_prompt("Walkaroo", [{"index": 0, "title": "Walkaroo Boys Sandal", "keyword": "kids sandals"}])` contains `'"swaps": ["Sandals for Sandal"]'`, and `rewrite_prompt("Walkaroo", [{"index": 0, "title": "Walkaroo Kids Sandals", "keyword": "kids sandals"}])` does not contain `'"swaps"'` (the JSON key with its quotes; the prompt sentence has the bare word).
-- The existing "Keep every word" and "summer"/"150" assertions stay and still pass.
-- `tests/unit/test_recommend_copy.py` already scans `rewrite_prompt`; no change.
-- No integration test: the fake generator returns a fixed title, so it cannot show the model's behaviour. The probe and the live check are the evidence.
-
-### 4. Live check and docs
-
-- **Live check, after merge, with the user's OK at that point:** one `product_run` on dev by the live-check pattern (API queues, `process_job` once, the worker loop never started). Dev is at 0021; no migration. The 8 stored keywords' `keyword_search` rows are fresh: 7 searched 2026-09-29 13:10:34 UTC, fresh until 2026-10-06 13:10 (docs/findings-slice23.md §3), and "mens flip flops" searched 2026-09-30 09:27:13 (docs/findings-slice23.md §3), fresh until 2026-10-07 09:27 (`SEARCH_TTL_DAYS` = 7). So with the same keywords there is no grounded search. Expected cost about 6,600 micros (slice 25's check: 6,587), plus about 38,000 per keyword with no fresh valid row. Writes: the job, the 10 product rows, `api_key.last_used_at`, any new `keyword_search` row.
-- **Read-back:** per product, whether the raw title has a singular/plural repeat (as in §2) and any other repeat, recorded separately, and `rule_check`'s status and dropped words, stated as observed.
-- **Docs:** this spec, the plan, `docs/findings-slice26.md` (the probe results, the live check, every `minor (deferred)` and `parked` ledger line), docs/README.md rows, and the `(this commit)` hash convention. The slice 25 live-check reviewer's optional wording nit (docs/findings-slice25.md §2 calls $10.9464 "slice 24's unrounded" figure, though slice 24 wrote "about $10.94 + $0.0064") gets a dated correction note in docs/findings-slice25.md, with the original sentence kept.
-
-## Rulings
-
-None.
-
-## Out of scope
-
-- Any change to `rule_check`, the status rules, or the stored columns.
-- Swaps from missing words, or from any words other than the keyword's.
-- Other repeats the model may make that are not singular/plural forms.
-- The deferred items in docs/findings-slice25.md §3.
