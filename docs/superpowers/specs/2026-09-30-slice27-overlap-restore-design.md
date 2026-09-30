@@ -137,9 +137,9 @@ The other 116 of the 122 collected items in those two files pass unchanged on th
 
 None.
 
-Correction (2026-10-01, after merge): the ledger records two rulings, made after the docs task, so they are recorded here in the post-merge docs commit:
+Correction (2026-10-01, after merge): the ledger records two rulings, recorded after the docs task (R2's choice was made at the end of planning), so they are recorded here in the post-merge docs commit:
 
-- **R1: a pre-existing doubled period in the plan is left unfixed.** Decided: the plan's Task 2 changes bullet ends `stays "None.".` (doubled punctuation, there before the fix wave); it is left as is. Found by the final fix wave's re-review (a trivial nit). Why: the skill allows one fix wave and no controller fixes after it, and deferring it into findings would need another findings commit. Cost if wrong: one stray period in the plan. Named in chat and ledgered when made; recorded here in the post-merge docs commit.
+- **R1: a doubled period in the plan is left unfixed.** Decided: the plan's Task 2 changes bullet ends `stays "None.".` (doubled punctuation, introduced by the fix wave, d699646; the ledger calls it pre-existing, but ae747b5's bullet ended `stays "None." (this commit)`); it is left as is. Found by the final fix wave's re-review (a trivial nit). Why: the skill allows no second fix wave, and deferring it into findings would need another findings commit. Cost if wrong: one stray period in the plan. Named in chat and ledgered when made; recorded here in the post-merge docs commit.
 - **R2: the plan re-review's two optional wording points were left unapplied.** Decided: at the end of planning, the plan re-review's optional points (the self-review line could also name the hyphen test; departure (5) overlaps departure (2)) were not applied. Found by the plan re-review. Why: applying them would need another review round for no change in substance. Cost if wrong: two small wording imprecisions in the plan. Disclosed in chat when made but not named as a ruling until the process audit; ledgered after the audit.
 
 ## Out of scope
