@@ -2,12 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Search the audience plus the title's product type ("men flip flops") when a product's title and category name different types, and never search a colour or size keyword when another keyword fits.
+**Goal:** Search the audience plus the title's product type ("men flip flops") when a product's title and category name different types, and search a colour or size keyword only when no keyword without one names the title's type and none can be built.
 
 **Architecture:**
 - `title_first` puts a built keyword first: the first keyword's audience plus the title's type. It uses a new helper `_type_word`, which holds the lines `fit_rank` uses today to find a keyword's category word, and a closed `AUDIENCE_WORDS` list.
 - `drop_noise_terms` removes keywords that contain a colour or size word.
-- `choose_keywords` does one product's whole keyword choice and falls back to the unfiltered samples only when the product would otherwise have no keyword. `run_products` calls it.
+- `choose_keywords` does one product's whole keyword choice and falls back to the unfiltered samples when the product would otherwise have no keyword, or (Task 4, Ruling R2) when the guarded result's first keyword names a type the title does not and the unfiltered result's names one it does. `run_products` calls it.
 - All code is in `packages/core/bsi_core/products.py`. There is no prompt, schema, API or web change.
 
 **Tech Stack:** Python 3.13, SQLAlchemy 2, pydantic 2, pytest.
@@ -584,7 +584,8 @@ Added after the final whole-branch review. The spec's §1, §2, §3 and Rulings 
 
 **Files:**
 - Modify: `packages/core/bsi_core/products.py`: the `audience` list in `title_first`, and `choose_keywords`.
-- Test: `tests/unit/test_products.py` (new tests at the end), `docs/findings-slice23.md`, the spec's Rulings (already has R2), this plan's changes section.
+- Test: `tests/unit/test_products.py` (new tests at the end).
+- Docs: `docs/findings-slice23.md`, this plan's changes section. The spec already holds R2 and R3.
 
 **Interfaces:**
 - Consumes: `_type_word`, `title_first`, `drop_noise_terms`, `fold_set` (unchanged names and signatures).
@@ -655,11 +656,60 @@ with:
 
 - [ ] **Step 4: `choose_keywords`.** Replace its docstring and body (keep the signature) with the spec's §1 code block: the new docstring, `pick` unchanged, then `in_title`, `fits`, `guarded`, `raw` and the return line.
 
+- [ ] **Step 4b: The two `ponytail:` comments.** Above `drop_noise_terms`, replace:
+
+```python
+# ponytail: a real colour or size phrase that shoppers type ("white
+# sneakers", "little kids sandals", "big kids shoes") is searched only
+# when the product has no other fitting keyword (choose_keywords);
+# outside footwear some are product words (gold, cream, plus size);
+# English only.
+```
+
+with:
+
+```python
+# ponytail: a real colour or size phrase that shoppers type ("white
+# sneakers", "little kids sandals", "big kids shoes") is searched only
+# when no keyword without one names the title's type and none can be
+# built (choose_keywords); outside footwear some are product words
+# (gold, cream, plus size); English only.
+```
+
+Above `title_first`, replace the first two lines:
+
+```python
+# ponytail: the audience is whatever is left of the first keyword, in
+# the model's spelling ("men house slippers" -> "men house flip flops",
+```
+
+with:
+
+```python
+# ponytail: the audience is whatever is left of the first keyword after
+# its colour and size words, in the model's spelling ("men house
+# slippers" -> "men house flip flops",
+```
+
+and, at the end of that comment, replace `# title and is not an audience word.` with:
+
+```python
+# title and is not an audience word; the type words take the first
+# title-fitting keyword's spelling, so they can be singular ("men flip
+# flop navy" alone -> "men flip flop").
+```
+
+ruff format leaves comments as written; keep each line at 80 characters or fewer.
+
 - [ ] **Step 5: Run the product tests.** Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py tests/integration/test_products_run.py`. Expected: 115 passed (90 unit, 25 integration).
 
 - [ ] **Step 6: Run the backend gate** (Global Constraints). Expected: ruff and mypy clean, all tests pass, metrics coverage 100%. Record the pass count and the names of any warnings.
 
-- [ ] **Step 7: Docs.** In `docs/findings-slice23.md`: §1 describes the wrong-type fallback and the audience change, and the commit table gets a row for this task's commit; §4 lists Ruling R2 under "Rulings"; the Task 2 deferred minor about the fallback building a colour and the one about its missing test are marked fixed by R2 (their ledger text kept); the final review's Minor 2 (the fallback's premise) and Minor 3 ("placed after `fit_rank`") are corrected in the text they name. In this plan's changes section add one bullet for Task 4. Every line tagged `minor (deferred…)`, every `parked` line and every ruling in the ledger must stay covered; run the coverage script again.
+- [ ] **Step 7: Docs.** Ledger lines are quoted as recorded; where one is now fixed or untrue, append a note after it rather than editing it.
+  - `docs/findings-slice23.md` §1: describe the wrong-type fallback, the audience change and the two comment changes; add Task 4's TDD evidence and gate result under "Tests"; in the commit table replace the "(this commit)" row with `5737187`, add rows for `b0c0cb0` and for the spec-review commit that adds R3, and a new "(this commit)" row; change "placed after `fit_rank`" (§1, `title_first`) to "defined after `fit_rank` in the file" (final review, Minor 3).
+  - Findings §4: the rulings list holds R1, R2 and R3 (retitle its heading so it no longer says only "from the Task 3 review"); after the Task 1 minor on the audience taking a colour, append "Fixed by R2: the audience leaves out colour and size words."; after the Task 2 minor on the fallback building a colour, append "Fixed by R2." and correct its premise: the fallback runs when the filtered samples leave no fitting keyword, and (R2) when they leave the wrong type (final review, Minor 2); after the Task 2 minor on the missing test, append "Fixed by Task 4's tests."; after the spec-review note in §4 that says colour stems are not removed from `types` (its example gives "men flip flop"), append that R2 makes that unfiltered path reachable whenever the guard leaves the wrong type (R3); list the §1 and §2 ceilings as the spec now states them.
+  - This plan's changes section: one bullet for Task 4's execution (the spec change already has its own bullet).
+  - Run the coverage script again: every line tagged `minor (deferred…)`, every `parked` line and every ruling in the ledger must be covered.
 
 - [ ] **Step 8: Commit.**
 
@@ -676,6 +726,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   | Spec part | Covered by |
   |---|---|
   | §1 `drop_noise_terms` | Task 2 Step 5 |
+  | §1 the wrong-type fallback in `choose_keywords` (R2) | Task 4 Step 4 |
+  | §2 the audience without colour and size words (R2); the comments (R3) | Task 4 Steps 3 and 4b |
   | §1 `choose_keywords`, the per-product fallback | Task 2 Step 6 |
   | §1 `run_products` calling `choose_keywords` | Task 2 Step 7 |
   | §1 the `NOISE_WORDS` comment's new clause | Task 2 Step 4 |
@@ -692,10 +744,10 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - **§3 values, word for word against the spec:**
   - `drop_noise_terms`: `["men slippers"]`; `[]`; `["kids sandals"]`.
   - `_type_word`: `["slipper", "slipper", "shoe", "for", None]`.
-  - `title_first`, 16 values in 14 cases (the two builds and the two "boys" cases hold 2 values each): the two builds; the offered spelling; first keyword fits; no keyword fits; no audience; empty; the cap; "boys sandals" and "sandals for boys"; shared words; the one-fit ceiling; only an audience word fits; a good fit with an audience-word fit; two title types; no colour built in.
-  - `choose_keywords`, 6 values: probe 4's samples; one all-colour sample; every keyword has a colour; only a brand phrase left; the audience-word keyword; no samples.
+  - `title_first`, 17 values in 15 cases (Task 4 adds 1) (the two builds and the two "boys" cases hold 2 values each): the two builds; the offered spelling; first keyword fits; no keyword fits; no audience; empty; the cap; "boys sandals" and "sandals for boys"; shared words; the one-fit ceiling; only an audience word fits; a good fit with an audience-word fit; two title types; no colour built in.
+  - `choose_keywords`, 9 values (Task 4 adds 3: the wrong-type fallback, a category fit alone, no colour on the unfiltered path): probe 4's samples; one all-colour sample; every keyword has a colour; only a brand phrase left; the audience-word keyword; no samples.
   - Integration: `keyword == "kids sandals"`, `keywords == ["kids sandals", "strap sandals"]`, one search for "kids sandals".
-- **Checked by running code.** The spec reviewer checked the spec's 27 values against its own copy of the functions (0 mismatches). The controller built scratch copies of the three files from this plan's code blocks, outside the repo, and ran them:
+- **Checked by running code.** The spec reviewer checked the spec's 27 values before R2 (the R2 review checked all 30 after it) against its own copy of the functions (0 mismatches). The controller built scratch copies of the three files from this plan's code blocks, outside the repo, and ran them:
   - `ruff format --diff` and `ruff check` with the repo's config: no changes, all checks passed (after `ruff check --fix` sorted the import list).
   - `mypy --strict` on the patched `products.py`: no issues.
   - Task 1 Step 5's selection: 17 passed. The whole patched unit file: 88 passed.
@@ -711,7 +763,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   - `title_first`, `drop_noise_terms` and `choose_keywords` return `list[str]`.
   - `pick` is annotated, so `mypy --strict` accepts the nested function.
 - **Every place this plan departs from the spec's text:**
-  1. The spec names no test. The plan names them: 10 tests in Task 1, 5 in Task 2 and 1 integration test.
+  1. The spec names no test. The plan names them: 10 tests in Task 1, 5 in Task 2, 1 integration test and 2 in Task 4.
   2. The plan groups several of the spec's test values into one test each (for example the four "cannot build" cases).
   3. The plan adds module-level test constants `T`, `W`, `CASUAL` and `S4`. The spec uses `T`, `W`, `B` and `S4` as names in its text; `B` exists since slice 22.
   4. Task order is the spec's §2 first, then §1, because `choose_keywords` (§1) calls `title_first` (§2).
@@ -721,7 +773,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   8. The `NOISE_WORDS` comment's new clause is the plan's wording. The spec gives its sense: "the keyword choice drops keywords that contain them too."
   9. Task 2 Step 9 adds a remove-and-see-it-fail check that the spec does not ask for.
   10. The new integration test is written before the code and is seen failing (Task 2 Step 3). The spec does not ask for that.
-  11. Tasks 1 and 2 each run the backend gate. The controller also runs both gates.
+  11. Tasks 1, 2 and 4 each run the backend gate. The controller also runs both gates.
   12. Task 3's findings file has a section the earlier slices' findings do not: `## 2. The probes`. The live check becomes §3 and the deferred list §4.
   13. Task 3's findings file needs the user's OK and a controller-made stub, because of the Write tool's refusal for subagents.
   14. Task 3 records the spec re-review's two minor notes in findings §4. The spec does not contain them.
@@ -730,7 +782,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 
 ## Changes made during execution
 
-- Task 4 was added after the final whole-branch review, by Ruling R2 (spec §1, §2, §3 and Rulings). Its values were checked by the controller on a scratch copy outside the repo before it was written: ruff and mypy --strict clean; the current unit file 88 passed and the product-run file 25 passed against the patched module; the new values as in Task 4 Step 1.
+- Task 4 was added after the final whole-branch review, by Ruling R2 (spec §1, §2, §3 and Rulings). The review of that spec change (b0c0cb0) found R2's side effects (a colour keyword searched or stored; a singular type word on a close variant of probe 4); the controller accepted them as ceilings (Ruling R3) and fixed the texts that R2 had made untrue (the Goal and Architecture lines above, Task 4's Files and Step 7, the two `ponytail:` comments in a new Step 4b, and the self-review). Its values were checked by the controller on a scratch copy outside the repo before it was written: ruff and mypy --strict clean; the current unit file 88 passed and the product-run file 25 passed against the patched module; the new values as in Task 4 Step 1.
 
 - Task 1 went as written (commit 23eb548), with one difference (from the ledger): the full suite was run twice. The first run's output was cut off, so it lacked both warning names; the pytest re-run (with the shared-DB `pgrep` check first) recorded them. No code changed between the two runs. task-1-report.md words it differently: the gate's `tail -15` cut off the first warning's name. ruff did not re-wrap anything, and I001 did not fire.
 - Task 2 went as written (commit d072568). The ledger records "No departures; ruff changed nothing", and task-2-report.md says "no departures from the brief".
