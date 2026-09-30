@@ -192,7 +192,7 @@ In the order they were written:
 | [findings-slice24.md](findings-slice24.md) | Results: what was built, the live check on dev (run on 2026-09-30), and what is deferred or untested. |
 | [superpowers/specs/2026-09-30-slice25-raw-samples-design.md](superpowers/specs/2026-09-30-slice25-raw-samples-design.md) | Design spec: store the raw keyword samples and the raw rewrite — `product.keyword_samples` (JSONB) and `product.raw_title` (migration 0021), written by each product run and read with psql, so live checks stop inferring them; with the ruling made during the build. |
 | [superpowers/plans/2026-09-30-slice25-raw-samples.md](superpowers/plans/2026-09-30-slice25-raw-samples.md) | Implementation plan, Tasks 1–3, with the changes made during execution. |
-| [findings-slice25.md](findings-slice25.md) | Results: what was built, the live check on dev (not yet run), and what is deferred or untested. |
+| [findings-slice25.md](findings-slice25.md) | Results: what was built, the live check on dev (run on 2026-09-30), and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

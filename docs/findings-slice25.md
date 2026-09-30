@@ -39,11 +39,44 @@ The findings for slices 23 and 24 marked every statement about which keyword sam
 | 69d3245 | docs: slice 25 findings: final-review minors |
 | e880c1a | docs: slice 25 process audit corrections |
 | 4e284ec | docs: slice 25 audit corrections: review fixes |
-| (this commit) | docs: slice 25 spec: unsplice the audit corrections |
+| a41d358 | docs: slice 25 spec: unsplice the audit corrections |
+| (this commit) | docs: slice 25 live check |
 
 ## 2. Live check on dev
 
-Not yet run. The controller migrates dev and runs it after the user approves each; results are recorded here then.
+Run on 2026-09-30 by the controller on main at 28ccb30 (after PR #46 merged), with the user's OK ("migrate dev and run the live check").
+
+- Pre-check (read-only): dev at migration 0020; no uvicorn, worker or pytest process; 0 queued jobs; `keyword_search` had 20 rows, the newest searched 2026-09-30 09:27:13 UTC; 8 prior `product_run` jobs. Seven `run` jobs have a NULL status; `claim_job()` claims only `queued` jobs whose kind is not `run` (read from the function on dev), so they could not be claimed.
+- Migration: `uv run alembic upgrade head` took dev from 0020 to 0021 (head). `keyword_samples` (jsonb) and `raw_title` (text) exist and are nullable; before the run, 0 products had either value.
+- The API was started in the background. `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/products/run` returned HTTP 202 and queued job `08939d2b-1629-41e4-aaae-90ab09207e16`. The API was then stopped (background task exit 144, as expected); exactly one job was queued. `process_job` ran once and returned `True`; the worker loop was not started.
+- Job `08939d2b`: status done, error null, `cost_micros = 6,587` (the spec's estimate was about 6,400), created 14:35:19, started 14:35:26 UTC.
+- No grounded search ran: `keyword_search` still has 20 rows and its newest `searched_at` is still 2026-09-30 09:27:13.
+- Writes observed: the job row, the 10 product rows (each now has `job_id` 08939d2b), and `api_key.last_used_at` = 14:35:19 UTC. Afterwards: 0 queued or running jobs, no uvicorn or worker process; 9 `product_run` jobs totalling 1,650,561 micros. Spend is about $10.96 of the $15 cap.
+
+**Per product** (observed by read-only queries after the job; samples abbreviated to each sample's first keyword):
+
+| Product | Title | First keyword of samples 1 / 2 / 3 | Keyword | Raw title | Suggested title | Status | Dropped | Missing |
+|---|---|---|---|---|---|---|---|---|
+| LC-01 | BSOAgentTestBrand Boys Sandal Blue | kids sandals / kids sandals / kids sandals | kids sandals | BSOAgentTestBrand Blue Kid Sandals Boys Sandal | BSOAgentTestBrand Blue Kid Sandals Boys | adjusted | (none) | kid |
+| LC-02 | BSOAgentTestBrand Girls Sandal Pink | kids sandals / kids sandals / kids sandals | kids sandals | BSOAgentTestBrand Pink Kid Sandals Girls Sandal | BSOAgentTestBrand Pink Kid Sandals Girls | adjusted | (none) | kid |
+| LC-03 | BSOAgentTestBrand Kids Sports Shoe Black | kids shoes / kids shoes / kids shoes | kids shoes | BSOAgentTestBrand Black Kids Shoes Sports Shoe | BSOAgentTestBrand Black Kids Shoes Sports | adjusted | (none) | (none) |
+| LC-04 | BSOAgentTestBrand Kids Slipper Grey | kids slippers / kids slippers / kids slippers | kids slippers | BSOAgentTestBrand Grey Kids Slippers Slipper | BSOAgentTestBrand Grey Kids Slippers | adjusted | (none) | (none) |
+| LC-05 | BSOAgentTestBrand Men Flip Flop Navy | men slippers / men slippers / men slippers | mens flip flops | BSOAgentTestBrand Navy Mens Flip Flops Flip Flop | BSOAgentTestBrand Navy Mens Flip Flops | adjusted | (none) | (none) |
+| LC-06 | BSOAgentTestBrand Men Casual Sandal Brown | men sandals / men sandals / men sandals | men sandals | BSOAgentTestBrand Brown Men Sandals Casual Sandal | BSOAgentTestBrand Brown Men Sandals Casual | adjusted | (none) | (none) |
+| LC-07 | BSOAgentTestBrand Women Casual Slipper Beige | women slippers / women slippers / women slippers | women slippers | BSOAgentTestBrand Beige Women Slippers Casual Slipper | BSOAgentTestBrand Beige Women Slippers Casual | adjusted | (none) | (none) |
+| LC-08 | BSOAgentTestBrand Men Sports Shoe Grey | men shoes / men shoes / men shoes | men shoes | BSOAgentTestBrand Grey Men Shoes Sports Shoe | BSOAgentTestBrand Grey Men Shoes Sports | adjusted | (none) | (none) |
+| LC-09 | BSOAgentTestBrand Boys School Shoe Black | kids shoes / kids shoes / kids shoes | kids shoes | BSOAgentTestBrand Black Kids School Shoe Boys Shoes | BSOAgentTestBrand Black Kids School Shoe Boys | adjusted | (none) | kids |
+| LC-10 | BSOAgentTestBrand Women Sandal Tan | women sandals / women sandals / women sandals | women sandals | BSOAgentTestBrand Tan Footbed Women Sandals Sandal | BSOAgentTestBrand Tan Footbed Women Sandals | adjusted | (none) | footbed |
+
+All 10 first keywords and all 10 missing-word lists are the same as before the run (docs/findings-slice24.md §2).
+
+What the stored values show, first observed and then inferred:
+- Keywords, observed: for 9 products the stored keyword is the first keyword of all three samples. For LC-05 no sample offers "mens flip flops" or "men flip flops": all three samples start with "men slippers", whose type word is not in the title "Men Flip Flop Navy", and samples 2 and 3 offer "navy flip flops".
+- Keywords, *inferred* from the code: LC-05's keyword was built by `title_first` (the first keyword's audience "men" plus the title's type words, plural from "navy flip flops"), and its spelling "mens flip flops" came from the cache seed (slice 24), since no sample offers that spelling. Before this slice, which path produced LC-05's keyword was not known (docs/findings-slice23.md §3).
+- Rewrite, observed: in all 10 raw titles the model ends with the original title's type word ("Sandal", "Shoe", "Shoes", "Slipper", "Flip Flop") after a plural or singular form of it earlier in the title. Each suggested title is its raw title with that final word or phrase removed; no original-title word was lost (dropped words empty), so every status is `adjusted`.
+- Rewrite, *inferred* from the code: the removal is `rule_check`'s repeat-stem drop, the only step that removes a word whose stem is allowed (every removed word's stem is in the product's keyword).
+- Recorded, not changed in this slice: the rewrite call repeats the type word in 10 of 10 titles on this run.
+
 
 ## 3. Deferred and untested
 
