@@ -410,15 +410,18 @@ def test_store_names_are_not_stored_as_titles(owner, make_org, make_brand):
     ]
 
 
-def _fresh_row(owner, org, bid, titles, days=1):
+def _fresh_row(
+    owner, org, bid, titles, days=1, keyword="kids sandals", error=None
+):
     with owner() as s, s.begin():
         s.add(
             m.KeywordSearch(
                 org_id=org.id,
                 brand_id=bid,
-                keyword="kids sandals",
-                query=products.search_query("kids sandals"),
+                keyword=keyword,
+                query=products.search_query(keyword),
                 titles=titles,
+                error=error,
                 searched_at=datetime.now(UTC) - timedelta(days=days),
             )
         )
@@ -505,6 +508,50 @@ def test_a_row_the_lookup_rejects_is_not_seeded(owner, make_org, make_brand):
     _, rows, searches = _run(owner, org, bid, gen, engine)
     assert rows[0].keyword == "kid sandal"
     assert engine.prompts == [(products.search_query("kid sandal"), "IN", "en")]
+    assert len(searches) == 2
+
+
+def test_an_error_row_is_not_seeded(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    _fresh_row(owner, org, bid, [], error="429 quota")
+    engine = FakeEngine()
+    gen = _generator(keywords=["kid sandal"])
+    _, rows, searches = _run(owner, org, bid, gen, engine)
+    assert rows[0].keyword == "kid sandal"
+    assert engine.prompts == [(products.search_query("kid sandal"), "IN", "en")]
+    assert len(searches) == 2
+
+
+def test_the_newest_cached_spelling_wins(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    _fresh_row(owner, org, bid, [CACHED_TITLE])
+    _fresh_row(owner, org, bid, [CACHED_TITLE], days=2, keyword="kid sandals")
+    engine = FakeEngine()
+    gen = _generator(keywords=["kid sandal"])
+    _, rows, searches = _run(owner, org, bid, gen, engine)
+    assert rows[0].keyword == "kids sandals"
+    assert engine.prompts == [] and len(searches) == 2
+
+
+def test_a_non_first_keyword_adopts_a_cached_spelling(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    _fresh_row(owner, org, bid, [CACHED_TITLE])
+    engine = FakeEngine()
+    gen = _generator(keywords=["boys sandals", "kid sandal"])
+    _, rows, searches = _run(owner, org, bid, gen, engine)
+    assert rows[0].keywords == ["boys sandals", "kids sandals"]
+    assert rows[0].keyword == "boys sandals"
+    assert engine.prompts == [
+        (products.search_query("boys sandals"), "IN", "en")
+    ]
     assert len(searches) == 2
 
 
