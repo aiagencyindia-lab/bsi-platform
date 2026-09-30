@@ -196,6 +196,9 @@ In the order they were written:
 | [superpowers/specs/2026-09-30-slice26-rewrite-plural-design.md](superpowers/specs/2026-09-30-slice26-rewrite-plural-design.md) | Design spec: a removed repeat no longer counts as an adjustment — `rule_check` gives `pass` when the only change to the suggestion is removing words that repeat an earlier word's stem; the rewrite prompt is unchanged, with the two failed prompt probes in the appendix. |
 | [superpowers/plans/2026-09-30-slice26-rewrite-plural.md](superpowers/plans/2026-09-30-slice26-rewrite-plural.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
 | [findings-slice26.md](findings-slice26.md) | Results: what was built, the two prompt probes, the live check on dev (run on 2026-09-30), and what is deferred or untested. |
+| [superpowers/specs/2026-09-30-slice27-overlap-restore-design.md](superpowers/specs/2026-09-30-slice27-overlap-restore-design.md) | Design spec: the rewrite prompt's `missing` field leaves out words already in the product's keyword, and `rule_check` puts back original-title words the rewrite dropped (status `adjusted`), with the approved ceilings. |
+| [superpowers/plans/2026-09-30-slice27-overlap-restore.md](superpowers/plans/2026-09-30-slice27-overlap-restore.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
+| [findings-slice27.md](findings-slice27.md) | Results: what was built, the live check on dev (not yet run), and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

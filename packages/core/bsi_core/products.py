@@ -682,6 +682,31 @@ def dropped(
     return out
 
 
+def _restore(
+    original: str, words: Sequence[str], brand_names: Sequence[str]
+) -> list[str]:
+    """The words with each original-title word the suggestion lost put
+    back, right after the nearest earlier original word that is still
+    there (at the start if none)."""
+    lost = set(dropped(original, " ".join(words), brand_names))
+    out = list(words)
+    if not lost:
+        return out
+    orig = original.split()
+    for i, word in enumerate(orig):
+        if not set(tokens(word)) & lost:
+            continue
+        pos = 0
+        for prev in reversed(orig[:i]):
+            stems = fold_set(prev)
+            at = [n for n, w in enumerate(out) if stems and fold_set(w) & stems]
+            if at:
+                pos = at[0] + 1
+                break
+        out.insert(pos, word)
+    return out
+
+
 def _drop_repeats(words: Sequence[str]) -> list[str]:
     """The words without any whose folded stems repeat an earlier kept
     word's stems (punctuation-only words are kept)."""
@@ -708,11 +733,13 @@ def rule_check(
     the brand's names is dropped (function words and numbers are kept)
     right after the brand step, and if that leaves nothing but CONNECTORS
     the original title is used instead (Rulings R1 and R2);
+    an original-title word the suggestion lost is put back (_restore);
     a word that repeats an earlier word's stem is dropped whole
     (punctuation-only words are kept); trailing CONNECTORS are removed;
     the title is trimmed to MAX_TITLE_CHARS at a word boundary, and
     trailing CONNECTORS are removed again. Status:
-    "review" if the final title lost any of the original's words, else
+    "review" if the final title lost any of the original's words (after
+    the restore, only the repeat step or the trim can cut one), else
     "pass" if it equals the suggestion or the suggestion with only its
     repeats removed (_drop_repeats), else "adjusted"."""
     title = suggestion
@@ -729,6 +756,7 @@ def rule_check(
     )
     # R1/R2: nothing but connectors left -> the original title
     title = title if _strip_connectors(title.split()) else original
+    title = " ".join(_restore(original, title.split(), brand_names))
     title = " ".join(_strip_connectors(_drop_repeats(title.split())))
     if len(title) > MAX_TITLE_CHARS:
         cut = title[: MAX_TITLE_CHARS + 1]
@@ -912,6 +940,14 @@ def titles_prompt(keyword: str, text: str, domains: Sequence[str]) -> str:
     )
 
 
+def _not_in_keyword(p: dict[str, Any]) -> list[str]:
+    """The product's missing words without those whose stems are in its
+    keyword: the rewrite adds the keyword anyway, so asking for both
+    ("kids" and "kid") invites a repeat."""
+    kw = _allowed_stems("", [p.get("keyword") or ""], [])
+    return [m for m in p.get("missing") or [] if not fold_set(m) & kw]
+
+
 def rewrite_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
     return (
         f"Rewrite each product title for the brand {brand!r}.\n"
@@ -925,7 +961,11 @@ def rewrite_prompt(brand: str, products: Sequence[dict[str, Any]]) -> str:
         '"bullets": [...]}, ...]} with one entry per input index.\n'
         "Products:\n"
         + _product_lines(
-            products, "keyword", "missing", "description", "attributes"
+            [{**p, "missing": _not_in_keyword(p)} for p in products],
+            "keyword",
+            "missing",
+            "description",
+            "attributes",
         )
     )
 
