@@ -37,7 +37,8 @@ Slice 25's live check stored the rewrite call's raw titles: all 10 ended with th
 | e8b2589 | docs: slice 26 findings, index and notes |
 | ce2ef77 | docs: slice 26 findings: final-review minors |
 | 7a55220 | docs: slice 26 findings: section 4 lead-in |
-| (this commit) | docs: slice 26 process audit corrections |
+| d241a8e | docs: slice 26 process audit corrections |
+| (this commit) | docs: slice 26 audit corrections: review fixes |
 
 ## 2. Probes
 
@@ -70,8 +71,10 @@ The final review triaged the 5 earlier deferred minors as "keep deferred": "Fina
 
 Parked: none. The ledger has no parked lines.
 
-Rulings (the ledger records one, added after the process audit; also in the spec's `## Rulings`):
-- **R1: the findings §4 lead-in was fixed by the controller, not deferred.** Decided: after the final fix wave's re-review, the controller changed this section's lead-in to "From the task reviews and the final review" (7a55220) instead of deferring the re-reviewer's out-of-scope observation. Found by the final fix wave's re-review (an out-of-scope observation). Why: the lead-in under-described the 8 lines under it, and fixing it avoided a ninth deferred line. Cost if wrong: a process deviation (the skill allows one fix wave and no controller fixes); the change is docs wording only and was re-reviewed. Named in chat and ledgered only after the process audit.
+Rulings: none.
+
+Correction (2026-09-30, after the process audit): the ledger now records one ruling, added after the audit; also in the spec's `## Rulings`:
+- **R1: the findings §4 lead-in was fixed by the controller, not deferred.** Decided: after the final fix wave's re-review, the controller changed this section's lead-in to "From the task reviews and the final review" (7a55220) instead of deferring the re-reviewer's out-of-scope observation. Found by the final fix wave's implementer (a concern) and its re-review (an out-of-scope observation). Why: the lead-in under-described the 8 lines under it, and fixing it avoided a ninth deferred line. Cost if wrong: a process deviation (the skill allows one fix wave and no controller fixes); the change is docs wording only and was re-reviewed. The fix was noted in the ledger when made (as a note, not a ruling); it was named as a ruling in chat and in the ledger only after the process audit.
 
 Out of scope (spec):
 - Any change to `rewrite_prompt` (Appendix A1 was designed and probed, not built).
@@ -88,7 +91,7 @@ Carried forward from docs/findings-slice25.md §3 (still open):
 On 2026-09-30, after the finishing menu, the user asked "check if you have done all task correctly and follow each step" and then said "fix it". The audit found:
 - After the single final fix wave and its re-review, the controller fixed the re-reviewer's out-of-scope observation itself (7a55220) instead of deferring it. Now recorded as ruling R1 (§4 and the spec).
 - That fix-or-defer choice was not named as a ruling when made, and the finishing menu said there were no rulings and that every design choice was the user's.
-- A consequence the spec review found (a suggestion that differs only in spacing gives `pass`) was written into spec §1 without asking the user. After the audit the user was asked and chose "Yes, pass"; the spec's decisions list records it.
+- A consequence the spec review found (a suggestion that differs only in spacing gives `pass`) was written into spec §1 without asking the user. After the audit the user was asked and chose the recommended option, "Yes, pass (Recommended)"; the spec's decisions list records it.
 - The user's "go ahead" after the request to review the spec was read as spec approval without a confirming question (the controller said so in chat).
 - After the goal changed to the status fix, there was no approaches step (two or three ways with trade-offs); the status design went straight to its sections.
 - Caught before any effect and disclosed at the time: a pre-created report stub (deleted before dispatch); an invalid red-step check whose scratch copy shadowed main's code (rerun correctly); a probe 2 draft that imported probe 1's script, whose top level makes six paid model calls (rewritten before it ran).
