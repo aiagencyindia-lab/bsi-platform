@@ -15,6 +15,7 @@ Decisions approved in chat (brainstorming on Opus 5.5, 2026-09-30). Each questio
 - **Probe criteria (from the spec review, put to the user as a question and approved in chat):** only singular/plural repeats count against the pass rule (other repeats are recorded); a baseline with no singular/plural repeat makes the probe inconclusive.
 - **Approach A:** reword the prompt's keep rule. Approaches B (the code gives each product a per-product "use X in place of Y" hint) and C (A and B together) were described in chat with trade-offs; A was recommended and chosen, with B to be put to the user if A fails the probe.
 - **After probe 1 failed (§2), approach C:** the user chose "Probe C: sentence + hint" over B alone, accepting A as is, or stopping. The revised §1 design text (the sentence plus per-product swaps, probe 2, the tests) was put in chat and approved.
+- **Swap rule (from the spec review, put to the user as a question and approved in chat):** a hint only when the title word and the keyword word have the same folded stems and different tokens, so a hyphenated word such as "Flip-Flop" gets no hint that would lose a word.
 
 Codebase facts (main `aa62285`, checked 2026-09-30):
 
@@ -39,15 +40,15 @@ New function in `products.py`:
 ```python
 def form_swaps(title: str, keyword: str) -> list[str]:
     """Hints for the rewrite: "Sandals for Sandal" when a title word and a
-    keyword word share a folded stem but differ as written, so the model
-    writes one form. The first matching keyword word per title word; no
+    keyword word have the same folded stems but different tokens, so the
+    model writes one form. The first such keyword word per title word; no
     duplicates; none without a keyword."""
     out: list[str] = []
     words = keyword.split()
     for w in title.split():
         stems = fold_set(w)
         for k in words:
-            if stems & fold_set(k) and w.casefold() != k.casefold():
+            if stems and fold_set(k) == stems and tokens(k) != tokens(w):
                 hint = f"{k[:1].upper()}{k[1:]} for {w}"
                 if hint not in out:
                     out.append(hint)
@@ -55,29 +56,29 @@ def form_swaps(title: str, keyword: str) -> list[str]:
     return out
 ```
 
-`rewrite_prompt` passes each product with a `swaps` field, `[{**p, "swaps": form_swaps(p["title"], p.get("keyword") or "")} for p in products]`, and `_product_lines(..., "keyword", "missing", "swaps", "description", "attributes")`; `_product_lines` already leaves out an empty list. On dev's products (checked 2026-09-30 with the same stem rule): LC-01 "kids sandals" gives "Sandals for Sandal"; LC-05 "mens flip flops" gives "Mens for Men" and "Flops for Flop"; LC-09 "kids shoes" gives "Shoes for Shoe"; LC-07 "women slippers" gives "Slippers for Slipper". LC-05's hint asks for "Mens" in place of the original "Men" because the stored keyword is spelled "mens" (the cache spelling); the clean rewrites in probe 1 already wrote "Mens".
+`rewrite_prompt` passes each product with a `swaps` field, `[{**p, "swaps": form_swaps(p["title"], p.get("keyword") or "")} for p in products]`, and `_product_lines(..., "keyword", "missing", "swaps", "description", "attributes")`; `_product_lines` already leaves out an empty list. On dev's products (checked 2026-09-30), every product gets a swap: "Sandals for Sandal" (LC-01, 02, 06, 10), "Shoes for Shoe" (LC-03, 08, 09), "Slippers for Slipper" (LC-04, 07), and "Mens for Men" plus "Flops for Flop" (LC-05). LC-05's hint asks for "Mens" in place of the original "Men" because the stored keyword is spelled "mens" (the cache spelling); the clean rewrites in probe 1 already wrote "Mens".
 
 Nothing else changes: `rule_check`, `run_products`, the stored columns, the other prompts, the API, and the web app. If probe 2 leads to a different wording, the new wording is put to the user before it is built.
 
-### 2. The probe (before building; the user approves the spend first)
+### 2. Probe 1 (run 2026-09-30) and probe 2
 
 - A scratch script outside the repo reads the brand's name and aliases and dev's 10 products (title, keyword, missing words, description, category, attributes) with read-only queries, in `run_products`' order (`result_at NULLS FIRST, title, id`), sets `index` to 0-9 in that order, and builds the product dicts that `run_products` passes to `rewrite_prompt` (`index`, `title`, `keyword`, `missing`, `description`, `attributes`).
-- It calls `judge.generate(prompt, RewriteSet, 0.0)` 3 times with the current `rewrite_prompt` and 3 times with the §1 prompt, built as `rewrite_prompt(name, products).replace(<old sentence>, <new sentence>)` so the rest of the prompt is identical. There are no database writes and no job.
+- It calls `judge.generate(prompt, RewriteSet, 0.0)` 3 times with the current `rewrite_prompt` and 3 times with the first-proposed prompt, built as `rewrite_prompt(name, products).replace(<old sentence>, <new sentence>)` so the rest of the prompt is identical. The first-proposed sentence was: "Keep every word of the original title (you may reorder them); a word may switch between singular and plural (for example Sandal to Sandals), which counts as the same word, so write only one of the two forms; add the keyword and the missing terms naturally; never change the product type; repeat no word in any form; no keyword stuffing." There are no database writes and no job.
 - For each call and product it records the raw title, whether any word's stems repeat an earlier word's stems (`fold_set`, as `rule_check` does), and `rule_check(title, raw, [brand name, *aliases], allowed=[keyword, description, category, attribute values, missing words])`'s status and dropped words, as `run_products` passes them. The report shows the non-sandal products (LC-03, 04, 05, 07, 08, 09) separately, since the prompt's example names sandals.
-- **Pass:** in all 3 calls with the §1 prompt, no raw title has a word whose `fold_set` shares a stem with an earlier word's `fold_set` because of a singular/plural pair (the two words share a stem but their casefolded tokens differ, for example "Sandal"/"Sandals"; a same-form repeat such as "Flip"/"Flip", or a repeat of any other kind, is recorded, not counted), and no product's status is `review`.
+- **Pass:** in all 3 calls with the prompt under test, no raw title has a word whose `fold_set` shares a stem with an earlier word's `fold_set` because of a singular/plural pair (the two words share a stem but their casefolded tokens differ, for example "Sandal"/"Sandals"; a same-form repeat such as "Flip"/"Flip", or a repeat of any other kind, is recorded, not counted), and no product's status is `review`.
 - **Baseline:** the current prompt's 3 calls. If they show no singular/plural repeat, the probe is inconclusive: stop and report to the user before building.
 - **Cost:** 6 calls at about 1,650 micros each (slice 25's 6,587-micro job made 4 calls), about 10,000 micros ($0.01).
-- **If it fails:** stop, report the raw titles, and ask the user about approach B before building.
+- **If probe 1 fails:** stop, report the raw titles, and ask the user about approach B before building (done: see the probe 1 result and the decisions list).
 
-**Probe 1 result (run 2026-09-30 with the user's OK; 6 calls, 11,211 micros; the model reported `gemini-3.5-flash-lite`):** failed. Baseline (current prompt): singular/plural repeats in 10, 9 and 10 of 10 titles, so the probe was conclusive. The first-proposed sentence alone: 10 of 10 titles repeated in call 4 (the model wrote the original type word first and appended the keyword, for example "BSOAgentTestBrand Blue Kid Sandal Boys Kids Sandals"); 0 of 10 in calls 5 and 6, but call 6 gave LC-07 `review` (the raw title "BSOAgentTestBrand Beige Women Slippers" dropped "Casual"). Non-sandal products behaved like the sandal products. Temperature 0.0 did not make the calls repeatable.
+**Probe 1 result (run 2026-09-30 with the user's OK; 6 calls, 11,211 micros, estimate about 10,000; the model reported `gemini-3.5-flash-lite`):** failed. Baseline (current prompt): singular/plural repeats in 10, 9 and 10 of 10 titles, so the probe was conclusive. The first-proposed sentence alone: 10 of 10 titles repeated in call 4 (the model wrote the original type word first and appended the keyword, for example "BSOAgentTestBrand Blue Kid Sandal Boys Kids Sandals"); 0 of 10 in calls 5 and 6, but call 6 gave LC-07 `review` (the raw title "BSOAgentTestBrand Beige Women Slippers" dropped "Casual"). Non-sandal products behaved like the sandal products. Temperature 0.0 did not make the calls repeatable.
 
-**Probe 2 (approach C; the user approves the spend first):** the same script and read-only queries, 3 calls with the §1 prompt built from a scratch copy of the planned `form_swaps` and `rewrite_prompt` (the baseline is probe 1's). The same pass rule. About 5,000 micros (3 calls at about 1,650). If it fails: stop and report to the user before building.
+**Probe 2 (approach C; the user approves the spend first):** the same script and read-only queries, 3 calls with the §1 prompt built from a scratch copy of the planned `form_swaps` and `rewrite_prompt` (the baseline is probe 1's). The same pass rule. About 5,000 to 6,000 micros (probe 1's new-prompt calls cost 1,392 to 2,002 each). If it fails: stop and report to the user before building.
 
 ### 3. Testing
 
 - `tests/unit/test_products.py`, new test `test_rewrite_prompt_keeps_one_form_of_each_word`: asserts `"singular and plural" in rp`, `"write only one of the two forms" in rp`, `"lists swaps" in rp` and `"repeat no word in any form" in rp`, where `rp = rewrite_prompt("Walkaroo", [])`.
-- New test `test_form_swaps`: `form_swaps("BSOAgentTestBrand Boys Sandal Blue", "kids sandals") == ["Sandals for Sandal"]`; `form_swaps("BSOAgentTestBrand Men Flip Flop Navy", "mens flip flops") == ["Mens for Men", "Flops for Flop"]`; `form_swaps("BSOAgentTestBrand Boys School Shoe Black", "kids shoes") == ["Shoes for Shoe"]`; `form_swaps("BSOAgentTestBrand Women Casual Slipper Beige", "women slippers") == ["Slippers for Slipper"]`; `form_swaps("Walkaroo Kids Sandals", "kids sandals") == []` (same forms); `form_swaps("Walkaroo Boys Sandal", "") == []`.
-- New test `test_rewrite_prompt_lists_swaps`: `rewrite_prompt("Walkaroo", [{"index": 0, "title": "Walkaroo Boys Sandal", "keyword": "kids sandals"}])` contains `"swaps": ["Sandals for Sandal"]`, and `rewrite_prompt("Walkaroo", [{"index": 0, "title": "Walkaroo Kids Sandals", "keyword": "kids sandals"}])` does not contain `"swaps"`.
+- New test `test_form_swaps`: `form_swaps("BSOAgentTestBrand Boys Sandal Blue", "kids sandals") == ["Sandals for Sandal"]`; `form_swaps("BSOAgentTestBrand Men Flip Flop Navy", "mens flip flops") == ["Mens for Men", "Flops for Flop"]`; `form_swaps("BSOAgentTestBrand Boys School Shoe Black", "kids shoes") == ["Shoes for Shoe"]`; `form_swaps("BSOAgentTestBrand Women Casual Slipper Beige", "women slippers") == ["Slippers for Slipper"]`; `form_swaps("Walkaroo Kids Sandals", "kids sandals") == []` (same forms); `form_swaps("Walkaroo Boys Sandal", "") == []`; `form_swaps("Walkaroo Flip-Flop Navy", "flip flops") == []` (a hyphenated word with two stems).
+- New test `test_rewrite_prompt_lists_swaps`: `rewrite_prompt("Walkaroo", [{"index": 0, "title": "Walkaroo Boys Sandal", "keyword": "kids sandals"}])` contains `'"swaps": ["Sandals for Sandal"]'`, and `rewrite_prompt("Walkaroo", [{"index": 0, "title": "Walkaroo Kids Sandals", "keyword": "kids sandals"}])` does not contain `'"swaps"'` (the JSON key with its quotes; the prompt sentence has the bare word).
 - The existing "Keep every word" and "summer"/"150" assertions stay and still pass.
 - `tests/unit/test_recommend_copy.py` already scans `rewrite_prompt`; no change.
 - No integration test: the fake generator returns a fixed title, so it cannot show the model's behaviour. The probe and the live check are the evidence.
@@ -95,6 +96,6 @@ None.
 ## Out of scope
 
 - Any change to `rule_check`, the status rules, or the stored columns.
-- Swaps from missing words or other words than the keyword's.
+- Swaps from missing words, or from any words other than the keyword's.
 - Other repeats the model may make that are not singular/plural forms.
 - The deferred items in docs/findings-slice25.md §3.
