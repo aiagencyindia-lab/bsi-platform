@@ -90,6 +90,8 @@ In `rule_check`, right after the R1/R2 fallback and before the repeat step (so a
     title = " ".join(_strip_connectors(_drop_repeats(title.split())))
 ```
 
+(the second line is the existing repeat step, unchanged; the restore line is the only addition)
+
 The status rules are unchanged in code: after the trim, `review` if an original word is still lost (only when the 150-character trim cuts an original word, whether the suggestion kept it or the restore put it back), else `pass` or `adjusted`. A restored title differs from the suggestion, so it is `adjusted` with empty dropped words. The docstring gains the restore step and says `review` now means an original word was lost by the trim.
 
 Examples (checked on a scratch copy, 2026-09-30):
@@ -102,7 +104,7 @@ Examples (checked on a scratch copy, 2026-09-30):
   - The page, the API and the CSV no longer show which word the model dropped: a restored word shows as `adjusted` with an empty dropped list; only `raw_title` (read with psql, not exposed) shows it. Consumers are unchanged in code (API `ProductOut.rule_check`/`dropped_words`, the products page tag and `droppedNote`, the CSV `rule_check`/`dropped_words` columns); `review` and a non-empty "dropped: …" note appear only when the trim cuts an original word.
   - Numbers and stopwords are never restored, because `dropped()` skips them: "Walkaroo Sandal" for "Walkaroo Sandal 2 Pack" gives "Walkaroo Sandal Pack"; a lost "for" stays lost.
   - The anchor is the first title word sharing a stem with the nearest earlier original word, which can be a function word: "Look with Sandal" for "Sandal with Casual Look" gives "Look with Casual Sandal".
-  - A restored word adds length, so the trim can cut words the model added at the end (such as the keyword) with status `adjusted` and no flag; dev's titles are 44 to 53 characters.
+  - A restored word adds length, so the trim can cut words the model added at the end (such as the keyword) with status `adjusted` and no flag; dev's original titles are 34 to 44 characters and slice 25's raw titles 44 to 53 (docs/findings-slice25.md §2).
 
 ### 3. Testing
 
