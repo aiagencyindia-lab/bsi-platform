@@ -96,7 +96,7 @@ Both run by the controller only with the user's OK at that point.
 
 ## Rulings
 
-None.
+- **R1: Task 2's gate output goes to the plan's workspace directory.** Decided: Task 2's gate output goes to `.superpowers/sdd/2026-09-30-slice25-raw-samples/gate-task2.txt`, not `.superpowers/sdd/gate-task2.txt` (the path in the plan's Task 2 Step 9). Found by the controller's preflight scan of the plan. Why: the plan's Global Constraints name the workspace directory, and the skill keeps each plan's artifacts in its own directory. Cost if wrong: none (a git-ignored scratch path).
 
 ## Out of scope
 
