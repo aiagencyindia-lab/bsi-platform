@@ -453,4 +453,6 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 
 ## Changes made during execution
 
-(filled by Task 2 from the ledger)
+- Task 1 (b21919b): went as written. The ledger records: "RED 8 failed, 118 passed (the brief's 8); GREEN 126 passed; gate exit 0"; the review "spec ✅, quality Approved; 0 Critical, 0 Important, 3 Minor", all three deferred (quoted in docs/findings-slice27.md §3); and one controller check, "⚠️ resolved by controller: the b21919b commit trailer is "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" (git log -1 before the review)". No departures.
+- Task 2: the controller created the one-line stub `docs/findings-slice27.md` before dispatch, as this plan says. Findings §2 is the placeholder the plan names; the ledger records no rulings, so the spec's `## Rulings` stays "None." (this commit)
+- Final review: not yet run when this section was filled; no fix wave so far.
