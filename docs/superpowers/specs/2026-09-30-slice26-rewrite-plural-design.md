@@ -18,6 +18,7 @@ Decisions approved in chat (brainstorming on Opus 5.5, 2026-09-30). Each questio
 - **Swap rule (from the spec review, put to the user as a question and approved in chat):** a hint only when the title word and the keyword word have the same folded stems and different tokens, so a hyphenated word such as "Flip-Flop" gets no hint that would lose a word.
 - **After probe 2 failed (Appendix A2), the goal was asked again**, because the fact behind "clean raw rewrite" (that a prompt change could reach it reliably) had turned out wrong. The user chose "Honest status, code only" over one more prompt fix with probe 3, and over stopping the slice. The status design (§1), the testing (§2), and the live check and docs (§3) were each put in chat in their own message and approved.
 - **Repeat scope (§1's approval question):** any word removed only because it repeats an earlier word's stem stops counting as an adjustment. Rejected: singular/plural repeats only, under which LC-05's "Flip Flops Flip Flop" stays `adjusted`.
+- **Spacing (asked after the process audit, 2026-09-30):** a suggestion that differs from the final title only in spacing gives `pass` (`plain` is re-joined with single spaces). The spec review had found this consequence and it was written into §1 without asking; the user was then asked and chose "Yes, pass".
 
 Codebase facts (main `aa62285`, checked 2026-09-30):
 
@@ -80,7 +81,7 @@ def _drop_repeats(words: Sequence[str]) -> list[str]:
 
 ## Rulings
 
-None.
+- **R1: the findings §4 lead-in was fixed by the controller, not deferred.** Decided: after the final fix wave's re-review, the controller changed docs/findings-slice26.md §4's lead-in to "From the task reviews and the final review" (7a55220) instead of deferring the re-reviewer's out-of-scope observation. Found by the final fix wave's re-review (an out-of-scope observation). Why: the lead-in under-described the 8 lines under it, and fixing it avoided a ninth deferred line. Cost if wrong: a process deviation (the skill allows one fix wave and no controller fixes); the change is docs wording only and was re-reviewed. Named in chat and ledgered only after the process audit.
 
 ## Out of scope
 
