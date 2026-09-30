@@ -238,7 +238,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - [ ] **Step 1: Findings.** Fill `docs/findings-slice24.md` in the style of `docs/findings-slice23.md`, with three sections:
   - `## 1. What was built`: `_current`, the lookup using it, the seeded `key_map` (what is loaded, the order, what follows), the tests, the gate result as Task 1 recorded it, and a commit table from `git log --oneline main..HEAD` with a "(this commit)" row.
   - `## 2. Live check on dev`: exactly "Not yet run. The controller runs it after the user approves; results are recorded here then."
-  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger not marked fixed; the accepted gap that no test pins the seed's `error.is_(None)` filter on its own (an error row with an empty title list passes `_current`); the two seed cases the spec names as untested (newest-wins between two valid rows, and adoption of a non-first keyword); the spec's known ceilings (§1); and its Out of scope list.
+  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger not marked fixed; the accepted gap that no test pins the seed's `error.is_(None)` filter on its own (an error row with an empty title list passes `_current`); two seed cases no test covers, which the spec reviewer noted and the spec does not list (newest-wins between two valid rows, and adoption of a non-first keyword); the spec's known ceilings (§1); and its Out of scope list.
 - [ ] **Step 2: README rows** for the spec, the plan and the findings, in the slice 23 rows' format:
   - spec: "Design spec: one cached search per keyword phrase across runs — the run's spelling merge is seeded from the brand's fresh cache rows, so a product adopts the cached spelling and its search is reused; no migration."
   - plan: "Implementation plan, Tasks 1–2, with the changes made during execution."
@@ -305,6 +305,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
   7. Task 2's findings §3 lists the accepted test gap (the seed's error filter) and the two untested seed cases, which the spec does not list.
   8. Task 2's findings file needs the user's OK and a controller-made stub, because of the Write tool's refusal for subagents.
   9. The spec's §1 says the lookup's inline test "becomes `if _current(row)`"; the plan keeps the two comment lines above it as they are.
+  10. The first new test carries a comment (`# "kid sandal" and "kids sandals" share the key "kid sandal".`) and builds `engine` before `gen`; the spec has neither.
 
 ## Changes made during execution
 
