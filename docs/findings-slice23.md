@@ -63,7 +63,8 @@ All code changes are in `packages/core/bsi_core/products.py`. No prompt, schema,
 | 9e8504f | docs: slice 23 findings quote R2 and R3 as recorded |
 | 17d3162 | docs: slice 23 findings quote R1 as recorded |
 | 45cacc0 | docs: slice 23 live check |
-| (this commit) | docs: slice 23 README plan row names Task 4 |
+| 2dac6e6 | docs: slice 23 README plan row names Task 4 |
+| (this commit) | docs: slice 23 plan self-review rows for Task 4 and the live check |
 
 ## 2. The probes
 

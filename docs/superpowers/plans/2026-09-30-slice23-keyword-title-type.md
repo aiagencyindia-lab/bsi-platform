@@ -769,8 +769,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   | §3 unit tests | Task 1 Step 1 (`_type_word`, `title_first`), Task 2 Step 1 (`drop_noise_terms`, `choose_keywords`) |
   | §3 the integration test | Task 2 Step 2 |
   | §3 copy check | Global Constraints; fixtures listed below |
-  | §4 dev re-check | the controller, after Task 3, with the user's OK |
-  | Gates | Tasks 1–2 and the controller |
+  | §4 dev re-check | the controller, after Task 4, with the user's OK |
+  | Gates | Tasks 1, 2 and 4, and the controller |
 
 - **§3 values, word for word against the spec:**
   - `drop_noise_terms`: `["men slippers"]`; `[]`; `["kids sandals"]`.
@@ -829,3 +829,4 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - Task 4 fix round 2 (commit "docs: slice 23 findings quote R1 as recorded"), from the fix round 1 re-review's out-of-scope note: findings §4 now quotes the ledger's "Task 3: Ruling R1:" line (progress.md:46) in full, and the Task 3 round's entry is kept as a sub-bullet labelled "Note (not ledger text…)"; the commit table names 9e8504f.
 - The dev live check (user OK in chat: "run the dev re-check first") was run by the controller at 17d3162 and recorded from the ledger (commit "docs: slice 23 live check"): findings §3 filled; the findings gate line gives the controller's gates at 9e8504f instead of "run at finishing"; the README's findings row says "(run on 2026-09-30)"; the commit table names 17d3162.
 - The README's slice 23 plan row says "Tasks 1–4" instead of "Tasks 1–3", since Task 4 was added (commit "docs: slice 23 README plan row names Task 4"); the commit table names 45cacc0.
+- The self-review table's last two rows name Task 4 (commit "docs: slice 23 plan self-review rows for Task 4 and the live check"), from the review of 45cacc0 and 2dac6e6 (2 Minor): "§4 dev re-check" is "the controller, after Task 4, with the user's OK" (the check ran at 17d3162), and "Gates" is "Tasks 1, 2 and 4, and the controller"; the commit table names 2dac6e6.
