@@ -2,7 +2,7 @@
 
 ## Context
 
-After slice 26 merged, two model behaviours from slice 26's probes were listed as open (docs/findings-slice26.md §2): the rewrite writing both "kids" and "kid" when a product's keyword and a missing word share a stem, and the rewrite dropping an original word such as "Casual". The user asked to fix both.
+After slice 26 merged, two model behaviours from slice 26's probes were listed as open (docs/findings-slice26.md §4, Out of scope; seen in the §2 probes): the rewrite writing both "kids" and "kid" when a product's keyword and a missing word share a stem, and the rewrite dropping an original word such as "Casual". The user asked to fix both.
 
 A check of the probe outputs before the design (probe 1 and probe 2 results, 2026-09-30) showed:
 - "kids kid" also occurs with main's rewrite prompt (probe 1, current-prompt call 3: LC-01 and LC-02), but since slice 26 `rule_check` removes the repeat and the status is `pass`; it shows only in `raw_title`.
@@ -16,6 +16,7 @@ Decisions approved in chat (brainstorming on Opus 5.5, 2026-09-30). Each questio
 - **Dropped words, approaches:** three approaches were described in chat with trade-offs and a recommendation: A, restore lost words in `rule_check` with status `adjusted`; B, restore but keep `review`; C, a prompt change with probes. The user chose A.
 - **Overlap:** the first proposal (`missing()` never lists a keyword word) was withdrawn after the tests showed that the missing list deliberately includes keyword words (`test_missing_never_excludes_a_keyword_word`, from 24c5726 "keyword guard"; `test_missing_backing_folds_es_plurals`, where "watch" is missing from "Titan Analog Dial"). This was put to the user as a new question; the user chose "Prompt input only" over tidying the missing list or dropping the overlap part.
 - **Section 2's ceiling:** the user approved the restore "as described", accepting that a replaced product type ends up as both types with status `adjusted`, over keeping `review` for that case.
+- **From the spec review, each put to the user as a question and approved in chat:** the restore runs before the repeat step, so a restored word cannot bring back a repeat ("Yes, restore before repeats"); the prompt filter folds "-es" plurals with `_allowed_stems` ("Yes, reuse _allowed_stems"); and four consequences of the restore are accepted as ceilings (§2) over keeping the dropped-word signal in `dropped_words` ("Accept all, record as ceilings").
 
 Codebase facts (main `532b577`, checked 2026-09-30):
 
@@ -36,7 +37,7 @@ def _not_in_keyword(p: dict[str, Any]) -> list[str]:
     """The product's missing words without those whose stems are in its
     keyword: the rewrite adds the keyword anyway, so asking for both
     ("kids" and "kid") invites a repeat."""
-    kw = fold_set(p.get("keyword") or "")
+    kw = _allowed_stems("", [p.get("keyword") or ""], [])
     return [m for m in p.get("missing") or [] if not fold_set(m) & kw]
 ```
 
@@ -50,7 +51,7 @@ def _not_in_keyword(p: dict[str, Any]) -> list[str]:
         )
 ```
 
-On dev this leaves "kid" out of LC-01's and LC-02's prompt lines and "kids" out of LC-09's; LC-10 keeps "footbed". `missing()`, the stored `missing_keywords`, the Missing keywords column, the CSV, and `rule_check`'s `allowed` are unchanged.
+`_allowed_stems` adds the singular of an "-es" keyword word (as `missing()` and `rule_check` already fold it), so for the keyword "men watches" the missing word "watch" is left out too. On dev this leaves "kid" out of LC-01's and LC-02's prompt lines and "kids" out of LC-09's; LC-10 keeps "footbed". `missing()`, the stored `missing_keywords`, the Missing keywords column, the CSV, and `rule_check`'s `allowed` are unchanged.
 
 ### 2. Restoring lost words (the dropped words)
 
@@ -82,40 +83,49 @@ def _restore(
     return out
 ```
 
-In `rule_check`, right after the repeat step and before the trim:
+In `rule_check`, right after the R1/R2 fallback and before the repeat step (so a restored word cannot bring back a repeat):
 
 ```python
     title = " ".join(_restore(original, title.split(), brand_names))
+    title = " ".join(_strip_connectors(_drop_repeats(title.split())))
 ```
 
-The status rules are unchanged in code: after the trim, `review` if an original word is still lost (only when the trim cuts a restored word), else `pass` or `adjusted`. A restored title differs from the suggestion, so it is `adjusted` with empty dropped words. The docstring gains the restore step and says `review` now means an original word was lost by the trim.
+The status rules are unchanged in code: after the trim, `review` if an original word is still lost (only when the 150-character trim cuts an original word, whether the suggestion kept it or the restore put it back), else `pass` or `adjusted`. A restored title differs from the suggestion, so it is `adjusted` with empty dropped words. The docstring gains the restore step and says `review` now means an original word was lost by the trim.
 
 Examples (checked on a scratch copy, 2026-09-30):
 - "BSOAgentTestBrand Beige Women Slippers" for "BSOAgentTestBrand Women Casual Slipper Beige" (allowed ["women slippers"]) gives "BSOAgentTestBrand Beige Women Casual Slippers", `adjusted`.
 - "BSOAgentTestBrand Brown Men Sandals" for "BSOAgentTestBrand Men Casual Sandal Brown" gives "BSOAgentTestBrand Brown Men Casual Sandals", `adjusted`.
 - The integration fixture "Walkaroo Kids Summer Sandals Sandals" for "Walkaroo Boys Sandal 0" gives "Walkaroo Boys Kids Summer Sandals", `adjusted` (today `review` with ["boys"]).
+- "Walkaroo Anti Sandal" for "Walkaroo Anti-Skid Sandal" gives "Walkaroo Anti-Skid Sandal", and "Walkaroo Sandal Wear" for "Walkaroo Casual Sandal Casual Wear" gives "Walkaroo Casual Sandal Wear", both `adjusted` (the repeat step runs after the restore).
 - Known ceiling (approved): a replaced product type ends up as both types, `adjusted`: "Tape Shoes" for "Red Tape Boots" gives "Red Tape Boots Shoes"; "Navy Men Slipper" for "Men Flip Flop Navy" gives "Navy Men Flip Flop Slipper".
+- Ceilings accepted from the spec review:
+  - The page, the API and the CSV no longer show which word the model dropped: a restored word shows as `adjusted` with an empty dropped list; only `raw_title` (read with psql, not exposed) shows it. Consumers are unchanged in code (API `ProductOut.rule_check`/`dropped_words`, the products page tag and `droppedNote`, the CSV `rule_check`/`dropped_words` columns); `review` and a non-empty "dropped: …" note appear only when the trim cuts an original word.
+  - Numbers and stopwords are never restored, because `dropped()` skips them: "Walkaroo Sandal" for "Walkaroo Sandal 2 Pack" gives "Walkaroo Sandal Pack"; a lost "for" stays lost.
+  - The anchor is the first title word sharing a stem with the nearest earlier original word, which can be a function word: "Look with Sandal" for "Sandal with Casual Look" gives "Look with Casual Sandal".
+  - A restored word adds length, so the trim can cut words the model added at the end (such as the keyword) with status `adjusted` and no flag; dev's titles are 44 to 53 characters.
 
 ### 3. Testing
 
 `tests/unit/test_products.py` (values computed on the scratch copy):
-- `test_rule_check_trims_to_150_at_a_word_boundary`: with original "Plain", the result is `adjusted`, lost `[]`, 147 characters, starting "Plain w0 w1"; the test keeps its trim checks on the words after "Plain".
-- New case (in the same test or a new `test_rule_check_trim_can_still_lose_a_restored_word`): original "w59 Plain" with the same 229-character suggestion gives `review` with lost `["w59", "plain"]`, 149 characters.
+- `test_rule_check_trims_to_150_at_a_word_boundary`: with original "Plain", the result is `adjusted`, lost `[]`, 147 characters, starting "Plain w0 w1" and ending "w37"; the test asserts `status == "adjusted" and lost == []`, `len(fixed) <= 150`, and `fixed.removeprefix("Plain ") == " ".join(words)[: len(fixed) - 6]`.
+- New `test_rule_check_trim_can_still_lose_a_restored_word`: original "w59 Plain" with the same 229-character suggestion gives `review` with lost `["w59", "plain"]`, 149 characters.
+- `test_rule_check_strips_a_connector_the_trim_leaves_at_the_end`: the original becomes "w0" (a word the suggestion keeps), so nothing is restored and the cut still lands after "for"; the result is "w0 … w38" (145 characters), `adjusted`. (With "Plain" the restore would move the cut to "w37", and the test would pass without exercising the strip.)
+- New `test_rule_check_restore_does_not_bring_back_a_repeat`: `rule_check("Walkaroo Anti-Skid Sandal", "Walkaroo Anti Sandal", ["Walkaroo"]) == ("Walkaroo Anti-Skid Sandal", "adjusted", [])` and `rule_check("Walkaroo Casual Sandal Casual Wear", "Walkaroo Sandal Wear", ["Walkaroo"]) == ("Walkaroo Casual Sandal Wear", "adjusted", [])`.
 - `test_rule_check_drops_a_word_that_repeats_an_earlier_token`, the Red Tape case: `("Red Tape Boots Shoes", "adjusted", [])`.
-- `test_rule_check_does_not_count_a_removed_repeat`, the repeat-plus-lost-word case: `("Walkaroo Boys Kids Sandal", "adjusted", [])`.
+- `test_rule_check_does_not_count_a_removed_repeat`, the repeat-plus-lost-word case: `("Walkaroo Boys Kids Sandal", "adjusted", [])`, and its comment ("A repeat plus a lost word is still flagged for review.") becomes "A repeat plus a lost word: the word is restored.".
 - `test_rule_check_flags_dropped_words_for_review` is renamed `test_rule_check_restores_dropped_words` and expects `("Brown Mens Casual Sandal Shoes", "adjusted", [])` and `("Navy Men Flip Flop Slipper", "adjusted", [])`.
-- New `test_rewrite_prompt_leaves_keyword_words_out_of_missing`: a product with keyword "kids sandals" and missing ["kid", "summer"] gives `"missing": ["summer"]` in the prompt; a product whose missing words are all in its keyword gets no `"missing"` key.
+- New `test_rewrite_prompt_leaves_keyword_words_out_of_missing`: a product with keyword "kids sandals" and missing ["kid", "summer"] gives `"missing": ["summer"]` in the prompt; a product with keyword "men watches" and missing ["men", "watch", "analog"] gives `"missing": ["analog"]`; a product whose missing words are all in its keyword gets no `"missing"` key.
 
 `tests/integration/test_products_run.py`:
-- `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked`: suggested title "Walkaroo Boys Kids Summer Sandals", `(rule_check, dropped_words) == ("adjusted", [])`; `raw_title` unchanged.
+- `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked`: suggested title "Walkaroo Boys Kids Summer Sandals", `(rule_check, dropped_words) == ("adjusted", [])`; `raw_title` unchanged; its comment ("…loses "boys", so the suggestion is flagged for review.") becomes one that says "boys" is restored.
 - `test_a_failed_search_is_stored_and_the_run_goes_on`: suggested title "Walkaroo Boys Kids Sandals".
 
-The other 116 product tests pass unchanged on the scratch copy. No model call and no probe: both changes are deterministic.
+The other 116 of the 122 collected items in those two files pass unchanged on the scratch copy (with the restore before the repeat step and the `_allowed_stems` filter). No model call and no probe: both changes are deterministic.
 
 ### 4. Live check and docs
 
 - **Live check, after merge, with the user's OK at that point:** one `product_run` on dev by the live-check pattern (API queues, `process_job` once, the worker loop never started). Dev is at 0021; no migration. The 8 stored keywords' `keyword_search` rows are fresh until 2026-10-06 13:10 UTC ("mens flip flops" until 2026-10-07 09:27; docs/findings-slice23.md §3; `SEARCH_TTL_DAYS` = 7). Expected cost about 6,600 micros (slice 26's check: 6,545), plus about 38,000 per keyword with no fresh valid row. Writes: the job, the 10 product rows, `api_key.last_used_at`, any new `keyword_search` row.
-- **Read-back:** per product, the raw title, the suggested title, the status and the dropped words, stated as observed. *Inferred* expectation: LC-01's and LC-02's raw titles no longer pair "kid" with "Kids"; any dropped original word is restored and the product shows `adjusted`; with main's prompt a drop is rare, so the run may show none.
+- **Read-back:** per product, the raw title, the suggested title, the status and the dropped words, stated as observed. *Inferred* expectation: LC-01's and LC-02's raw titles no longer pair "kid" with "Kids"; any dropped original word is restored and the product shows `adjusted` (the read-back also lists, for any `adjusted` product, which original words the suggested title has that the raw title lacks, since `dropped_words` stays empty); with main's prompt a drop is rare, so the run may show none.
 - **Docs:** this spec, the plan, `docs/findings-slice27.md` (the live check, every `minor (deferred)` and `parked` ledger line), docs/README.md rows, the `(this commit)` hash convention, and every ruling named in chat when made.
 
 ## Rulings
