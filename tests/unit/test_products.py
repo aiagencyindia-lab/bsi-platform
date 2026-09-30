@@ -1058,3 +1058,59 @@ def test_choose_keywords_an_audience_word_keyword_does_not_stop_the_build():
         None,
         None,
     ) == ["kids sandals", "boys sandals", "slippers boys"]
+
+
+def test_title_first_never_takes_a_colour_from_the_first_keyword():
+    assert title_first(["men navy slippers", "navy flip flops"], T) == [
+        "men flip flops",
+        "men navy slippers",
+        "navy flip flops",
+    ]
+
+
+def test_title_first_prefers_a_plural_spelling_of_the_type():
+    assert title_first(
+        ["men slippers", "men flip flop navy", "navy flip flops"], T
+    ) == [
+        "men flip flops",
+        "men slippers",
+        "men flip flop navy",
+        "navy flip flops",
+    ]
+    # ponytail ceiling: with no plural title fit the type stays singular.
+    assert title_first(["men slippers", "men flip flop navy"], T)[0] == (
+        "men flip flop"
+    )
+
+
+def test_choose_keywords_falls_back_when_the_guard_leaves_the_wrong_type():
+    # Every title-fitting keyword has a colour: the guarded vote would
+    # search the category's type ("men slippers").
+    assert choose_keywords(
+        [["men slippers", "navy flip flops", "cushioned slippers"]] * 3,
+        B,
+        T,
+        "Slippers",
+        None,
+    ) == [
+        "men flip flops",
+        "navy flip flops",
+        "men slippers",
+        "cushioned slippers",
+    ]
+    # A category fit alone keeps the guarded result.
+    assert choose_keywords(
+        [["men slippers", "navy slippers"]],
+        B,
+        "X Men Thong Navy",
+        "Slippers",
+        None,
+    ) == ["men slippers"]
+    # No colour in a keyword built on the unfiltered path.
+    assert choose_keywords(
+        [["men navy slippers", "navy flip flops", "cushioned slippers"]],
+        B,
+        T,
+        None,
+        None,
+    ) == ["men flip flops", "navy flip flops"]
