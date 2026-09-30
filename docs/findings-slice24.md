@@ -42,7 +42,8 @@ All code changes are in `packages/core/bsi_core/products.py`. No migration, sche
 | a48bce8 | docs: slice 24 implementation plan |
 | 421e89c | docs: slice 24 plan review fixes |
 | e077bea | feat(products): reuse one cached search per keyword phrase across runs |
-| (this commit) | docs: slice 24 findings, index and rulings |
+| 0530ecc | docs: slice 24 findings, index and rulings |
+| (this commit) | docs: slice 24 findings wording fixes |
 
 ## 2. Live check on dev
 
@@ -65,7 +66,7 @@ Untested:
   - Adoption of a non-first keyword: in the three new tests each product has one keyword (`["kid sandal"]`), so none shows a seeded spelling taken by a product's second or later keyword.
 - The tests use fixed model output, so they do not show which spellings real samples give. The dev re-check (§2) is where that is observed.
 
-Known ceilings, spec §1 (in the `# ponytail:` comment above `key_map`):
+Known ceilings, spec §1 (in the `# ponytail:` comment above `key_map`, in shorter wording):
 - Spellings that do not share a key ("man slippers" against "men slippers") are not merged.
 - Rows under an old spelling stay in the table once stale; nothing deletes them.
 - The seed query loads every fresh valid row for the brand, that is every distinct keyword the brand searched in the last `SEARCH_TTL_DAYS` days (bounded by the products per brand, `MAX_PRODUCTS`, since only first keywords are searched).
