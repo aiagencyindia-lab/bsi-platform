@@ -63,7 +63,7 @@ No constraint, index or `_protect` call: the table is already protected.
 - Keyword step: the per-product loop keeps what it hands to `choose_keywords`, `p["samples"] = [sm.get(i, []) for sm in samples]`, and passes `p["samples"]` to `choose_keywords`. The first UPDATE adds `keyword_samples=p["samples"]` next to `keyword` and `keywords`. It is written for every product in the batch, a product that ends with no keyword included: that is the case a live check needs to explain. `keyword_samples` is not in `cleared` because the same statement always sets it.
 - Rewrite step: `title_in = item.title.strip() if item else ""`; `p["raw_title"] = title_in or None`; `suggestion = title_in or p["title"]` (the same value as today; `raw` is not reused, it already names the model JSON). The second UPDATE adds `raw_title=p["raw_title"]`.
 - R13: `cleared` gains `"raw_title": None`, so a product that loses its keyword loses its old raw rewrite with its old suggestion.
-- If a batch fails after its keyword write (`OverBudget` before the search, or a `JudgeFailed` on the rewrite call), `keyword_samples` is from the failed run and `raw_title` from the last finished one, as with `keyword` and `suggested_title` today; `job_id` tells them apart.
+- If a batch fails after its keyword write (`OverBudget` before the searches, or a `JudgeFailed` in the search, titles or rewrite step), a product with a keyword has `keyword_samples` from the failed run and `raw_title` from the last finished one, as with `keyword` and `suggested_title` today; `job_id` tells them apart.
 
 Not stored: `p["backing"]`, the raw model JSON, the bullets before trimming.
 
