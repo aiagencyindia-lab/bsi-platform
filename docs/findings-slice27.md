@@ -43,7 +43,8 @@ Backend gate (Task 1, b21919b), from `gate-task1.txt` (the whole chain redirecte
 | ae747b5 | docs: slice 27 findings, index and notes |
 | d699646 | docs: slice 27 findings: final-review fixes |
 | 8c31f13 | docs: slice 27 live check, rulings and process audit |
-| (this commit) | docs: slice 27 post-merge docs: review fixes |
+| 67b006e | docs: slice 27 post-merge docs: review fixes |
+| (this commit) | docs: slice 27 post-merge docs: R1 wording |
 
 ## 2. Live check on dev
 
@@ -97,7 +98,7 @@ Parked: none. The ledger has no parked lines.
 
 Rulings: none.
 
-Correction (2026-10-01, after merge): the ledger records two rulings recorded after the docs task (R1 made after the fix wave; R2 made at the end of planning but not named as a ruling until the process audit) (also in the spec's `## Rulings`):
+Correction (2026-10-01, after merge): the ledger records two rulings, also in the spec's `## Rulings`, both recorded after the docs task (R1 made after the fix wave; R2 made at the end of planning but not named as a ruling until the process audit):
 - **R1: a doubled period in the plan is left unfixed.** Decided: the plan's Task 2 changes bullet ends `stays "None.".` (doubled punctuation, introduced by the fix wave, d699646; the ledger calls it pre-existing, but ae747b5's bullet ended `stays "None." (this commit)`); it is left as is. Found by the final fix wave's re-review (a trivial nit). Why: the skill allows no second fix wave, and deferring it into findings would need another findings commit. Cost if wrong: one stray period in the plan. Named in chat and ledgered when made; recorded here in the post-merge docs commit.
 - **R2: the plan re-review's two optional wording points were left unapplied.** Decided: at the end of planning, the plan re-review's optional points (the self-review line could also name the hyphen test; departure (5) overlaps departure (2)) were not applied. Found by the plan re-review. Why: applying them would need another review round for no change in substance. Cost if wrong: two small wording imprecisions in the plan. Disclosed in chat when made but not named as a ruling until the process audit; ledgered after the audit.
 
@@ -135,7 +136,7 @@ On 2026-10-01, after the finishing menu, the user asked "check if you have done 
 - For the overlap's re-ask, the three approaches were described only inside the question, with no chat message comparing them (the dropped-words approaches did have one).
 - Leaving the plan re-review's two optional wording points unapplied was a ruling that was not named when made; it is now R2 (§3 and the spec).
 - R1 and R2 were recorded after the docs task (R1 in the ledger and at the finishing menu; R2 in the ledger after the audit), so the controller put them in the spec and findings in this post-merge commit, rather than making a controller commit on the branch after the fix wave.
-- R1 was first described (in chat, the ledger and the PR description) as fixing a pre-existing doubled period; the post-merge docs review found the fix wave had introduced it. R1's text here and in the spec is corrected; a note appended to the ledger records it.
+- R1 was first described (in chat and the ledger) as leaving a pre-existing doubled period unfixed; the PR description said only "a doubled period in the plan"; the post-merge docs review found the fix wave had introduced it. R1's text here and in the spec is corrected; a note appended to the ledger records it.
 - The plan reviewer created and deleted three scratch files outside the repo, against its read-only rule; it disclosed this, the controller told the user, and the next dispatch forbade creating files.
 
 The controller's process notes in memory were updated with these points. No code changed.
