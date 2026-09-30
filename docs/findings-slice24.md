@@ -44,11 +44,49 @@ All code changes are in `packages/core/bsi_core/products.py`. No migration, sche
 | e077bea | feat(products): reuse one cached search per keyword phrase across runs |
 | 0530ecc | docs: slice 24 findings, index and rulings |
 | 20c907b | docs: slice 24 findings wording fixes |
-| (this commit) | docs: slice 24 findings: final-review minors |
+| fb0bfb1 | docs: slice 24 findings: final-review minors |
+| (this commit) | docs: slice 24 live check |
 
 ## 2. Live check on dev
 
-Not yet run. The controller runs it after the user approves; results are recorded here then.
+Run on 2026-09-30 by the controller at fb0bfb1, with the user's OK ("yes, do the docs commit, then run the dev re-check"). Dev was at migration 0020; no migration was needed.
+
+- Pre-check (read-only): no worker or uvicorn process; 0 queued or running jobs; 7 prior `product_run` jobs totalling 1,637,567 micros; `keyword_search` had 20 rows for the brand. Product keywords before the run: LC-01/02 kids sandals, LC-03/09 kids shoes, LC-04 kids slippers, LC-05 mens flip flops, LC-06 men sandals, LC-07 women slippers, LC-08 men shoes, LC-10 women sandals.
+- The API was started in the background. `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/products/run` returned HTTP 202 and queued job `a53737aa-f39f-446d-a9e9-87e646be1915`. The API was then stopped (background task exit 144, expected). Exactly 1 job was queued, and `process_job` was run once (it printed `True`).
+- Job `a53737aa`: status done, error null, `cost_micros = 6,407` (the estimate was about 6,000), created 12:36:08, started 12:36:21 UTC (2026-09-30).
+- No grounded search ran: 0 `keyword_search` rows were searched in the last 30 minutes, and `keyword_search` still has 20 rows.
+- Afterwards: 0 queued or running jobs, and no worker or uvicorn process.
+
+**Per product** (observed by read-only queries after the job):
+
+| Product | Keyword | Keywords | Missing words | Suggested title | Status |
+|---|---|---|---|---|---|
+| LC-01 | kids sandals | kids sandals, kids eva sandals, lightweight sandals, hook-and-loop sandals, boys sandals | kid | BSOAgentTestBrand Blue Kid Sandals Boys | adjusted |
+| LC-02 | kids sandals | kids sandals, soft sandals, kids padded sandals, girls sandals, padded sandals | kid | BSOAgentTestBrand Pink Kid Sandals Girls | adjusted |
+| LC-03 | kids shoes | kids shoes, kids running shoes, breathable shoes, mesh shoes, sports shoes | (none) | BSOAgentTestBrand Black Kids Sports Shoe | adjusted |
+| LC-04 | kids slippers | kids slippers, anti-skid slippers, daily wear slippers, daily slippers, kids flip flops | (none) | BSOAgentTestBrand Grey Kids Slippers | adjusted |
+| LC-05 | mens flip flops | mens flip flops, cushioned flip flops, flip flops, men slippers, daily wear slippers | (none) | BSOAgentTestBrand Navy Mens Flip Flops | adjusted |
+| LC-06 | men sandals | men sandals, men casual sandals, floater sandals, adjustable sandals, casual sandals | (none) | BSOAgentTestBrand Brown Men Sandals Casual | adjusted |
+| LC-07 | women slippers | women slippers, casual slippers, soft strap slippers, comfortable slippers, soft slippers | (none) | BSOAgentTestBrand Beige Women Slippers Casual | adjusted |
+| LC-08 | men shoes | men shoes, men running shoes, lace-up shoes, cushioned shoes, sports shoes | (none) | BSOAgentTestBrand Grey Men Sports Shoe | adjusted |
+| LC-09 | kids shoes | kids shoes, kids school shoes, velcro shoes, durable shoes, boys shoes | kids | BSOAgentTestBrand Black Kids School Shoe Boys | adjusted |
+| LC-10 | women sandals | women sandals, flat sandals, cushioned sandals, women flat sandals, casual sandals | footbed | BSOAgentTestBrand Tan Women Sandals Footbed | adjusted |
+
+**Against spec §3's *inferred* expectations:** all match.
+- LC-05's keyword is "mens flip flops".
+- The other 9 keywords are unchanged.
+- 0 `keyword_search` rows were written, and `keyword_search` still has 20 rows.
+- No stored `keywords` list contains a colour or size word (a read-only regex query over `product.keywords` returned 0 products).
+- Cost 6,407 micros against the estimate of about 6,000.
+
+**Observations.**
+- As spec §3 says, this result cannot tell the slice from main (the model voted every cached spelling); it shows no regression and a low cost.
+- All 10 `rule_check` statuses are `adjusted` (slice 23's re-check: 4 adjusted, 6 pass). *Inferred*: the rewrite call varies between runs.
+- The stored `keywords` lists differ from slice 23's in their later entries (the model's other keywords vary between runs; *inferred*).
+
+**Spend:** about $10.94 + $0.0064 ≈ $10.95 of the $15 cap.
+
+**Writes:** the job row, 10 product rows and `api_key.last_used_at`. No `keyword_search` writes.
 
 ## 3. Deferred and untested
 
@@ -59,9 +97,10 @@ From the task reviews (ledger lines tagged `minor (deferred)`):
 
 From the final whole-branch review (ledger lines tagged `minor (deferred)`):
 - findings §3's first bullet (and the ledger's Task 1 minor it quotes) cites test_products_run.py:454-510; the new tests end at line 503 and line 506 starts test_the_rewrite_cannot_add_an_invented_word. Controller: the ledger line is a record and stays; the findings get a note after the quoted line.
-  - Corrected in this commit: the range is 454-503.
+  - Corrected in fb0bfb1 (note above): the range is 454-503.
 - the spec's §1 prose says the run-start session loads the seed while its parenthetical allows a second session; plan departure 3 records the choice (a second session). Spec wording only.
 - the live check is not yet run; findings §2 and the README row say so; they must be updated if it runs before merge.
+  - Run on 2026-09-30, recorded in §2 (this commit).
 
 Parked: none. The ledger has no parked lines.
 

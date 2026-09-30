@@ -189,7 +189,7 @@ In the order they were written:
 | [findings-slice23.md](findings-slice23.md) | Results: what was built, the four probes, the live check on dev (run on 2026-09-30), and what is deferred or untested. |
 | [superpowers/specs/2026-09-30-slice24-keyword-cache-key-design.md](superpowers/specs/2026-09-30-slice24-keyword-cache-key-design.md) | Design spec: one cached search per keyword phrase across runs — the run's spelling merge is seeded from the brand's fresh cache rows, so a product adopts the cached spelling and its search is reused; no migration. |
 | [superpowers/plans/2026-09-30-slice24-keyword-cache-key.md](superpowers/plans/2026-09-30-slice24-keyword-cache-key.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
-| [findings-slice24.md](findings-slice24.md) | Results: what was built, the live check on dev (not yet run), and what is deferred or untested. |
+| [findings-slice24.md](findings-slice24.md) | Results: what was built, the live check on dev (run on 2026-09-30), and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
