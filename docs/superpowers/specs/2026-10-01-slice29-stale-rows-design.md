@@ -48,7 +48,7 @@ Tests, in tests/integration/test_products_run.py:
 
 Docs: docs/findings-slice29.md; dated updates, originals kept, under: the open "Stale duplicate `keyword_search` rows" item in docs/findings-slice27.md §3 and in docs/findings-slice28.md §3's "still open" list (fixed in code by slice 29); docs/findings-slice28.md §3's Out of scope line "Deleting old-spelling `keyword_search` rows in code"; the docs/findings-slice24.md §3 ceiling "Rows under an old spelling stay in the table once stale; nothing deletes them" and its Out of scope line "Deleting stale duplicate rows."; README rows for the spec, the plan and the findings.
 
-Live check: none in this slice. No dev row is stale until 2026-10-06 13:10 UTC (18:40 IST), so a run before then deletes nothing; a run between then and 2026-10-07 09:27 UTC deletes 8 rows (the 7 plural keywords and "navy flip flops") and re-searches 7 keywords (about 7 × 38,000 + 4 × 1,650 = 272,600 micros, about $0.27: about 38,000 per grounded search with its parse call, and about 1,650 per flash-lite call, of which a batch of up to 20 products makes 4, 3 keyword samples and 1 rewrite; the slice 24 dev re-check, job a53737aa, cost 6,407 micros with no search); a run after that deletes all 9 and re-searches 8 (about 310,600 micros, about $0.31).
+Live check: none in this slice. No dev row is stale until 2026-10-06 13:10 UTC (18:40 IST), so a run before then deletes nothing; a run between then and 2026-10-07 09:27 UTC deletes 8 rows (the 7 plural keywords and "navy flip flops") and re-searches 7 keywords (about 7 × 38,000 + 4 × 1,650 = 272,600 micros, about $0.27: about 38,000 per grounded search with its parse call, and about 1,650 per flash-lite call, of which a batch of up to 20 products makes 4, 3 keyword samples and 1 rewrite; the slice 24 dev re-check, job a53737aa, cost 6,407 micros with no search, docs/findings-slice24.md §2; the slice 21 dev re-check, job f9de4eb9, cost 310,292 micros for 8 searches, about 37,960 each after its 4 flash-lite calls, docs/findings-slice21.md §2); a run after that deletes all 9 and re-searches 8 (about 310,600 micros, about $0.31).
 
 Correction to the Section 2 chat text (2026-10-01): it said a run after 2026-10-06 13:10 UTC "would delete 8 rows but also re-search 8 keywords"; until "mens flip flops" goes stale at 2026-10-07 09:27 UTC it re-searches 7. The choice (no live check in this slice) does not depend on it.
 
@@ -59,6 +59,7 @@ Gates: both, run by the controller before the finishing menu.
 ## Rulings
 
 - **R1: the spec review's six points were applied.** Decided: name docs/findings-slice28.md §3 (both lines) and docs/findings-slice24.md's Out of scope line in the docs list; "no run removes" for "stays for good"; "not used … newest current spelling" in the planned comment; the second brand's setup and a by-brand check in the new test; the corrected live-check cost with its source. Found by the spec review of 2a24492. Why: accuracy and completeness; no design change. Cost if wrong: none. Named in chat when made.
+- **R2: the spec re-review's minor point was applied.** Decided: cite job f9de4eb9 for the 38,000-per-search figure. Found by the re-review of 1d23c56. Why: R1 named only the flash-lite figure's source. Cost if wrong: none. Named in chat when made.
 
 ## Out of scope
 
