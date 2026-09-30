@@ -37,7 +37,7 @@
 ### Task 1: The helper and the three seed tests
 
 **Files:**
-- Modify: `tests/integration/test_products_run.py` (`_fresh_row` at about line 413; insert after `test_a_row_the_lookup_rejects_is_not_seeded`, about line 498)
+- Modify: `tests/integration/test_products_run.py` (`_fresh_row` at about line 413; insert after `test_a_row_the_lookup_rejects_is_not_seeded`, before `test_the_rewrite_cannot_add_an_invented_word` at about line 511)
 - Scratch (not committed): `<workspace>/red/t/test_seed_red.py`, `<workspace>/red/m1/bsi_core/`, `<workspace>/red/m2/bsi_core/`, `<workspace>/red/m3/bsi_core/`
 
 **Interfaces:**
@@ -147,7 +147,7 @@ def test_the_rewrite_cannot_add_an_invented_word(owner, make_org, make_brand):
 
 `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/integration/test_products_run.py`
 
-Expected: `33 passed` (the file's 30 tests and the 3 new ones).
+Expected: `33 passed` (the file's 30 tests and the 3 new ones). If the count or any result differs, stop and report it; do not change a test's expected values.
 
 - [ ] **Step 4: Build the red-check copies.** In `<workspace>/red/`: copy `tests/integration/test_products_run.py` to `<workspace>/red/t/test_seed_red.py` (a folder with no `bsi_core` in it), and copy `packages/core/bsi_core` to each of `<workspace>/red/m1/bsi_core`, `<workspace>/red/m2/bsi_core` and `<workspace>/red/m3/bsi_core` (`mkdir -p` and `cp -R` are fine; they copy, they do not write text). Then make one edit in each copy's `products.py` with the Edit tool (each old string is found once in the copy). The m1 code blocks sit inside a list, so drop their 4-space list indent: in the file, the `m.KeywordSearch` lines start at column 21 (20 spaces) and `)` and `.order_by(` at 16 spaces. The m2 and m3 strings start with 20 spaces:
   - m1 (the seed's error filter; the per-batch lookup keeps its own): replace
@@ -174,13 +174,13 @@ Expected: `33 passed` (the file's 30 tests and the 3 new ones).
 `cd /Users/vineet/Downloads/ADK/bsi-platform && PYTHONPATH=<workspace>/red/m1:. uv run pytest -q -p no:cacheprovider -p tests.conftest --rootdir . <workspace>/red/t/test_seed_red.py -k "error_row_is_not_seeded or newest_cached_spelling or non_first_keyword"`
 
 (with `m2`, then `m3`, in place of `m1`). Expected:
-  - m1: `1 failed, 2 passed`; the failure is `test_an_error_row_is_not_seeded` (`'kids sandals' == 'kid sandal'`).
-  - m2: `1 failed, 2 passed`; the failure is `test_the_newest_cached_spelling_wins` (`'kid sandals' == 'kids sandals'`).
-  - m3: `1 failed, 2 passed`; the failure is `test_a_non_first_keyword_adopts_a_cached_spelling` (`['boys sandals', 'kid sandal']`).
+  - m1: `1 failed, 2 passed, 30 deselected`; the failure is `test_an_error_row_is_not_seeded` (`'kids sandals' == 'kid sandal'`).
+  - m2: `1 failed, 2 passed, 30 deselected`; the failure is `test_the_newest_cached_spelling_wins` (`'kid sandals' == 'kids sandals'`).
+  - m3: `1 failed, 2 passed, 30 deselected`; the failure is `test_a_non_first_keyword_adopts_a_cached_spelling` (`['boys sandals', 'kid sandal']`).
 
-  Then the same command with `PYTHONPATH=.` (main's code): `3 passed`. If any result differs, stop and report it; do not change a test's expected values.
+  Then the same command with `PYTHONPATH=.` (main's code): `3 passed, 30 deselected`. If any result differs, stop and report it; do not change a test's expected values.
 
-- [ ] **Step 6: Gate.** `pgrep -fl pytest` (expect nothing), then the Backend gate from Global Constraints, once. Expected: exit 0, `1552 passed, 2 deselected`, metrics coverage 100%, and the 2 known third-party warnings. Grep the diff (`git diff`) for the banned words: no match.
+- [ ] **Step 6: Gate.** `pgrep -fl pytest` (expect nothing), then the Backend gate from Global Constraints, once, as a command of its own, and record the exit code the tool result reports for it (the output file holds no exit code). Expected: exit code 0, `1552 passed, 2 deselected`, metrics coverage 100%, and the 2 known third-party warnings. Grep the diff (`git diff`) for the banned words: no match.
 
 - [ ] **Step 7: Commit.** `git add tests/integration/test_products_run.py && git commit -m "test: pin the slice 24 seed's error filter, order and non-first keywords" -m "<trailer>"`. The `<workspace>/red/` copies are not committed (the workspace is gitignored).
 
@@ -193,16 +193,17 @@ Expected: `33 passed` (the file's 30 tests and the 3 new ones).
 - Modify: `docs/findings-slice24.md` §3, `docs/findings-slice27.md` §3, `docs/README.md`, the spec's `## Rulings`, this plan's `## Changes made during execution`.
 
 - [ ] **Step 1: Findings.** Fill `docs/findings-slice28.md` in the style of `docs/findings-slice27.md`, with sections:
-  - `## 1. What was built`: the `_fresh_row` parameters, the three tests and what each pins; the Step 3 GREEN count, the Step 5 RED and GREEN results and the Step 6 gate result as the Task 1 report records them; and a commit table from `git log --oneline --reverse main..HEAD` with a "(this commit)" row.
+  - `## 1. What was built`: the `_fresh_row` parameters, the three tests and what each pins; the Step 3 GREEN count, the Step 5 RED and GREEN results and the Step 6 gate result and exit code as the Task 1 report records them; and a commit table from `git log --oneline --reverse main..HEAD` with a "(this commit)" row.
   - `## 2. Live check on dev`: exactly "None: the slice adds tests only and changes no behaviour, so there is no spend and no dev write (spec §2)."
-  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger, quoted as recorded ("Parked: none" if none); the spec's rulings R1–R3 quoted in full, plus any the ledger records; the spec's Out of scope list; the "Carried forward (still open)" items from docs/findings-slice27.md §3 that are still open; and "Untested: the seed's secondary sort key (`keyword`) for two rows with the same `searched_at` (R1)."
+  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger, quoted as recorded ("Parked: none" if none); the spec's rulings R1–R4 quoted in full, plus any the ledger records; the spec's Out of scope list; the items under "Carried forward from docs/findings-slice26.md §4 (still open):" in docs/findings-slice27.md §3 that are still open; and "Untested: the seed's secondary sort key (`keyword`) for two rows with the same `searched_at` (R1)."
 - [ ] **Step 2: Dated updates, originals kept.** Add a sub-bullet starting "Update 2026-10-01 (slice 28):" under each of:
   - docs/findings-slice24.md §3, the Task 1 minor that begins "Task 1: the spec §1 order rule": `.desc()` is now pinned by `test_the_newest_cached_spelling_wins`; the secondary sort key is still unpinned (docs/superpowers/specs/2026-10-01-slice28-seed-tests-design.md, R1).
   - docs/findings-slice24.md §3, the Untested bullet "An accepted gap: no test pins the seed's `error.is_(None)` filter on its own": pinned by `test_an_error_row_is_not_seeded`.
-  - docs/findings-slice24.md §3, the Untested sub-bullets "Newest-wins between two valid rows that share a key" and "Adoption of a non-first keyword": pinned by `test_the_newest_cached_spelling_wins` and `test_a_non_first_keyword_adopts_a_cached_spelling`.
+  - docs/findings-slice24.md §3, the Untested sub-bullet "Newest-wins between two valid rows that share a key": pinned by `test_the_newest_cached_spelling_wins` (its own update).
+  - docs/findings-slice24.md §3, the Untested sub-bullet "Adoption of a non-first keyword": pinned by `test_a_non_first_keyword_adopts_a_cached_spelling` (its own update).
   - docs/findings-slice27.md §3, the carried-forward bullet "The slice 24 seed's untested cases": all three pinned by slice 28 (docs/findings-slice28.md); the secondary sort key stays unpinned (R1).
 - [ ] **Step 3: README rows** for the spec, the plan and the findings, after the row for `superpowers/specs/2026-10-01-keyword-search-cleanup-design.md`, in the slice 27 rows' format.
-- [ ] **Step 4: Rulings.** The spec's `## Rulings` holds R1–R3. If the ledger records more rulings, add each after R3 in the same format (Decided / Found by / Why / Cost if wrong), and quote it in findings §3.
+- [ ] **Step 4: Rulings.** The spec's `## Rulings` holds R1–R4. If the ledger records more rulings, add each after R3 in the same format (Decided / Found by / Why / Cost if wrong), and quote it in findings §3.
 - [ ] **Step 5: Plan changes.** Fill this plan's `## Changes made during execution` from the ledger: one bullet per task, plus one each for the final review and any fix wave, quoting departures as recorded; the bullet for the commit that fills this section ends "(this commit)".
 - [ ] **Step 6: Grep** the changed docs files (findings-slice28, findings-slice24, findings-slice27, README, the spec, this plan) for the banned words; expected: no match except this plan's own Global Constraints list.
 - [ ] **Step 7: Commit** `git add docs && git commit -m "docs: slice 28 findings, index and notes" -m "<trailer>"`.
@@ -213,7 +214,7 @@ Expected: `33 passed` (the file's 30 tests and the 3 new ones).
 
 - §1 tests: Task 1 Step 2 has the three tests with the spec's setups and expected values, word for word (`rows[0].keyword`, `rows[0].keywords`, `engine.prompts`, 2 rows).
 - §2 helper: Task 1 Step 1 (`keyword="kids sandals"`, `error=None` defaults; `search_query(keyword)`; `error=error`). `test_an_error_search_is_not_reused` is untouched (Global Constraints).
-- §2 red checks: Task 1 Steps 4–5 (the spec's setup and its three mutations, m3 with the spec's exact replacement line) and the green run on main's code.
+- §2 red checks: Task 1 Steps 4–5 (the spec's setup and its three mutations; m3 is the spec's replacement split over two lines, departure 7) and the green run on main's code.
 - §2 docs: Task 2 Steps 1–3 (findings-slice28; the dated updates in findings-slice24 §3, including the Task 1 minor per R1, and findings-slice27 §3; README rows). §2 copy: Task 1 Step 6 and Task 2 Step 6. §2 no live check: findings §2 text. §2 gates: controller, before the finishing menu.
 - Departures from the spec:
   1. Test code details the spec does not state: the `gen` variable, the `_, rows, searches` unpacking, `_fresh_row(owner, org, bid, [], error="429 quota")` and `_fresh_row(..., days=2, keyword="kid sandals")` calls, and test 2's two asserts joined with `and`.
@@ -222,6 +223,8 @@ Expected: `33 passed` (the file's 30 tests and the 3 new ones).
   4. Task 1 Step 4 writes mutation m1 as a three-line replacement (the error line with its neighbours) so the old string is unique; the spec says "delete `m.KeywordSearch.error.is_(None),` from the seed query only".
   5. Findings §3 also carries the spec's Out of scope list and the slice 27 carried-forward items, and Task 2 also updates the spec's Rulings and this plan's changes section; spec §2's docs list names neither.
   6. Task 2 Step 2 adds dated updates under two more findings-slice24 Untested bullets (newest-wins and non-first) as well as the error-filter one; the spec says "under the Untested items" without naming them.
+  7. Task 1 Step 4 writes m3's replacement over two lines (`... if n == 0 else k`, then `for n, k in enumerate(fitted)`); the spec gives it as one line. Same code.
+  8. Task 1 Step 6 asks for the gate's exit code from the tool result; the spec does not say how the exit code is recorded.
 - Verified before committing this plan: the Step 1, Step 2 and Step 4 replacements were applied, from this file's own code blocks, to scratch copies of main (each old string found exactly once). Main's code: 33 passed for the whole edited file; the three new tests pass. m1, m2 and m3 each gave `1 failed, 2 passed`, failing only the test named in Step 5. ruff check and ruff format --check are clean on the edited test file.
 - Placeholders: none (`<trailer>` and `<workspace>` are per-session values).
 - Type consistency: `_fresh_row`'s signature is the same in Interfaces, Step 1 and Step 2.
