@@ -602,6 +602,21 @@ def test_title_first_never_takes_a_colour_from_the_first_keyword():
     ]
 
 
+def test_title_first_prefers_a_plural_spelling_of_the_type():
+    assert title_first(
+        ["men slippers", "men flip flop navy", "navy flip flops"], T
+    ) == [
+        "men flip flops",
+        "men slippers",
+        "men flip flop navy",
+        "navy flip flops",
+    ]
+    # ponytail ceiling: with no plural title fit the type stays singular.
+    assert title_first(["men slippers", "men flip flop navy"], T)[0] == (
+        "men flip flop"
+    )
+
+
 def test_choose_keywords_falls_back_when_the_guard_leaves_the_wrong_type():
     # Every title-fitting keyword has a colour: the guarded vote would
     # search the category's type ("men slippers").
@@ -635,7 +650,7 @@ def test_choose_keywords_falls_back_when_the_guard_leaves_the_wrong_type():
     ) == ["men flip flops", "navy flip flops"]
 ```
 
-- [ ] **Step 2: Run the tests to see them fail.** Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py -k "colour_from_the_first or wrong_type"`. Expected: 2 failed. The `title_first` test gets `['men navy flip flops', 'men navy slippers', 'navy flip flops']`; the `choose_keywords` test fails on its first assertion with `['men slippers', 'cushioned slippers']`.
+- [ ] **Step 2: Run the tests to see them fail.** Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py -k "colour_from_the_first or wrong_type or plural_spelling"`. Expected: 3 failed. The first `title_first` test gets `['men navy flip flops', 'men navy slippers', 'navy flip flops']`; the plural test gets `'men flip flop'` first; the `choose_keywords` test fails on its first assertion with `['men slippers', 'cushioned slippers']`.
 
 - [ ] **Step 3: The audience.** In `title_first`, replace:
 
@@ -652,6 +667,21 @@ with:
         and t not in STOPWORDS
         and _stem(t) not in NOISE_STEMS
     ]
+```
+
+- [ ] **Step 3b: The plural spelling.** In `title_first`, replace:
+
+```python
+    kind = [t for t in tokens(fits[0]) if _stem(t) in ok]
+```
+
+with:
+
+```python
+    # The plural spelling of a type word when any title-fitting keyword
+    # has it ("men flip flop navy" and "navy flip flops" -> "flip flops").
+    plural = {_stem(t): t for k in fits for t in tokens(k) if t != _stem(t)}
+    kind = [plural.get(_stem(t), t) for t in tokens(fits[0]) if _stem(t) in ok]
 ```
 
 - [ ] **Step 4: `choose_keywords`.** Replace its docstring and body (keep the signature) with the spec's §1 code block: the new docstring, `pick` unchanged, then `in_title`, `fits`, `guarded`, `raw` and the return line.
@@ -694,20 +724,21 @@ with:
 and, at the end of that comment, replace `# title and is not an audience word.` with:
 
 ```python
-# title and is not an audience word; the type words take the first
-# title-fitting keyword's spelling, so they can be singular ("men flip
-# flop navy" alone -> "men flip flop").
+# title and is not an audience word; a type word stays singular when no
+# title-fitting keyword spells it in the plural ("men flip flop navy"
+# alone -> "men flip flop"); choose_keywords' wrong-type fallback uses
+# fit_rank's rule, so a title audience word counts as a type there.
 ```
 
 ruff format leaves comments as written; keep each line at 80 characters or fewer.
 
-- [ ] **Step 5: Run the product tests.** Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py tests/integration/test_products_run.py`. Expected: 115 passed (90 unit, 25 integration).
+- [ ] **Step 5: Run the product tests.** Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py tests/integration/test_products_run.py`. Expected: 116 passed (91 unit, 25 integration).
 
 - [ ] **Step 6: Run the backend gate** (Global Constraints). Expected: ruff and mypy clean, all tests pass, metrics coverage 100%. Record the pass count and the names of any warnings.
 
 - [ ] **Step 7: Docs.** Ledger lines are quoted as recorded; where one is now fixed or untrue, append a note after it rather than editing it.
   - `docs/findings-slice23.md` §1: describe the wrong-type fallback, the audience change and the two comment changes; add Task 4's TDD evidence and gate result under "Tests"; in the commit table replace the "(this commit)" row with `5737187`, add rows for `b0c0cb0` and for the spec-review commit that adds R3, and a new "(this commit)" row; change "placed after `fit_rank`" (§1, `title_first`) to "defined after `fit_rank` in the file" (final review, Minor 3).
-  - Findings §4: the rulings list holds R1, R2 and R3 (retitle its heading so it no longer says only "from the Task 3 review"); after the Task 1 minor on the audience taking a colour, append "Fixed by R2: the audience leaves out colour and size words."; after the Task 2 minor on the fallback building a colour, append "Fixed by R2." and correct its premise: the fallback runs when the filtered samples leave no fitting keyword, and (R2) when they leave the wrong type (final review, Minor 2); after the Task 2 minor on the missing test, append "Fixed by Task 4's tests."; after the spec-review note in §4 that says colour stems are not removed from `types` (its example gives "men flip flop"), append that R2 makes that unfiltered path reachable whenever the guard leaves the wrong type (R3); list the §1 and §2 ceilings as the spec now states them.
+  - Findings §4: the rulings list holds R1, R2 and R3 (retitle its heading so it no longer says only "from the Task 3 review"); after the Task 1 minor on the audience taking a colour, append "Fixed by R2: the audience leaves out colour and size words." and correct its ending (the unfiltered path also runs when the guard leaves the wrong type); after the Task 2 minor on the fallback building a colour, append "Fixed by R2." and correct its premise: the fallback runs when the filtered samples leave no fitting keyword, and (R2) when they leave the wrong type (final review, Minor 2); after the Task 2 minor on the missing test, append "Fixed by Task 4's tests."; after the spec-review note in §4 that says colour stems are not removed from `types` (its example gives "men flip flop"), append that R2 makes that unfiltered path reachable whenever the guard leaves the wrong type (R3); list the §1 and §2 ceilings as the spec now states them.
   - This plan's changes section: one bullet for Task 4's execution (the spec change already has its own bullet).
   - Run the coverage script again: every line tagged `minor (deferred…)`, every `parked` line and every ruling in the ledger must be covered.
 
@@ -744,10 +775,10 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - **§3 values, word for word against the spec:**
   - `drop_noise_terms`: `["men slippers"]`; `[]`; `["kids sandals"]`.
   - `_type_word`: `["slipper", "slipper", "shoe", "for", None]`.
-  - `title_first`, 17 values in 15 cases (Task 4 adds 1) (the two builds and the two "boys" cases hold 2 values each): the two builds; the offered spelling; first keyword fits; no keyword fits; no audience; empty; the cap; "boys sandals" and "sandals for boys"; shared words; the one-fit ceiling; only an audience word fits; a good fit with an audience-word fit; two title types; no colour built in.
+  - `title_first`, 19 values in 16 cases (Task 4 adds 3: no colour from the first keyword; the plural spelling and its singular ceiling) (the two builds and the two "boys" cases hold 2 values each): the two builds; the offered spelling; first keyword fits; no keyword fits; no audience; empty; the cap; "boys sandals" and "sandals for boys"; shared words; the one-fit ceiling; only an audience word fits; a good fit with an audience-word fit; two title types; no colour built in.
   - `choose_keywords`, 9 values (Task 4 adds 3: the wrong-type fallback, a category fit alone, no colour on the unfiltered path): probe 4's samples; one all-colour sample; every keyword has a colour; only a brand phrase left; the audience-word keyword; no samples.
   - Integration: `keyword == "kids sandals"`, `keywords == ["kids sandals", "strap sandals"]`, one search for "kids sandals".
-- **Checked by running code.** The spec reviewer checked the spec's 27 values before R2 (the R2 review checked all 30 after it) against its own copy of the functions (0 mismatches). The controller built scratch copies of the three files from this plan's code blocks, outside the repo, and ran them:
+- **Checked by running code.** The spec reviewer checked the spec's 27 values before R2 (the R2 review checked all 30 after R2; Task 4's plural test adds 2) against its own copy of the functions (0 mismatches). The controller built scratch copies of the three files from this plan's code blocks, outside the repo, and ran them:
   - `ruff format --diff` and `ruff check` with the repo's config: no changes, all checks passed (after `ruff check --fix` sorted the import list).
   - `mypy --strict` on the patched `products.py`: no issues.
   - Task 1 Step 5's selection: 17 passed. The whole patched unit file: 88 passed.
@@ -763,7 +794,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   - `title_first`, `drop_noise_terms` and `choose_keywords` return `list[str]`.
   - `pick` is annotated, so `mypy --strict` accepts the nested function.
 - **Every place this plan departs from the spec's text:**
-  1. The spec names no test. The plan names them: 10 tests in Task 1, 5 in Task 2, 1 integration test and 2 in Task 4.
+  1. The spec names no test. The plan names them: 10 tests in Task 1, 5 in Task 2, 1 integration test and 3 in Task 4.
   2. The plan groups several of the spec's test values into one test each (for example the four "cannot build" cases).
   3. The plan adds module-level test constants `T`, `W`, `CASUAL` and `S4`. The spec uses `T`, `W`, `B` and `S4` as names in its text; `B` exists since slice 22.
   4. Task order is the spec's §2 first, then §1, because `choose_keywords` (§1) calls `title_first` (§2).
@@ -782,7 +813,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 
 ## Changes made during execution
 
-- Task 4 was added after the final whole-branch review, by Ruling R2 (spec §1, §2, §3 and Rulings). The review of that spec change (b0c0cb0) found R2's side effects (a colour keyword searched or stored; a singular type word on a close variant of probe 4); the controller accepted them as ceilings (Ruling R3) and fixed the texts that R2 had made untrue (the Goal and Architecture lines above, Task 4's Files and Step 7, the two `ponytail:` comments in a new Step 4b, and the self-review). Its values were checked by the controller on a scratch copy outside the repo before it was written: ruff and mypy --strict clean; the current unit file 88 passed and the product-run file 25 passed against the patched module; the new values as in Task 4 Step 1.
+- Task 4 was added after the final whole-branch review, by Ruling R2 (spec §1, §2, §3 and Rulings). The review of that spec change (b0c0cb0) found R2's side effects (a colour keyword searched or stored; a singular type word on a close variant of probe 4); the controller accepted them as ceilings (Ruling R3) and fixed the texts that R2 had made untrue. Its re-review showed that a plural-spelling rule does help on probe 4's unfiltered samples, so R3 was revised to add it (Task 4 Step 3b and a third test); (the Goal and Architecture lines above, Task 4's Files and Step 7, the two `ponytail:` comments in a new Step 4b, and the self-review). Its values were checked by the controller on a scratch copy outside the repo before it was written: ruff and mypy --strict clean; the current unit file 88 passed and the product-run file 25 passed against the patched module; the new values as in Task 4 Step 1.
 
 - Task 1 went as written (commit 23eb548), with one difference (from the ledger): the full suite was run twice. The first run's output was cut off, so it lacked both warning names; the pytest re-run (with the shared-DB `pgrep` check first) recorded them. No code changed between the two runs. task-1-report.md words it differently: the gate's `tail -15` cut off the first warning's name. ruff did not re-wrap anything, and I001 did not fire.
 - Task 2 went as written (commit d072568). The ledger records "No departures; ruff changed nothing", and task-2-report.md says "no departures from the brief".
