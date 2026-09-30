@@ -35,7 +35,8 @@ The findings for slices 23 and 24 marked every statement about which keyword sam
 | 42fec76 | docs: slice 25 plan review fixes |
 | bf5ced4 | feat(products): keyword_samples and raw_title columns (migration 0021) |
 | 05ad185 | feat(products): store the keyword samples and the raw rewrite |
-| (this commit) | docs: slice 25 findings, index and hashes |
+| 4b27e20 | docs: slice 25 findings, index and hashes |
+| (this commit) | docs: slice 25 findings: final-review minors |
 
 ## 2. Live check on dev
 
@@ -48,6 +49,16 @@ From the task reviews (ledger lines tagged `minor (deferred)`):
 - Task 2: the gate file records only pytest output; in the plan's Step 9 command `> gate-task2.txt` applies to the last command of the `&&` chain, so ruff and mypy results are not in the file. Future gates should redirect the whole chain.
 - Task 2: the gate output has 2 warnings (StarletteDeprecationWarning about httpx; anyio BlockingPortal DeprecationWarning), third-party and pre-existing.
 - Task 2: no test covers a product absent from one keyword sample (a `[]` entry in `keyword_samples` via `sm.get(i, [])`); the tests assert uniform samples only.
+- Task 3: the plan's Task 1 bullet quotes the NUL-byte ledger line with "[`\u`]" (backticks not in the controller's intended text) and cites the Task 1 report as the source instead of the controller note; "went as written ... One difference" reads as a mild contradiction.
+- Task 3: findings §3's R1 is the spec's text (with "(the path in the plan's Task 2 Step 9)" and the "Found by" clause), introduced by "the ledger records one", which can read as ledger text.
+- Task 3: findings §1's "coverage 100%" does not say it is `bsi_core.metrics` coverage (the gate's `--cov` target).
+
+From the final review (ledger lines tagged `minor (deferred)`):
+- Final review: models.py:559 `JSONB` without `none_as_null=True` stores Python None as JSON null, not SQL NULL; no current path writes None (run_products always writes a list; imports leave the column out). Same for `impact` at line 419.
+- Final review: products.py:1230-1231 a whitespace-only rewrite title and an omitted rewrite item both store raw_title NULL (spec accepts `title_in or None`); a live check cannot tell the two apart.
+- Final review: deploy order: code at 05ad185 or later writes both columns and fails against a DB at 0020; dev must reach 0021 before any process_job or worker run (worker stopped; spec §3 already orders the migration first).
+
+The final review kept every earlier deferred minor deferred (ledger text): "Ready to merge "With fixes"; 0 Critical, 1 Important, 3 Minor; all 7 earlier deferred minors triaged "keep deferred"."
 
 Parked: none. The ledger has no parked lines.
 
