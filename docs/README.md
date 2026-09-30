@@ -200,7 +200,7 @@ In the order they were written:
 | [superpowers/plans/2026-09-30-slice27-overlap-restore.md](superpowers/plans/2026-09-30-slice27-overlap-restore.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
 | [findings-slice27.md](findings-slice27.md) | Results: what was built, the live check on dev (run on 2026-10-01), and what is deferred or untested. |
 | [superpowers/specs/2026-10-01-keyword-search-cleanup-design.md](superpowers/specs/2026-10-01-keyword-search-cleanup-design.md) | Design spec, written after the fact: the one-off delete of the 11 `keyword_search` rows on dev that no run could use, with rulings R1–R13. |
-| [superpowers/specs/2026-10-01-slice28-seed-tests-design.md](superpowers/specs/2026-10-01-slice28-seed-tests-design.md) | Design spec: three integration tests pin the slice 24 seed's error filter, its newest-first order and its use for every keyword; tests only, with rulings R1–R13. |
+| [superpowers/specs/2026-10-01-slice28-seed-tests-design.md](superpowers/specs/2026-10-01-slice28-seed-tests-design.md) | Design spec: three integration tests pin the slice 24 seed's error filter, its newest-first order and its use for every keyword; tests only, with rulings R1–R14. |
 | [superpowers/plans/2026-10-01-slice28-seed-tests.md](superpowers/plans/2026-10-01-slice28-seed-tests.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
 | [findings-slice28.md](findings-slice28.md) | Results: what was built, the red and green runs, no live check (tests only), and what is deferred or untested. |
 
