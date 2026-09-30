@@ -834,3 +834,25 @@ def test_plural_variants_share_one_search(owner, make_org, make_brand):
     ]
     assert len(searches) == 1
     assert [p.keyword for p in rows] == ["mens sandal", "mens sandal"]
+
+
+def test_the_searched_keyword_has_the_title_type_and_no_colour(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    _seed(owner, org, bid, 1)
+    engine = FakeEngine()
+    gen = _generator(
+        keywords=["kids slippers", "blue sandals", "strap sandals"]
+    )
+    job, rows, _searches = _run(owner, org, bid, gen, engine)
+    assert job.status == "done"
+    # "kids slippers" names a type the title ("Walkaroo Boys Sandal 0")
+    # does not, so its audience joins the title's type; "blue sandals" is
+    # dropped as a colour keyword.
+    assert rows[0].keyword == "kids sandals"
+    assert rows[0].keywords == ["kids sandals", "strap sandals"]
+    assert engine.prompts == [
+        (products.search_query("kids sandals"), "IN", "en")
+    ]

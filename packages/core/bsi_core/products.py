@@ -324,12 +324,14 @@ STOPWORDS = frozenset(
     "free shop shopping sale offer offers price prices deal deals off "
     "new a an in of on to by at or com".split()
 )
-# missing() never suggests these (slice 21 spec §2). ponytail: English
-# and closed; a real colour phrase ("white sneakers") is never suggested;
-# a noise word is skipped even when it is in the keyword; outside
-# footwear some are product words (cream, gold, silver, orange, plus
-# size, hair color); toddler/youth/infant are not listed: since slice 22
-# missing() suggests such a word only when the product's data backs it.
+# missing() never suggests these (slice 21 spec §2), and the keyword
+# choice drops keywords that contain them (slice 23 spec §1). ponytail:
+# English and closed; a real colour phrase ("white sneakers") is never
+# suggested; a noise word is skipped even when it is in the keyword;
+# outside footwear some are product words (cream, gold, silver, orange,
+# plus size, hair color); toddler/youth/infant are not listed: since
+# slice 22 missing() suggests such a word only when the product's data
+# backs it.
 NOISE_WORDS = frozenset(
     "white black blue red green pink grey gray brown navy beige tan silver "
     "gold purple orange yellow cream multi multicolor color colour size "
@@ -452,8 +454,32 @@ def drop_brand_terms(
     return [k for k in keywords if (t := set(tokens(k))) and not t & bt]
 
 
+# ponytail: a real colour or size phrase that shoppers type ("white
+# sneakers", "little kids sandals", "big kids shoes") is searched only
+# when no keyword without one names the title's type and none can be
+# built (choose_keywords); outside footwear some are product words
+# (gold, cream, plus size); English only.
+def drop_noise_terms(keywords: Sequence[str]) -> list[str]:
+    """Keep a keyword only if none of its stems is a colour or size
+    word (NOISE_STEMS)."""
+    return [k for k in keywords if not fold_set(k) & NOISE_STEMS]
+
+
 # fit_rank cuts a keyword here (R6); "slip on shoes" keeps its "on".
 CATEGORY_CUTS = frozenset({"for", "with"})
+
+
+def _type_word(keyword: str) -> str | None:
+    """The keyword's category word: the last folded word before its
+    first CATEGORY_CUTS token, or its last folded word if nothing folds
+    before the cut; None if nothing folds."""
+    words = fold(keyword)
+    if not words:
+        return None
+    toks = tokens(keyword)
+    cut = next((i for i, t in enumerate(toks) if t in CATEGORY_CUTS), len(toks))
+    head = fold(" ".join(toks[:cut]))
+    return (head or words)[-1]
 
 
 def fit_rank(
@@ -475,20 +501,108 @@ def fit_rank(
     first: list[str] = []
     second: list[str] = []
     for k in keywords:
-        words = fold(k)
-        if not words:
+        word = _type_word(k)
+        if word is None:
             continue
-        toks = tokens(k)
-        cut = next(
-            (i for i, t in enumerate(toks) if t in CATEGORY_CUTS), len(toks)
-        )
-        head = fold(" ".join(toks[:cut]))
-        word = (head or words)[-1]
         if word in in_title:
             first.append(k)
         elif word in in_other:
             second.append(k)
     return first + second
+
+
+# Never part of a built keyword's type words (slice 23 spec §2).
+AUDIENCE_WORDS = frozenset("men women kids boys girls unisex baby".split())
+AUDIENCE_STEMS = frozenset(_stem(w) for w in AUDIENCE_WORDS)
+
+
+# ponytail: the audience is whatever is left of the first keyword after
+# its colour and size words, in the model's spelling ("men house
+# slippers" -> "men house flip flops",
+# "mens slippers" -> "mens flip flops"); audience-then-type order suits
+# English; with one title-fitting keyword a style word the title has too
+# is kept ("men casual sandals"); title-fitting keywords that name two
+# different title types share no word, so nothing is built;
+# AUDIENCE_WORDS is closed and English only; observed on footwear only;
+# it depends on the model's first keyword being the audience plus the
+# category's type; a title word that is not a product type can count as
+# one, since the rule only checks that a keyword's type word is in the
+# title and is not an audience word; a type word stays singular when no
+# title-fitting keyword spells it in the plural ("men flip flop navy"
+# alone -> "men flip flop"); choose_keywords' wrong-type fallback uses
+# fit_rank's rule, so a title audience word counts as a type there.
+def title_first(keywords: Sequence[str], title: str) -> list[str]:
+    """When the first keyword names a type the title does not, and
+    other keywords name one it does, put the first keyword's audience
+    plus the title's type first ("men slippers" and "cushioned flip
+    flops" for "Men Flip Flop Navy" -> "men flip flops"); an offered
+    keyword with the same key is used in its own spelling. Otherwise
+    the keywords as given. At most MAX_KEYWORDS."""
+    if not keywords:
+        return []
+    in_title = fold_set(title)
+    word = _type_word(keywords[0])
+    if word is None or word in in_title:
+        return list(keywords)
+    types = in_title - AUDIENCE_STEMS
+    fits = [k for k in keywords if _type_word(k) in types]
+    if not fits:
+        return list(keywords)
+    audience = [
+        t
+        for t in tokens(keywords[0])
+        if len(t) > 1
+        and _stem(t) != word
+        and t not in STOPWORDS
+        and _stem(t) not in NOISE_STEMS
+    ]
+    ok = in_title - {_stem(t) for t in audience}
+    ok = ok - AUDIENCE_STEMS - NOISE_STEMS
+    for k in fits:
+        ok &= fold_set(k)
+    # The plural spelling of a type word when any title-fitting keyword
+    # has it ("men flip flop navy" and "navy flip flops" -> "flip flops").
+    plural = {_stem(t): t for k in fits for t in tokens(k) if t != _stem(t)}
+    kind = [plural.get(_stem(t), t) for t in tokens(fits[0]) if _stem(t) in ok]
+    if not audience or not kind:
+        return list(keywords)
+    built = " ".join([*audience, *kind])
+    key = keyword_key(built)
+    first = next((k for k in keywords if keyword_key(k) == key), built)
+    rest = [k for k in keywords if keyword_key(k) != key]
+    return [first, *rest][:MAX_KEYWORDS]
+
+
+def choose_keywords(
+    samples: Sequence[Sequence[str]],
+    brand_names: Sequence[str],
+    title: str,
+    category: str | None,
+    description: str | None,
+) -> list[str]:
+    """One product's keywords, the searched one first: the vote over
+    the samples without colour and size keywords, without brand terms,
+    the title's type first (title_first), then fit_rank. The same over
+    the samples as given is used instead when the first leaves nothing,
+    or when its first keyword names a type the title does not and the
+    second's first keyword names one the title does."""
+
+    def pick(lists: Sequence[Sequence[str]]) -> list[str]:
+        ranked = drop_brand_terms(vote(lists), brand_names)
+        return fit_rank(
+            title_first(ranked, title), title, category, description
+        )
+
+    in_title = fold_set(title)
+
+    def fits(keywords: Sequence[str]) -> bool:
+        return bool(keywords) and _type_word(keywords[0]) in in_title
+
+    guarded = pick([drop_noise_terms(s) for s in samples])
+    if fits(guarded):
+        return guarded
+    raw = pick(samples)
+    return raw if fits(raw) or not guarded else guarded
 
 
 def missing(
@@ -904,9 +1018,9 @@ def run_products(
                     }
                 )
             for i, p in enumerate(batch):
-                ranked = vote([sm.get(i, []) for sm in samples])
-                fitted = fit_rank(
-                    drop_brand_terms(ranked, names),
+                fitted = choose_keywords(
+                    [sm.get(i, []) for sm in samples],
+                    names,
                     p["title"],
                     p["category"],
                     p["description"],
