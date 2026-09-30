@@ -55,7 +55,7 @@
 - Test: `tests/integration/test_products_run.py`: one new test after `test_the_database_accepts_review_and_rejects_an_unknown_status` (lines 846-863; the next test starts at line 866).
 
 **Interfaces:**
-- Consumes (unchanged): `m.Product`, the `owner`, `make_org`, `make_brand` fixtures, `_seed`, `select`, `JSONB` (already imported in `models.py` line 21).
+- Consumes (unchanged): `m.Product`, the `owner`, `make_org`, `make_brand` fixtures, `select`, `JSONB` (already imported in `models.py` line 21).
 - Produces: `Product.keyword_samples: Mapped[list[list[str]] | None]` (JSONB) and `Product.raw_title: Mapped[str | None]`; migration revision `"0021"`.
 
 - [ ] **Step 1: Write the failing test.** Append to `tests/integration/test_products_run.py`, after `test_the_database_accepts_review_and_rejects_an_unknown_status`:
@@ -144,7 +144,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add migrations/versions/0021_
 ### Task 2: `run_products` writes the samples and the raw title
 
 **Files:**
-- Modify: `packages/core/bsi_core/products.py`: the per-product keyword loop (lines 1054-1064), the first UPDATE and its `cleared` dict (lines 1066-1090), the rewrite write loop (lines 1225-1253).
+- Modify: `packages/core/bsi_core/products.py`: the per-product keyword loop (lines 1054-1065), the first UPDATE and its `cleared` dict (lines 1066-1090), the rewrite write loop (lines 1225-1253).
 - Test: `tests/integration/test_products_run.py`: `_generator` (lines 54-129), `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked` (180-229), `test_a_product_whose_keyword_drops_loses_its_old_suggestion` (741-767), one new test after it.
 
 **Interfaces:**
@@ -219,7 +219,7 @@ def test_a_product_without_a_rewrite_keeps_its_title_and_no_raw_title(
 ```
 
 - [ ] **Step 4: Run the three tests to see them fail.** `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/integration/test_products_run.py -k "rewrite_is_checked or loses_its_old_suggestion or without_a_rewrite" 2>&1 | tail -8`
-Expected: 3 failed, each on its `assert p.keyword_samples == ...` line (`None == [...]`), because nothing writes the column yet.
+Expected: 3 failed: the rewrite-checked and no-rewrite tests on `assert p.keyword_samples == ...` (`None == [...]`), the drops test on `assert p.raw_title is None` (`'Old raw' is None`), because nothing writes either column yet.
 
 - [ ] **Step 5: Keyword step.** In `run_products`, replace the per-product loop
 
@@ -299,13 +299,13 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - [ ] **Step 1: Findings.** Fill `docs/findings-slice25.md` in the style of `docs/findings-slice24.md`, with three sections:
   - `## 1. What was built`: the migration, the two columns, where `run_products` writes them, the tests, the gate result as Task 2 recorded it, and a commit table from `git log --oneline main..HEAD` with a "(this commit)" row.
   - `## 2. Live check on dev`: exactly "Not yet run. The controller migrates dev and runs it after the user approves each; results are recorded here then."
-  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger not marked fixed, quoted as recorded; "Parked: none" if none; the spec's Out of scope list; carried forward from slice 24 §3: the stale duplicate `keyword_search` rows, the seed's untested `error.is_(None)` filter and newest-wins, adoption of a non-first keyword; the judge-agreement question (141 labels, 51% agreement, κ 0.20, waiting on the user).
+  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger not marked fixed, quoted as recorded; "Parked: none" if none; the spec's Out of scope list; carried forward from slice 24 §3: the stale duplicate `keyword_search` rows, the seed's untested `error.is_(None)` filter and newest-wins, adoption of a non-first keyword; the judge-agreement question (waiting on the user).
 - [ ] **Step 2: README rows** for the spec, the plan and the findings, in the slice 24 rows' format.
 - [ ] **Step 3: Slice 24 hashes.** In `docs/findings-slice24.md`, replace "(this commit)" with "e315b44" on line 48 (the commit table) and line 103 ("recorded in §2 (this commit)").
 - [ ] **Step 4: Slice 23 note.** In `docs/findings-slice23.md`, under line 197 "- Storing the raw keyword samples or the raw rewrite." add the nested bullet "  - Done in slice 25." The line itself is not edited.
 - [ ] **Step 5: Rulings.** The spec's `## Rulings` stays "None." unless the ledger records one; if it does, add it in the slice 23 format (Decided / Found by / Why / Cost if wrong) and quote it in full in findings §3.
 - [ ] **Step 6: Plan changes.** Fill this plan's `## Changes made during execution` from the ledger: one bullet per task, quoting departures as recorded.
-- [ ] **Step 7: Grep** the four docs files for the banned words; expected: no match.
+- [ ] **Step 7: Grep** the six changed docs files (findings-slice25, README, findings-slice24, findings-slice23, the spec, this plan) for the banned words; expected: no match.
 - [ ] **Step 8: Commit** `git add docs && git commit -m "docs: slice 25 findings, index and hashes" -m "Co-Authored-By: <trailer>"`.
 
 ---
@@ -316,7 +316,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - §2 testing: Task 1 Step 1 (round trip), Task 2 Steps 1-3 (`skip_rewrite`, the two extended tests, the new test). Unchanged list matches Global Constraints.
 - §3 dev migration and re-check: controller work after execution, each after the user's OK; not a task.
 - §4 docs: Task 3.
-- Departures from the spec: none.
+- Departures from the spec: (1) the new no-rewrite test also asserts `job.status == "done"` and `keyword_samples`, so it fails before Step 5; (2) the round-trip strings use `\u` escapes (RUF001), same values; (3) findings §2 is a "Not yet run" stub until the controller's re-check; (4) findings §3 also carries forward "adoption of a non-first keyword" (findings-slice24.md line 113).
 - Placeholders: none (the `<trailer>` is a per-session value, as in slice 24's plan).
 - Type consistency: `title_in`, `p["samples"]`, `p["raw_title"]`, `skip_rewrite` used consistently.
 
