@@ -682,6 +682,20 @@ def dropped(
     return out
 
 
+def _drop_repeats(words: Sequence[str]) -> list[str]:
+    """The words without any whose folded stems repeat an earlier kept
+    word's stems (punctuation-only words are kept)."""
+    seen: set[str] = set()
+    kept: list[str] = []
+    for word in words:
+        stems = fold_set(word)
+        if stems & seen:
+            continue
+        seen |= stems
+        kept.append(word)
+    return kept
+
+
 def rule_check(
     original: str,
     suggestion: str,
@@ -699,7 +713,8 @@ def rule_check(
     the title is trimmed to MAX_TITLE_CHARS at a word boundary, and
     trailing CONNECTORS are removed again. Status:
     "review" if the final title lost any of the original's words, else
-    "adjusted" if it differs from the suggestion, else "pass"."""
+    "pass" if it equals the suggestion or the suggestion with only its
+    repeats removed (_drop_repeats), else "adjusted"."""
     title = suggestion
     brand = _brand_in(original, brand_names)
     if brand and _brand_in(title, [brand]) is None:
@@ -714,15 +729,7 @@ def rule_check(
     )
     # R1/R2: nothing but connectors left -> the original title
     title = title if _strip_connectors(title.split()) else original
-    seen: set[str] = set()
-    kept: list[str] = []
-    for word in title.split():
-        stems = fold_set(word)
-        if stems & seen:
-            continue
-        seen |= stems
-        kept.append(word)
-    title = " ".join(_strip_connectors(kept))
+    title = " ".join(_strip_connectors(_drop_repeats(title.split())))
     if len(title) > MAX_TITLE_CHARS:
         cut = title[: MAX_TITLE_CHARS + 1]
         space = cut.rfind(" ")
@@ -731,7 +738,8 @@ def rule_check(
     lost = dropped(original, title, brand_names)
     if lost:
         return title, "review", lost
-    return title, ("pass" if title == suggestion else "adjusted"), []
+    plain = " ".join(_drop_repeats(suggestion.split()))
+    return title, ("pass" if title in (suggestion, plain) else "adjusted"), []
 
 
 def _squash(text: str) -> str:

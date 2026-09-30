@@ -53,6 +53,7 @@ Run on 2026-09-30 by the controller on main at 28ccb30 (after PR #46 merged), wi
 - Job `08939d2b`: status done, error null, `cost_micros = 6,587` (the spec's estimate was about 6,400), created 14:35:19, started 14:35:26 UTC.
 - No grounded search ran: `keyword_search` still has 20 rows and its newest `searched_at` is still 2026-09-30 09:27:13.
 - Writes observed: the job row, the 10 product rows (each now has `job_id` 08939d2b), and `api_key.last_used_at` = 14:35:19 UTC. Afterwards: 0 queued or running jobs, no uvicorn or worker process; 9 `product_run` jobs totalling 1,650,561 micros. Spend is about $10.95 of the $15 cap (slice 24's unrounded $10.9464 + $0.0066 = $10.9530).
+  - Correction (2026-09-30, slice 26): $10.9464 is the sum, before rounding, of slice 24's approximate figures ("about $10.94 + $0.0064", docs/findings-slice24.md §2), not an unrounded total.
 
 **Per product** (observed by read-only queries after the job; samples abbreviated to each sample's first keyword):
 

@@ -262,7 +262,7 @@ def test_rule_check_removes_repeated_tokens():
         "Walkaroo Kids Shoes", "Walkaroo Kids Shoes Shoes", BRAND
     ) == (
         "Walkaroo Kids Shoes",
-        "adjusted",
+        "pass",
         [],
     )
 
@@ -441,7 +441,7 @@ def test_prompts_carry_the_inputs_and_parse_with_their_schemas():
 def test_rule_check_drops_a_word_that_repeats_an_earlier_token():
     assert rule_check(
         "Walkaroo Kids-Sandal", "Walkaroo Kids-Sandal Sandal", BRAND
-    ) == ("Walkaroo Kids-Sandal", "adjusted", [])
+    ) == ("Walkaroo Kids-Sandal", "pass", [])
     # The brand is prepended first, then the repeated token is dropped.
     assert rule_check(
         "Red Tape Boots", "Tape Shoes", ("Red Tape",), allowed=["Shoes"]
@@ -450,6 +450,33 @@ def test_rule_check_drops_a_word_that_repeats_an_earlier_token():
         "review",
         ["boots"],
     )
+
+
+def test_rule_check_does_not_count_a_removed_repeat():
+    lc = ["BSOAgentTestBrand"]
+    assert rule_check(
+        "BSOAgentTestBrand Boys Sandal Blue",
+        "BSOAgentTestBrand Blue Kid Sandals Boys Sandal",
+        lc,
+        allowed=["kids sandals", "kid"],
+    ) == ("BSOAgentTestBrand Blue Kid Sandals Boys", "pass", [])
+    assert rule_check(
+        "BSOAgentTestBrand Men Flip Flop Navy",
+        "BSOAgentTestBrand Navy Mens Flip Flops Flip Flop",
+        lc,
+        allowed=["mens flip flops"],
+    ) == ("BSOAgentTestBrand Navy Mens Flip Flops", "pass", [])
+    # A repeat plus an unbacked word is still an adjustment.
+    assert rule_check(
+        "Walkaroo Kids Shoes", "Walkaroo Kids Shoes Shoes Sale", ["Walkaroo"]
+    ) == ("Walkaroo Kids Shoes", "adjusted", [])
+    # A repeat plus a lost word is still flagged for review.
+    assert rule_check(
+        "Walkaroo Boys Sandal",
+        "Walkaroo Kids Sandal Sandal",
+        ["Walkaroo"],
+        allowed=["kids sandals"],
+    ) == ("Walkaroo Kids Sandal", "review", ["boys"])
 
 
 def test_rule_check_keeps_punctuation_only_words():
