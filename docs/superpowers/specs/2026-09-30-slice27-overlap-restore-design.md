@@ -93,7 +93,7 @@ In `rule_check`, right after the R1/R2 fallback and before the repeat step (so a
 
 (the second line is the existing repeat step, unchanged; the restore line is the only addition)
 
-The status rules are unchanged in code: after the trim, `review` if an original word is still lost (when the 150-character trim cuts an original word, whether the suggestion kept it or the restore put it back, or when the repeat step drops a restored hyphenated word whose other half is already earlier in the title), else `pass` or `adjusted`. A restored title differs from the suggestion, so it is `adjusted` with empty dropped words. The docstring gains the restore step and says `review` now means an original word was lost by the trim.
+The status rules are unchanged in code: after the trim, `review` if an original word is still lost (when the 150-character trim cuts an original word, whether the suggestion kept it or the restore put it back, or when the repeat step drops a restored hyphenated word whose other half is already earlier in the title), else `pass` or `adjusted`. A restored title differs from the suggestion, so it is `adjusted` with empty dropped words. The docstring gains the restore step and says `review` now means an original word was lost by the trim or the repeat step.
 
 Examples (checked on a scratch copy, 2026-09-30):
 - "BSOAgentTestBrand Beige Women Slippers" for "BSOAgentTestBrand Women Casual Slipper Beige" (allowed ["women slippers"]) gives "BSOAgentTestBrand Beige Women Casual Slippers", `adjusted`.

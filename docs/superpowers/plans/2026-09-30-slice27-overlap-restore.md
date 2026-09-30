@@ -40,7 +40,7 @@
 | File | Responsibility |
 |---|---|
 | `packages/core/bsi_core/products.py` | `_restore`, `_not_in_keyword`, `rule_check`'s restore line and docstring, `rewrite_prompt`'s missing field |
-| `tests/unit/test_products.py` | the changed rule_check tests and three new tests |
+| `tests/unit/test_products.py` | the changed rule_check tests and four new tests |
 | `tests/integration/test_products_run.py` | two changed expectations |
 | docs | `docs/findings-slice27.md`, `docs/README.md`, the spec's Rulings, this plan's changes section |
 
@@ -50,7 +50,7 @@
 
 **Files:**
 - Modify: `packages/core/bsi_core/products.py`: a new `_restore` right before `def _drop_repeats(` (line 685); in `rule_check` (line 699) the docstring and the line before the repeat step (line 732); a new `_not_in_keyword` right before `def rewrite_prompt(` (line 915); `rewrite_prompt`'s `_product_lines` call.
-- Test: `tests/unit/test_products.py`, `tests/integration/test_products_run.py` (the tests in the table above, and three new tests).
+- Test: `tests/unit/test_products.py`, `tests/integration/test_products_run.py` (the tests in the table above, and four new tests).
 
 **Interfaces:**
 - Consumes (unchanged): `dropped`, `tokens`, `fold_set`, `_allowed_stems`, `_drop_repeats`, `_strip_connectors`, `_product_lines`, `Sequence`, `Any`.
@@ -107,6 +107,16 @@ with
         "adjusted",
         [],
     )
+
+
+def test_rule_check_repeat_step_can_drop_a_restored_hyphenated_word():
+    # "Anti" is kept first, so the restored "Anti-Skid" repeats it and is
+    # dropped again: a spec ceiling, the same result as before the restore.
+    assert rule_check(
+        "Walkaroo Boys Anti-Skid Sandal",
+        "Walkaroo Anti Boys Sandal",
+        ["Walkaroo"],
+    ) == ("Walkaroo Anti Boys Sandal", "review", ["skid"])
 
 
 def test_rule_check_restore_does_not_bring_back_a_repeat():
@@ -279,7 +289,7 @@ with
 ```
 
 - [ ] **Step 2: Run the changed and new tests to see them fail.** `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q tests/unit/test_products.py tests/integration/test_products_run.py 2>&1 | grep -E "^FAILED|passed|failed"`
-Expected: 8 failed, 117 passed. The failing tests: `test_rule_check_trims_to_150_at_a_word_boundary`, `test_rule_check_drops_a_word_that_repeats_an_earlier_token`, `test_rule_check_restore_does_not_bring_back_a_repeat`, `test_rule_check_does_not_count_a_removed_repeat`, `test_rule_check_restores_dropped_words`, `test_rewrite_prompt_leaves_keyword_words_out_of_missing`, `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked`, `test_a_failed_search_is_stored_and_the_run_goes_on`. Two edited tests pass already, as they pin behaviour this slice keeps: `test_rule_check_trim_can_still_lose_a_restored_word` and `test_rule_check_strips_a_connector_the_trim_leaves_at_the_end`.
+Expected: 8 failed, 118 passed. The failing tests: `test_rule_check_trims_to_150_at_a_word_boundary`, `test_rule_check_drops_a_word_that_repeats_an_earlier_token`, `test_rule_check_restore_does_not_bring_back_a_repeat`, `test_rule_check_does_not_count_a_removed_repeat`, `test_rule_check_restores_dropped_words`, `test_rewrite_prompt_leaves_keyword_words_out_of_missing`, `test_one_search_per_distinct_keyword_and_the_rewrite_is_checked`, `test_a_failed_search_is_stored_and_the_run_goes_on`. Two new tests and one edited test pass already, as they pin behaviour this slice keeps: `test_rule_check_trim_can_still_lose_a_restored_word`, `test_rule_check_repeat_step_can_drop_a_restored_hyphenated_word` and `test_rule_check_strips_a_connector_the_trim_leaves_at_the_end`.
 
 - [ ] **Step 3: Code edits.** Make these replacements in order, each exactly once.
 
@@ -356,7 +366,7 @@ with
 
 ```python
     "review" if the final title lost any of the original's words (after
-    the restore, only the trim can cut one), else
+    the restore, only the repeat step or the trim can cut one), else
 ```
 
 In `packages/core/bsi_core/products.py`, replace
@@ -399,10 +409,10 @@ with
         )
 ```
 
-- [ ] **Step 4: Run the two files to see them pass.** Same command as Step 2. Expected: 125 passed (the 122 items on main plus the three new tests).
+- [ ] **Step 4: Run the two files to see them pass.** Same command as Step 2. Expected: 126 passed (the 122 items on main plus the four new tests).
 
 - [ ] **Step 5: Backend gate** (the Global Constraints command, workspace `.superpowers/sdd/2026-09-30-slice27-overlap-restore/`); then `tail -5` the file and `grep -E "files (left unchanged|already formatted)|All checks passed|Success: no issues"` it.
-Expected: ruff and mypy clean; 1548 passed (1545 on main plus the three new tests), 2 deselected, the 2 known third-party warnings; metrics coverage 100%. Report the exact counts.
+Expected: ruff and mypy clean; 1549 passed (1545 on main plus the four new tests), 2 deselected, the 2 known third-party warnings; metrics coverage 100%. Report the exact counts.
 
 - [ ] **Step 6: Commit.**
 
@@ -419,12 +429,12 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - Modify: `docs/README.md` (three rows after the slice 26 rows), the spec's `## Rulings`, this plan's `## Changes made during execution`.
 
 - [ ] **Step 1: Findings.** Fill `docs/findings-slice27.md` in the style of `docs/findings-slice26.md`, with sections:
-  - `## 1. What was built`: `_not_in_keyword` and `_restore`, where each runs, the docstring change, the changed and new tests, the gate result as Task 1 recorded it, and a commit table from `git log --oneline --reverse main..HEAD` with a "(this commit)" row.
+  - `## 1. What was built`: `_not_in_keyword` and `_restore`, where each runs, the docstring change, the changed and new tests, the RED and GREEN counts as the Task 1 report records them (Step 2: 8 failed, 118 passed; Step 4: 126 passed), the gate result as Task 1 recorded it, and a commit table from `git log --oneline --reverse main..HEAD` with a "(this commit)" row.
   - `## 2. Live check on dev`: exactly "Not yet run. The controller runs it after the user approves; results are recorded here then."
-  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger, quoted as recorded; "Parked: none" if none; the rulings recorded in the ledger (or "Rulings: none."); the spec's ceilings (§2) and Out of scope list; and the "Carried forward (still open)" items from docs/findings-slice26.md §4 that are still open.
+  - `## 3. Deferred and untested`: every line tagged `minor (deferred…)` and every `parked` line in the ledger, quoted as recorded; "Parked: none" if none; the rulings recorded in the ledger (or "Rulings: none."); the spec's ceilings (§2) and Out of scope list; the "Carried forward (still open)" items from docs/findings-slice26.md §4 that are still open; and an "Untested" list naming the spec §2 examples no test pins.
 - [ ] **Step 2: README rows** for the spec, the plan and the findings, in the slice 26 rows' format.
 - [ ] **Step 3: Rulings.** The spec's `## Rulings` stays "None." unless the ledger records one; if it does, keep "None." and add a dated correction note followed by the ruling in the slice 26 spec's format (Decided / Found by / Why / Cost if wrong), quoted in full in findings §3.
-- [ ] **Step 4: Plan changes.** Fill this plan's `## Changes made during execution` from the ledger: one bullet per task, quoting departures as recorded.
+- [ ] **Step 4: Plan changes.** Fill this plan's `## Changes made during execution` from the ledger: one bullet per task, plus one each for the final review and any fix wave, quoting departures as recorded; the bullet for the commit that fills this section ends "(this commit)".
 - [ ] **Step 5: Grep** the changed docs files (findings-slice27, README, the spec, this plan) for the banned words; expected: no match except this plan's own Global Constraints list.
 - [ ] **Step 6: Commit** `git add docs && git commit -m "docs: slice 27 findings, index and notes" -m "Co-Authored-By: <trailer>"`.
 
@@ -436,8 +446,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - §2 restore: Task 1 Step 3 (`_restore`, the restore line before the repeat step, the docstring). Tests: the §3 list, including `test_rule_check_restore_does_not_bring_back_a_repeat` and `test_rule_check_trim_can_still_lose_a_restored_word`.
 - §3 testing: Task 1 Step 1 covers every test §3 lists, with its values and comment changes.
 - §4 live check: controller work after merge, with the user's OK; not a task. Docs: Task 2.
-- Departures from the spec: (1) the new tests' fixture titles and comments beyond what §3 names are the plan's ("Titan Analog Dial" as the second prompt-test product; the comments "The lost "Plain" is restored at the start, then the trim applies.", "A replaced product type ends up as both types (spec ceiling).", "The original "w0" is kept, so nothing is restored ahead of the cut."); (2) the docstring's new wording is the plan's (the spec says the docstring "gains the restore step and says `review` now means an original word was lost by the trim"); (3) Task 2 also updates the spec's Rulings and this plan's changes section, and findings §3 also carries the spec's ceilings and the slice 26 carried-forward items; spec §4's docs list names neither; (4) findings §2 is written before the live check as a placeholder.
-- Verified before committing this plan: the Step 1 and Step 3 edits were applied to scratch copies of main (each replacement found exactly once). The edited tests against main's code gave 8 failed and 117 passed (the list in Step 2); against the patched code, 125 passed. ruff check, ruff format and `mypy --strict` are clean on the patched products.py and the two test files.
+- Departures from the spec: (1) the new tests' fixture titles and comments beyond what §3 names are the plan's ("Titan Analog Dial" as the second prompt-test product; the first prompt-test product "Walkaroo Boys Sandal"; the comments "The lost "Plain" is restored at the start, then the trim applies.", "A replaced product type ends up as both types (spec ceiling).", "The original "w0" is kept, so nothing is restored ahead of the cut.", the hyphen test's comment, and the integration comment "…loses "boys"; the rule check puts it back after "Walkaroo"."; (2) the docstring's new wording is the plan's (the spec says the docstring "gains the restore step and says `review` now means an original word was lost by the trim or the repeat step"); (3) Task 2 also updates the spec's Rulings and this plan's changes section, and findings §3 also carries the spec's ceilings and the slice 26 carried-forward items; spec §4's docs list names neither; (4) findings §2 is written before the live check as a placeholder; (5) the docstring says only the repeat step or the trim can lose a word after the restore, matching the spec's corrected §2.
+- Verified before committing this plan: the Step 1 and Step 3 edits were applied to scratch copies of main (each replacement found exactly once). The edited tests against main's code gave 8 failed and 118 passed (the list in Step 2); against the patched code, 126 passed (re-verified after the plan review's changes). ruff check, ruff format and `mypy --strict` are clean on the patched products.py and the two test files.
 - Placeholders: none (the `<trailer>` and `<workspace>` are per-session values).
 - Type consistency: `_restore` and `_not_in_keyword` are used with the signatures in Interfaces.
 
