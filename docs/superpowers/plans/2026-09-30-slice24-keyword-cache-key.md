@@ -309,4 +309,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add docs && git commit -m "do
 
 ## Changes made during execution
 
-None yet.
+- Task 1 went as written (commit e077bea), with one difference (from the ledger): "Step 8.3's `-k cached_spelling` test was run twice on the same code (the first run's `tail` cut off the assertion line; the second showed `assert 'kid sandal' == 'kids sandals'`). Otherwise as the brief; ruff rewrapped nothing."
+- Task 2: the controller created the `docs/findings-slice24.md` stub after the user approved it in chat ("Subagent-driven, and yes, create the stub"), as Task 2 says (plan departure 8). The implementer filled it with the Edit tool.
+- Task 2: findings §3 also has three items Step 1 does not name, in the style of findings-slice23 §4: "Parked: none", "Rulings: none" and an "Untested" item (the tests use fixed model output). Findings §1 also records the controller's own run of the product-run file at e077bea (28 passed), from the ledger.
+- No rulings were made during Tasks 1–2; the spec's `## Rulings` says "None."
