@@ -51,29 +51,37 @@ In `run_products`, the run-start session also loads the brand's fresh valid rows
         # keeps its cached spelling across runs and its search is reused.
         # ponytail: spellings that do not share a key ("man slippers")
         # are not merged; rows under an old spelling stay once stale;
-        # loads every fresh valid row of the brand (at most KEYWORD_CAP
-        # per run over SEARCH_TTL_DAYS).
+        # loads every fresh valid row of the brand (every distinct
+        # keyword searched in SEARCH_TTL_DAYS days); a cached spelling
+        # with a brand token can be adopted, since drop_brand_terms runs
+        # on the voted spelling first.
         key_map: dict[str, str] = {}
         with tenant_session(org_id) as s:
-            for row in s.scalars(
+            for cached in s.scalars(
                 select(m.KeywordSearch)
                 .where(
                     m.KeywordSearch.brand_id == brand_id,
                     m.KeywordSearch.searched_at > fresh_after,
                     m.KeywordSearch.error.is_(None),
                 )
-                .order_by(m.KeywordSearch.searched_at.desc())
+                .order_by(
+                    m.KeywordSearch.searched_at.desc(),
+                    m.KeywordSearch.keyword,
+                )
             ):
-                if _current(row):
-                    key_map.setdefault(keyword_key(row.keyword), row.keyword)
+                if _current(cached):
+                    key_map.setdefault(
+                        keyword_key(cached.keyword), cached.keyword
+                    )
 ```
 
-(The plan may place this inside the existing run-start session rather than a second one; either way it runs once per run, before the first batch, with no model call in between.)
+(The plan may place this inside the existing run-start session rather than a second one; either way it runs once per run, before the first batch, with no model call in between. The loop variable is `cached`, not `row`: `run_products` later declares `row: dict[str, Any]` in the same function scope, and mypy --strict rejects a second `row` of another type.)
 
 - What follows without further code: a product whose voted keyword shares a key with a seeded row gets the cached spelling in `p["keyword"]` and `p["keywords"]`; the per-batch lookup then hits on the exact string; no grounded search runs; the stored `keywords` list uses cached spellings.
-- Only rows the lookup would accept are seeded (fresh, no error, current query, current parse), so a stale spelling never wins. If two valid rows share a key, the newest spelling is used (`order_by ... desc()` with `setdefault`).
+- Only rows the lookup would accept are seeded (fresh, no error, current query, current parse), so a stale spelling never wins. If two valid rows share a key, the newest spelling is used, and among rows with the same `searched_at` (one run writes every row with the same `now`) the first by keyword string (`order_by(searched_at.desc(), keyword)` with `setdefault`).
+- A fresh valid row with no titles is a hit today (slice 20 §5 B); with the seeding, every spelling of its phrase adopts it, so a phrase whose search came back empty is not searched again under another spelling within the TTL.
 - Unchanged: the `keyword_search` table and its unique constraint, the lookup's SQL, the insert and its upsert, `keyword_key`, `SEARCH_MICROS`, `KEYWORD_CAP`, R10's budget check.
-- Known ceilings (in the comment above): spellings that do not share a key ("man slippers" against "men slippers") are not merged; rows under an old spelling stay in the table once stale, nothing deletes them; the seed query loads every fresh valid row for the brand, at most `KEYWORD_CAP` (100) per run over `SEARCH_TTL_DAYS`.
+- Known ceilings (in the comment above): spellings that do not share a key ("man slippers" against "men slippers") are not merged; rows under an old spelling stay in the table once stale, nothing deletes them; the seed query loads every fresh valid row for the brand, that is every distinct keyword the brand searched in the last `SEARCH_TTL_DAYS` days (bounded by the products per brand, `MAX_PRODUCTS`, since only first keywords are searched); `drop_brand_terms` runs on the voted spelling before `key_map`, so a cached spelling that contains a brand token (a "crocs sandals" row from before "Crocs" became an alias) can be adopted by a voted "croc sandals" within the TTL.
 
 ### 2. Testing
 
@@ -82,6 +90,7 @@ Integration, `tests/integration/test_products_run.py`:
 - `_fresh_row(owner, org, bid, titles, days=1)` gains `days`, the row's age; callers that do not pass it are unchanged.
 - New test, a cached spelling is adopted: `_seed(owner, org, bid, 1)`; `_fresh_row(owner, org, bid, [{"title": "Kids Sandals for Boys Summer", "domain": "amazon.in", "brand": "", "model": "", "parse": 2}])`; `gen = _generator(keywords=["kid sandal"])`; `engine = FakeEngine()`. After `_run`: `rows[0].keyword == "kids sandals"`, `rows[0].keywords == ["kids sandals"]`, `engine.prompts == []`, `len(searches) == 1`.
 - New test, a stale row's spelling is not adopted: the same, with `_fresh_row(..., days=8)`. After `_run`: `rows[0].keyword == "kid sandal"`, `rows[0].keywords == ["kid sandal"]`, `engine.prompts == [(products.search_query("kid sandal"), "IN", "en")]`, `len(searches) == 2`.
+- New test, a row the lookup would reject is not seeded: the same as the first new test, but the row's title has `"parse": 1`. After `_run`: `rows[0].keyword == "kid sandal"`, `engine.prompts == [(products.search_query("kid sandal"), "IN", "en")]`, `len(searches) == 2`.
 - The existing cache tests (`test_a_fresh_search_is_reused_and_a_stale_one_redone`, `test_a_search_under_the_old_query_is_redone`, `test_a_row_parsed_before_parse_2_is_redone`, `test_a_row_with_no_titles_is_a_hit`, `test_plural_variants_share_one_search`) keep their values: each seeds and votes the same spelling, or no row.
 
 Unit: no new unit test. `_current` is covered through the cache tests, and the seeding is run-level behaviour.
@@ -95,7 +104,9 @@ Run by the controller only with the user's OK at that point, by the live-check p
 - Expected cost: about 6,000 micros ($0.006): 4 flash-lite calls (3 keyword samples and 1 rewrite) and no grounded search, because every one of the 10 products' keys has a fresh valid row (*inferred* from the stored rows; slice 23's re-check measured 5,800 for the same 4 calls plus one search).
 - Each keyword whose key has no fresh valid row adds one grounded search with its parse call, about 38,000 micros.
 - Writes: the job, 10 product rows, `api_key.last_used_at`; no `keyword_search` row if no search runs.
-- Expected, *inferred*, to be compared with what is observed: LC-05's keyword is "mens flip flops" (the fresh valid row's spelling); the other 9 keywords are unchanged; 0 `keyword_search` rows written; `keyword_search` still has 20 rows.
+- Which dev row would be seeded per key, from a read-only query run on 2026-09-30 (fresh, no error, current query and parse): kid sandal → "kids sandals"; kid shoe → "kids shoes"; kid slipper → "kids slippers"; men flip flop → "mens flip flops"; men sandal → "men sandals"; men shoe → "men shoes"; navy flip flop → "navy flip flops"; women sandal → "women sandals"; women slipper → "women slippers". Every singular-spelling row ("kids sandal", "kids shoe", "kids slipper", "mens sandal", "womens sandal", "women slipper", "boys sandal", "boys shoe", "girls sandal", "men slipper", "men shoe") and the "men flip flops" row fail the current-query or parse test, so none is seeded. These expectations lapse at 2026-10-06 13:10 UTC, when the 2026-09-29 rows go stale.
+- Expected, *inferred* from that, to be compared with what is observed: LC-05's keyword is "mens flip flops"; the other 9 keywords are unchanged; 0 `keyword_search` rows written; `keyword_search` still has 20 rows.
+- What the re-check shows: no regression and a low cost. It cannot tell this slice from main, because in slice 23's re-check the model already voted every cached spelling, LC-05's included; only the integration tests show the adoption. A different result would appear only if the model voted another spelling on the day (for example "men flip flops"), in which case main would run a search and this slice would not.
 
 ## Rulings
 
