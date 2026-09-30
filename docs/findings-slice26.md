@@ -39,7 +39,8 @@ Slice 25's live check stored the rewrite call's raw titles: all 10 ended with th
 | 7a55220 | docs: slice 26 findings: section 4 lead-in |
 | d241a8e | docs: slice 26 process audit corrections |
 | 92c3efc | docs: slice 26 audit corrections: review fixes |
-| (this commit) | docs: slice 26 live check |
+| 33e0ffc | docs: slice 26 live check |
+| (this commit) | docs: slice 26 live check: review fixes |
 
 ## 2. Probes
 
@@ -60,7 +61,7 @@ Run on 2026-09-30 by the controller on main at ef71baf (after PR #48 merged), wi
 - The API was started in the background. `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/products/run` returned HTTP 202 and queued job `375e6521-2071-4218-b6a8-c5fc53c340ef`. The API was then stopped (background task exit 144, as expected); exactly one job was queued. `process_job` ran once and returned `True`; the worker loop was not started.
 - Job `375e6521`: status done, error null, `cost_micros = 6,545` (the spec's estimate was about 6,600), created 17:16:11, started 17:16:20 UTC.
 - No grounded search ran: `keyword_search` still has 20 rows and its newest `searched_at` is still 2026-09-30 09:27:13.
-- Writes observed: the job row, the 10 product rows, and `api_key.last_used_at` = 17:16:11 UTC. Afterwards: 0 queued or running jobs, no uvicorn or worker process; 10 `product_run` jobs totalling 1,657,106 micros. Spend is about $10.98 of the $15 cap ($10.9710 + $0.0065 = $10.9775).
+- Writes observed: the job row, the 10 product rows, and `api_key.last_used_at` = 17:16:11 UTC. Afterwards: 0 queued or running jobs, no uvicorn or worker process; 10 `product_run` jobs totalling 1,657,106 micros. Spend is about $10.98 of the $15 cap (slice 25's $10.9530 + probes' $0.0180 + this job's $0.0065 = $10.9775).
 
 **Per product** (observed by read-only queries after the job):
 
@@ -81,9 +82,8 @@ All 10 keywords are the same as after slice 25's run (docs/findings-slice25.md �
 
 What the stored values show:
 - Observed: LC-01 and LC-02's raw titles repeat the type word ("Sandals" … "Sandal"); each suggested title is the raw title without the final "Sandal", and the status is `pass`. These two are the new rule at work: under slice 25's rule the same pair gave `adjusted` (docs/findings-slice25.md §2, the same raw titles).
-- Observed: LC-03 to LC-10's raw titles have no repeat and equal their suggested titles, so they are `pass` under either rule. In this run the rewrite kept each title's own singular type word ("Sports Shoe", "Flip Flop") instead of adding the keyword's plural, unlike slice 25's run, where all 10 raw titles repeated it.
+- Observed: LC-03 to LC-10's raw titles have no repeat and equal their suggested titles. *Inferred* from the code: they are `pass` under either rule, since `rule_check` gives `pass` when the final title equals the suggestion. In this run the rewrite kept each title's own singular type word ("Sports Shoe", "Flip Flop") instead of adding the keyword's plural, unlike slice 25's run, where all 10 raw titles repeated the type word.
 - *Inferred*: the rewrite call's output varies between runs (as in both probes), so how many products show the repeat, and so how many depend on the new rule, varies too.
-
 
 ## 4. Deferred and untested
 
