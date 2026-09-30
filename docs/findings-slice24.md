@@ -43,7 +43,8 @@ All code changes are in `packages/core/bsi_core/products.py`. No migration, sche
 | 421e89c | docs: slice 24 plan review fixes |
 | e077bea | feat(products): reuse one cached search per keyword phrase across runs |
 | 0530ecc | docs: slice 24 findings, index and rulings |
-| (this commit) | docs: slice 24 findings wording fixes |
+| 20c907b | docs: slice 24 findings wording fixes |
+| (this commit) | docs: slice 24 findings: final-review minors |
 
 ## 2. Live check on dev
 
@@ -53,7 +54,14 @@ Not yet run. The controller runs it after the user approves; results are recorde
 
 From the task reviews (ledger lines tagged `minor (deferred)`):
 - Task 1: the spec §1 order rule (newest valid row wins; with equal searched_at the first keyword string) has no test; dropping `.desc()` or the secondary sort key would fail no test (test_products_run.py:454-510).
+  - Note (not ledger text; from the final review): the range is test_products_run.py:454-503. The new tests end at line 503, and line 506 starts `test_the_rewrite_cannot_add_an_invented_word`.
 - Task 1: the gate output carries 2 third-party warnings (StarletteDeprecationWarning from fastapi/testclient.py:1; DeprecationWarning from starlette/testclient.py:53, the anyio BlockingPortal alias); pre-existing on main; not caused by this diff.
+
+From the final whole-branch review (ledger lines tagged `minor (deferred)`):
+- findings §3's first bullet (and the ledger's Task 1 minor it quotes) cites test_products_run.py:454-510; the new tests end at line 503 and line 506 starts test_the_rewrite_cannot_add_an_invented_word. Controller: the ledger line is a record and stays; the findings get a note after the quoted line.
+  - Corrected in this commit: the range is 454-503.
+- the spec's §1 prose says the run-start session loads the seed while its parenthetical allows a second session; plan departure 3 records the choice (a second session). Spec wording only.
+- the live check is not yet run; findings §2 and the README row say so; they must be updated if it runs before merge.
 
 Parked: none. The ledger has no parked lines.
 
