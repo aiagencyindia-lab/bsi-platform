@@ -35,7 +35,8 @@ Slice 25's live check stored the rewrite call's raw titles: all 10 ended with th
 | f7d215f | docs: slice 26 plan: list the carried-forward items as a departure |
 | 9a0a537 | feat(products): a removed repeat is not an adjustment |
 | e8b2589 | docs: slice 26 findings, index and notes |
-| (this commit) | docs: slice 26 findings: final-review minors |
+| ce2ef77 | docs: slice 26 findings: final-review minors |
+| (this commit) | docs: slice 26 findings: section 4 lead-in |
 
 ## 2. Probes
 
@@ -54,7 +55,7 @@ Not yet run. The controller runs it after the user approves; results are recorde
 
 ## 4. Deferred and untested
 
-From the task reviews (ledger lines tagged `minor (deferred)`):
+From the task reviews and the final review (ledger lines tagged `minor (deferred)`):
 - "Task 1: minor (deferred): no test pins the spacing-only case (a suggestion that differs only in spacing now gives pass because plain is re-joined with single spaces; spec §1 states it)."
 - "Task 1: minor (deferred): a suggestion whose only faults are a repeat and a trailing connector still gives adjusted (plain is not connector-stripped; spec §1 states the connector strip counts)."
 - "Task 2: minor (deferred): findings-slice26 §2's "Why the prompt route was not built" paragraph copies the spec's decisions list almost word for word without quotation marks."
