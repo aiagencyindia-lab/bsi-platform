@@ -41,11 +41,41 @@ Backend gate (Task 1, b21919b), from `gate-task1.txt` (the whole chain redirecte
 | b2fe6cb | docs: slice 27 plan review fixes |
 | b21919b | feat(products): restore dropped words; keep keyword words out of the rewrite's missing list |
 | ae747b5 | docs: slice 27 findings, index and notes |
-| (this commit) | docs: slice 27 findings: final-review fixes |
+| d699646 | docs: slice 27 findings: final-review fixes |
+| 8c31f13 | docs: slice 27 live check, rulings and process audit |
+| 67b006e | docs: slice 27 post-merge docs: review fixes |
+| (this commit) | docs: slice 27 post-merge docs: R1 wording |
 
 ## 2. Live check on dev
 
-Not yet run. The controller runs it after the user approves; results are recorded here then.
+Run on 2026-10-01 IST (19:55 UTC on 2026-09-30) by the controller on main at b57e3f7 (after PR #50 merged), with the user's OK ("run the live check").
+
+- Pre-check (read-only): dev at migration 0021; no uvicorn, worker or pytest process; 0 queued or running jobs; `keyword_search` had 20 rows, the newest searched 2026-09-30 09:27:13 UTC; 10 prior `product_run` jobs totalling 1,657,106 micros; all 10 products had status `pass` (from slice 26's run); stored missing words LC-01/02 "kid", LC-09 "kids", LC-10 "footbed".
+- The API was started in the background. `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/products/run` returned HTTP 202 and queued job `988b8979-72a3-4dd2-b808-425e49a20f61`. The API was then stopped (background task exit 144, as expected); exactly one job was queued. `process_job` ran once and returned `True`; the worker loop was not started.
+- Job `988b8979`: status done, error null, `cost_micros = 6,446` (the spec's estimate was about 6,600), created 19:55:06, started 19:55:15 UTC.
+- No grounded search ran: `keyword_search` still has 20 rows and its newest `searched_at` is still 2026-09-30 09:27:13.
+- Writes observed: the job row, the 10 product rows, and `api_key.last_used_at` = 19:55:06 UTC. Afterwards: 0 queued or running jobs, no uvicorn or worker process; 11 `product_run` jobs totalling 1,663,552 micros. Spend is about $10.98 of the $15 cap (slice 26's $10.9775 + this job's $0.0064 = $10.9839).
+
+**Per product** (observed by read-only queries after the job):
+
+| Product | Original title | Keyword | Missing (stored) | Raw title | Suggested title | Status | Dropped |
+|---|---|---|---|---|---|---|---|
+| LC-01 | BSOAgentTestBrand Boys Sandal Blue | kids sandals | kid | BSOAgentTestBrand Blue Boys Kids Sandals | (same) | pass | (none) |
+| LC-02 | BSOAgentTestBrand Girls Sandal Pink | kids sandals | kid | BSOAgentTestBrand Pink Girls Kids Sandals | (same) | pass | (none) |
+| LC-03 | BSOAgentTestBrand Kids Sports Shoe Black | kids shoes | (none) | BSOAgentTestBrand Black Kids Sports Shoes | (same) | pass | (none) |
+| LC-04 | BSOAgentTestBrand Kids Slipper Grey | kids slippers | (none) | BSOAgentTestBrand Grey Kids Slippers | (same) | pass | (none) |
+| LC-05 | BSOAgentTestBrand Men Flip Flop Navy | mens flip flops | (none) | BSOAgentTestBrand Navy Mens Flip Flops | (same) | pass | (none) |
+| LC-06 | BSOAgentTestBrand Men Casual Sandal Brown | men sandals | (none) | BSOAgentTestBrand Brown Men Casual Sandals | (same) | pass | (none) |
+| LC-07 | BSOAgentTestBrand Women Casual Slipper Beige | women slippers | (none) | BSOAgentTestBrand Beige Women Slippers | BSOAgentTestBrand Beige Women Casual Slippers | adjusted | (none) |
+| LC-08 | BSOAgentTestBrand Men Sports Shoe Grey | men shoes | (none) | BSOAgentTestBrand Grey Men Sports Shoes | (same) | pass | (none) |
+| LC-09 | BSOAgentTestBrand Boys School Shoe Black | kids shoes | kids | BSOAgentTestBrand Black Boys Kids Shoes | BSOAgentTestBrand Black Boys School Kids Shoes | adjusted | (none) |
+| LC-10 | BSOAgentTestBrand Women Sandal Tan | women sandals | footbed | BSOAgentTestBrand Tan Women Sandals | (same) | pass | (none) |
+
+What the stored values show:
+- Observed: LC-07's raw title lacks the original word "Casual" and LC-09's lacks "School"; each suggested title has the word back, after the nearest earlier original word still in the title ("Women", "Boys"), with status `adjusted` and no dropped words. These are the first dropped words seen with a merged rewrite prompt (0 of 50 rewrites with the prompt before this slice; docs/superpowers/specs/2026-09-30-slice27-overlap-restore-design.md, Context); this run used slice 27's prompt. *Inferred* from the code: before this slice both would have been `review` with ["casual"] and ["school"].
+- Observed: LC-01's and LC-02's raw titles have "Kids" and no "Kid", and LC-09's has "Kids" once; the stored missing words ("kid", "kids", "footbed") are unchanged, as the spec says. *Inferred*: the prompt no longer lists "kid" or "kids" for these products (`_not_in_keyword`); one run cannot show whether that changes how often the model writes both forms.
+- Observed: LC-10's raw title does not add the missing word "footbed" and equals its suggested title; status `pass`. *Inferred* from the code: the prompt still lists "footbed" (`_not_in_keyword` keeps it), and `pass` follows because the final title equals the suggestion.
+
 
 ## 3. Deferred and untested
 
@@ -67,6 +97,10 @@ The final review triaged these 8 deferred minors: "Final review: Ready to merge 
 Parked: none. The ledger has no parked lines.
 
 Rulings: none.
+
+Correction (2026-10-01, after merge): the ledger records two rulings, also in the spec's `## Rulings`, both recorded after the docs task (R1 made after the fix wave; R2 made at the end of planning but not named as a ruling until the process audit):
+- **R1: a doubled period in the plan is left unfixed.** Decided: the plan's Task 2 changes bullet ends `stays "None.".` (doubled punctuation, introduced by the fix wave, d699646; the ledger calls it pre-existing, but ae747b5's bullet ended `stays "None." (this commit)`); it is left as is. Found by the final fix wave's re-review (a trivial nit). Why: the skill allows no second fix wave, and deferring it into findings would need another findings commit. Cost if wrong: one stray period in the plan. Named in chat and ledgered when made; recorded here in the post-merge docs commit.
+- **R2: the plan re-review's two optional wording points were left unapplied.** Decided: at the end of planning, the plan re-review's optional points (the self-review line could also name the hyphen test; departure (5) overlaps departure (2)) were not applied. Found by the plan re-review. Why: applying them would need another review round for no change in substance. Cost if wrong: two small wording imprecisions in the plan. Disclosed in chat when made but not named as a ruling until the process audit; ledgered after the audit.
 
 Ceilings (spec §2, approved):
 - A replaced product type ends up as both types, `adjusted`: "Tape Shoes" for "Red Tape Boots" gives "Red Tape Boots Shoes"; "Navy Men Slipper" for "Men Flip Flop Navy" gives "Navy Men Flip Flop Slipper".
@@ -94,3 +128,15 @@ Untested (spec §2 examples no test pins; checked with grep against tests/unit/t
 - The function-word anchor ("Sandal with Casual Look" giving "Look with Casual Sandal").
 - The page, API and CSV side of the "no longer show which word was dropped" ceiling: only the stored row is pinned (the integration test's `("adjusted", [])`); the consumers are unchanged in code.
 - The trim cutting the keyword after a restore: `test_rule_check_trims_to_150_at_a_word_boundary` pins a restore that moves the cut (`adjusted`, lost `[]`) with synthetic words, not with a keyword at the end.
+
+## 4. Process audit
+
+On 2026-10-01, after the finishing menu, the user asked "check if you have done all task correctly and follow each step" and then said "fix it". The audit found:
+- The first scope question marked "tidy the missing list" as recommended before the controller had read the tests that make keyword words in the missing list deliberate; the controller then found them, told the user, and asked again.
+- For the overlap's re-ask, the three approaches were described only inside the question, with no chat message comparing them (the dropped-words approaches did have one).
+- Leaving the plan re-review's two optional wording points unapplied was a ruling that was not named when made; it is now R2 (§3 and the spec).
+- R1 and R2 were recorded after the docs task (R1 in the ledger and at the finishing menu; R2 in the ledger after the audit), so the controller put them in the spec and findings in this post-merge commit, rather than making a controller commit on the branch after the fix wave.
+- R1 was first described (in chat and the ledger) as leaving a pre-existing doubled period unfixed; the PR description said only "a doubled period in the plan"; the post-merge docs review found the fix wave had introduced it. R1's text here and in the spec is corrected; a note appended to the ledger records it.
+- The plan reviewer created and deleted three scratch files outside the repo, against its read-only rule; it disclosed this, the controller told the user, and the next dispatch forbade creating files.
+
+The controller's process notes in memory were updated with these points. No code changed.
