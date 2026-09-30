@@ -23,6 +23,8 @@ The user chose option 1.
 
 Correction to the approaches message (2026-10-01): it said option 2's 4 kept rows "could still be reused until tomorrow", and a later message said a new run "could still reuse" the 11. Both were wrong: none of the 11 could be seeded or reused, because each failed `_current` (the 10 from 2026-09-25 had the old query wording; "men flip flops" had no `parse` key) and "men shoe" also held an error. docs/superpowers/specs/2026-09-30-slice24-keyword-cache-key-design.md §3 Dev re-check had recorded this. After the process audit the choice was asked again with the corrected fact, and the user confirmed option 1.
 
+Correction to the approaches message and the re-ask (2026-10-01): both gave one stale time for all 11 rows ("searched on 2026-09-25 at 18:36 UTC", "would have gone stale on 2026-10-02"). That holds for 10 of them; "men flip flops", searched 2026-09-29 11:23 UTC, would have gone stale at 2026-10-06 11:23 UTC.
+
 ## Design
 
 - A `DO` block run as `bsi_owner` (which bypasses RLS) deletes the brand's rows whose keyword is one of the 11, raises unless `ROW_COUNT` is 11, and so rolls back on any other count.
@@ -44,7 +46,9 @@ Observed: `NOTICE: deleted 11 rows`; 9 rows remain (the 8 current first keywords
 - **R7: the note says "navy flip flops" is kept though no product uses it.** Decided: add that line. Found by the controller checking `product.keyword`. Why: it corrects the chat claim that the 9 kept rows were the ones current products use. Cost if wrong: none. Not named when made; named at the process audit.
 - **R8: the re-review's Important finding was fixed.** Decided: afc15b1 replaced "the run-start seed could still load the valid ones" with "none could be seeded or reused", citing the slice 24 spec. Found by the re-review of 41f2235. Why: the text was wrong, and R1's wording had introduced it. Cost if wrong: none. Not named when made; named at the process audit.
 - **R9: the user's "option 1, delete all 11" was taken as the go-ahead for the dev write.** Decided: run the delete on that reply. Found by the controller. Why: the approaches message said the answer would also be the go-ahead. Cost if wrong: an unapproved dev write. Said in chat, but not named as a ruling until the process audit.
-- **R10: this spec, the findings link and the README row go on the same branch, `keyword-search-cleanup`.** Decided at the process audit. Why: the fixes belong to the same change. Cost if wrong: none. Named in chat when made.
+- **R10: this spec, the findings link and the README row go on the same branch, `keyword-search-cleanup`.** Decided: add them to the open branch rather than a new one. Found by the controller at the process audit. Why: the fixes belong to the same change. Cost if wrong: none. Named in chat when made.
+
+- **R11: the spec review's two minor points were applied.** Decided: correct the one stale time given for all 11 rows, and give R10 the "Decided / Found by" form. Found by the review of b53150c. Why: one was a factual error, the other a format gap. Cost if wrong: none. Named in chat when made.
 
 ## Out of scope
 
