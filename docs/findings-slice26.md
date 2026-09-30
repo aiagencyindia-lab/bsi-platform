@@ -38,7 +38,8 @@ Slice 25's live check stored the rewrite call's raw titles: all 10 ended with th
 | ce2ef77 | docs: slice 26 findings: final-review minors |
 | 7a55220 | docs: slice 26 findings: section 4 lead-in |
 | d241a8e | docs: slice 26 process audit corrections |
-| (this commit) | docs: slice 26 audit corrections: review fixes |
+| 92c3efc | docs: slice 26 audit corrections: review fixes |
+| (this commit) | docs: slice 26 live check |
 
 ## 2. Probes
 
@@ -53,7 +54,36 @@ Probe cost: 11,211 + 6,757 = 17,968 micros. Spend so far is about $10.97 of the 
 
 ## 3. Live check on dev
 
-Not yet run. The controller runs it after the user approves; results are recorded here then.
+Run on 2026-09-30 by the controller on main at ef71baf (after PR #48 merged), with the user's OK ("run the live check").
+
+- Pre-check (read-only): dev at migration 0021; no uvicorn, worker or pytest process; 0 queued or running jobs; `keyword_search` had 20 rows, the newest searched 2026-09-30 09:27:13 UTC; 9 prior `product_run` jobs totalling 1,650,561 micros; all 10 products had status `adjusted` (from slice 25's run).
+- The API was started in the background. `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/products/run` returned HTTP 202 and queued job `375e6521-2071-4218-b6a8-c5fc53c340ef`. The API was then stopped (background task exit 144, as expected); exactly one job was queued. `process_job` ran once and returned `True`; the worker loop was not started.
+- Job `375e6521`: status done, error null, `cost_micros = 6,545` (the spec's estimate was about 6,600), created 17:16:11, started 17:16:20 UTC.
+- No grounded search ran: `keyword_search` still has 20 rows and its newest `searched_at` is still 2026-09-30 09:27:13.
+- Writes observed: the job row, the 10 product rows, and `api_key.last_used_at` = 17:16:11 UTC. Afterwards: 0 queued or running jobs, no uvicorn or worker process; 10 `product_run` jobs totalling 1,657,106 micros. Spend is about $10.98 of the $15 cap ($10.9710 + $0.0065 = $10.9775).
+
+**Per product** (observed by read-only queries after the job):
+
+| Product | Keyword | Raw title | Suggested title | Status | Dropped |
+|---|---|---|---|---|---|
+| LC-01 | kids sandals | BSOAgentTestBrand Blue Kid Sandals Boys Sandal | BSOAgentTestBrand Blue Kid Sandals Boys | pass | (none) |
+| LC-02 | kids sandals | BSOAgentTestBrand Pink Kid Sandals Girls Sandal | BSOAgentTestBrand Pink Kid Sandals Girls | pass | (none) |
+| LC-03 | kids shoes | BSOAgentTestBrand Black Kids Sports Shoe | (same) | pass | (none) |
+| LC-04 | kids slippers | BSOAgentTestBrand Grey Kids Slipper | (same) | pass | (none) |
+| LC-05 | mens flip flops | BSOAgentTestBrand Navy Men Flip Flop | (same) | pass | (none) |
+| LC-06 | men sandals | BSOAgentTestBrand Brown Men Casual Sandal | (same) | pass | (none) |
+| LC-07 | women slippers | BSOAgentTestBrand Beige Women Casual Slipper | (same) | pass | (none) |
+| LC-08 | men shoes | BSOAgentTestBrand Grey Men Sports Shoe | (same) | pass | (none) |
+| LC-09 | kids shoes | BSOAgentTestBrand Black Kids Boys School Shoe | (same) | pass | (none) |
+| LC-10 | women sandals | BSOAgentTestBrand Tan Women Footbed Sandal | (same) | pass | (none) |
+
+All 10 keywords are the same as after slice 25's run (docs/findings-slice25.md §2).
+
+What the stored values show:
+- Observed: LC-01 and LC-02's raw titles repeat the type word ("Sandals" … "Sandal"); each suggested title is the raw title without the final "Sandal", and the status is `pass`. These two are the new rule at work: under slice 25's rule the same pair gave `adjusted` (docs/findings-slice25.md §2, the same raw titles).
+- Observed: LC-03 to LC-10's raw titles have no repeat and equal their suggested titles, so they are `pass` under either rule. In this run the rewrite kept each title's own singular type word ("Sports Shoe", "Flip Flop") instead of adding the keyword's plural, unlike slice 25's run, where all 10 raw titles repeated it.
+- *Inferred*: the rewrite call's output varies between runs (as in both probes), so how many products show the repeat, and so how many depend on the new rule, varies too.
+
 
 ## 4. Deferred and untested
 
