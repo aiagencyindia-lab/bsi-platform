@@ -875,6 +875,15 @@ def search_query(keyword: str) -> str:
     )
 
 
+def _current(row: m.KeywordSearch) -> bool:
+    """A cache row the run can use: the current query wording and every
+    title parsed by the current titles_prompt (TITLES_PARSE). Age and
+    errors are checked in SQL."""
+    return row.query == search_query(row.keyword) and all(
+        t.get("parse") == TITLES_PARSE for t in row.titles
+    )
+
+
 def titles_prompt(keyword: str, text: str, domains: Sequence[str]) -> str:
     """Parse a grounded answer into the product titles it names."""
     return (
@@ -988,8 +997,33 @@ def run_products(
                 )
             ]
         # One keyword string per key for the whole run, so plural and
-        # possessive variants share one search and one cache row.
+        # possessive variants share one search and one cache row. Seeded
+        # from the brand's fresh cache rows (newest first), so a phrase
+        # keeps its cached spelling across runs and its search is reused.
+        # ponytail: spellings that do not share a key ("man slippers")
+        # are not merged; rows under an old spelling stay once stale;
+        # loads every fresh valid row of the brand (every distinct
+        # keyword searched in SEARCH_TTL_DAYS days); a cached spelling
+        # with a brand token can be adopted, since drop_brand_terms runs
+        # on the voted spelling first.
         key_map: dict[str, str] = {}
+        with tenant_session(org_id) as s:
+            for cached in s.scalars(
+                select(m.KeywordSearch)
+                .where(
+                    m.KeywordSearch.brand_id == brand_id,
+                    m.KeywordSearch.searched_at > fresh_after,
+                    m.KeywordSearch.error.is_(None),
+                )
+                .order_by(
+                    m.KeywordSearch.searched_at.desc(),
+                    m.KeywordSearch.keyword,
+                )
+            ):
+                if _current(cached):
+                    key_map.setdefault(
+                        keyword_key(cached.keyword), cached.keyword
+                    )
         for batch in _batches(products):
             # R12: at least one batch, so every run makes progress.
             if done and clock() - start > PRODUCT_JOB_SECONDS:
@@ -1077,8 +1111,7 @@ def run_products(
                     )
                     # a row from an older query wording, or parsed by an
                     # older titles_prompt (TITLES_PARSE), is searched again
-                    if row.query == search_query(row.keyword)
-                    and all(t.get("parse") == TITLES_PARSE for t in row.titles)
+                    if _current(row)
                 )
                 new = [k for k in ordered if k not in titles_by_kw]
                 new = new[: max(KEYWORD_CAP - searched, 0)]
