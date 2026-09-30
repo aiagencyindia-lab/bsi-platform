@@ -40,7 +40,7 @@ All code changes are in `packages/core/bsi_core/products.py`. No prompt, schema,
   - Task 2 (d072568): ruff and mypy clean; 1536 passed, 2 deselected, 2 warnings; metrics coverage 100%.
   - Task 4 (0d99220): ruff and mypy clean; 1539 passed, 2 deselected, 2 warnings; metrics coverage 100%.
   - The 2 warnings in all three runs: `StarletteDeprecationWarning` (fastapi/testclient.py:1) and the anyio `BlockingPortal` alias `DeprecationWarning` (starlette/testclient.py:53).
-  - The controller's own full gates run at finishing.
+  - The controller's gates at 9e8504f: backend ruff format (168 files left unchanged), ruff check "All checks passed!", ruff format --check "168 files already formatted", mypy "Success: no issues found in 29 source files", pytest "1539 passed, 2 deselected, 2 warnings in 195.72s", metrics 100.00%; web: Test Files 6 passed (6), Tests 42 passed (42), "Compiled successfully".
 
 **Commits** (`git log --oneline main..HEAD`, oldest first):
 
@@ -61,7 +61,8 @@ All code changes are in `packages/core/bsi_core/products.py`. No prompt, schema,
 | 4ed4f16 | docs: slice 23 R3 cost, Task 4 files and coverage row, changes bullet |
 | 0d99220 | fix(products): search the title's type when the guard would leave the category's |
 | 9e8504f | docs: slice 23 findings quote R2 and R3 as recorded |
-| (this commit) | docs: slice 23 findings quote R1 as recorded |
+| 17d3162 | docs: slice 23 findings quote R1 as recorded |
+| (this commit) | docs: slice 23 live check |
 
 ## 2. The probes
 
@@ -102,7 +103,41 @@ What the probes show:
 
 ## 3. Live check on dev
 
-Not yet run. The controller runs it after the user approves; results are recorded here then.
+Run on 2026-09-30 by the controller at 17d3162, with the user's OK ("run the dev re-check first"). Dev was at migration 0020; no migration was needed.
+
+- Pre-check: no worker or uvicorn process, 0 queued or running jobs, 6 prior `product_run` jobs totalling 1,593,777 micros. The 7 other keywords' `keyword_search` rows were searched 2026-09-29 13:10:34 UTC; the "men flip flops" row was searched 2026-09-29 11:23:05 UTC.
+- The API was started in the background. `POST /v1/brands/34db213a-f484-4991-a969-c52cfa5e1c10/products/run` returned HTTP 202 and queued job `ec137947-0b65-4b20-9628-711feb7875f1`. The API was then stopped (background task exit 144, expected). Exactly 1 job was queued, and `process_job` was run once (it printed `True`).
+- Job `ec137947`: status done, error null, `cost_micros = 43,790` (the estimate was about 44,000), created 09:27:03, started 09:27:13 UTC (2026-09-30).
+- One grounded search ran: 1 `keyword_search` row was written in the last 30 minutes, "mens flip flops", searched 09:27:13 UTC, error null. It ran because the string differs from the cached "men flip flops" row. Its 5 titles: "Clarks Pilton Posts", "Gucci Web And Leather Thong Sandal", "Havaianas Top", "Nike Kepa Kai Slides", "Teva Langdon".
+- Afterwards: 0 queued or running jobs, and no worker or uvicorn process.
+
+**Per product** (observed by read-only queries after the job):
+
+| Product | Keyword | Keywords | Missing words | Suggested title | Status | Dropped words |
+|---|---|---|---|---|---|---|
+| LC-01 | kids sandals | kids sandals, lightweight sandals, eva sandals, strap sandals, boys sandals | kid | BSOAgentTestBrand Blue Kid Sandals Boys | adjusted | (none) |
+| LC-02 | kids sandals | kids sandals, soft sandals, padded sandals, girls sandals, flat sandals | kid | BSOAgentTestBrand Pink Kid Sandals Girls | adjusted | (none) |
+| LC-03 | kids shoes | kids shoes, running shoes, mesh shoes, sports shoes, kids sports shoes | (none) | BSOAgentTestBrand Black Kids Sports Shoe | pass | (none) |
+| LC-04 | kids slippers | kids slippers, daily wear slippers, anti-skid flip flops, kids flip flops, flip flops | (none) | BSOAgentTestBrand Grey Kids Slippers | adjusted | (none) |
+| LC-05 | mens flip flops | mens flip flops, cushioned flip flops, daily use flip flops, flip flops, men slippers | (none) | BSOAgentTestBrand Navy Mens Flip Flops | adjusted | (none) |
+| LC-06 | men sandals | men sandals, men casual sandals, adjustable sandals, casual sandals, floater sandals | (none) | BSOAgentTestBrand Brown Men Sandals Casual | pass | (none) |
+| LC-07 | women slippers | women slippers, women casual slippers, soft strap slippers, comfortable slippers, casual slippers | (none) | BSOAgentTestBrand Beige Women Slippers Casual | pass | (none) |
+| LC-08 | men shoes | men shoes, running shoes, lace-up shoes, cushioned shoes, sports shoes | (none) | BSOAgentTestBrand Grey Men Shoes Sports | pass | (none) |
+| LC-09 | kids shoes | kids shoes, school shoes, velcro shoes, boys school shoes, boys shoes | kids | BSOAgentTestBrand Black Kids School Shoe Boys | pass | (none) |
+| LC-10 | women sandals | women sandals, flat sandals, cushioned sandals, casual sandals, womens flat sandals | footbed | BSOAgentTestBrand Tan Women Sandal Footbed | pass | (none) |
+
+**Against spec §4's *inferred* expectations:**
+- LC-05's keyword is "mens flip flops", not "men flip flops" (same `keyword_key`; the model's own spelling "mens" was stored). *Inferred*: the model offered "mens flip flops" and it was used in its own spelling (by `title_first`'s offered-spelling rule or directly as the first title fit); the raw samples are not stored, so which path is not known.
+- The other 9 keywords are unchanged.
+- No stored `keywords` list contains a colour or size word (a read-only regex query over `product.keywords` returned 0 products).
+
+**Observations.**
+- `rule_check` statuses: 4 adjusted (LC-01, LC-02, LC-04, LC-05), 6 pass; slice 22's check had 10 adjusted. *Inferred*: the rewrite call varies between runs.
+- LC-05's suggestion is "BSOAgentTestBrand Navy Mens Flip Flops" (the original's "Men" and "Flip Flop" kept as "Mens" and "Flip Flops"), status adjusted, dropped none.
+
+**Spend:** about $10.90 + $0.0438 ≈ $10.94 of the $15 cap.
+
+**Writes:** the job row, 10 product rows, 1 `keyword_search` row ("mens flip flops") and `api_key.last_used_at`.
 
 ## 4. Deferred and untested
 
