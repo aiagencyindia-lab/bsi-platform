@@ -253,4 +253,5 @@ def label(code: str) -> str:
 
 ## Changes made during execution
 
-(Filled by Task 2 from the ledger.)
+- Task 1 (5f6c199): went as written. The ledger records: "report: Step 2 unit ImportError (AUDIT_LABEL), integration 4 failed, 26 passed (the 4 named); Step 4 40 passed; Step 5 gate exit 0, 1554 passed, 2 deselected, 2 warnings, metrics 100%; banned-word grep no match"; the review "✅ Spec compliant; Task quality: Approved; 0 Critical, 0 Important, 1 Minor", deferred (quoted in docs/findings-slice30.md §3); and one controller check, "⚠️ resolved by controller: the 5f6c199 commit trailer is "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" (git log -1 --format=%B before the review); the red/green/gate runs are the report's record". No departures and no tool refusals.
+- Task 2: the controller created the one-line stub `docs/findings-slice30.md` before dispatch, as this plan says. The ledger records two rulings, made before execution: R6 (the plan review's three minor points, commit 4dac8f1) and R7 (the "Verified before committing" line left unchanged); Step 4 added both after R5 in the spec's Rulings, and findings §3 quotes their ledger lines. One Edit call on docs/findings-slice17.md was rejected because the file had not yet been read in the session; the implementer read the file and repeated the same Edit. No departures. (this commit)
