@@ -22,6 +22,7 @@ class TokenLimiter:
     ) -> None:
         self.limit, self.window, self.clock = limit, window, clock
         self._seen: dict[str, tuple[int, int]] = {}
+        self._swept = -1
         self._lock = threading.Lock()
 
     def check(self, key: str) -> int | None:
@@ -30,11 +31,13 @@ class TokenLimiter:
         now = self.clock()
         index = int(now // self.window)
         with self._lock:
-            if len(self._seen) > MAX_KEYS:
-                # A soft cap: keys seen in this window stay until the next.
+            if len(self._seen) > MAX_KEYS and self._swept != index:
+                # A soft cap, swept at most once per window: keys seen in
+                # this window stay until the next.
                 self._seen = {
                     k: v for k, v in self._seen.items() if v[0] == index
                 }
+                self._swept = index
             start, count = self._seen.get(key, (index, 0))
             if start != index:
                 count = 0
