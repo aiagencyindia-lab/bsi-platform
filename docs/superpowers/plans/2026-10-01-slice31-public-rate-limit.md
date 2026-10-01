@@ -102,7 +102,7 @@ def test_public_routes_are_rate_limited_per_token(
     from bsi_api.ratelimit import TokenLimiter
 
     org, bid = _scene(owner, make_org, make_brand)
-    client.app.state.public_limiter = TokenLimiter(2, 60)
+    client.app.state.public_limiter = TokenLimiter(2, 60, lambda: 1_000.0)
     tok, other = (
         client.post(
             f"/v1/brands/{bid}/reports/{t}/runs", headers=org.headers
@@ -116,14 +116,15 @@ def test_public_routes_are_rate_limited_per_token(
     body = r.json()
     assert body["title"] == "Too many requests" and body["status"] == 429
     assert body["detail"] == "" and body["errors"] == []
-    assert 1 <= int(r.headers["retry-after"]) <= 60
+    # A fixed clock: the window [960, 1020) has 20 s left (R5).
+    assert r.headers["retry-after"] == "20"
     assert r.headers["x-request-id"] == body["request_id"]
     assert "nike" not in r.text.lower()
     # Another token has its own budget.
     assert client.get(f"/v1/r/{other}").status_code == 200
 ```
 
-- [ ] **Step 2: Run them to see them fail.** `pgrep -fl pytest` (expect nothing), then `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/unit/test_ratelimit.py`: expected a collection error (`ModuleNotFoundError: No module named 'bsi_api.ratelimit'`). Then `uv run pytest -q tests/integration/test_api_reports.py`: expected `1 failed, 13 passed` with `test_public_routes_are_rate_limited_per_token` failing on `ModuleNotFoundError`. If a result differs, stop and report it; do not change a test's expected values.
+- [ ] **Step 2: Run them to see them fail.** `pgrep -fl pytest` (expect nothing), then `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/unit/test_ratelimit.py`: expected a collection error (`ImportError: cannot import name 'ratelimit' from 'bsi_api'`; the file's first import is `from bsi_api import ratelimit`). Then `uv run pytest -q tests/integration/test_api_reports.py`: expected `1 failed, 13 passed` with `test_public_routes_are_rate_limited_per_token` failing on `ModuleNotFoundError`. If a result differs, stop and report it; do not change a test's expected values.
 
 - [ ] **Step 3: Write the code.**
 
@@ -318,7 +319,7 @@ Each old string above appears exactly once in its file.
 
 - [ ] **Step 4: Run them to see them pass.** `pgrep -fl pytest`, then `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/unit/test_ratelimit.py tests/integration/test_api_reports.py`. Expected: `17 passed`. Then confirm a malformed token's 422 still carries one error: `uv run python -c "from fastapi.testclient import TestClient; from bsi_api.main import create_app; r = TestClient(create_app(), raise_server_exceptions=False).get('/v1/r/short'); print(r.status_code, len(r.json()['errors']))"` → `422 1`. If anything differs, stop and report it.
 
-- [ ] **Step 5: Gate.** `pgrep -fl pytest`, then the Backend gate once. Expected: `gate exit 0`, `1558 passed, 2 deselected` (1554 + 3 unit + 1 integration), metrics coverage 100%, the 2 known third-party warnings. Grep the diff (`git diff`) for the banned words: no match.
+- [ ] **Step 5: Gate.** `pgrep -fl pytest`, then the Backend gate once. Expected: `gate exit 0`, `1558 passed, 2 deselected` (1554 + 3 unit + 1 integration), metrics coverage 100%, the 2 known third-party warnings. Stage the six files of Step 6 (`git add …`), then grep the added lines for the banned words (`git diff --cached -U0 | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`): no match (a plain `git diff` would skip the two new files).
 
 - [ ] **Step 6: Commit.** `git add apps/api/bsi_api/ratelimit.py apps/api/bsi_api/problems.py apps/api/bsi_api/main.py apps/api/bsi_api/routers/public.py tests/unit/test_ratelimit.py tests/integration/test_api_reports.py && git commit -m "feat(api): per-token rate limit on the public routes" -m "<trailer>"`.
 
@@ -379,7 +380,7 @@ with
 
 - [ ] **Step 4: Run it to see it pass.** The Step 2 command. Expected: `6 passed`.
 
-- [ ] **Step 5: Web gate.** The Web gate from Global Constraints, once. Expected: `web gate exit 0`, vitest `43 passed` (42 + 1), typecheck, lint, build and `gen:check` clean (no API schema change). Grep the diff for the banned words: no match.
+- [ ] **Step 5: Web gate.** The Web gate from Global Constraints, once. Expected: `web gate exit 0`, vitest `43 passed` (42 + 1), typecheck, lint, build and `gen:check` clean (no API schema change). Grep the added lines for the banned words (`git diff -U0 | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`): no match.
 
 - [ ] **Step 6: Commit.** `git add "apps/web/src/app/r/[token]/pdf/route.ts" "apps/web/src/app/r/[token]/pdf/route.test.ts" && git commit -m "feat(web): the PDF proxy passes a 429 through with Retry-After" -m "<trailer>"`.
 
@@ -397,7 +398,7 @@ with
 - [ ] **Step 3: README rows** for the spec, the plan and the findings, after the row for `findings-slice30.md`, in the slice 30 rows' format; the spec row names the spec's final ruling range.
 - [ ] **Step 4: Rulings.** For each ruling the ledger records that the spec's `## Rulings` does not already hold (match by R-number), add it after the spec's last ruling, copying the ledger line's labelled fields (Decided / Found by / Why / Cost if wrong / how named); mark any field you had to write yourself as your own wording.
 - [ ] **Step 5: Plan changes.** Fill this plan's `## Changes made during execution` from the ledger: one bullet per task, quoting departures and any tool refusals as recorded; the bullet for the commit that fills this section ends "(this commit)".
-- [ ] **Step 6: Grep** the changed docs files for the banned words; expected: no match except this plan's Global Constraints line.
+- [ ] **Step 6: Grep** the added lines of the changed docs for the banned words (`git diff -U0 docs | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`, run before staging; include docs/findings-slice31.md by grepping it directly, since it is new); expected: no match. (docs/findings-slice15.md already holds two matches on lines 68 and 125, from before this slice; they are not added lines.)
 - [ ] **Step 7: Commit** `git add docs && git commit -m "docs: slice 31 findings, index and notes" -m "<trailer>"`.
 
 ---
@@ -413,7 +414,10 @@ with
   3. The implementation order is TDD (tests seen failing first); the spec records red/green on scratch only.
   4. Task 2's web gate expectation (43 vitest tests) and Task 1's gate count (1558) are the plan's arithmetic.
   5. Task 3 also updates the spec's Rulings and this plan's changes section, adds a findings §2 placeholder and an "Untested" line, and carries the slice 30 carried-forward items; the spec's docs list names none of these.
-- Verified before committing this plan (2026-10-01): every replacement in Tasks 1 and 2 was applied, from this file's own code blocks and inline strings, to scratch copies of main (each old string found exactly once). Python on main's code: the unit file fails at import and tests/integration/test_api_reports.py gives `1 failed, 13 passed` (`ModuleNotFoundError`); with the change the two files give `17 passed`, a malformed token gives `422 1`, ruff check and ruff format --check are clean on the four changed modules and both test files, and `mypy --strict` with the repo config, run by path, is clean on ratelimit.py and problems.py. Web: the proxy test gives `1 failed | 5 passed` against the current route.ts and `6 passed` with the change.
+  6. Each task runs its own gate once as evidence (Task 1 the Backend gate, Task 2 the Web gate); the spec names only the controller's run before the finishing menu.
+  7. The exact error text expected at each red step is the plan's wording.
+  8. The integration test uses a fixed clock, `TokenLimiter(2, 60, lambda: 1_000.0)`, and asserts `Retry-After` is exactly 20; the spec says `TokenLimiter(2, 60)` and 1–60 (R5: a live clock can straddle a window boundary).
+- Verified before committing this plan (2026-10-01, re-run after R5 and R6 with the fixed-clock test): every replacement in Tasks 1 and 2 was applied, from this file's own code blocks and inline strings, to scratch copies of main (each old string found exactly once). Python on main's code: the unit file fails at import and tests/integration/test_api_reports.py gives `1 failed, 13 passed` (`ModuleNotFoundError`); with the change the two files give `17 passed`, a malformed token gives `422 1`, ruff check and ruff format --check are clean on the four changed modules and both test files, and `mypy --strict` with the repo config, run by path, is clean on ratelimit.py and problems.py. Web: the proxy test gives `1 failed | 5 passed` against the current route.ts and `6 passed` with the change.
 - Placeholders: only `<workspace>` and `<trailer>`.
 - Type consistency: `TokenLimiter(limit, window, clock)` and `check(key) -> int | None` are the same in Interfaces, Step 3 and the tests; `Problem(..., headers=...)` matches `_limit`.
 
