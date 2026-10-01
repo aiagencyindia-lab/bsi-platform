@@ -1,4 +1,7 @@
+import hashlib
+import hmac
 import json
+import time
 from datetime import UTC, datetime, timedelta
 
 import bsi_workers.worker as worker
@@ -909,8 +912,10 @@ class _Hook:
         self.calls = []
         self.status, self.error = status, error
 
-    def __call__(self, url, ua, *, method, body, content_type):
-        self.calls.append((url, ua, method, content_type, json.loads(body)))
+    def __call__(self, url, ua, *, method, body, content_type, headers=None):
+        self.calls.append(
+            (url, ua, method, content_type, json.loads(body), body, headers)
+        )
         return Response(self.status, "", self.error)
 
 
@@ -934,12 +939,13 @@ def test_deliver_posts_the_payload_and_marks_delivered(
     aid = _due_alert(owner, org, bid)
     hook = _Hook()
     assert deliver_due_alerts(fetch=hook) == 1
-    (url, ua, method, ctype, body) = hook.calls[0]
-    assert (url, ua, method, ctype) == (
+    (url, ua, method, ctype, body, _raw, headers) = hook.calls[0]
+    assert (url, ua, method, ctype, headers) == (
         "https://hooks.example.com/in",
         WEBHOOK_UA,
         "POST",
         "application/json",
+        None,  # no secret, no signature
     )
     assert body["id"] == str(aid) and body["brand"] == "Nike"
     assert body["text"] == body["title"] == "t"
@@ -994,7 +1000,7 @@ def test_no_transaction_is_open_during_the_webhook_post(
     _due_alert(owner, org, bid)
     seen = []
 
-    def fetch(url, ua, *, method, body, content_type):
+    def fetch(url, ua, *, method, body, content_type, headers=None):
         with owner() as s:
             seen.append(
                 s.scalar(
@@ -1024,7 +1030,7 @@ def test_one_failing_delivery_does_not_block_the_rest(
             .values(next_attempt_at=func.now() - func.make_interval(0, 0, 0, 1))
         )
 
-    def fetch(url, ua, *, method, body, content_type):
+    def fetch(url, ua, *, method, body, content_type, headers=None):
         if json.loads(body)["id"] == str(bad):
             raise RuntimeError("boom")
         return Response(200, "")
@@ -1041,7 +1047,7 @@ def test_a_delivery_that_fails_after_the_webhook_is_cleared_is_given_up(
     org, bid = _hooked_brand(owner, make_org, make_brand)
     aid = _due_alert(owner, org, bid)
 
-    def fetch(url, ua, *, method, body, content_type):
+    def fetch(url, ua, *, method, body, content_type, headers=None):
         # The operator clears the webhook while the POST is in flight, as
         # PATCH {"webhook_url": null} does.
         with owner() as s, s.begin():
@@ -1062,3 +1068,24 @@ def test_a_delivery_that_fails_after_the_webhook_is_cleared_is_given_up(
         a = s.get(m.Alert, aid)
     assert (a.delivery_attempts, a.last_error) == (1, "HTTP 500")
     assert a.next_attempt_at is None
+
+
+def test_deliver_signs_when_the_brand_has_a_secret(owner, make_org, make_brand):
+    org, bid = _hooked_brand(owner, make_org, make_brand)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Brand)
+            .where(m.Brand.id == bid)
+            .values(webhook_secret="s" * 32)
+        )
+    _due_alert(owner, org, bid)
+    hook = _Hook()
+    assert deliver_due_alerts(fetch=hook) == 1
+    (_url, _ua, _method, _ctype, _body, raw, headers) = hook.calls[0]
+    t, v1 = headers["X-BSI-Signature"].split(",")
+    assert t.startswith("t=") and v1.startswith("v1=")
+    assert abs(time.time() - int(t[2:])) < 60
+    want = hmac.new(
+        b"s" * 32, t[2:].encode() + b"." + raw, hashlib.sha256
+    ).hexdigest()
+    assert v1[3:] == want
