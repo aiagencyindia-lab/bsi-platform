@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 
 from . import problems
+from .ratelimit import TokenLimiter
 from .routers import (
     alerts,
     audits,
@@ -30,6 +31,9 @@ from .routers import (
 def create_app() -> FastAPI:
     app = FastAPI(title="BSI Platform API", version="0.1.0")
     problems.install(app)
+    app.state.public_limiter = TokenLimiter(
+        public.PUBLIC_LIMIT, public.PUBLIC_WINDOW_SECONDS
+    )
 
     @app.middleware("http")
     async def request_id(

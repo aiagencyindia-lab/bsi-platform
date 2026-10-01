@@ -216,3 +216,31 @@ def test_public_page_and_pdf_follow_the_token(
     assert client.get(f"/v1/r/{tok}").status_code == 404
     _generic_404(client.get("/v1/r/unknown-token-unknown-token-x"))
     assert client.get("/v1/r/short").status_code == 422
+
+
+def test_public_routes_are_rate_limited_per_token(
+    client, owner, make_org, make_brand
+):
+    from bsi_api.ratelimit import TokenLimiter
+
+    org, bid = _scene(owner, make_org, make_brand)
+    client.app.state.public_limiter = TokenLimiter(2, 60, lambda: 1_000.0)
+    tok, other = (
+        client.post(
+            f"/v1/brands/{bid}/reports/{t}/runs", headers=org.headers
+        ).json()["share_token"]
+        for t in ("agency", "cmo")
+    )
+    assert client.get(f"/v1/r/{tok}").status_code == 200
+    assert client.get(f"/v1/r/{tok}.pdf").status_code == 200
+    r = client.get(f"/v1/r/{tok}")
+    assert r.status_code == 429
+    body = r.json()
+    assert body["title"] == "Too many requests" and body["status"] == 429
+    assert body["detail"] == "" and body["errors"] == []
+    # A fixed clock: the window [960, 1020) has 20 s left (R5).
+    assert r.headers["retry-after"] == "20"
+    assert r.headers["x-request-id"] == body["request_id"]
+    assert "nike" not in r.text.lower()
+    # Another token has its own budget.
+    assert client.get(f"/v1/r/{other}").status_code == 200

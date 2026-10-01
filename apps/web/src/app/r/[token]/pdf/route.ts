@@ -33,6 +33,12 @@ export async function GET(
   if (upstream.status === 404 || upstream.status === 422) {
     return plain("Not found", 404);
   }
+  if (upstream.status === 429) {
+    const res = plain("Too many requests", 429);
+    const retry = upstream.headers.get("retry-after");
+    if (retry) res.headers.set("retry-after", retry);
+    return res;
+  }
   if (!upstream.ok) return plain("Report unavailable", 502);
   const headers = new Headers({ "cache-control": "no-store" });
   for (const name of ["content-type", "content-disposition"]) {

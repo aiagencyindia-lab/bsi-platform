@@ -59,6 +59,21 @@ test.each([404, 422])("API %i becomes 404", async (status) => {
   expect(await res.text()).toBe("Not found");
 });
 
+test("API 429 passes through with its Retry-After", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response("{}", { status: 429, headers: { "retry-after": "17" } }),
+    ),
+  );
+  const res = await call(TOKEN);
+  expect(res.status).toBe(429);
+  expect(await res.text()).toBe("Too many requests");
+  expect(res.headers.get("retry-after")).toBe("17");
+  expect(res.headers.get("cache-control")).toBe("no-store");
+});
+
 test("API 500 and a throwing fetch become 502 with no detail", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response("boom", { status: 500 })));
   let res = await call(TOKEN);
