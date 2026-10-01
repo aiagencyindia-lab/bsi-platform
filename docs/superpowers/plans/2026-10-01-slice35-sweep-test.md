@@ -124,3 +124,10 @@ three tests in test_ratelimit.py still pass.
 - Rulings applied to this plan: R4 (the plan review's two minors) and R5 (the commit message reflowed), in the spec's Rulings section.
 - Placeholders: `<trailer>` (the Global Constraints' commit-trailer rule), `<workspace>` and `<scratchpad>` (paths the task brief supplies).
 - Type consistency: `TokenLimiter(limit, window, clock)` and `check(key) -> int | None`, as in apps/api/bsi_api/ratelimit.py; `Clock` as defined at the top of the test file.
+
+## Changes made during execution
+
+- Task 1: commit fa377c0. Real code: test_ratelimit.py 4 passed. Mutation run (the `_swept` guard removed on a scratch copy), over test_ratelimit.py: `1 failed, 3 passed`, the failure `test_the_sweep_runs_once_per_window` at `assert limiter._seen is seen`; the import-path check showed the copy was loaded. Gate: `1572 passed, 2 deselected`, coverage 100%.
+- At execution start: R7 (commits from execution carry the Opus 5.5 trailer) and R8 (subagents run with `model: "opus"`).
+- The task review found one minor (the identity check on the private `_seen`, the spec's Known limit) and the final whole-branch review one optional minor (the comment "Two keys are past the cap"); both deferred; no fix round, no fix wave.
+- Departures the implementer reported, both cosmetic: the scratchpad path held in a shell variable `S` in its commands, and a read-only `ls` and `echo "exit $?"` calls added to record checks. No departure in the test code or in what the commands did.

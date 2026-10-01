@@ -80,6 +80,7 @@ Out of scope (spec):
 Carried forward from docs/findings-slice32.md §3, still open:
 - The judge-agreement question, waiting on the user.
 - The once-per-window sweep (slice 31 R10) has no unit test.
+  - Note (2026-10-01): pinned in slice 35 by `test_the_sweep_runs_once_per_window` (docs/superpowers/specs/2026-10-01-slice35-sweep-test-design.md, PR #67): with the `_swept` guard removed it fails and the other three tests in test_ratelimit.py pass.
 
 Untested: the `len > 4` guard on the `-es` rule (`axes` → `axe`; Task 1's deferred minor above); the rule on real catalogue data beyond dev's 10 products (none of whose 71 distinct tokens changes stem; the ledger's "Dev product read" line).
 - Note (2026-10-01): the `len > 4` guard is now tested (slice 34: docs/superpowers/specs/2026-10-01-slice34-axes-guard-test-design.md, PR #65); the rule on real catalogue data beyond dev's 10 products stays untested.
