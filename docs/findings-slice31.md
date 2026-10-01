@@ -87,6 +87,7 @@ The final review's triage, as recorded: "Final triage of the deferred minors: Ta
 
 From the fix wave's scoped re-review (recorded after merge, R13). The result, as recorded: "Fix wave re-review (aef0258500db42a8a, f8035ad..ab8bc72): "All findings addressed: Yes"; new breakage 4 Minor, 0 Critical, 0 Important; 2 out-of-scope observations."
 - "Fix wave: parked — no unit test pins R10 (sweep at most once per window): reverting to a sweep on every check passes all 3 unit tests — Ruling: R13 — Decided: no second fix wave; the post-merge docs record the once-per-window sweep as untested. Found by: the fix-wave re-review. Why: the process allows one fix wave. Cost if wrong: R10 can regress unnoticed until a test is added. Named in chat when made."
+  - Note (2026-10-01): pinned in slice 35 by `test_the_sweep_runs_once_per_window` (docs/superpowers/specs/2026-10-01-slice35-sweep-test-design.md, PR #67): with the `_swept` guard removed it fails and the other three tests in test_ratelimit.py pass.
   - Parked under R13 (see the rulings below).
 - "Fix wave: parked — findings-slice31 §3's "Untested" line does not name the once-per-window sweep; the Task 1 sweep line and the Task 3 R5→R3 and nike lines carry no "fixed" note of their own; §1 has two parentheticals in a row — Ruling: R13 — Decided: dated notes in the post-merge docs commit. Found by: the fix-wave re-review. Why: the process allows one fix wave. Cost if wrong: three quoted lines read as still open until then. Named in chat when made."
   - Parked under R13 (see the rulings below).
@@ -130,3 +131,4 @@ Carried forward from docs/findings-slice30.md §3 ("Carried forward from docs/fi
 
 Untested: the limiter under concurrent requests (the lock is read in review, not exercised by a test); an unknown token's budget (it counts under its own key, pinned by no test).
 - Note (2026-10-01, after merge, R13): also untested: the once-per-window sweep (R10); reverting to a sweep on every check would pass all three unit tests.
+  - Note (2026-10-01): pinned in slice 35 by `test_the_sweep_runs_once_per_window` (docs/superpowers/specs/2026-10-01-slice35-sweep-test-design.md, PR #67): with the `_swept` guard removed it fails and the other three tests in test_ratelimit.py pass.

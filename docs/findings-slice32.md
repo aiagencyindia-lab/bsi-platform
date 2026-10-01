@@ -95,6 +95,7 @@ Out of scope (spec):
 Carried forward from docs/findings-slice31.md §3, still open:
 - The judge-agreement question, waiting on the user.
 - The once-per-window sweep (slice 31 R10) has no unit test.
+  - Note (2026-10-01): pinned in slice 35 by `test_the_sweep_runs_once_per_window` (docs/superpowers/specs/2026-10-01-slice35-sweep-test-design.md, PR #67): with the `_swept` guard removed it fails and the other three tests in test_ratelimit.py pass.
 
 Untested: caller headers on a GET redirect's second hop (no caller sends headers on a GET); a secret saved through the API with no URL ("it waits", spec §1) delivering once a URL is set (by reading: `deliver_due_alerts` reads the secret at delivery time); delivery to a real receiver (spec §5: no live delivery check, since the SSRF guard refuses a localhost receiver and a public catch-all receiver would send dev alert data to a third party).
 
