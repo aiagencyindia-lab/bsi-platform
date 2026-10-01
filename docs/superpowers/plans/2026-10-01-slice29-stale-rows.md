@@ -117,8 +117,7 @@ Expected: `2 failed, 32 deselected`; `test_a_stale_row_spelling_is_not_adopted` 
   ```python
           # are not merged; a fresh row under a losing spelling stays
           # until it goes stale (not used meanwhile; the seed keeps the
-          # newest current spelling), and stale rows are deleted at run
-          # start;
+          # newest current spelling), and stale rows are deleted at run start;
   ```
 
   4. Replace
@@ -172,7 +171,7 @@ Expected: `34 passed` (the file's 33 tests and the new one). If the count or any
 - [ ] **Step 2: Dated updates, originals kept.** Add a sub-bullet starting "Update 2026-10-01 (slice 29):" under each of:
   - docs/findings-slice24.md §3, the ceiling "Rows under an old spelling stay in the table once stale; nothing deletes them.": a product run now deletes the brand's stale rows at its start (docs/findings-slice29.md).
   - docs/findings-slice24.md §3, the Out of scope line "Deleting stale duplicate rows.": done in slice 29.
-  - docs/findings-slice27.md §3, the item that begins "Stale duplicate `keyword_search` rows:": fixed in code by slice 29 (docs/findings-slice29.md).
+  - docs/findings-slice27.md §3, the item that begins "Stale duplicate `keyword_search` rows:", as the last sub-bullet of that item (after the quoted cleanup rulings, at the same 2-space indent as its other sub-bullets, not inside the rulings list): fixed in code by slice 29 (docs/findings-slice29.md).
   - docs/findings-slice28.md §3, the item that begins "Stale duplicate `keyword_search` rows:" (under "Carried forward"): fixed in code by slice 29.
   - docs/findings-slice28.md §3, the Out of scope line that begins "Deleting old-spelling `keyword_search` rows in code": done in slice 29.
 - [ ] **Step 3: README rows** for the spec, the plan and the findings, after the row for `findings-slice28.md`, in the slice 28 rows' format; the spec row names its rulings' range.

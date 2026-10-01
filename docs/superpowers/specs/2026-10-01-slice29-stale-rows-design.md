@@ -60,6 +60,7 @@ Gates: both, run by the controller before the finishing menu.
 
 - **R1: the spec review's six points were applied.** Decided: name docs/findings-slice28.md §3 (both lines) and docs/findings-slice24.md's Out of scope line in the docs list; "no run removes" for "stays for good"; "not used … newest current spelling" in the planned comment; the second brand's setup and a by-brand check in the new test; the corrected live-check cost with its source. Found by the spec review of 2a24492. Why: accuracy and completeness; no design change. Cost if wrong: none. Named in chat when made.
 - **R2: the spec re-review's minor point was applied.** Decided: cite job f9de4eb9 for the 38,000-per-search figure. Found by the re-review of 1d23c56. Why: R1 named only the flash-lite figure's source. Cost if wrong: none. Named in chat when made.
+- **R3: the plan review's two minor points were applied.** Decided: in the plan, the seed comment's last line is joined (no one-word `# start;` line), and Task 2 places the findings-slice27 update as the last sub-bullet of its item, after the quoted cleanup rulings. Found by the plan review of 3878067. Why: tidiness and a clear placement; no design change. Cost if wrong: none. Named in chat when made.
 
 ## Out of scope
 
