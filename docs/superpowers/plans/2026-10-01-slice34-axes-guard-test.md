@@ -113,6 +113,6 @@ and test_products.py still pass.
 
 ## Changes made during execution
 
-- Task 1: commit d3970ce. Real code: test_rivals.py 33 passed. Mutation run (guard `> 3` on a scratch copy): `1 failed, 132 passed`, the failure `test_stem_es_rule_skips_four_letter_words` with `At index 0 diff: 'ax' != 'axe'`. Gate: `1571 passed, 2 deselected`, coverage 100%.
+- Task 1: commit d3970ce. Real code: test_rivals.py 33 passed. Mutation run (guard `> 3` on a scratch copy), over test_rivals.py and test_products.py: `1 failed, 132 passed`, the failure `test_stem_es_rule_skips_four_letter_words` with `At index 0 diff: 'ax' != 'axe'`. Gate: `1571 passed, 2 deselected`, coverage 100%.
 - The task review and the final whole-branch review found nothing; no fix round, no fix wave; no ruling during execution.
 - No departure from the task text.
