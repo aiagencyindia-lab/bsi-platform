@@ -1207,3 +1207,31 @@ def test_choose_keywords_falls_back_when_the_guard_leaves_the_wrong_type():
         None,
         None,
     ) == ["men flip flops", "navy flip flops"]
+
+
+def test_keyword_key_folds_es_plurals():
+    assert keyword_key("men watches") == keyword_key("men watch") == "men watch"
+    assert keyword_key("kids shoes") == "kid shoe"
+
+
+def test_rule_check_removes_an_es_plural_repeat():
+    assert rule_check(
+        "Zara Summer Dress", "Zara Summer Dress Dresses", ["Zara"]
+    ) == ("Zara Summer Dress", "pass", [])
+
+
+def test_missing_folds_an_es_plural_in_the_title():
+    assert missing(
+        "Titan Analog Dial Watches",
+        ["Titan Men Watch", "Fossil Men Watch"],
+        ["Titan"],
+        keyword="men watches",
+        backing=["men watches"],
+    ) == ["men"]
+
+
+def test_lenses_still_back_lens_for_allowed_text():
+    # The one-sided set in _allowed_stems stays (spec R1).
+    assert rule_check(
+        "Acme Daily", "Acme Daily Lens", ["Acme"], allowed=["contact lenses"]
+    ) == ("Acme Daily Lens", "pass", [])

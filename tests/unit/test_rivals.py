@@ -522,15 +522,27 @@ def test_sitemap_fetch_serves_sitemaps_and_fetch_serves_pages():
     assert snap.fetches == 4
 
 
-def test_stem_drops_one_trailing_s_on_longer_words():
-    assert [
-        _stem(w) for w in ("sneakers", "shoes", "kids", "bus", "glass")
-    ] == [
+def test_stem_folds_plurals():
+    # caches, mousses and quizzes pin the named limits (spec R2).
+    words = (
+        "sneakers shoes kids bus glass watches dishes boxes dresses "
+        "glasses quizzes sizes caches mousses"
+    )
+    assert [_stem(w) for w in words.split()] == [
         "sneaker",
         "shoe",
         "kid",
         "bus",
-        "glas",
+        "glass",
+        "watch",
+        "dish",
+        "box",
+        "dress",
+        "glass",
+        "quizz",
+        "size",
+        "cach",
+        "mouss",
     ]
 
 

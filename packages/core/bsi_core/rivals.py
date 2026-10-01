@@ -47,11 +47,23 @@ MAX_TYPE_CHARS = 200
 _WORD = re.compile(r"[a-z0-9]+")
 
 
+# -es after these endings is a plural marker: watches, dishes, boxes,
+# dresses, quizzes. Not after a plain z (sizes -> size).
+_ES = ("ches", "shes", "xes", "sses", "zzes")
+
+
 def _stem(word: str) -> str:
-    """Drop one trailing s on words longer than three characters, so
-    sneakers/sneaker and kids/kid meet. ponytail: crude on purpose (glass
-    -> glas on both sides, which still matches); a real stemmer is the
-    upgrade path if topic words start missing slugs."""
+    """Fold plurals: drop "es" after ch, sh, x, ss or zz on words longer
+    than four characters (watches -> watch, glasses -> glass), keep a
+    word ending in ss (glass stays glass), else drop one trailing s on
+    words longer than three characters (shoes -> shoe, kids -> kid).
+    ponytail: suffix rules, not a stemmer; -ies stays as is (hoodies ->
+    hoodie, accessories -> accessorie); a real stemmer is the upgrade
+    path if topic words start missing slugs."""
+    if len(word) > 4 and word.endswith(_ES):
+        return word[:-2]
+    if word.endswith("ss"):
+        return word
     return word[:-1] if len(word) > 3 and word.endswith("s") else word
 
 
