@@ -1,9 +1,11 @@
+import hashlib
+import hmac
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-from bsi_core.alerts import drop_copy, payload, shift_copy, source_copy
+from bsi_core.alerts import drop_copy, payload, shift_copy, sign, source_copy
 
 
 def test_copy_reads_as_observed_facts():
@@ -59,3 +61,14 @@ def test_payload_is_json_with_slack_text():
         "created_at",
         "detail",
     }
+
+
+def test_sign_is_an_hmac_over_t_dot_body():
+    body = b'{"text":"hi"}'
+    want = hmac.new(
+        b"s" * 32, b"1700000000." + body, hashlib.sha256
+    ).hexdigest()
+    assert sign("s" * 32, body, 1700000000) == f"t=1700000000,v1={want}"
+    assert sign("s" * 32, body + b" ", 1700000000) != sign(
+        "s" * 32, body, 1700000000
+    )

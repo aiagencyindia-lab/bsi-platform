@@ -431,6 +431,36 @@ def test_post_sends_the_body_and_content_type_to_the_pinned_address():
     assert req.url.host == PUBLIC
 
 
+def test_extra_headers_are_sent_but_cannot_override_the_pinned_ones():
+    t = server(ok)
+    r = http_fetch(
+        "https://hook.example.com/in",
+        "UA",
+        resolve=dns({"hook.example.com": [PUBLIC]}),
+        transport=t,
+        method="POST",
+        body=b"{}",
+        content_type="application/json",
+        headers={
+            "X-BSI-Signature": "sig",
+            "Host": "evil.example",
+            "user-agent": "spoof",
+            "ACCEPT-ENCODING": "br",
+        },
+    )
+    assert r.ok
+    (req,) = t.seen
+    assert req.headers["x-bsi-signature"] == "sig"
+    # httpx keeps the sent letter case in .raw; compare names lower-cased.
+    raw = [(k.lower(), v) for k, v in req.headers.raw]
+    for name, value in (
+        (b"host", b"hook.example.com"),
+        (b"user-agent", b"UA"),
+        (b"accept-encoding", b"gzip, deflate"),
+    ):
+        assert [v for k, v in raw if k == name] == [value]
+
+
 def test_post_does_not_follow_a_redirect():
     def moved(request):
         return httpx.Response(

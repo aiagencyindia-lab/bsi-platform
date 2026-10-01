@@ -158,7 +158,8 @@ export const ALERT_KIND: Record<string, string> = {
 
 const ALERT_NOTES: Record<string, string> = {
   saved: "Webhook saved; new alerts are posted to it.",
-  cleared: "Webhook cleared.",
+  cleared: "Webhook cleared; any signing secret was removed.",
+  secret_removed: "Signing secret removed; deliveries are unsigned.",
   new: "Scan done; new alerts are listed below.",
   none: "Scan done; nothing new.",
 };

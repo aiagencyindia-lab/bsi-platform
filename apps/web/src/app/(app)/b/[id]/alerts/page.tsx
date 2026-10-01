@@ -38,15 +38,33 @@ export default async function Alerts({
         <input
           type="url"
           name="webhook_url"
+          required
           pattern="https://.*"
           placeholder="https://hooks.slack.com/services/…"
           defaultValue={brand.webhook_url ?? ""}
           style={{ minWidth: 360 }}
         />
+        <input
+          type="password"
+          name="webhook_secret"
+          minLength={32}
+          maxLength={200}
+          autoComplete="new-password"
+          placeholder="Signing secret (optional, 32+ characters)"
+          style={{ minWidth: 280 }}
+        />
+        <span className="muted">
+          {brand.has_webhook_secret ? "Signing on" : "Unsigned"}
+        </span>
         <button className="primary">Save webhook</button>
         <button name="clear" value="1" formNoValidate>
           Clear
         </button>
+        {brand.has_webhook_secret && (
+          <button name="clear_secret" value="1" formNoValidate>
+            Remove secret
+          </button>
+        )}
       </form>
       <form action={scanNow} className="row" style={{ marginTop: 8 }}>
         <input type="hidden" name="brand_id" value={id} />
@@ -56,7 +74,11 @@ export default async function Alerts({
       <p className="muted">
         The worker scans every active brand daily over rolling windows; no
         alert comes from a single answer. Each new alert is posted to the
-        webhook as JSON with a <code>text</code> field.
+        webhook as JSON with a <code>text</code> field. With a signing
+        secret set, each POST carries{" "}
+        <code>X-BSI-Signature: t=&lt;unix seconds&gt;,v1=&lt;hex&gt;</code>,
+        an HMAC-SHA256 with the secret over <code>t</code>, a dot, and the
+        raw body; reject a <code>t</code> more than 5 minutes old.
       </p>
       {alerts.length === 0 && <p className="muted">No alerts yet.</p>}
       {alerts.length > 0 && (

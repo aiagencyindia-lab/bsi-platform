@@ -133,6 +133,14 @@ class Brand(Tenant, Base):
     alerts_scanned_at: Mapped[datetime | None] = mapped_column(TSZ)
     # One HTTPS URL each new alert is POSTed to; null = no delivery.
     webhook_url: Mapped[str | None]
+    # Shared with the receiver; read only by the worker when it signs a
+    # delivery. Null = unsigned. Never returned by the API.
+    webhook_secret: Mapped[str | None]
+
+    @property
+    def has_webhook_secret(self) -> bool:
+        return self.webhook_secret is not None
+
     # Agency-report branding; all optional. Copied into the document at
     # build time, so the public route never reads this row.
     report_logo_url: Mapped[str | None]

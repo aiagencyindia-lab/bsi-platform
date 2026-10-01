@@ -5,6 +5,8 @@ fire from a single observation. `to` is a parameter everywhere so tests
 are deterministic. Copy states what was observed and never promises.
 """
 
+import hashlib
+import hmac
 import json
 import uuid
 from dataclasses import dataclass
@@ -270,3 +272,11 @@ def payload(alert: Any, brand_name: str) -> dict[str, Any]:
         "created_at": alert.created_at,
         "detail": alert.detail,
     }
+
+
+def sign(secret: str, body: bytes, now: int) -> str:
+    """The X-BSI-Signature value: `t=<now>,v1=<hex>` where the digest is
+    HMAC-SHA256 with `secret` over `"{now}." + body`. The receiver
+    recomputes it from the raw body and rejects a stale `t`."""
+    mac = hmac.new(secret.encode(), f"{now}.".encode() + body, hashlib.sha256)
+    return f"t={now},v1={mac.hexdigest()}"

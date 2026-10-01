@@ -5,14 +5,14 @@ import logging
 import random
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
 from bsi_core import models as m
-from bsi_core.alerts import payload
+from bsi_core.alerts import payload, sign
 from bsi_core.alerts import scan as scan_alerts
 from bsi_core.competitors import _entities_and_hosts, owner_of
 from bsi_core.config import get_settings
@@ -109,6 +109,7 @@ class Poster(Protocol):
         method: str,
         body: bytes,
         content_type: str,
+        headers: Mapping[str, str] | None = None,
     ) -> Response: ...
 
 
@@ -295,19 +296,27 @@ def deliver_due_alerts(fetch: Poster = http_fetch) -> int:
             with tenant_session(org_id) as s:
                 alert = s.get_one(m.Alert, alert_id)
                 brand = s.get_one(m.Brand, alert.brand_id)
-                url, body = (
+                url, secret, body = (
                     brand.webhook_url,
+                    brand.webhook_secret,
                     json.dumps(
                         payload(alert, brand.name), default=str
                     ).encode(),
                 )
             assert url is not None  # due_alert_deliveries() filtered on it
+            # Signed after the session closed: no transaction spans the POST.
+            headers = (
+                {"X-BSI-Signature": sign(secret, body, int(time.time()))}
+                if secret
+                else None
+            )
             resp = fetch(
                 url,
                 WEBHOOK_UA,
                 method="POST",
                 body=body,
                 content_type="application/json",
+                headers=headers,
             )
             with tenant_session(org_id) as s:
                 alert = s.get_one(m.Alert, alert_id)

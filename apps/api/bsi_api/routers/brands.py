@@ -45,8 +45,18 @@ def _webhook_url(value: str) -> str:
     return value
 
 
+def _webhook_secret(value: str) -> str:
+    """The receiver's copy must match byte for byte."""
+    if value.strip() != value:
+        raise ValueError("no surrounding whitespace")
+    return value
+
+
 WebhookUrl = Annotated[
     str, Field(max_length=2000), AfterValidator(_webhook_url)
+]
+WebhookSecret = Annotated[
+    str, Field(min_length=32, max_length=200), AfterValidator(_webhook_secret)
 ]
 LogoUrl = Annotated[str, Field(max_length=2000), AfterValidator(_webhook_url)]
 Accent = Annotated[str, Field(pattern=r"^#[0-9a-fA-F]{6}$")]
@@ -70,6 +80,7 @@ class BrandPatch(BaseModel):
     aliases: list[Short] = Field(None, max_length=20)
     category: Short | None = None
     webhook_url: WebhookUrl | None = None
+    webhook_secret: WebhookSecret | None = None
     report_logo_url: LogoUrl | None = None
     report_accent: Accent | None = None
     report_prepared_by: str | None = Field(None, max_length=80)
@@ -81,6 +92,7 @@ class BrandOut(Out):
     category: str | None
     status: str
     webhook_url: str | None
+    has_webhook_secret: bool
     report_logo_url: str | None
     report_accent: str | None
     report_prepared_by: str | None
@@ -166,6 +178,7 @@ def patch_brand(
     brand = brand_or_404(c, brand_id)
     _patch(brand, body)
     if "webhook_url" in body.model_fields_set and body.webhook_url is None:
+        brand.webhook_secret = None  # a secret without a URL is dead state
         # Pending alerts must not go to whatever URL is set next.
         c.s.execute(
             update(m.Alert)
