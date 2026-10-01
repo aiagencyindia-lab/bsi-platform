@@ -36,7 +36,7 @@ Results, as the task reports record them:
 - Task 4 red: `Tests  1 failed | 21 passed (22)`, "expected 'Webhook cleared.' to be 'Webhook cleared; any signing secret w…'". Green: `Tests  22 passed (22)`. Web gate (`gate-task4-web.txt`, `web gate exit 0`): `Tests  43 passed (43)`, `✓ Compiled successfully in 1396ms`.
 - Each task's banned-word grep over its staged added lines had no match.
 - The 2 warnings in every backend run are the two known third-party ones: fastapi/testclient.py `StarletteDeprecationWarning` and the starlette/testclient.py anyio `BlockingPortal` `DeprecationWarning`.
-- After merge, on main `e929515`: backend gate `1566 passed, 2 deselected, 2 warnings`, metrics coverage 100%; web gate exit 0, `Tests  43 passed (43)`. CI on PR #61: `gates` pass in 4m4s.
+- After merge, on main `e929515` (the ledger's "After merge" lines): `gh pr checks 61` printed "gates	pass	4m4s"; the controller's backend gate printed "gate exit 0" with "1566 passed, 2 deselected, 2 warnings in 163.96s (0:02:43)" and "Total coverage: 100.00%"; the web gate printed "web gate exit 0" with "Tests  43 passed (43)".
 
 **Commits** (`git log --oneline --reverse 5ec4c1d..e929515^2`, oldest first):
 
@@ -54,7 +54,14 @@ Results, as the task reports record them:
 
 ## 2. Live check on dev
 
-Not yet run. With the user's approval (2026-10-01), the controller migrates dev from 0021 to 0022 and runs the API-only check from spec §5; results are recorded here then.
+Run on 2026-10-01 after merge (main `e929515`), with the user's approval in chat: "yes, docs first, then migrate dev and run the live check". Observed:
+- Pre-check (read-only): no uvicorn, worker or pytest process; dev at migration 0021; 0 queued or running jobs; BSOAgentTestBrand (`34db213a-f484-4991-a969-c52cfa5e1c10`) had no webhook URL; `max(api_key.last_used_at)` = 2026-09-30 19:55:06.669119+00; no `brand.webhook_secret` column.
+- Migration: `alembic upgrade head` on dev; afterwards `alembic_version` 0022, `brand.webhook_secret` text and nullable, 0 brands with a secret.
+- The API was started against dev. `PATCH /v1/brands/{id}` with a generated 32-character test secret returned HTTP 200; the only body key containing "secret" was `has_webhook_secret`, which was `true`; the secret text appeared 0 times in the body; the stored value was 32 characters long.
+- `GET /v1/brands/{id}` returned `has_webhook_secret: true` and no `webhook_secret` key. A PATCH with `"short"` returned HTTP 422.
+- `PATCH {"webhook_secret": null}` returned HTTP 200 with `has_webhook_secret: false`; the stored secret and the webhook URL were NULL afterwards, so the brand row ended as it started.
+- The API was stopped (13:46:05 UTC; the background task exited 144, as expected). Writes: `api_key.last_used_at` moved to 2026-10-01 13:46:01.188758+00, and the brand row (set, then cleared). 0 jobs queued or running. No spend.
+- Not checked live: a signed delivery (spec §5); the integration test covers it with a fake poster.
 
 ## 3. Deferred and untested
 
@@ -76,7 +83,7 @@ From the final whole-branch review. The result, as recorded: "Final review aeef3
 - "Final: minor (deferred): page.tsx:56-58 — "Signing on" can show with no webhook URL when a secret was saved through the API alone (§1 "it waits"); cosmetic."
 - "Final: minor (deferred): alerts.py:281 — the secret is encoded as UTF-8 and the receiver is not told; state "UTF-8" in docs/findings-slice32.md."
 
-Parked: none. The ledger has no parked lines; R11 parked one task-review minor as a deferred minor (quoted above and in R11).
+Parked: no finding was parked at a fix-loop cap. The one ledger line that uses the word is R11's ruling, which kept a task-review minor as a deferred minor (quoted above and in R11).
 
 The ledger: "No fix wave: the final review has no Critical or Important findings."
 
@@ -92,7 +99,7 @@ Untested: caller headers on a GET redirect's second hop (no caller sends headers
 
 ## Rulings
 
-R1–R8 were made during brainstorming, spec and plan review; R9–R11 during execution. Each is quoted from the spec (R1–R8) or the ledger (R9–R11).
+R1–R6 were made during the spec reviews and R7–R8 during the plan review (R1 and R7 asked in chat); R9–R11 during execution; R12 after merge, for these docs. Each is quoted from the spec (R1–R8) or the ledger (R9–R12).
 
 - **R1: the URL input is `required`.** Decided: the alerts page's URL input gains `required`, so "Save webhook" is browser-blocked with an empty URL field; "Clear" and "Remove secret" keep `formNoValidate`; the API is unchanged, so a secret saved with no URL is reachable only through the API; the user chose this over omitting `webhook_url` from the body when the field is empty, or keeping today's behaviour and documenting it. Found by the spec review of cd76bde (the form always sends `webhook_url`, null when empty, so a secret typed with an empty URL would be nulled by `patch_brand` and the note would say "Webhook cleared."). Why: the dropped-secret case cannot happen from the page, with no change to the API or to "empty URL means clear". Cost if wrong: an operator cannot save a waiting secret from the page. Asked in chat.
 - **R2: the three local `fetch` fakes and `_Hook` all gain `headers=None`.** Decided: in tests/integration/test_worker.py, `_Hook.__call__` and the local `fetch` in `test_no_transaction_is_open_during_the_webhook_post`, `test_one_failing_delivery_does_not_block_the_rest` and `test_a_delivery_that_fails_after_the_webhook_is_cleared_is_given_up` accept `headers=None`; the spec says six delivery tests, one of which unpacks `_Hook`'s tuple. Found by the spec review of cd76bde (the spec said five tests and "the existing tuple unpacking in the five delivery tests is widened"). Why: the worker always passes `headers=`, and `deliver_due_alerts` swallows the resulting `TypeError`, so those three tests would fail silently on the count. Cost if wrong: none. Named in chat when made.
@@ -105,3 +112,4 @@ R1–R8 were made during brainstorming, spec and plan review; R9–R11 during ex
 - **R9: commits from execution on carry the Opus 5.5 trailer.** (Title: writer's own wording.) The ledger line, as recorded: "Ruling: R9 — Decided: every commit from execution on carries "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"; the earlier slice 32 commits (cd76bde, 6a9bd3f, 7c9dd7f, 9be422e, 9944f23) keep the Fable 5.1 trailer. Found by: the controller, on a new attribution reminder naming Opus 5.5 after the execution choice. Why: the plan's Global Constraint binds the trailer to the latest session reminder. Cost if wrong: mixed trailers within one branch. How named: named in chat when made."
 - **R10: subagent dispatches omit the model parameter.** (Title: writer's own wording.) The ledger line, as recorded: "Ruling: R10 — Decided: subagent dispatches omit the Agent `model` parameter. Found by: the controller, the session being on Opus 5.5. Why: memory rule "omit the Agent model param on Opus". Cost if wrong: none (the inherited model is Opus 5.5). How named: named in chat when made."
 - **R11: Task 4's Clear-with-a-short-secret minor is parked for the final review.** (Title: writer's own wording.) The ledger line, as recorded: "Ruling: R11 — Decided: Task 4's plan-mandated minor (Clear with a short typed secret → 422) is parked as a deferred minor for the final review to triage; if the final review wants it fixed, the change (skip `webhook_secret` when Clear is pressed) goes to the user as a question before the fix wave. Found by: Task 4 review a707e10230c366409 (Minor 2, labelled plan-mandated). Why: it changes approved spec §3 behaviour, and design changes from reviews are asked first. Cost if wrong: an operator who half-types a secret and presses Clear sees an error page until the field is emptied. How named: named in chat when made."
+- **R12: one commit applies the docs review's points and records the live check.** (Title: writer's own wording.) The ledger line, as recorded: "Ruling: R12 — Decided: one commit applies the docs review's 1 Important and 4 Minor and records the live check in findings §2; one scoped re-review of that commit; its findings, if any, go in the PR description. Found by: the controller, after review a929107c60b8973ca and the live check. Why: §2 must carry the live check anyway, and the review's points are wording or sourcing; the post-merge docs get one review round as in earlier slices. Cost if wrong: re-review findings stay in the PR description instead of the docs. How named: named in chat when made."
