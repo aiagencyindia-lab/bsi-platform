@@ -546,6 +546,12 @@ def test_stem_folds_plurals():
     ]
 
 
+def test_stem_es_rule_skips_four_letter_words():
+    # The -es rule needs more than four characters: axes and shes fall
+    # through to the one-s rule (axe, she), not ax and sh.
+    assert [_stem(w) for w in ("axes", "shes")] == ["axe", "she"]
+
+
 def test_slug_words_reads_the_path_only():
     assert slug_words("https://skechers.in/kids/Light-Up_Sneakers?x=1#f") == {
         "kid",
