@@ -37,3 +37,25 @@ def test_expired_keys_are_dropped_past_the_cap(monkeypatch):
     clock.at = 1_060.0
     assert limiter.check("c") is None
     assert list(limiter._seen) == ["c"]
+
+
+def test_the_sweep_runs_once_per_window(monkeypatch):
+    monkeypatch.setattr(ratelimit, "MAX_KEYS", 1)
+    clock = Clock(1_000.0)
+    limiter = TokenLimiter(1, 60, clock)
+    assert limiter.check("a") is None
+    assert limiter.check("b") is None
+    # Two keys are past the cap, so the next check sweeps: a new dict.
+    before = limiter._seen
+    assert limiter.check("c") is None
+    assert limiter._seen is not before
+    # Later in the same window a check must not rebuild the dict again.
+    seen = limiter._seen
+    clock.at = 1_010.0
+    assert limiter.check("d") is None
+    assert limiter._seen is seen
+    # The next window sweeps once more and keeps only its own keys.
+    clock.at = 1_060.0
+    assert limiter.check("e") is None
+    assert limiter._seen is not seen
+    assert list(limiter._seen) == ["e"]
