@@ -6,6 +6,7 @@ The open item "The public routes are not rate-limited" (recorded twice in docs/f
 
 **Code**:
 - apps/api/bsi_api/ratelimit.py (new): `MAX_KEYS = 10_000` and `TokenLimiter(limit, window, clock=time.monotonic)` with `check(key) -> int | None`. The rule: a fixed window per key, state `_seen: dict[str, tuple[int, int]]` (`{key: (window_index, count)}`) under a `threading.Lock`, `window_index = int(now // window)`. A key with no entry, or with a stored window index `!=` the current one, starts again at count 0. Under the limit the call counts and `check` returns `None`; at the limit it returns `ceil((index + 1) * window - now)`, the whole seconds until the window ends (at least 1), and does not count the call. When `_seen` holds more than `MAX_KEYS` keys, entries from other windows are dropped before the check, and this sweep runs at most once per window index (`self._swept`, R10) (a soft cap; `MAX_KEYS` is read at call time). The docstring carries the ponytail note: per-process state, so N workers allow N times the limit; Redis or an edge limiter (PRD) if that matters.
+  - Note (2026-10-01, after merge, R13): the two parentheticals in a row above read as one: the sweep is the soft cap, run at most once per window (`self._swept`, R10).
 - apps/api/bsi_api/routers/public.py: `PUBLIC_LIMIT = 60` and `PUBLIC_WINDOW_SECONDS = 60` beside `NO_STORE`; `_limit(token, request)` calls `request.app.state.public_limiter.check(token)` and on a wait raises `Problem(429, "Too many requests", headers={"Retry-After": str(wait)})`. Both routes take `request: Request` and call `_limit` as their first line, before `_run` (R1), so path validation still runs first and a malformed token gets its single 422 and is never counted.
 - apps/api/bsi_api/problems.py: `Problem` takes `headers: dict[str, str] | None = None` (stored as `.headers`, `{}` when None); `_response` merges them after `X-Request-Id`; the `Problem` handler passes `exc.headers`. The 429 has the 404's problem shape plus `Retry-After`.
 - apps/api/bsi_api/main.py: `create_app()` sets `app.state.public_limiter = TokenLimiter(public.PUBLIC_LIMIT, public.PUBLIC_WINDOW_SECONDS)` right after `problems.install(app)`, so each app (and each test's fresh app) has its own limiter.
@@ -41,24 +42,34 @@ Results, as the Task 2 report records them:
 | 56d2c38 | feat(api): per-token rate limit on the public routes |
 | 4214137 | feat(web): the PDF proxy passes a 429 through with Retry-After |
 | f8035ad | docs: slice 31 findings, index and notes |
-| (this commit) | fix(api): sweep the limiter once per window; slice 31 final review docs |
+| ab8bc72 | fix(api): sweep the limiter once per window; slice 31 final review docs |
 
 ## 2. Live check on dev
 
 Not yet run. The controller runs it after merge with the user's approval (spec §2: a free, read-only check against a shared run on dev); results are recorded here then.
 
+Run on 2026-10-01 after merge (main `bd4a63d`), with the user's approval given with spec Section 2. Observed:
+- Pre-check: dev at migration 0021; 0 queued or running jobs; 5 `report_run` rows, all shared; no uvicorn, worker or pytest running; `max(api_key.last_used_at)` = 2026-09-30 19:55:06.669119+00.
+- The API was started against dev (`uv run uvicorn bsi_api.main:app --port 8000`). One shared token (prefix `mQBT2LSA`, the newest shared run) was requested at `GET /v1/r/{token}` from 12:06:40 UTC: requests 1–60 returned 200 and the 61st returned 429.
+- The 429: `HTTP/1.1 429 Too Many Requests`, `content-type: application/problem+json`, `retry-after: 46`, and the body `{"type":"about:blank","title":"Too many requests","status":429,"detail":"","request_id":"40816b65-1a35-4545-87d1-eed11780b341","errors":[]}` with a matching `x-request-id`.
+- Then the PDF route on the same token returned 429 (one shared budget), and `GET /v1/r/short` returned 422.
+- The API was stopped (the background task exited 144, as expected). Afterwards `max(api_key.last_used_at)` was unchanged and 0 jobs were queued or running: the check wrote nothing. No spend.
+
 ## 3. Deferred and untested
 
 From the task reviews (ledger lines tagged `minor (deferred)`):
 - "Task 1: minor (deferred): ratelimit.py:34-37 (plan-mandated): once more than MAX_KEYS keys are live in one window, eviction drops nothing and every later check rebuilds the dict under the lock (O(n) per request, bounded by one window); upgrade path: evict only when the window index changes, or note the cost in the ponytail comment"
+  - Note (2026-10-01, after merge, R13): fixed in the fix wave (R10, commit ab8bc72).
 - "Task 1: minor (deferred): tests/unit/test_ratelimit.py:39 asserts on the private `limiter._seen` (brief-mandated white-box eviction test)"
 - "Task 1: minor (deferred): the reported test output carries the 2 known third-party warnings (fastapi testclient StarletteDeprecationWarning; starlette testclient anyio BlockingPortal DeprecationWarning), pre-existing"
 - "Task 2: minor (deferred): route.ts 429 branch: no test covers an upstream 429 without a retry-after header (the `if (retry)` false path); the API always sends it; the brief asks for one case"
 - "Task 2: minor (deferred): the upstream body is not cancelled on the 429 path, consistent with the existing 404 and 502 paths"
 - "Task 3: minor (deferred): docs/findings-slice31.md:17 cites R5 for the integration test's in-function import; the import comes from R3 and R5 covers the fixed clock and the exact 20"
+  - Note (2026-10-01, after merge, R13): fixed in the fix wave (R11, commit ab8bc72).
 - "Task 3: minor (deferred): the plan's changes section has an extra "Before execution" bullet (the only home for R8); the brief said one bullet per task; disclosed"
 - "Task 3: minor (deferred): "went as written" in the plan's Task 1 and Task 2 bullets is the writer's summary, not a ledger quote, and is not marked"
 - "Task 3: minor (deferred): findings-slice31.md:17's summary of the integration test leaves out the `"nike" not in r.text.lower()` assertion"
+  - Note (2026-10-01, after merge, R13): fixed in the fix wave (R11, commit ab8bc72).
 
 From the final whole-branch review (ledger lines tagged `Important` and `minor (deferred)`). The result, as recorded: "Final review (a9ba853b5ddcce6fa, 7c5b227..f8035ad): "Ready to merge? With fixes"; 0 Critical, 2 Important, 3 Minor."
 - "Final: Important: ratelimit.py:34-38 (spec-mandated): past MAX_KEYS live keys in one window the sweep drops nothing and every later check rebuilds the dict under the global lock; unknown valid-pattern tokens on an unauthenticated route make this a slow-down lever; fix: sweep at most once per window index (self._swept)"
@@ -74,7 +85,17 @@ From the final whole-branch review (ledger lines tagged `Important` and `minor (
 
 The final review's triage, as recorded: "Final triage of the deferred minors: Task 1 O(n) sweep — fix before merge (Important 1, R10); Task 1 private _seen — leave deferred; Task 1 warnings — leave deferred; Task 2 no-retry-after test — leave deferred; Task 2 body not cancelled — leave deferred; Task 3 R5→R3 — fix before merge; Task 3 Before-execution bullet — leave deferred; Task 3 went-as-written — leave deferred; Task 3 nike clause — fix before merge"
 
-Parked: none. The ledger has no parked lines.
+From the fix wave's scoped re-review (recorded after merge, R13). The result, as recorded: "Fix wave re-review (aef0258500db42a8a, f8035ad..ab8bc72): "All findings addressed: Yes"; new breakage 4 Minor, 0 Critical, 0 Important; 2 out-of-scope observations."
+- "Fix wave: parked — no unit test pins R10 (sweep at most once per window): reverting to a sweep on every check passes all 3 unit tests — Ruling: R13 — Decided: no second fix wave; the post-merge docs record the once-per-window sweep as untested. Found by: the fix-wave re-review. Why: the process allows one fix wave. Cost if wrong: R10 can regress unnoticed until a test is added. Named in chat when made."
+  - Parked under R13 (see the rulings below).
+- "Fix wave: parked — findings-slice31 §3's "Untested" line does not name the once-per-window sweep; the Task 1 sweep line and the Task 3 R5→R3 and nike lines carry no "fixed" note of their own; §1 has two parentheticals in a row — Ruling: R13 — Decided: dated notes in the post-merge docs commit. Found by: the fix-wave re-review. Why: the process allows one fix wave. Cost if wrong: three quoted lines read as still open until then. Named in chat when made."
+  - Parked under R13 (see the rulings below).
+- "Fix wave: minor (deferred): out of scope: `_swept` starts at -1, so a clock returning negative time could give index -1 and that window would never sweep; time.monotonic does not, in practice"
+  - Not ruled on; recorded here as observed.
+- "Fix wave: minor (deferred): out of scope: the "Fixed in the fix wave"/"Left deferred" sub-bullets are the writer's notes, unquoted, supported by R11 and the fix-wave ledger line"
+  - Not ruled on; recorded here as observed.
+
+Parked: none. The ledger has no parked lines. (Correction, 2026-10-01, after merge: the fix wave's re-review led to the two parked lines quoted above.)
 
 Rulings (spec `## Rulings`, quoted in full):
 - **R1: the limiter check is called at the top of each route body, not as a dependency.** Decided: `_limit(token, request)` as the first line of both routes, which gain `request: Request`; the user chose this over keeping the dependency with a doubled 422 `errors` list, or a dependency reading `request.path_params`. Found by the spec review of 94661f3 (a dependency with its own `token: Token` makes FastAPI report a malformed token's pattern error twice). Why: the public routes' 422 must stay as today, and the route body only runs for a valid token. Cost if wrong: two routes carry one extra parameter and call. Asked in chat.
@@ -94,6 +115,8 @@ Rulings (spec `## Rulings`, quoted in full):
   - The ledger line, as recorded: "Ruling: R11 — Decided: the one fix wave applies R10 (code, comment, findings text), quotes Task 3's four deferred minors and the final review's lines and triage in findings §3, corrects R5→R3 at findings line 17 and adds the "nike" assertion to that summary, adds R10–R12 to the spec and findings §3, sets the README spec row to R1–R12, and adds final-review and fix-wave bullets to the plan; the other deferred minors stay deferred. Found by: the final review's triage. Why: the final review asked for these before merge; the controller does not commit fixes. Cost if wrong: none. Named in chat when made."
 - **R12: fix-wave commits carry the Opus 5.5 trailer.** (Title: writer's own wording.) Decided: commits from the fix wave on carry "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>", the trailer the session's attribution reminder now names; the earlier slice 31 commits keep the Fable 5.1 trailer (R9). Found by the controller, on a new attribution reminder. Why: the plan binds the trailer to the latest session reminder. Cost if wrong: mixed trailers within one branch. Named in chat when made.
   - The ledger line, as recorded: "Ruling: R12 — Decided: commits from the fix wave on carry "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>", the trailer the session's attribution reminder now names; the earlier slice 31 commits keep the Fable 5.1 trailer (R9). Found by: the controller, on a new attribution reminder. Why: the plan binds the trailer to the latest session reminder. Cost if wrong: mixed trailers within one branch. Named in chat when made."
+- **R13: the fix-wave re-review's minors are parked for the post-merge docs.** (Title: writer's own wording.) Decided: no second fix wave; the post-merge docs record the once-per-window sweep as untested, and add dated notes for the "Untested" line, the three task-review lines with no "fixed" note, and the doubled parenthetical in §1. Found by the fix-wave re-review. Why: the process allows one fix wave. Cost if wrong: R10 can regress unnoticed until a test is added; three quoted lines read as still open until the notes. Named in chat when made; recorded here after merge.
+  - The ledger lines, as recorded: "Fix wave: parked — no unit test pins R10 (sweep at most once per window): reverting to a sweep on every check passes all 3 unit tests — Ruling: R13 — Decided: no second fix wave; the post-merge docs record the once-per-window sweep as untested. Found by: the fix-wave re-review. Why: the process allows one fix wave. Cost if wrong: R10 can regress unnoticed until a test is added. Named in chat when made."; "Fix wave: parked — findings-slice31 §3's "Untested" line does not name the once-per-window sweep; the Task 1 sweep line and the Task 3 R5→R3 and nike lines carry no "fixed" note of their own; §1 has two parentheticals in a row — Ruling: R13 — Decided: dated notes in the post-merge docs commit. Found by: the fix-wave re-review. Why: the process allows one fix wave. Cost if wrong: three quoted lines read as still open until then. Named in chat when made."
 
 Out of scope (spec):
 - The other two items (webhook signing, "-es" folding): later slices.
@@ -104,3 +127,4 @@ Carried forward from docs/findings-slice30.md §3 ("Carried forward from docs/fi
 - The judge-agreement question, waiting on the user.
 
 Untested: the limiter under concurrent requests (the lock is read in review, not exercised by a test); an unknown token's budget (it counts under its own key, pinned by no test).
+- Note (2026-10-01, after merge, R13): also untested: the once-per-window sweep (R10); reverting to a sweep on every check would pass all three unit tests.
