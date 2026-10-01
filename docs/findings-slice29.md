@@ -34,7 +34,7 @@ Results, as the Task 1 report records them:
 | 38a732c | docs: slice 29 plan, ruling ending as recorded |
 | f61c9d5 | feat(products): a run deletes the brand's stale keyword_search rows |
 | b15aaaf | docs: slice 29 findings, index and notes |
-| (this commit) | docs: slice 29 final review fixes |
+| 1d11cb5 | docs: slice 29 final review fixes |
 
 ## 2. Live check on dev
 
@@ -66,7 +66,18 @@ From the final whole-branch review (ledger lines tagged `Important` and `minor (
 
 The final review's triage, as recorded: "Final triage of the deferred minors: Task 1 cutoff test — leave deferred; Task 2 R5 Why — fix in the docs commit; Task 2 plan:238 — fix before merge; Task 2 R6 missing — fix before merge"
 
+From the fix wave's scoped re-review (recorded after merge, R9 and R10). The result, as recorded: "Fix wave re-review (a6107b808c077ff33, b15aaaf..1d11cb5): "All findings addressed: Yes"; new breakage 2 Minor (one disclosed), 0 Critical, 0 Important; 2 out-of-scope observations."
+- "Fix wave: parked — the plan's Fix wave bullet ends "findings §1's commit table is updated (R7)", but R7 does not cover the commit table; drop "(R7)" — Ruling: R9 — no second fix wave; fix it in the post-merge docs commit — cost if wrong: one overstated citation until then"
+  - Note (2026-10-01, after merge, R9): corrected by a dated note under the plan's Fix wave bullet.
+- "Fix wave: parked — the "Found by" fields of R6–R8 in the spec and findings are derived from other ledger lines, not ledger text (disclosed by the implementer) — Ruling: R9 — record the derivation in the post-merge docs commit — cost if wrong: a reader may take the Found by text for ledger text"
+  - Note (2026-10-01, after merge, R9): recorded under R8 in the spec and below.
+- "Fix wave: minor (deferred): out of scope: ledger lines 39 and 42 place "readable or deleted" at findings-slice29.md:144; it is at line 8 (§1); the docs quote the ledger as recorded with a note giving the true place"
+  - Left deferred (R10).
+- "Fix wave: minor (deferred): out of scope: several quoted ledger lines give line numbers that no longer match (findings-slice29.md:206, findings:191, plan:238; the Task 2 bullet is now at plan line 204); quoted as recorded"
+  - Left deferred (R10).
+
 Parked: none. The ledger has no parked lines.
+  - Correction (2026-10-01, after merge): the fix wave's re-review led to the two parked lines quoted above.
 
 Rulings (spec `## Rulings`, quoted in full):
 - **R1: the spec review's six points were applied.** Decided: name docs/findings-slice28.md §3 (both lines) and docs/findings-slice24.md's Out of scope line in the docs list; "no run removes" for "stays for good"; "not used … newest current spelling" in the planned comment; the second brand's setup and a by-brand check in the new test; the corrected live-check cost with its source. Found by the spec review of 2a24492. Why: accuracy and completeness; no design change. Cost if wrong: none. Named in chat when made.
@@ -82,6 +93,11 @@ Rulings (spec `## Rulings`, quoted in full):
   - The ledger line, as recorded: "Ruling: R7 — the one fix wave fixes both Important findings and R5's Why, quotes the Task 2 and Final deferred lines and the triage in findings §3, adds final-review and fix-wave bullets to the plan, puts R6–R8 in the spec and findings §3, and sets the README range to R1–R8; the fix wave's re-review result goes into the post-merge docs commit — the final review asked for these before merge, and the controller does not commit fixes — cost if wrong: the re-review result is recorded only after merge. Named in chat when made."
 - **R8: three minors stay deferred.** Decided: leave the docstring clause's position (products.py:999-1000), the "readable or deleted" wording in docs/findings-slice29.md §1, and the Task 1 cutoff-test minor as they are. Found by the Task 1 review and the final review; triaged by the final review. Why: cosmetic, matching the spec, and out of scope respectively, per the final review's triage. Cost if wrong: two small wording points and an untested boundary stay. Named in chat when made.
   - The ledger line, as recorded: "Ruling: R8 — leave deferred: the docstring clause's position (products.py:999-1000), the "readable or deleted" wording (findings-slice29.md:144), and the Task 1 cutoff-test minor — cosmetic, matching the spec, and out of scope respectively, per the final review's triage — cost if wrong: two small wording points and an untested boundary stay. Named in chat when made."
+  - Note (2026-10-01, after merge, R9): the "Found by" text of R6–R8 is derived, not ledger text: R6 from the ledger's Task 2 concern (1), R7 from the final review, R8 from the Task 1 review and the final review.
+- **R9: the fix wave's re-review minors were parked for the post-merge docs commit.** Decided: no second fix wave; in the post-merge docs commit, the stray "(R7)" on the plan's commit-table clause is corrected by a dated note, and the derivation of R6–R8's "Found by" text is recorded. Found by the scoped re-review of b15aaaf..1d11cb5. Why: the process allows one fix wave, and the controller does not fix findings on the branch. Cost if wrong: an overstated citation and an unstated derivation until the post-merge docs commit. Named in chat when made; recorded here after merge.
+  - The ledger lines, as recorded: "Fix wave: parked — the plan's Fix wave bullet ends "findings §1's commit table is updated (R7)", but R7 does not cover the commit table; drop "(R7)" — Ruling: R9 — no second fix wave; fix it in the post-merge docs commit — cost if wrong: one overstated citation until then"; "Fix wave: parked — the "Found by" fields of R6–R8 in the spec and findings are derived from other ledger lines, not ledger text (disclosed by the implementer) — Ruling: R9 — record the derivation in the post-merge docs commit — cost if wrong: a reader may take the Found by text for ledger text"
+- **R10: the post-merge docs commit gets one review only.** Decided: this commit records the re-review result, R9 and R10, and gets one review; anything that review finds goes into the PR description, not another commit. Found by the controller after the slice 28 post-merge loop. Why: to avoid a loop that regenerates a ruling per round. Cost if wrong: a last finding lives in the PR description rather than the docs. Named in chat when made; recorded here after merge.
+  - The ledger line, as recorded: "Ruling: R10 — the post-merge docs commit records the fix wave's re-review result, its parked lines (R9) and these rulings, and gets one review; anything that review finds goes into the PR description, not another commit — to avoid the slice 28 post-merge loop — cost if wrong: a last finding lives in the PR description rather than the docs. Named in chat when made."
 
 Out of scope (spec):
 - A test of a row exactly at the cutoff (`searched_at == fresh_after`): the tests run through the worker, which does not take `now`.
