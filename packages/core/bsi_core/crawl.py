@@ -13,7 +13,7 @@ import socket
 import time
 import xml.etree.ElementTree as ET
 import zlib
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -222,6 +222,8 @@ def _decompressor(encoding: str) -> Any:
     raise _Refused(f"content-encoding {encoding}")
 
 
+# Caller headers never replace these (dropped by lower-cased name).
+_PINNED = frozenset({"host", "user-agent", "accept-encoding"})
 _REDIRECTS_REFUSED = "too many redirects"
 _TIMED_OUT = f"timeout: over the {DEADLINE_SECONDS} s deadline"
 
@@ -241,6 +243,7 @@ def http_fetch(
     content_type: str | None = None,
     cap: int = BODY_CAP_BYTES,
     raw: bool = False,
+    headers: Mapping[str, str] | None = None,
 ) -> Response:
     """The real fetch. Never raises: an error is a Response with status 0,
     and a URL it will not fetch has error "refused: <reason>".
@@ -257,7 +260,8 @@ def http_fetch(
     `cap` bounds the decoded bytes kept (every guard is unchanged);
     `truncated` says the cap cut the body. `raw=True` decodes the bytes as
     Latin-1, which is lossless: `body.encode('latin-1')` gives the exact
-    bytes back.
+    bytes back. `headers` go on every hop; Host, User-Agent and
+    Accept-Encoding are always the pinned ones.
     """
     deadline = time.monotonic() + DEADLINE_SECONDS
     try:
@@ -291,18 +295,22 @@ def http_fetch(
                 left = deadline - time.monotonic()
                 if left <= 0:
                     return Response(0, "", _TIMED_OUT)
-                headers = {
+                sent = {
+                    k: v
+                    for k, v in (headers or {}).items()
+                    if k.lower() not in _PINNED
+                } | {
                     "Host": host,
                     "User-Agent": user_agent,
                     "Accept-Encoding": "gzip, deflate",
                 }
                 if content_type:
-                    headers["Content-Type"] = content_type
+                    sent["Content-Type"] = content_type
                 with client.stream(
                     method,
                     target,
                     content=body,
-                    headers=headers,
+                    headers=sent,
                     extensions=ext,
                     timeout=httpx.Timeout(min(PHASE_TIMEOUT_SECONDS, left)),
                 ) as r:
