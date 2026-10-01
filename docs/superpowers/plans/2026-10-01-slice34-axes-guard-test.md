@@ -20,8 +20,8 @@
 - **Writing files:** never use a shell heredoc or zsh `echo` to write files; use the Edit or Write tools. Scratch copies go under the session scratchpad given in the task brief, never inside the repo.
 - **Lint and types:** ruff line length is 80 (the Backend gate runs `ruff format .` first).
 - **Banned words:** copy (code, comments, test names) never contains `guarantee`, `will rank`, `will appear`, `will be recommended`, `ensure`, `boost`, `#1`, `top spot`, `dominat` or `certain` (`FORBIDDEN` in tests/unit/test_recommend_copy.py).
-- **Banned-word grep:** `grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`, run on added lines only (`git diff --cached -U0 | grep '^+' | <the grep>` after staging). Expected: no match.
-- **Backend gate:** `{ uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100; } > <workspace>/gate-task1.txt 2>&1; echo "gate exit $?"` (the echo prints to the terminal).
+- **Banned-word grep:** `grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`, run on added lines only (`cd /Users/vineet/Downloads/ADK/bsi-platform && git diff --cached -U0 | grep '^+' | <the grep>` after staging). Expected: no match.
+- **Backend gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform && { uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100; } > <workspace>/gate-task1.txt 2>&1; echo "gate exit $?"` (the echo prints to the terminal).
 - **Commit trailer:** the `Co-Authored-By` line from the latest session reminder.
 - **Baseline counts** (collected 2026-10-01 on main `02f3592`): backend `1570 passed, 2 deselected` (plus the 2 known third-party warnings); tests/unit/test_rivals.py 32.
 
@@ -87,7 +87,7 @@ Expected: `1 failed, 132 passed`; the failure is `test_stem_es_rule_skips_four_l
 
 - [ ] **Step 4: Banned-word grep, then the backend gate**
 
-Stage the file (`git add tests/unit/test_rivals.py`) and run the banned-word grep on `git diff --cached -U0`. Expected: no match. Then the Backend gate with `gate-task1.txt`. Expected: `gate exit 0`; `1571 passed, 2 deselected` (1570 + 1) and the metrics coverage line at 100%.
+Stage the file (`cd /Users/vineet/Downloads/ADK/bsi-platform && git add tests/unit/test_rivals.py`) and run the banned-word grep from Global Constraints (with its `cd` prefix). Expected: no match. Then the Backend gate with `gate-task1.txt`. Expected: `gate exit 0`; `1571 passed, 2 deselected` (1570 + 1) and the metrics coverage line at 100%.
 
 - [ ] **Step 5: Commit**
 
@@ -107,6 +107,6 @@ and test_products.py still pass.
 
 - Spec coverage: the test (Design, first bullet) → Step 1; the proof (Design, third bullet) → Steps 2–3; counts → Steps 2 and 4; copy → Step 4. Process and docs are controller work after merge.
 - Departures from the spec: the mutation run uses the existing test files rather than the test in a separate folder (the test is now in the repo); the spec's run reported the test alone and the two files separately, Step 3 reports them together (`1 failed, 132 passed`), so "the existing tests still pass on the mutant" is read from that line (133 tests, one failure) rather than from a separate run. The spec's ruff check on the test is covered by the Step 4 gate.
-- Rulings applied to this plan: R2 (the plan review's five points) and R3 (the `cd` prefix on the standalone commands), in the spec's Rulings section.
+- Rulings applied to this plan: R2 (the plan review's five points) and R3 and R4 (the `cd` prefix on the standalone commands and on Step 4's commands and their Global Constraints templates), in the spec's Rulings section.
 - Placeholders: `<trailer>` (the Global Constraints' commit-trailer rule), `<workspace>` and `<scratchpad>` (paths the task brief supplies).
 - Type consistency: `_stem(word: str) -> str`, already imported.
