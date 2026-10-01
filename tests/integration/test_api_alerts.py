@@ -96,3 +96,79 @@ def test_clearing_the_webhook_stops_pending_deliveries(
         a, b = s.get(m.Alert, pending), s.get(m.Alert, kept)
     assert a.next_attempt_at is None and a.delivered_at is None
     assert b.next_attempt_at is not None
+
+
+SECRET = "s" * 32
+
+
+def test_secret_is_write_only_and_shown_as_a_flag(
+    client, owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    r = client.patch(
+        f"/v1/brands/{bid}",
+        headers=org.headers,
+        json={"webhook_secret": SECRET},
+    )
+    assert r.status_code == 200, r.text
+    assert "webhook_secret" not in r.json()
+    assert r.json()["has_webhook_secret"] is True
+    with owner() as s:
+        assert s.get(m.Brand, bid).webhook_secret == SECRET
+
+
+@pytest.mark.parametrize("secret", ["s" * 31, " " + SECRET])
+def test_a_short_or_padded_secret_is_rejected(
+    client, make_org, make_brand, secret
+):
+    org = make_org()
+    bid = make_brand(org)
+    r = client.patch(
+        f"/v1/brands/{bid}",
+        headers=org.headers,
+        json={"webhook_secret": secret},
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_clearing_the_url_also_clears_the_secret(
+    client, owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    client.patch(
+        f"/v1/brands/{bid}",
+        headers=org.headers,
+        json={
+            "webhook_url": "https://hooks.example.com/in",
+            "webhook_secret": SECRET,
+        },
+    )
+    r = client.patch(
+        f"/v1/brands/{bid}", headers=org.headers, json={"webhook_url": None}
+    )
+    assert r.status_code == 200 and r.json()["has_webhook_secret"] is False
+    with owner() as s:
+        assert s.get(m.Brand, bid).webhook_secret is None
+
+
+def test_null_clears_only_the_secret(client, owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    client.patch(
+        f"/v1/brands/{bid}",
+        headers=org.headers,
+        json={
+            "webhook_url": "https://hooks.example.com/in",
+            "webhook_secret": SECRET,
+        },
+    )
+    r = client.patch(
+        f"/v1/brands/{bid}", headers=org.headers, json={"webhook_secret": None}
+    )
+    assert r.status_code == 200
+    assert r.json()["has_webhook_secret"] is False
+    assert r.json()["webhook_url"] == "https://hooks.example.com/in"
+    with owner() as s:
+        assert s.get(m.Brand, bid).webhook_secret is None

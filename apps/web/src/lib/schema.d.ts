@@ -1136,6 +1136,8 @@ export interface components {
             aliases: string[];
             /** Category */
             category: string | null;
+            /** Has Webhook Secret */
+            has_webhook_secret: boolean;
             /**
              * Id
              * Format: uuid
@@ -1168,6 +1170,8 @@ export interface components {
             report_logo_url?: string | null;
             /** Report Prepared By */
             report_prepared_by?: string | null;
+            /** Webhook Secret */
+            webhook_secret?: string | null;
             /** Webhook Url */
             webhook_url?: string | null;
         };

@@ -184,6 +184,10 @@
             ],
             "title": "Category"
           },
+          "has_webhook_secret": {
+            "title": "Has Webhook Secret",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -249,6 +253,7 @@
           "category",
           "status",
           "webhook_url",
+          "has_webhook_secret",
           "report_logo_url",
           "report_accent",
           "report_prepared_by"
@@ -320,6 +325,19 @@
               }
             ],
             "title": "Report Prepared By"
+          },
+          "webhook_secret": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Secret"
           },
           "webhook_url": {
             "anyOf": [
