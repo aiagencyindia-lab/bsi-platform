@@ -74,14 +74,14 @@ def test_slug_words_reads_the_path_only():
 
 - [ ] **Step 2: Run the test file on the real code**
 
-Run `pgrep -fl pytest` on its own first (if it prints a running pytest, wait), then: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q -p no:cacheprovider tests/unit/test_rivals.py 2>&1 | tail -1`
+Run `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest` on its own first (if it prints a running pytest, wait), then: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q -p no:cacheprovider tests/unit/test_rivals.py 2>&1 | tail -1`
 Expected: `33 passed`. (The behaviour already exists, so there is no red run on the real code; Step 3 is the red evidence.)
 
 - [ ] **Step 3: Mutation run (red evidence)**
 
-Run `mkdir -p <scratchpad>/s34mut/pkg && cp -R /Users/vineet/Downloads/ADK/bsi-platform/packages/core/bsi_core <scratchpad>/s34mut/pkg/` (the copy is outside the repo; `mkdir` and `cp` are allowed, only heredoc and `echo` file writes are not; run it once, on a fresh `s34mut`). In the copy's `rivals.py`, use the Edit tool to change the one line `    if len(word) > 4 and word.endswith(_ES):` to `    if len(word) > 3 and word.endswith(_ES):`. Then run, with the copy first on the path:
+Run `cd /Users/vineet/Downloads/ADK/bsi-platform && mkdir -p <scratchpad>/s34mut/pkg && cp -R /Users/vineet/Downloads/ADK/bsi-platform/packages/core/bsi_core <scratchpad>/s34mut/pkg/` (the copy is outside the repo; `mkdir` and `cp` are allowed, only heredoc and `echo` file writes are not; run it once, on a fresh `s34mut`). In the copy's `rivals.py`, use the Edit tool to change the one line `    if len(word) > 4 and word.endswith(_ES):` to `    if len(word) > 3 and word.endswith(_ES):`. Then run, with the copy first on the path:
 
-first `pgrep -fl pytest` on its own (if it prints a running pytest, wait for it to finish), then `cd /Users/vineet/Downloads/ADK/bsi-platform && PYTHONPATH=<scratchpad>/s34mut/pkg:. uv run pytest -q -p no:cacheprovider tests/unit/test_rivals.py tests/unit/test_products.py 2>&1 | grep -E "^FAILED|At index|passed|failed"`
+first `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest` on its own (if it prints a running pytest, wait for it to finish), then `cd /Users/vineet/Downloads/ADK/bsi-platform && PYTHONPATH=<scratchpad>/s34mut/pkg:. uv run pytest -q -p no:cacheprovider tests/unit/test_rivals.py tests/unit/test_products.py 2>&1 | grep -E "^FAILED|At index|passed|failed"`
 
 Expected: `1 failed, 132 passed`; the failure is `test_stem_es_rule_skips_four_letter_words` with `At index 0 diff: 'ax' != 'axe'`. If the grep does not show the `At index` line, read the failure block in the full output. Record the command and output in the report. (Before this test existed, the same mutant gave `132 passed`: spec, Design.)
 
@@ -107,6 +107,6 @@ and test_products.py still pass.
 
 - Spec coverage: the test (Design, first bullet) → Step 1; the proof (Design, third bullet) → Steps 2–3; counts → Steps 2 and 4; copy → Step 4. Process and docs are controller work after merge.
 - Departures from the spec: the mutation run uses the existing test files rather than the test in a separate folder (the test is now in the repo); the spec's run reported the test alone and the two files separately, Step 3 reports them together (`1 failed, 132 passed`), so "the existing tests still pass on the mutant" is read from that line (133 tests, one failure) rather than from a separate run. The spec's ruff check on the test is covered by the Step 4 gate.
-- Rulings applied to this plan: R2 (the plan review's five points), in the spec's Rulings section.
+- Rulings applied to this plan: R2 (the plan review's five points) and R3 (the `cd` prefix on the standalone commands), in the spec's Rulings section.
 - Placeholders: `<trailer>` (the Global Constraints' commit-trailer rule), `<workspace>` and `<scratchpad>` (paths the task brief supplies).
 - Type consistency: `_stem(word: str) -> str`, already imported.
