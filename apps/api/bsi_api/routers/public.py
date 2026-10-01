@@ -12,7 +12,7 @@ from bsi_core import models as m
 from bsi_core.db import system_session, tenant_session
 from bsi_core.pdf import render_pdf
 from bsi_core.reports import Document
-from fastapi import APIRouter, Path, Response
+from fastapi import APIRouter, Path, Request, Response
 from sqlalchemy import text
 
 from ..problems import Problem
@@ -22,6 +22,20 @@ router = APIRouter(prefix="/r", tags=["public"])
 
 Token = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{20,64}$")]
 NO_STORE = {"Cache-Control": "no-store"}
+# One budget per share token across both public routes (slice 31).
+PUBLIC_LIMIT = 60
+PUBLIC_WINDOW_SECONDS = 60
+
+
+def _limit(token: str, request: Request) -> None:
+    """429 with Retry-After once a token has used its window's budget.
+    Called first in each route, after path validation, so a malformed
+    token is never counted."""
+    wait = request.app.state.public_limiter.check(token)
+    if wait is not None:
+        raise Problem(
+            429, "Too many requests", headers={"Retry-After": str(wait)}
+        )
 
 
 def _run(token: str) -> m.ReportRun:
@@ -46,7 +60,8 @@ def _slug(name: str) -> str:
 
 
 @router.get("/{token}.pdf")
-def public_pdf(token: Token) -> Response:
+def public_pdf(token: Token, request: Request) -> Response:
+    _limit(token, request)
     run = _run(token)
     doc = Document.model_validate(run.document)
     pdf = render_pdf(doc)
@@ -63,7 +78,10 @@ def public_pdf(token: Token) -> Response:
 
 
 @router.get("/{token}", response_model=ReportRunOut)
-def public_run(token: Token, response: Response) -> m.ReportRun:
+def public_run(
+    token: Token, request: Request, response: Response
+) -> m.ReportRun:
+    _limit(token, request)
     run = _run(token)
     response.headers.update(NO_STORE)
     return run

@@ -16,9 +16,11 @@ class Problem(Exception):
         title: str,
         detail: str = "",
         errors: list[Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.status, self.title = status, title
         self.detail, self.errors = detail, errors or []
+        self.headers = headers or {}
 
 
 def _response(
@@ -27,12 +29,13 @@ def _response(
     title: str,
     detail: str = "",
     errors: list[Any] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     rid = getattr(request.state, "request_id", "")
     return JSONResponse(
         status_code=status,
         media_type="application/problem+json",
-        headers={"X-Request-Id": rid},
+        headers={"X-Request-Id": rid, **(headers or {})},
         content={
             "type": "about:blank",
             "title": title,
@@ -47,7 +50,9 @@ def _response(
 def install(app: FastAPI) -> None:
     @app.exception_handler(Problem)
     async def _problem(request: Request, exc: Problem) -> JSONResponse:
-        return _response(request, exc.status, exc.title, exc.detail, exc.errors)
+        return _response(
+            request, exc.status, exc.title, exc.detail, exc.errors, exc.headers
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _invalid(
