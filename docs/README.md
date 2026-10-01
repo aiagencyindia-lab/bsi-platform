@@ -212,6 +212,9 @@ In the order they were written:
 | [superpowers/specs/2026-10-01-slice31-public-rate-limit-design.md](superpowers/specs/2026-10-01-slice31-public-rate-limit-design.md) | Design spec: the public share-link routes allow 60 requests per 60-second window per share token (page and PDF together), then `429` with `Retry-After`, counted in the API process; the PDF proxy passes the 429 through, with rulings R1–R14. |
 | [superpowers/plans/2026-10-01-slice31-public-rate-limit.md](superpowers/plans/2026-10-01-slice31-public-rate-limit.md) | Implementation plan, Tasks 1–3, with the changes made during execution. |
 | [findings-slice31.md](findings-slice31.md) | Results: what was built, the red and green runs, the live check on dev (to run after merge), and what is deferred or untested. |
+| [superpowers/specs/2026-10-01-slice32-webhook-signing-design.md](superpowers/specs/2026-10-01-slice32-webhook-signing-design.md) | Design spec: a per-brand, write-only webhook signing secret (migration 0022); each alert POST carries `X-BSI-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 over "{t}." + body>`; `http_fetch` takes caller headers that cannot override its pinned ones, with rulings R1–R11. |
+| [superpowers/plans/2026-10-01-slice32-webhook-signing.md](superpowers/plans/2026-10-01-slice32-webhook-signing.md) | Implementation plan, Tasks 1–4, with the changes made during execution. |
+| [findings-slice32.md](findings-slice32.md) | Results: what was built, the receiver contract, the red and green runs, the live check on dev (to run after merge), and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

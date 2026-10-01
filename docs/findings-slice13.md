@@ -39,6 +39,7 @@ From the spec:
 - `new_source` fires at 5 answers; there is no authority score. One popular prompt can make it noisy.
 - A 15-point floor applies on top of the significance label, so small brands may never get a mention-drop alert.
 - No webhook signing; a consumer cannot authenticate the sender.
+  - Note (2026-10-01): signed in slice 32: a brand with a signing secret sends `X-BSI-Signature` (docs/findings-slice32.md).
 - `http_fetch` gained method and body; a guard regression would affect crawling too.
 - Slack renders only `text`; the rest of the JSON is for other consumers.
 

@@ -977,3 +977,9 @@ webhook_secret as typed, omits it when empty, and nulls it on Remove.
 - Rulings applied to this plan: R7 (`autoComplete="new-password"`, asked) and R8 (the plan review's minors 1–5), both in the spec's Rulings section.
 - Placeholder scan: none (`<trailer>` is the Global Constraints' commit-trailer rule, and `<workspace>` is the SDD workspace path the task brief supplies).
 - Type consistency: `sign(secret: str, body: bytes, now: int) -> str` (Task 1) is called as `sign(secret, body, int(time.time()))` (Task 3); `headers: Mapping[str, str] | None` matches in `http_fetch`, `Poster` and the fakes; `has_webhook_secret` is the same name in the model, `BrandOut`, the schema and the page.
+
+## Changes made during execution
+
+- Task 1: commit 454ccd5; Task 2: d3f0ec8; Task 3: 8fa2cd5; Task 4: e01cf81. Each task's review approved it on the first round; no fix round, no fix wave.
+- Rulings R9 (trailer), R10 (no model parameter) and R11 (a Task 4 minor parked for the final review) were made during execution; they are in the spec's Rulings section and docs/findings-slice32.md.
+- No departure from the task text beyond the `ruff format` reflows Tasks 2 and 3 predicted.
