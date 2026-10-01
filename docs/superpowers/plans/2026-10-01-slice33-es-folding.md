@@ -16,7 +16,7 @@
 - **Branch:** `slice33-es-folding`. Never check out, switch, reset or stash.
 - **Off limits:** do NOT edit `tests/conftest.py` or create databases. Never touch the dev DB, the network or the worker loop. Never call a model.
 - **Unchanged:** every `_stem` caller's own code (`fold`, `keyword_key`, `missing`, `rule_check`, `_not_in_keyword`, `rivals._words`, …); `_allowed_stems`' body and `es` set (R1); `NOISE_WORDS`, `AUDIENCE_WORDS`; the existing tests' expectations except the one rewrite this plan names.
-- **Shared test DB:** run `pgrep -fl pytest` first, and never run two suites at once. Run the full backend suite only once per task, in the gate step, redirecting the whole gate chain's output to a file in the plan's workspace directory.
+- **Shared test DB:** run `pgrep -fl pytest` first, and never run two suites at once: if it prints a running pytest, stop and wait for it to finish before running yours (the steps chain `pgrep` with `;`, so the check is yours to read). Run the full backend suite only once per task, in the gate step, redirecting the whole gate chain's output to a file in the plan's workspace directory.
 - **Tool refusals:** if any tool refuses, stop and report BLOCKED. Do not switch tools or work around it. (The Edit tool's "read the file first" precondition is not a refusal: read the file and repeat the edit.)
 - **Writing files:** never use a shell heredoc or zsh `echo` to write files; use the Edit or Write tools.
 - **Lint and types:** ruff line length is 80 (the Backend gate runs `ruff format .` first); RUF001 rejects a literal curly apostrophe. The gate's mypy covers `packages/core/bsi_core`, which includes both files this plan changes.
@@ -127,7 +127,7 @@ def test_lenses_still_back_lens_for_allowed_text():
 - [ ] **Step 2: Run the two files to verify the new expectations fail**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q -p no:cacheprovider tests/unit/test_rivals.py tests/unit/test_products.py 2>&1 | tail -6`
-Expected: `4 failed, 128 passed` — `test_stem_folds_plurals` (`'watche'` where `'watch'` is expected), `test_keyword_key_folds_es_plurals` (`'men watche' == 'men watch'`), `test_rule_check_removes_an_es_plural_repeat` (the tuple's status is `'adjusted'`, not `'pass'`), `test_missing_folds_an_es_plural_in_the_title` (`['men', 'watch'] == ['men']`). `test_lenses_still_back_lens_for_allowed_text` passes already.
+Expected: `4 failed, 128 passed` — `test_stem_folds_plurals` (the list holds `'glas'` and `'watche'`; pytest prints the first difference, `At index 4 diff: 'glas' != 'glass'`), `test_keyword_key_folds_es_plurals` (`'men watche' == 'men watch'`), `test_rule_check_removes_an_es_plural_repeat` (the tuple's status is `'adjusted'`, not `'pass'`), `test_missing_folds_an_es_plural_in_the_title` (`['men', 'watch'] == ['men']`). `test_lenses_still_back_lens_for_allowed_text` passes already.
 
 - [ ] **Step 3: The new `_stem`**
 
@@ -234,7 +234,7 @@ with
     allowed words only."""
 ```
 
-- [ ] **Step 2: Check the module still imports and the two files still pass**
+- [ ] **Step 2: Check the module still imports and test_products.py still passes**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q -p no:cacheprovider tests/unit/test_products.py 2>&1 | tail -1`
 Expected: `100 passed` (docstrings change no behaviour; this guards against a broken string literal).
@@ -261,5 +261,6 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
   2. The rivals test gains a one-line comment naming the limit pins (R2) and the lenses test a comment naming R1; the spec gives neither.
   3. The stem test builds its word list from one string split on spaces; the spec says "as one list" and names the words and expectations, which the plan uses exactly.
   4. Task 2 Step 2 runs test_products.py as a smoke check; the spec names no test for the docstrings.
+- Rulings applied to this plan: R5 (the plan review's three minors), in the spec's Rulings section.
 - Placeholder scan: none (`<trailer>` is the Global Constraints' commit-trailer rule, `<workspace>` the SDD workspace path the task brief supplies).
 - Type consistency: `_stem(word: str) -> str` unchanged in signature; `_ES` is a module-level tuple of `str`; the tests use the already-imported names.
