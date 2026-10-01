@@ -32,7 +32,7 @@ Results, as the Task 1 report records them:
 | 4dac8f1 | docs: slice 30 plan review fixes |
 | 5f6c199 | feat(reports): readable audit-code labels, methodology v3 |
 | 00556fe | docs: slice 30 findings, index and notes |
-| (this commit) | docs: slice 30 final review fixes |
+| fb29c74 | docs: slice 30 final review fixes |
 
 ## 2. Live check on dev
 
@@ -58,7 +58,17 @@ From the final whole-branch review (ledger lines tagged `Important` and `minor (
 
 The final review's triage, as recorded: "Final triage of the deferred minors: Task 1 docstring repeat — leave deferred; Task 2 spec marking line — fix before merge; Task 2 R7 Why label — leave deferred; Task 2 nested quotes — leave deferred"
 
-Parked: none. The ledger has no parked lines.
+From the fix wave's scoped re-review (recorded after merge, R11 and R12). The result, as recorded: "Fix wave re-review (af2370254a032ea7d, 00556fe..fb29c74): "All findings addressed: Yes"; new breakage 2 Minor, 0 Critical, 0 Important; 2 out-of-scope observations."
+- "Fix wave: parked — in R8–R11 (spec 80–83 and findings §3) the split of each ledger line into Decided and Why is the writer's choice and is not marked; the marking line still says "their other fields are from the ledger" — Ruling: R12 — no second fix wave; mark it in the post-merge docs commit — cost if wrong: an unmarked field assignment until then"
+  - Note (2026-10-01, after merge, R12): marked under the rulings below.
+- "Fix wave: parked — the plan's Fix wave bullet says every quoted line got a Fixed/Left note (the triage quote has none), omits the note added under the Task 1 line, and reads as if the spec also carries the ledger lines — Ruling: R12 — correct it by a dated note in the post-merge docs commit — cost if wrong: a slightly overstated bullet until then"
+  - Note (2026-10-01, after merge, R12): corrected by a dated note under the plan's Fix wave bullet.
+- "Fix wave: minor (deferred): out of scope: the plan's Task 2 bullet says "The ledger records two rulings, made before execution: R6 … and R7"; true as worded, but R8 appears later in the same bullet, easy to misread"
+  - Not ruled on; recorded here as observed.
+- "Fix wave: minor (deferred): out of scope: the ledger's "Fix wave" line is not quoted in the docs; R9 does not ask for it"
+  - Not ruled on; recorded here as observed.
+
+Parked: none. The ledger has no parked lines. (Correction, 2026-10-01, after merge: the fix wave's re-review led to the two parked lines quoted above.)
 
 Rulings (spec `## Rulings`, quoted in full):
 - **R1: the fixture's `robots_ok` code stays.** Decided: the integration fixture's other check code, `robots_ok` (not a real crawl code either), is left as is. Found by the controller writing the spec (not raised in chat). Why: it is a passing check, and the report renders only failed checks, so its label never shows. Cost if wrong: a second unreal code stays in a test fixture. Named in chat when made.
@@ -79,6 +89,9 @@ Rulings (spec `## Rulings`, quoted in full):
 - **R11: the post-merge docs commit gets one review only.** Decided: the post-merge docs commit records the fix wave's re-review result and gets one review only; anything that review finds goes into the PR description. Found by the controller. Why: the slice 29 precedent. Cost if wrong: a last finding lives outside the docs. Named in chat when made.
   - The ledger line, as recorded: "Ruling: R11 — the post-merge docs commit records the fix wave's re-review result and gets one review only; anything that review finds goes into the PR description — the slice 29 precedent — cost if wrong: a last finding lives outside the docs. Named in chat when made."
 - The ruling titles of R6–R11 and R6's Why are the writer's own wording, and so are the "Found by" fields of R8–R11 (the ledger's ruling lines give none: R8's is derived from the Task 2 implementer's concern (1), R9's from the final review line, R10's from the review lines and the triage, R11's from the controller recording it); their other fields are from the ledger.
+  - Note (2026-10-01, after merge, R12): in R8–R11 the split of each ledger line into Decided, Why and Cost if wrong is the writer's field assignment; the text of each field is the ledger's. "Their other fields are from the ledger" above means the text, not the labels. (Writer's own wording.)
+- **R12: the fix wave's re-review minors were parked for the post-merge docs commit.** (Title: writer's own wording.) Decided: no second fix wave; mark the Decided/Why split of R8–R11 and correct the plan's Fix wave bullet by dated notes in the post-merge docs commit. Found by the scoped re-review of 00556fe..fb29c74 (writer's own wording; the ledger names the finding, not the finder). Why: the process allows one fix wave (writer's own wording; the ledger gives no Why). Cost if wrong: an unmarked field assignment and a slightly overstated bullet until then. Named in chat when made; recorded here after merge.
+  - The ledger lines, as recorded: "Fix wave: parked — in R8–R11 (spec 80–83 and findings §3) the split of each ledger line into Decided and Why is the writer's choice and is not marked; the marking line still says "their other fields are from the ledger" — Ruling: R12 — no second fix wave; mark it in the post-merge docs commit — cost if wrong: an unmarked field assignment until then"; "Fix wave: parked — the plan's Fix wave bullet says every quoted line got a Fixed/Left note (the triage quote has none), omits the note added under the Task 1 line, and reads as if the spec also carries the ledger lines — Ruling: R12 — correct it by a dated note in the post-merge docs commit — cost if wrong: a slightly overstated bullet until then"
 
 Out of scope (spec):
 - The other three items (rate limits, webhook signing, "-es" folding): later slices.
