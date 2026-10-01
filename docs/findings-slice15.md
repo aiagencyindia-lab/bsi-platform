@@ -63,6 +63,7 @@ From the spec and the build:
 - The PDF link (on the public page and in the Archive) is built from the server-side `API_URL`. Cost: it works only where the reader's browser can reach that host; on a deployment where the API is internal the link is dead. It also puts the API's hostname on the client-facing page: if that host carries the platform name, the white-label acceptance fails. This must be solved before any real client share, by a public API base URL setting or by same-origin proxying (which would need a ruling under the "Server Components and server actions only" rule).
 - Periods are rolling 7 or 30 days ending at generation time, not calendar months (spec Out of scope). Cost: a "monthly" report does not line up with a calendar month.
 - The public routes are not rate-limited; the tokens are 256-bit (`token_urlsafe(32)`). Cost: nothing stops a client hammering the PDF route, which renders on every request.
+  - Update 2026-10-01 (slice 31): the public routes now allow 60 requests per minute per share token, then 429 with `Retry-After` (docs/findings-slice31.md).
 - Prompts with no topic are grouped as "untopiced" in the content report. Cost: a label a client may not understand.
 - `_topic_rows` recovers each prompt's mention count `k` by rounding `value × n`, since `rate()` stores only the ratio. Cost: none while `n` is small enough for the float to round back exactly; wrong if `rate()` ever stores a rounded value.
 - The copy ban (the `FORBIDDEN` words) binds the report's fixed copy only. Stored text quoted verbatim (prompt texts, evidence sentences, page suggestions, brief structure lines built from prompts) is exempt, because editing it would misquote the evidence. Cost: a report can quote an answer containing, for example, "certain".
@@ -113,6 +114,7 @@ Task 8
 - The idle-in-transaction probe runs after the PDF response, so it cannot see a transaction held during `render_pdf`. Cost: a regression that renders inside the session would pass (fix: probe from inside a monkeypatched `render_pdf`).
 - The public JSON exposes `id`, `brand_id` and `share_token` (the spec mandates `ReportRunOut`). Cost: internal ids reach the reader.
 - No rate limiting on the public routes. Cost: a client can request the PDF route without limit, and each request renders a PDF.
+  - Update 2026-10-01 (slice 31): the public routes now allow 60 requests per minute per share token, then 429 with `Retry-After` (docs/findings-slice31.md).
 - From the final review: `tests/integration/test_api_reports.py` does not assert the status of the brand-rename PATCH before the PDF filename check. Cost: if the PATCH ever failed, the filename test would pass without testing the rename.
 
 Task 9
