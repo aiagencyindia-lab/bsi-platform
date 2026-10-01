@@ -235,7 +235,7 @@ def test_cmo_opening_agrees_with_brand_deltas(owner, make_org, make_brand):
         for k in DELTA_METRICS
     ]
     assert vis.rows[0][1] == "0.67 [0.30, 0.90] n=6"
-    assert doc.footer.startswith("Methodology v2 · pipeline v")
+    assert doc.footer.startswith("Methodology v3 · pipeline v")
 
 
 def test_cmo_sections_agree_with_the_dashboard_functions(
@@ -348,7 +348,7 @@ def _audits(owner, org, bid):
                         "url": "https://nike.com/robots.txt",
                     },
                     {
-                        "code": "llms_txt",
+                        "code": "llms_missing",
                         "ok": False,
                         "severity": "low",
                         "observed": "404",
@@ -393,7 +393,9 @@ def test_seo_sections(owner, make_org, make_brand):
     assert src.columns == ["Domain", "Owner", "Answers", "Prompts", "Gap"]
     audit = _table(doc, "Site audit")
     assert audit.columns == ["Domain", "Check", "Severity", "Detail"]
-    assert audit.rows == [["nike.com", "Llms txt", "Low", "404 (expected 200)"]]
+    assert audit.rows == [
+        ["nike.com", "llms.txt missing", "Low", "404 (expected 200)"]
+    ]
     assert _table(doc, "Page citability").rows == [
         ["https://nike.com/best-shoes", "Commercial · shoes", "61"]
     ]
@@ -554,7 +556,7 @@ def test_generate_freezes_the_document(owner, make_org, make_brand):
     with tenant_session(org.id) as s:
         run = s.get_one(m.ReportRun, run_id)
         assert Document.model_validate(run.document) == before
-        assert run.methodology_version == "2"
+        assert run.methodology_version == "3"
         assert run.period_to == NOW
         assert run.period_from == NOW - timedelta(days=7)
         assert run.compare_from == NOW - timedelta(days=14)

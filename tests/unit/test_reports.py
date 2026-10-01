@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 
+from bsi_core import crawl, entity
 from bsi_core.reports import (
+    AUDIT_LABEL,
     METHODOLOGY_VERSION,
     Document,
     Paragraph,
@@ -80,7 +82,20 @@ def test_label_reads_codes_as_words():
     assert label("rival") == "Competitor"
     assert label("impact_measured") == "Impact measured"
     assert label("insufficient_data") == "Insufficient data"
-    assert label("h1_missing") == "H1 missing"
+    assert label("h1_missing") == "H1 heading missing"
+    assert label("llms_missing") == "llms.txt missing"
+    assert label("org_sameas_missing") == (
+        "Organization sameAs profiles missing"
+    )
+    assert label("org_url_mismatch") == "Organization URL mismatch"
+    assert label("bot_ua_blocked:GPTBot") == (
+        "Crawler user agent blocked: GPTBot"
+    )
+    assert label("bot_blocked:ClaudeBot") == (
+        "Crawler blocked by robots.txt: ClaudeBot"
+    )
+    assert label("bot_blocked:") == "Crawler blocked by robots.txt"
+    assert label("needs_review:x") == "Needs review:x"
     assert label("problem-based") == "Problem-based"
     assert label("high") == "High"
     assert label("") == ""
@@ -99,5 +114,9 @@ def test_cluster_label_reads_the_cluster_key():
     assert cluster_label("topic:commercial:shoes") == "topic:commercial:shoes"
 
 
-def test_methodology_is_v2():
-    assert METHODOLOGY_VERSION == "2"
+def test_every_audit_code_has_a_label():
+    assert set(AUDIT_LABEL) == set(crawl.SEVERITY) | set(entity.SEVERITY)
+
+
+def test_methodology_is_v3():
+    assert METHODOLOGY_VERSION == "3"
