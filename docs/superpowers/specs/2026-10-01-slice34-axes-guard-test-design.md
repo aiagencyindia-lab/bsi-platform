@@ -8,7 +8,7 @@ docs/findings-slice33.md §3 quotes the deferred minor: "Task 1: minor (deferred
 
 Facts read before the approaches (direct reads on Opus 5.5):
 - `rivals._stem` (packages/core/bsi_core/rivals.py:55-67): `if len(word) > 4 and word.endswith(_ES): return word[:-2]`, with `_ES = ("ches", "shes", "xes", "sses", "zzes")`; then the `ss` keep; then the one-`s` rule on words longer than three characters.
-- `test_stem_folds_plurals` (tests/unit/test_rivals.py:525-545) pins `boxes → box` (five characters, the shortest `-es` case it lists) and no four-character `-es` word.
+- `test_stem_folds_plurals` (tests/unit/test_rivals.py:525-546) pins `boxes → box` (five characters, the shortest `-es` case it lists) and no four-character `-es` word.
 - In memory, the real rule gives `axes → axe`, `shes → she`, `taxes → tax`, `boxes → box`; a mutant with `len(word) > 3` gives `axes → ax`, `shes → sh`, and the same for the five-character words.
 
 Classification, said in chat as the first line of the first brainstorming reply: **bounded** — "one test added to an existing file, no production code change; the flow (`_stem`'s `len(word) > 4` guard) already exists to read." The user's process rule asks for a spec even for small changes, so this file exists.
