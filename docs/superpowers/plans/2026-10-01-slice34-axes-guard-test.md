@@ -110,3 +110,9 @@ and test_products.py still pass.
 - Rulings applied to this plan: R2 (the plan review's five points) and R3 and R4 (the `cd` prefix on the standalone commands and on Step 4's commands and their Global Constraints templates), in the spec's Rulings section.
 - Placeholders: `<trailer>` (the Global Constraints' commit-trailer rule), `<workspace>` and `<scratchpad>` (paths the task brief supplies).
 - Type consistency: `_stem(word: str) -> str`, already imported.
+
+## Changes made during execution
+
+- Task 1: commit d3970ce. Real code: test_rivals.py 33 passed. Mutation run (guard `> 3` on a scratch copy), over test_rivals.py and test_products.py: `1 failed, 132 passed`, the failure `test_stem_es_rule_skips_four_letter_words` with `At index 0 diff: 'ax' != 'axe'`. Gate: `1571 passed, 2 deselected`, coverage 100%.
+- The task review and the final whole-branch review found nothing; no fix round, no fix wave; no ruling during execution.
+- No departure from the task text.

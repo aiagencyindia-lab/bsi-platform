@@ -218,6 +218,8 @@ In the order they were written:
 | [superpowers/specs/2026-10-01-slice33-es-folding-design.md](superpowers/specs/2026-10-01-slice33-es-folding-design.md) | Design spec: `rivals._stem` folds -es plurals after ch, sh, x, ss and zz and keeps ss-final words whole; `_allowed_stems` keeps its one-sided set; named limits (caches, mousses, quizzes), with rulings R1–R10. |
 | [superpowers/plans/2026-10-01-slice33-es-folding.md](superpowers/plans/2026-10-01-slice33-es-folding.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
 | [findings-slice33.md](findings-slice33.md) | Results: what was built, the effects on folding and cached searches, the red and green runs, the read-only live check on dev's rival pages, and what is deferred or untested. |
+| [superpowers/specs/2026-10-01-slice34-axes-guard-test-design.md](superpowers/specs/2026-10-01-slice34-axes-guard-test-design.md) | Design spec: a unit test pins `rivals._stem`'s `len(word) > 4` guard on the -es rule (axes → axe, shes → she); a mutation run is the red evidence; the results are in this spec and in PR #65, with rulings R1–R5. |
+| [superpowers/plans/2026-10-01-slice34-axes-guard-test.md](superpowers/plans/2026-10-01-slice34-axes-guard-test.md) | Implementation plan, Task 1 (one test), with the changes made during execution. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

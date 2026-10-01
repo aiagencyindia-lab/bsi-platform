@@ -56,6 +56,7 @@ Run on 2026-10-01 after merge (main `47ee35f` code), with the user's approval in
 
 From the task reviews (ledger lines tagged `minor (deferred)`):
 - "Task 1: minor (deferred): tests/unit/test_rivals.py:528-531 — the stem list does not pin the `len > 4` guard on the -es rule (`axes` → `axe`, `shes` → `she`); a mutation to `> 3` would turn `axes` into `ax` and pass every listed case; the spec names no boundary case."
+  - Note (2026-10-01): pinned in slice 34 by `test_stem_es_rule_skips_four_letter_words` (axes → axe, shes → she); with the guard changed to `> 3` that test fails and the other tests in test_rivals.py and test_products.py pass (docs/superpowers/specs/2026-10-01-slice34-axes-guard-test-design.md, PR #65).
 - "Task 2: minor (deferred): products.py:382 — the `es` patch's one example ("watches" -> watch) is now a case `_stem` folds by itself; the cases the patch adds are named two lines later; the spec limited the change to the last two sentences; a follow-up could use lenses -> lens."
 - "Task 2: minor (deferred): products.py:384 — "folds -oes, -ses and -thes" reads as a complete list, but the set folds every token longer than three characters ending in "es" (it also adds `sho` from "shoes"); spec-mandated text (§2, R1)."
 
@@ -81,6 +82,7 @@ Carried forward from docs/findings-slice32.md §3, still open:
 - The once-per-window sweep (slice 31 R10) has no unit test.
 
 Untested: the `len > 4` guard on the `-es` rule (`axes` → `axe`; Task 1's deferred minor above); the rule on real catalogue data beyond dev's 10 products (none of whose 71 distinct tokens changes stem; the ledger's "Dev product read" line).
+- Note (2026-10-01): the `len > 4` guard is now tested (slice 34: docs/superpowers/specs/2026-10-01-slice34-axes-guard-test-design.md, PR #65); the rule on real catalogue data beyond dev's 10 products stays untested.
 
 ## Rulings
 
