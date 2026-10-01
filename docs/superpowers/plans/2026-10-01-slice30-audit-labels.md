@@ -141,6 +141,20 @@ METHODOLOGY_VERSION = "3"
 then replace
 
 ```python
+# Client-facing wording for source owners; every other code reads as
+# words by the rule in label().
+```
+
+with
+
+```python
+# Client-facing wording for source owners; every other non-audit code
+# reads as words by the rule in label().
+```
+
+then replace
+
+```python
     "third_party": "Third party",
 }
 
@@ -189,8 +203,9 @@ AUDIT_LABEL = {
 
 def label(code: str) -> str:
     """A stored code as words: an audit code reads from AUDIT_LABEL
-    (keeping any ":" suffix), an owner from OWNER_LABEL; any other code
-    has underscores as spaces and its first letter capitalised."""
+    (keeping any ":" suffix; a test checks every audit code has an
+    entry), an owner from OWNER_LABEL; any other code has underscores
+    as spaces and its first letter capitalised."""
     head, _, tail = code.partition(":")
     if head in AUDIT_LABEL:
         return AUDIT_LABEL[head] + (f": {tail}" if tail else "")
@@ -212,7 +227,7 @@ def label(code: str) -> str:
 - [ ] **Step 1: Findings.** Fill `docs/findings-slice30.md` in the style of `docs/findings-slice29.md`:
   - `## 1. What was built`: the table and the rule, methodology v3, the test changes; the Step 2, 4 and 5 results as the Task 1 report records them; and a commit table from `git log --oneline --reverse main..HEAD` with a "(this commit)" row.
   - `## 2. Live check on dev`: exactly "None: no model call and no spend; the tests pin the cells (spec §2)."
-  - `## 3. Deferred and untested`: every `minor (deferred…)` and `parked` ledger line, quoted as recorded ("Parked: none" if none); every spec ruling quoted in full; the spec's Out of scope list; and the still-open items under "Carried forward" in docs/findings-slice29.md §3.
+  - `## 3. Deferred and untested`: every `minor (deferred…)` and `parked` ledger line, quoted as recorded ("Parked: none" if none); every spec ruling quoted in full; the spec's Out of scope list; the still-open items under "Carried forward" in docs/findings-slice29.md §3; and "Untested: nothing beyond the Out of scope list."
 - [ ] **Step 2: Dated update, original kept.** Add a sub-bullet starting "Update 2026-10-01 (slice 30):" under the docs/findings-slice17.md §3 bullet that begins "`label()` reads acronyms awkwardly": audit codes now read from `AUDIT_LABEL` (methodology v3), and the fixture uses `llms_missing` (docs/findings-slice30.md). Leave that file's line about "Llms txt" in the plan-deviation notes as it is.
 - [ ] **Step 3: README rows** for the spec, the plan and the findings, after the row for `findings-slice29.md`, in the slice 29 rows' format; the spec row names the spec's final ruling range.
 - [ ] **Step 4: Rulings.** For each ruling the ledger records that the spec's `## Rulings` does not already hold (match by R-number), add it after the spec's last ruling in the same format (Decided / Found by / Why / Cost if wrong), with its ending as the ledger records it. Mark any field not taken from the ledger as the writer's own wording.
@@ -232,6 +247,7 @@ def label(code: str) -> str:
   2. TDD order: the tests are written and seen failing first.
   3. Step 5's gate count (1554) and Step 4's 40 come from the scratch runs; the spec states 40 only.
   4. Task 2 also updates the spec's Rulings and this plan's changes section, and asks that derived ruling fields be marked (from the slice 29 lesson); the spec's docs list names neither.
+  5. Step 3 also rewords the comment above `OWNER_LABEL` ("every other non-audit code"), which the spec does not mention; without it the comment would be wrong.
 - Verified before committing this plan (2026-10-01): every replacement in Task 1 was applied, from this file's own code blocks and inline strings, to scratch copies of main (each old string found exactly once). On main's code the unit file failed at import (`AUDIT_LABEL`) and the two integration files gave `4 failed, 26 passed`; with the change the three files gave `40 passed`. ruff check, ruff format --check and `mypy --strict` (with the repo config) are clean.
 - Placeholders: only `<workspace>` and `<trailer>`.
 
