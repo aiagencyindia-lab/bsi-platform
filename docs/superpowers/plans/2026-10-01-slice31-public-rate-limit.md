@@ -20,7 +20,8 @@
 - **Tool refusals:** if any tool refuses, stop and report BLOCKED. Do not switch tools or work around it. (The Edit tool's "read the file first" precondition is not a refusal: read the file and repeat the edit.)
 - **Writing files:** never use a shell heredoc or zsh `echo` to write files; use the Edit or Write tools.
 - **Lint and types:** ruff line length is 80 (the Backend gate runs `ruff format .` first); RUF001 rejects a literal curly apostrophe. The gate's mypy covers only `packages/core/bsi_core`; apps/api is not type-checked by the gate.
-- **Banned words:** copy (code, comments, docstrings, test names, fixtures, response bodies, docs) never contains `guarantee`, `will rank`, `will appear`, `will be recommended`, `ensure`, `boost`, `#1`, `top spot`, `dominat` or `certain` (`FORBIDDEN` in tests/unit/test_recommend_copy.py); check by grepping the diff.
+- **Banned words:** copy (code, comments, docstrings, test names, fixtures, response bodies, docs) never contains `guarantee`, `will rank`, `will appear`, `will be recommended`, `ensure`, `boost`, `#1`, `top spot`, `dominat` or `certain` (`FORBIDDEN` in tests/unit/test_recommend_copy.py).
+- **Banned-word grep:** `grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`, run on added lines only (`git diff -U0 | grep '^+' | <the grep>`, or `git diff --cached -U0` after staging; a new file is grepped directly). Expected: no match.
 - **Backend gate:** `{ uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100; } > <workspace>/gate-task1.txt 2>&1; echo "gate exit $?"` (the echo prints to the terminal, not to a file).
 - **Web gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npm run gate > <workspace>/gate-task2.txt 2>&1; echo "web gate exit $?"`.
 - **Commit trailer:** the `Co-Authored-By` line from the latest session reminder.
@@ -319,7 +320,7 @@ Each old string above appears exactly once in its file.
 
 - [ ] **Step 4: Run them to see them pass.** `pgrep -fl pytest`, then `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q tests/unit/test_ratelimit.py tests/integration/test_api_reports.py`. Expected: `17 passed`. Then confirm a malformed token's 422 still carries one error: `uv run python -c "from fastapi.testclient import TestClient; from bsi_api.main import create_app; r = TestClient(create_app(), raise_server_exceptions=False).get('/v1/r/short'); print(r.status_code, len(r.json()['errors']))"` → `422 1`. If anything differs, stop and report it.
 
-- [ ] **Step 5: Gate.** `pgrep -fl pytest`, then the Backend gate once. Expected: `gate exit 0`, `1558 passed, 2 deselected` (1554 + 3 unit + 1 integration), metrics coverage 100%, the 2 known third-party warnings. Stage the six files of Step 6 (`git add …`), then grep the added lines for the banned words (`git diff --cached -U0 | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`): no match (a plain `git diff` would skip the two new files).
+- [ ] **Step 5: Gate.** `pgrep -fl pytest`, then the Backend gate once. Expected: `gate exit 0`, `1558 passed, 2 deselected` (1554 + 3 unit + 1 integration), metrics coverage 100%, the 2 known third-party warnings. Stage the six files (`git add apps/api/bsi_api/ratelimit.py apps/api/bsi_api/problems.py apps/api/bsi_api/main.py apps/api/bsi_api/routers/public.py tests/unit/test_ratelimit.py tests/integration/test_api_reports.py`), then run the Banned-word grep from Global Constraints on `git diff --cached -U0 | grep '^+'`: no match (a plain `git diff` would skip the two new files).
 
 - [ ] **Step 6: Commit.** `git add apps/api/bsi_api/ratelimit.py apps/api/bsi_api/problems.py apps/api/bsi_api/main.py apps/api/bsi_api/routers/public.py tests/unit/test_ratelimit.py tests/integration/test_api_reports.py && git commit -m "feat(api): per-token rate limit on the public routes" -m "<trailer>"`.
 
@@ -380,7 +381,7 @@ with
 
 - [ ] **Step 4: Run it to see it pass.** The Step 2 command. Expected: `6 passed`.
 
-- [ ] **Step 5: Web gate.** The Web gate from Global Constraints, once. Expected: `web gate exit 0`, vitest `43 passed` (42 + 1), typecheck, lint, build and `gen:check` clean (no API schema change). Grep the added lines for the banned words (`git diff -U0 | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`): no match.
+- [ ] **Step 5: Web gate.** The Web gate from Global Constraints, once. Expected: `web gate exit 0`, vitest `43 passed` (42 + 1), typecheck, lint, build and `gen:check` clean (no API schema change). Run the Banned-word grep from Global Constraints on `git diff -U0 | grep '^+'`: no match.
 
 - [ ] **Step 6: Commit.** `git add "apps/web/src/app/r/[token]/pdf/route.ts" "apps/web/src/app/r/[token]/pdf/route.test.ts" && git commit -m "feat(web): the PDF proxy passes a 429 through with Retry-After" -m "<trailer>"`.
 
@@ -398,7 +399,7 @@ with
 - [ ] **Step 3: README rows** for the spec, the plan and the findings, after the row for `findings-slice30.md`, in the slice 30 rows' format; the spec row names the spec's final ruling range.
 - [ ] **Step 4: Rulings.** For each ruling the ledger records that the spec's `## Rulings` does not already hold (match by R-number), add it after the spec's last ruling, copying the ledger line's labelled fields (Decided / Found by / Why / Cost if wrong / how named); mark any field you had to write yourself as your own wording.
 - [ ] **Step 5: Plan changes.** Fill this plan's `## Changes made during execution` from the ledger: one bullet per task, quoting departures and any tool refusals as recorded; the bullet for the commit that fills this section ends "(this commit)".
-- [ ] **Step 6: Grep** the added lines of the changed docs for the banned words (`git diff -U0 docs | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`, run before staging; include docs/findings-slice31.md by grepping it directly, since it is new); expected: no match. (docs/findings-slice15.md already holds two matches on lines 68 and 125, from before this slice; they are not added lines.)
+- [ ] **Step 6: Grep.** Run the Banned-word grep from Global Constraints on `git diff -U0 docs | grep '^+'` (before staging) and directly on docs/findings-slice31.md (a new file); expected: no match. (docs/findings-slice15.md already holds two matches on lines 68 and 125, from before this slice; they are not added lines.)
 - [ ] **Step 7: Commit** `git add docs && git commit -m "docs: slice 31 findings, index and notes" -m "<trailer>"`.
 
 ---
