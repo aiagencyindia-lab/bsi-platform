@@ -95,6 +95,7 @@ Rulings (spec `## Rulings`, quoted in full):
 
 Out of scope (spec):
 - The other three items (rate limits, webhook signing, "-es" folding): later slices.
+  - Note (2026-10-01): done in slices 31, 32 and 33.
 - Labels for non-audit codes (task statuses, impact labels, intents, owners, severities, sentiments).
 - Re-rendering stored v2 runs.
 - The fixture's other check code `robots_ok` (passing checks are not rendered; R1).

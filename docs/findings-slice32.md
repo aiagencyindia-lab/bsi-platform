@@ -89,6 +89,7 @@ The ledger: "No fix wave: the final review has no Critical or Important findings
 
 Out of scope (spec):
 - The last ordered item ("-es" folding): slice 33.
+  - Note (2026-10-01): done in slice 33 (docs/findings-slice33.md).
 - Server-generated or rotated secrets, a secret per webhook rather than per brand, a signature over anything but the raw body, `X-RateLimit`-style headers, a delivery log, re-delivery of alerts created before a webhook was set, and Standard Webhooks compatibility.
 
 Carried forward from docs/findings-slice31.md §3, still open:

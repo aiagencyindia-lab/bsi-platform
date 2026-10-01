@@ -121,6 +121,7 @@ Rulings (spec `## Rulings`, quoted in full):
 
 Out of scope (spec):
 - The other two items (webhook signing, "-es" folding): later slices.
+  - Note (2026-10-01): done in slices 32 and 33.
 - Per-IP limits (needs the reader's IP forwarded by Next, or an edge limiter), limits on the keyed routes, `X-RateLimit-*` headers, declaring the 429 in OpenAPI, caching rendered PDFs, and shared limiter state across processes (Redis).
 - A dedicated 429 message on the share page.
 

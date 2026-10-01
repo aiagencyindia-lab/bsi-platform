@@ -215,6 +215,9 @@ In the order they were written:
 | [superpowers/specs/2026-10-01-slice32-webhook-signing-design.md](superpowers/specs/2026-10-01-slice32-webhook-signing-design.md) | Design spec: a per-brand, write-only webhook signing secret (migration 0022); each alert POST carries `X-BSI-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 over "{t}." + body>`; `http_fetch` takes caller headers that cannot override its pinned ones, with rulings R1–R11. |
 | [superpowers/plans/2026-10-01-slice32-webhook-signing.md](superpowers/plans/2026-10-01-slice32-webhook-signing.md) | Implementation plan, Tasks 1–4, with the changes made during execution. |
 | [findings-slice32.md](findings-slice32.md) | Results: what was built, the receiver contract, the red and green runs, the dev migration to 0022 and the API live check, and what is deferred or untested. |
+| [superpowers/specs/2026-10-01-slice33-es-folding-design.md](superpowers/specs/2026-10-01-slice33-es-folding-design.md) | Design spec: `rivals._stem` folds -es plurals after ch, sh, x, ss and zz and keeps ss-final words whole; `_allowed_stems` keeps its one-sided set; named limits (caches, mousses, quizzes), with rulings R1–R10. |
+| [superpowers/plans/2026-10-01-slice33-es-folding.md](superpowers/plans/2026-10-01-slice33-es-folding.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
+| [findings-slice33.md](findings-slice33.md) | Results: what was built, the effects on folding and cached searches, the red and green runs, the read-only live check on dev's rival pages, and what is deferred or untested. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
