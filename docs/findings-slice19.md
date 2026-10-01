@@ -95,6 +95,7 @@ Folding, `dropped` and the rule check:
 - A connector with punctuation attached ("And," or "for:") is not in `CONNECTORS` and is not stripped from the end of a title.
 - A rewritten product stores `dropped_words = []` when nothing was lost, while a product that was never rewritten has NULL. Both show no dropped line on the tab.
 - `-es` plurals (dresses, watches, boxes) do not fold with `_stem`, which drops only one `s`, so a "Dress Dresses" echo survives the repeat check and "dress" can be flagged as dropped when the suggestion has only "dresses".
+  - Note (2026-10-01): folded in slice 33: `_stem` drops -es after ch, sh, x, ss and zz; the echo is removed (docs/findings-slice33.md).
 - Removing a repeated word mid-title can leave two connectors side by side ("Sandal And For Kids"), because connectors are stripped only at the end.
 - `drop_brand_terms` compares exact tokens while the other checks compare stems, so "croc clogs" survives for the brand "Crocs".
 - No tests for mixed surface forms in `missing` (e.g. "Sandals" in one title and "sandal" in another) or for several connectors in a row at the end of a title.
