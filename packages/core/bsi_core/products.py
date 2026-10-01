@@ -23,7 +23,7 @@ from functools import partial
 from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -996,7 +996,8 @@ def run_products(
 ) -> str:
     """The product_run job (spec §3), one batch at a time, oldest
     results first (R12): keywords, one grounded search per new distinct
-    keyword, missing keywords, rewrite, rule check, write. Stops before a
+    keyword, missing keywords, rewrite, rule check, write. First
+    deletes the brand's stale keyword_search rows. Stops before a
     batch once PRODUCT_JOB_SECONDS have passed; the next run continues.
     Reads and writes in short tenant sessions; no transaction is open
     during a model call. Raises OverBudget before a batch's searches when
@@ -1049,13 +1050,23 @@ def run_products(
         # from the brand's fresh cache rows (newest first), so a phrase
         # keeps its cached spelling across runs and its search is reused.
         # ponytail: spellings that do not share a key ("man slippers")
-        # are not merged; rows under an old spelling stay once stale;
+        # are not merged; a fresh row under a losing spelling stays
+        # until it goes stale (not used meanwhile; the seed keeps the
+        # newest current spelling), and stale rows are deleted at run start;
         # loads every fresh valid row of the brand (every distinct
         # keyword searched in SEARCH_TTL_DAYS days); a cached spelling
         # with a brand token can be adopted, since drop_brand_terms runs
         # on the voted spelling first.
         key_map: dict[str, str] = {}
         with tenant_session(org_id) as s:
+            # Stale rows are never read (the seed and the lookup need
+            # searched_at > fresh_after), so the run deletes them.
+            s.execute(
+                delete(m.KeywordSearch).where(
+                    m.KeywordSearch.brand_id == brand_id,
+                    m.KeywordSearch.searched_at <= fresh_after,
+                )
+            )
             for cached in s.scalars(
                 select(m.KeywordSearch)
                 .where(

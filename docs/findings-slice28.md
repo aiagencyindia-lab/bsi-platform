@@ -88,9 +88,11 @@ Out of scope (spec):
 - The seed's keyword tie-break between two rows with the same `searched_at` (R1).
 - Rewriting `test_an_error_search_is_not_reused` to use `_fresh_row`.
 - Deleting old-spelling `keyword_search` rows in code (the open item in docs/findings-slice27.md §3).
+  - Update 2026-10-01 (slice 29): done in slice 29.
 
 Carried forward from docs/findings-slice27.md §3 ("Carried forward from docs/findings-slice26.md §4 (still open):"), still open:
 - Stale duplicate `keyword_search` rows: rows under an old spelling stay in the table; no run removes them (docs/findings-slice24.md §3, ceilings and Out of scope). `DELETE /v1/brands/{id}/products` deletes a brand's rows, and the one-off dev cleanup of 2026-10-01 removed 11; the code is unchanged, so later runs can leave old spellings behind again (docs/findings-slice27.md §3 has the correction and the update in full).
+  - Update 2026-10-01 (slice 29): fixed in code by slice 29.
 - The judge-agreement question, waiting on the user.
 
 The third carried-forward item, "The slice 24 seed's untested cases", is pinned by this slice (§1), except the secondary sort key below.

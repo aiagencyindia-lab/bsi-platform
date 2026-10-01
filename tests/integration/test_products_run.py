@@ -495,7 +495,27 @@ def test_a_stale_row_spelling_is_not_adopted(owner, make_org, make_brand):
     assert rows[0].keyword == "kid sandal"
     assert rows[0].keywords == ["kid sandal"]
     assert engine.prompts == [(products.search_query("kid sandal"), "IN", "en")]
-    assert len(searches) == 2
+    assert [r.keyword for r in searches] == ["kid sandal"]
+
+
+def test_a_run_deletes_the_brands_stale_rows(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    other = make_brand(org, "Paragon")
+    _seed(owner, org, bid, 1)
+    _fresh_row(owner, org, bid, [CACHED_TITLE])
+    _fresh_row(owner, org, bid, [CACHED_TITLE], days=8, keyword="kid sandals")
+    _fresh_row(owner, org, bid, [CACHED_TITLE], days=8, keyword="boys sandal")
+    _fresh_row(owner, org, other, [CACHED_TITLE], days=8)
+    engine = FakeEngine()
+    gen = _generator(keywords=["kid sandal"])
+    _, rows, searches = _run(owner, org, bid, gen, engine)
+    assert rows[0].keyword == "kids sandals"
+    assert engine.prompts == []
+    assert sorted((r.brand_id == bid, r.keyword) for r in searches) == [
+        (False, "kids sandals"),
+        (True, "kids sandals"),
+    ]
 
 
 def test_a_row_the_lookup_rejects_is_not_seeded(owner, make_org, make_brand):
