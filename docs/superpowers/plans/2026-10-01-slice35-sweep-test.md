@@ -106,9 +106,8 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add tests/unit/test_ratelimit
 
 With two keys past the cap, the next check sweeps into a new dict; a
 later check in the same window leaves it alone; the next window sweeps
-again. With the
-_swept guard removed this test fails and the other three tests in
-test_ratelimit.py still pass.
+again. With the _swept guard removed this test fails and the other
+three tests in test_ratelimit.py still pass.
 
 <trailer>"
 ```
@@ -122,6 +121,6 @@ test_ratelimit.py still pass.
   1. The mutation run uses the repo's own test file against the copy, rather than the test in a separate folder with its own `Clock` (the test is now in the repo); so the result is one line, `1 failed, 3 passed`, where the spec reported the new test (`1 failed`) and the existing file (`3 passed`) separately.
   2. Step 3 adds an import-path check before the mutant run; the spec records the same check as part of its proof.
   3. The spec's in-memory "other variants" are not re-run; they are the spec's evidence, and the plan's one mutant is the pytest proof the spec asks execution to repeat.
-- Rulings applied to this plan: R4 (the plan review's two minors), in the spec's Rulings section.
+- Rulings applied to this plan: R4 (the plan review's two minors) and R5 (the commit message reflowed), in the spec's Rulings section.
 - Placeholders: `<trailer>` (the Global Constraints' commit-trailer rule), `<workspace>` and `<scratchpad>` (paths the task brief supplies).
 - Type consistency: `TokenLimiter(limit, window, clock)` and `check(key) -> int | None`, as in apps/api/bsi_api/ratelimit.py; `Clock` as defined at the top of the test file.
