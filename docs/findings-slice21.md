@@ -132,7 +132,7 @@ From the task reviews:
 - A drop can leave a function word that is not a connector at the end ("Walkaroo Sandal in"), because only CONNECTORS are stripped from the end.
 - Kept numbers can leave promotional scraps ("Walkaroo Sandal 50%"). The plan keeps numbers by design.
 - The `-es` fix is one-sided: it applies to allowed texts only, so an original "Watches" or "Boxes" is not folded. `-es` folding is out of scope.
-  - Note (2026-10-01): slice 33 folds -es after ch, sh, x, ss and zz in `_stem` for both sides; the one-sided set stays for -oes, -ses and -thes (docs/findings-slice33.md, R1).
+  - Note (2026-10-01): slice 33 folds -es after ch, sh, x, ss and zz in `_stem` for both sides; the one-sided set stays for allowed words, so an allowed "contact lenses" still backs "Lens" (docs/findings-slice33.md, R1).
 - The description, category and attribute sources of `allowed` are untested end to end, because the seeded products have none.
 - Gate warnings:
   - Task 1's gate output carries 2 third-party deprecation warnings, the same as on `main`.

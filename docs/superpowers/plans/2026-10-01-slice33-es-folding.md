@@ -270,4 +270,4 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/pr
 - Task 1: commit 9f5ccb5; Task 2: eee6d51. Each task's review approved it on the first round; no fix round.
 - Before execution: R6 (the plan re-review's last minor stayed in the plan; the Task 1 dispatch told the implementer the first-difference line is in the full pytest output), R7 (trailer), R8 (no model parameter).
 - After the final review ("With fixes", spec text only): one fix wave, 2529e48 (R9); its re-review's three wording points were parked (R10) and get dated notes in the spec in the post-merge docs commit.
-- No departure from the task text.
+- Task 1 ran its red command without `| tail -6`, to read the full failure output (R6); no other departure from the task text.
