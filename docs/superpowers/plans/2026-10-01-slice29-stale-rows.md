@@ -175,7 +175,7 @@ Expected: `34 passed` (the file's 33 tests and the new one). If the count or any
   - docs/findings-slice28.md §3, the item that begins "Stale duplicate `keyword_search` rows:" (under "Carried forward"): fixed in code by slice 29.
   - docs/findings-slice28.md §3, the Out of scope line that begins "Deleting old-spelling `keyword_search` rows in code": done in slice 29.
 - [ ] **Step 3: README rows** for the spec, the plan and the findings, after the row for `findings-slice28.md`, in the slice 28 rows' format; the spec row names its rulings' range.
-- [ ] **Step 4: Rulings.** The spec's `## Rulings` holds R1–R2. If the ledger records more rulings, add each after the last one in the same format (Decided / Found by / Why / Cost if wrong), and quote it in findings §3.
+- [ ] **Step 4: Rulings.** For each ruling the ledger records that the spec's `## Rulings` does not already hold (match by its R-number), add it after the spec's last ruling in the same format (Decided / Found by / Why / Cost if wrong, ending "Named in chat when made."). Quote every spec ruling in full in findings §3, and give the README spec row the spec's final ruling range.
 - [ ] **Step 5: Plan changes.** Fill this plan's `## Changes made during execution` from the ledger: one bullet per task, quoting departures as recorded; the bullet for the commit that fills this section ends "(this commit)".
 - [ ] **Step 6: Grep** the changed docs files (findings-slice29, findings-slice24, findings-slice27, findings-slice28, README, the spec, this plan) for the banned words; expected: no match except this plan's own Global Constraints list.
 - [ ] **Step 7: Commit** `git add docs && git commit -m "docs: slice 29 findings, index and notes" -m "<trailer>"`.
