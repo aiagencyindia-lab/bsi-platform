@@ -206,7 +206,7 @@ In the order they were written:
 | [superpowers/specs/2026-10-01-slice29-stale-rows-design.md](superpowers/specs/2026-10-01-slice29-stale-rows-design.md) | Design spec: a product run deletes the brand's stale `keyword_search` rows at its start (`searched_at <= fresh_after`), so no old spelling stays once stale; no migration, with rulings R1–R10. |
 | [superpowers/plans/2026-10-01-slice29-stale-rows.md](superpowers/plans/2026-10-01-slice29-stale-rows.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
 | [findings-slice29.md](findings-slice29.md) | Results: what was built, the red and green runs, no live check in this slice, and what is deferred or untested. |
-| [superpowers/specs/2026-10-01-slice30-audit-labels-design.md](superpowers/specs/2026-10-01-slice30-audit-labels-design.md) | Design spec: the SEO report's site audit codes read from a hand-written `AUDIT_LABEL` table (keeping any ":" suffix), methodology v3, with rulings R1–R7. |
+| [superpowers/specs/2026-10-01-slice30-audit-labels-design.md](superpowers/specs/2026-10-01-slice30-audit-labels-design.md) | Design spec: the SEO report's site audit codes read from a hand-written `AUDIT_LABEL` table (keeping any ":" suffix), methodology v3, with rulings R1–R11. |
 | [superpowers/plans/2026-10-01-slice30-audit-labels.md](superpowers/plans/2026-10-01-slice30-audit-labels.md) | Implementation plan, Tasks 1–2, with the changes made during execution. |
 | [findings-slice30.md](findings-slice30.md) | Results: what was built, the red and green runs, no live check (tests pin the cells), and what is deferred or untested. |
 
