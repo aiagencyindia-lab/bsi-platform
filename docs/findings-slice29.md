@@ -33,7 +33,8 @@ Results, as the Task 1 report records them:
 | 41c6880 | docs: slice 29 plan, rulings step without a fixed range |
 | 38a732c | docs: slice 29 plan, ruling ending as recorded |
 | f61c9d5 | feat(products): a run deletes the brand's stale keyword_search rows |
-| (this commit) | docs: slice 29 findings, index and notes |
+| b15aaaf | docs: slice 29 findings, index and notes |
+| (this commit) | docs: slice 29 final review fixes |
 
 ## 2. Live check on dev
 
@@ -43,6 +44,27 @@ None in this slice (spec §2). No dev row is stale until 2026-10-06 13:10 UTC (1
 
 From the task reviews (ledger lines tagged `minor (deferred)`):
 - "Task 1: minor (deferred): no test covers a row exactly at the cutoff (`searched_at == fresh_after`); the spec rules it out of scope because the tests run through the worker, which does not take `now`"
+  - Left deferred (R8).
+- "Task 2: minor (deferred): spec R5 and findings-slice29.md:206, R5's Why reads "the ledger records no reason beyond the finding itself", a note about the source rather than a reason; the reason given in chat was that the change was one phrase in a docs step, applied without re-review by the user's choice"
+  - Fixed in the fix wave (R7).
+- "Task 2: minor (deferred): plan:238, the Task 2 bullet ends "No departures." but does not mention the Write refusal or R6 (both ledgered after b15aaaf)"
+  - Fixed in the fix wave (R7).
+- "Task 2: minor (deferred): R6 (ledgered after b15aaaf) is not yet in the spec Rulings, findings-slice29 §3 or the README spec row range (R1–R5)"
+  - Fixed in the fix wave (R7).
+
+From the final whole-branch review (ledger lines tagged `Important` and `minor (deferred)`). The result, as recorded: "Final review (a2e200053147d7bca, 13d54fe..b15aaaf): "Ready to merge? With fixes"; 0 Critical, 2 Important, 3 Minor."
+- "Final: Important: R6 is in no doc (spec Rulings, findings-slice29 §3, README range R1–R5); add it"
+  - Fixed in the fix wave (R7).
+- "Final: Important: plan:238 Task 2 bullet says "No departures." although the implementer continued after a Write refusal (accepted by R6); quote the Task 2 concern (1), R6 and the controller's ⚠️ line"
+  - Fixed in the fix wave (R7).
+- "Final: minor (deferred): spec R5 and findings:191, R5's Why is not a reason (the chat reason: one phrase in a docs step, applied without re-review by the user's choice)"
+  - Fixed in the fix wave (R7).
+- "Final: minor (deferred): products.py:999-1000, the docstring clause "First deletes the brand's stale keyword_search rows." sits after the step list; cosmetic"
+  - Left deferred (R8).
+- "Final: minor (deferred): findings-slice29.md:144 "a row is either readable or deleted" is loose (the readers also filter on error and parse version); matches the spec; correct for the cutoff"
+  - Left deferred (R8). The phrase is in §1, in the `DELETE` bullet.
+
+The final review's triage, as recorded: "Final triage of the deferred minors: Task 1 cutoff test — leave deferred; Task 2 R5 Why — fix in the docs commit; Task 2 plan:238 — fix before merge; Task 2 R6 missing — fix before merge"
 
 Parked: none. The ledger has no parked lines.
 
@@ -52,8 +74,14 @@ Rulings (spec `## Rulings`, quoted in full):
 - **R3: the plan review's two minor points were applied.** Decided: in the plan, the seed comment's last line is joined (no one-word `# start;` line), and Task 2 places the findings-slice27 update as the last sub-bullet of its item, after the quoted cleanup rulings. Found by the plan review of 3878067. Why: tidiness and a clear placement; no design change. Cost if wrong: none. Named in chat when made.
 - **R4: the plan's rulings step gives no fixed ruling range.** Decided: Task 2 Step 4 adds only ledger rulings the spec does not already hold, matched by R-number (commit 41c6880). Found by the plan re-review of 63a93fa. Why: its fixed range ("holds R1–R2") had gone stale when R3 was added. Cost if wrong: none. Named in chat when made.
   - The ledger line, as recorded: "Ruling: R4 — Task 2 Step 4 no longer gives a fixed ruling range ("holds R1–R2" had gone stale when R3 was added); it adds only ledger rulings the spec does not already hold, matched by R-number (commit 41c6880) — found by the plan re-review of 63a93fa — cost if wrong: none. Named in chat when made."
-- **R5: an added ruling ends as the ledger records it.** Decided: Task 2 Step 4 ends each added ruling as the ledger records it, usually "Named in chat when made." (commit 38a732c); applied without a further re-review, by the user's choice (option 1). Found by the plan re-review of 41c6880. Why: the ledger records no reason beyond the finding itself. Cost if wrong: an unreviewed one-phrase change to a docs step. Named in chat when made.
+- **R5: an added ruling ends as the ledger records it.** Decided: Task 2 Step 4 ends each added ruling as the ledger records it, usually "Named in chat when made." (commit 38a732c); applied without a further re-review, by the user's choice (option 1). Found by the plan re-review of 41c6880. Why: the change was one phrase in a docs step, applied without re-review by the user's choice. Cost if wrong: an unreviewed one-phrase change to a docs step. Named in chat when made.
   - The ledger line, as recorded: "Ruling: R5 — Task 2 Step 4 ends each added ruling as the ledger records it, usually "Named in chat when made." (commit 38a732c); applied without a further re-review, by the user's choice (option 1) — found by the plan re-review of 41c6880 — cost if wrong: an unreviewed one-phrase change to a docs step. Named in chat when made."
+- **R6: commit b15aaaf was accepted after a Write refusal.** Decided: accept commit b15aaaf although the Task 2 implementer continued after a Write refusal instead of reporting BLOCKED. Found by the Task 2 implementer's report (its concern 1). Why: it used the Edit tool the dispatch named, it disclosed the refusal, and the content still goes through the Task 2 review; the user chose this (option 1) when asked. Cost if wrong: a refusal handled without stopping first. Named in chat when made.
+  - The ledger line, as recorded: "Ruling: R6 — accept commit b15aaaf although the implementer continued after a Write refusal instead of reporting BLOCKED — it used the Edit tool the dispatch named, it disclosed the refusal, and the content still goes through the Task 2 review; the user chose this (option 1) when asked — cost if wrong: a refusal handled without stopping first. Named in chat when made."
+- **R7: the one fix wave completes the docs.** Decided: the one fix wave fixes both Important findings and R5's Why, quotes the Task 2 and Final deferred lines and the triage in findings §3, adds final-review and fix-wave bullets to the plan, puts R6–R8 in the spec and findings §3, and sets the README range to R1–R8; the fix wave's re-review result goes into the post-merge docs commit. Found by the final review of 13d54fe..b15aaaf. Why: the final review asked for these before merge, and the controller does not commit fixes. Cost if wrong: the re-review result is recorded only after merge. Named in chat when made.
+  - The ledger line, as recorded: "Ruling: R7 — the one fix wave fixes both Important findings and R5's Why, quotes the Task 2 and Final deferred lines and the triage in findings §3, adds final-review and fix-wave bullets to the plan, puts R6–R8 in the spec and findings §3, and sets the README range to R1–R8; the fix wave's re-review result goes into the post-merge docs commit — the final review asked for these before merge, and the controller does not commit fixes — cost if wrong: the re-review result is recorded only after merge. Named in chat when made."
+- **R8: three minors stay deferred.** Decided: leave the docstring clause's position (products.py:999-1000), the "readable or deleted" wording in docs/findings-slice29.md §1, and the Task 1 cutoff-test minor as they are. Found by the Task 1 review and the final review; triaged by the final review. Why: cosmetic, matching the spec, and out of scope respectively, per the final review's triage. Cost if wrong: two small wording points and an untested boundary stay. Named in chat when made.
+  - The ledger line, as recorded: "Ruling: R8 — leave deferred: the docstring clause's position (products.py:999-1000), the "readable or deleted" wording (findings-slice29.md:144), and the Task 1 cutoff-test minor — cosmetic, matching the spec, and out of scope respectively, per the final review's triage — cost if wrong: two small wording points and an untested boundary stay. Named in chat when made."
 
 Out of scope (spec):
 - A test of a row exactly at the cutoff (`searched_at == fresh_after`): the tests run through the worker, which does not take `now`.
