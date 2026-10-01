@@ -89,7 +89,7 @@ Expected: `4 passed`. (The behaviour already exists, so there is no red run on t
 
 Run `cd /Users/vineet/Downloads/ADK/bsi-platform && mkdir -p <scratchpad>/s35mut/pkg && cp -R /Users/vineet/Downloads/ADK/bsi-platform/apps/api/bsi_api <scratchpad>/s35mut/pkg/` (the copy is outside the repo; run it once, on a fresh `s35mut`). In the copy's `ratelimit.py` (`<scratchpad>/s35mut/pkg/bsi_api/ratelimit.py`), use the Edit tool to change the one line `            if len(self._seen) > MAX_KEYS and self._swept != index:` to `            if len(self._seen) > MAX_KEYS:`.
 
-Confirm the copy is what Python imports: `cd /Users/vineet/Downloads/ADK/bsi-platform && PYTHONPATH=<scratchpad>/s35mut/pkg:. uv run python -c "import bsi_api.ratelimit as r; print(r.__file__)"`. Expected: the path under `<scratchpad>/s35mut/pkg/bsi_api/`.
+Confirm the copy is what Python imports: `cd /Users/vineet/Downloads/ADK/bsi-platform && PYTHONPATH=<scratchpad>/s35mut/pkg:. uv run python -c "import bsi_api.ratelimit as r; print(r.__file__)"`. Expected: the path under `<scratchpad>/s35mut/pkg/bsi_api/`. Confirm the mutation is in that copy: `cd /Users/vineet/Downloads/ADK/bsi-platform && grep -c "self._swept != index" <scratchpad>/s35mut/pkg/bsi_api/ratelimit.py`. Expected: `0` (grep exits 1); the repo's own file still has it (`cd /Users/vineet/Downloads/ADK/bsi-platform && grep -c "self._swept != index" apps/api/bsi_api/ratelimit.py` prints `1`).
 
 Then run `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest` on its own (if it prints a running pytest, wait), then: `cd /Users/vineet/Downloads/ADK/bsi-platform && PYTHONPATH=<scratchpad>/s35mut/pkg:. uv run pytest -q -p no:cacheprovider tests/unit/test_ratelimit.py 2>&1 | grep -E "^FAILED|^>|passed|failed"`
 
@@ -104,8 +104,9 @@ Stage the file (`cd /Users/vineet/Downloads/ADK/bsi-platform && git add tests/un
 ```bash
 cd /Users/vineet/Downloads/ADK/bsi-platform && git add tests/unit/test_ratelimit.py && git commit -m "test(api): pin the limiter's once-per-window sweep
 
-The third check past the cap sweeps into a new dict; a later check in
-the same window leaves it alone; the next window sweeps again. With the
+With two keys past the cap, the next check sweeps into a new dict; a
+later check in the same window leaves it alone; the next window sweeps
+again. With the
 _swept guard removed this test fails and the other three tests in
 test_ratelimit.py still pass.
 
@@ -121,5 +122,6 @@ test_ratelimit.py still pass.
   1. The mutation run uses the repo's own test file against the copy, rather than the test in a separate folder with its own `Clock` (the test is now in the repo); so the result is one line, `1 failed, 3 passed`, where the spec reported the new test (`1 failed`) and the existing file (`3 passed`) separately.
   2. Step 3 adds an import-path check before the mutant run; the spec records the same check as part of its proof.
   3. The spec's in-memory "other variants" are not re-run; they are the spec's evidence, and the plan's one mutant is the pytest proof the spec asks execution to repeat.
+- Rulings applied to this plan: R4 (the plan review's two minors), in the spec's Rulings section.
 - Placeholders: `<trailer>` (the Global Constraints' commit-trailer rule), `<workspace>` and `<scratchpad>` (paths the task brief supplies).
 - Type consistency: `TokenLimiter(limit, window, clock)` and `check(key) -> int | None`, as in apps/api/bsi_api/ratelimit.py; `Clock` as defined at the top of the test file.
