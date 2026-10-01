@@ -350,8 +350,8 @@ def brand_tokens(names: Sequence[str]) -> frozenset[str]:
 
 def fold(text: str) -> list[str]:
     """The text's tokens without 1-letter ones (the s of "men's"), each
-    with one trailing s dropped (rivals._stem): sandals and sandal, mens
-    and men meet. ponytail: crude on purpose; irregular plurals (feet)
+    plural-folded by rivals._stem: sandals and sandal, mens and men,
+    watches and watch meet. ponytail: crude on purpose; irregular plurals (feet)
     do not fold. The one place to swap in a real lemmatiser."""
     return [_stem(t) for t in tokens(text) if len(t) > 1]
 
@@ -380,7 +380,8 @@ def _allowed_stems(
     allowed texts (keyword, missing words, the product's description,
     category and attribute values), the brand's names; plus, for an
     allowed token ending in "es", its singular ("watches" -> watch).
-    ponytail: rivals._stem drops only one "s"; this patches -es for
+    ponytail: rivals._stem folds -es only after ch, sh, x, ss and zz;
+    this also folds -oes, -ses and -thes (lenses, clothes, potatoes) for
     allowed words only."""
     text = " ".join(allowed)
     es = {
