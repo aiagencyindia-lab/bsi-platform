@@ -37,7 +37,8 @@ from .recommend import top_by_type
 # Bump whenever a builder changes what it computes or how a cell is
 # formatted: a reader comparing two runs must know they are comparable.
 # v2 = readable labels and the SEO Intent column.
-METHODOLOGY_VERSION = "2"
+# v3 = audit codes read as words from AUDIT_LABEL.
+METHODOLOGY_VERSION = "3"
 
 METRIC_LABEL = {
     "mention_rate": "Mention rate",
@@ -61,18 +62,52 @@ ALERT_LABEL = {
     "competitor_shift": "Competitor shift",
     "new_source": "New source",
 }
-# Client-facing wording for source owners; every other code reads as
-# words by the rule in label().
+# Client-facing wording for source owners; every other non-audit code
+# reads as words by the rule in label().
 OWNER_LABEL = {
     "brand": "Own site",
     "rival": "Competitor",
     "third_party": "Third party",
 }
+# Client-facing wording for site audit codes (crawl.SEVERITY and
+# entity.SEVERITY); a test checks every audit code has an entry. A
+# suffix after ":" (the crawler in "bot_blocked:GPTBot") is kept.
+AUDIT_LABEL = {
+    "home_unreachable": "Homepage unreachable",
+    "bot_blocked": "Crawler blocked by robots.txt",
+    "bot_ua_blocked": "Crawler user agent blocked",
+    "sitemap_missing": "Sitemap missing",
+    "sitemap_invalid": "Sitemap invalid",
+    "org_schema_missing": "Organization schema missing",
+    "title_missing": "Page title missing",
+    "description_missing": "Meta description missing",
+    "h1_missing": "H1 heading missing",
+    "canonical_missing": "Canonical URL missing",
+    "llms_missing": "llms.txt missing",
+    "org_name_mismatch": "Organization name mismatch",
+    "org_url_mismatch": "Organization URL mismatch",
+    "org_logo_missing": "Organization logo missing",
+    "org_sameas_missing": "Organization sameAs profiles missing",
+    "website_schema_missing": "WebSite schema missing",
+    "title_brand_missing": "Brand missing from page title",
+    "about_missing": "About page link missing",
+    "about_unreachable": "About page unreachable",
+    "about_brand_missing": "Brand missing from About page",
+    "wikidata_missing": "Wikidata item missing",
+    "wikidata_name_mismatch": "Wikidata name mismatch",
+    "wikidata_logo_missing": "Wikidata logo missing",
+    "social_links_conflict": "Social profiles conflict",
+}
 
 
 def label(code: str) -> str:
-    """A stored code as words: underscores become spaces and the first
-    letter is capitalised, so no per-code table goes stale."""
+    """A stored code as words: an audit code reads from AUDIT_LABEL
+    (keeping any ":" suffix; a test checks every audit code has an
+    entry), an owner from OWNER_LABEL; any other code has underscores
+    as spaces and its first letter capitalised."""
+    head, _, tail = code.partition(":")
+    if head in AUDIT_LABEL:
+        return AUDIT_LABEL[head] + (f": {tail}" if tail else "")
     if code in OWNER_LABEL:
         return OWNER_LABEL[code]
     words = code.replace("_", " ")
