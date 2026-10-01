@@ -40,6 +40,7 @@ def test_stem_es_rule_skips_four_letter_words():
 ## Rulings
 
 - **R1: the spec review's three minors were applied.** Decided: "the shortest `_ES` case it lists" (shoes and sizes are also five characters); the note under findings-slice33's "Untested" line covers only the guard, and the catalogue-data item stays untested; the README rows (spec, then plan) go after the `findings-slice33.md` row. Found by the spec review of 953097e and 3940e03. Why: accuracy for the plan writer. Cost if wrong: none. Named in chat when made.
+- **R2: the plan review's five points were applied to the plan.** Decided: the commit message claims only the two files the mutant run covers (it had said "every other test still passes"); Step 3 gives `mkdir -p` before the copy as a command; `pgrep` runs on its own before each pytest run; Step 3 says to read the full failure block if the grep misses the `At index` line; the self-review lists the inferred existing-tests result as a departure. Found by the plan review of 0dd06d4. Why: no overstated claim in history, and steps a fresh implementer can follow. Cost if wrong: none. Named in chat when made.
 
 ## Out of scope
 
