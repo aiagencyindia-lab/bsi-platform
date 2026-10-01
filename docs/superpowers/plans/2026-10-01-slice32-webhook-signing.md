@@ -52,7 +52,7 @@
 
 **Files:**
 - Modify: `packages/core/bsi_core/alerts.py` (imports at lines 8–9; append after `payload`)
-- Modify: `packages/core/bsi_core/crawl.py:16` (import), `:226` (new constant before `_REDIRECTS_REFUSED`), `:233-258` (signature and docstring), `:294-306` (the headers dict and the `client.stream` call)
+- Modify: `packages/core/bsi_core/crawl.py:16` (import), `:225` (new constant before `_REDIRECTS_REFUSED`), `:233-258` (signature and docstring), `:294-306` (the headers dict and the `client.stream` call)
 - Test: `tests/unit/test_alerts.py`, `tests/unit/test_http_fetch.py` (after line 432, the end of `test_post_sends_the_body_and_content_type_to_the_pinned_address`)
 
 **Interfaces:**
@@ -393,7 +393,7 @@ def test_null_clears_only_the_secret(client, owner, make_org, make_brand):
 - [ ] **Step 2: Run the file to verify the new tests fail**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest; uv run pytest -q -p no:cacheprovider tests/integration/test_api_alerts.py 2>&1 | tail -3`
-Expected: `5 failed, 12 passed`. `test_secret_is_write_only_and_shown_as_a_flag` fails on `"webhook_secret" not in r.json()`? No: pydantic ignores unknown fields, so the PATCH returns 200 and the first failing assertion is `r.json()["has_webhook_secret"]` → `KeyError`. The two 422 cases fail with `assert 200 == 422`. The two clearing tests fail with `KeyError: 'has_webhook_secret'`.
+Expected: `5 failed, 12 passed`. pydantic ignores the unknown `webhook_secret` field, so every PATCH returns 200: `test_secret_is_write_only_and_shown_as_a_flag` and the two clearing tests fail with `KeyError: 'has_webhook_secret'`, and the two 422 cases fail with `assert 200 == 422`.
 
 - [ ] **Step 3: Write the migration**
 
@@ -531,7 +531,7 @@ Expected: both files changed; `grep -n "has_webhook_secret\|webhook_secret" apps
 
 - [ ] **Step 8: Banned-word grep, then the backend gate**
 
-Stage the six files (`git add migrations/versions/0022_brand_webhook_secret.py packages/core/bsi_core/models.py apps/api/bsi_api/routers/brands.py tests/integration/test_api_alerts.py apps/web/openapi.json apps/web/src/lib/schema.d.ts`) and run the banned-word grep on `git diff --cached -U0`. Expected: no match. Then the Backend gate with `gate-task2.txt`. Expected: `gate exit 0`; `1565 passed, 2 deselected` (1560 + 5).
+Stage the six files (`git add migrations/versions/0022_brand_webhook_secret.py packages/core/bsi_core/models.py apps/api/bsi_api/routers/brands.py tests/integration/test_api_alerts.py apps/web/openapi.json apps/web/src/lib/schema.d.ts`) and run the banned-word grep on `git diff --cached -U0`. Expected: no match. Then the Backend gate with `gate-task2.txt`. Expected: `gate exit 0`; `1565 passed, 2 deselected` (1560 + 5). `ruff format .` reflows four over-long test lines and adds a blank line after the model property; re-stage the changed files before committing.
 
 - [ ] **Step 9: Commit**
 
@@ -550,7 +550,7 @@ has_webhook_secret only; clearing the URL clears the secret too.
 ### Task 3: signing in the worker
 
 **Files:**
-- Modify: `apps/workers/bsi_workers/worker.py:8` (import), `:15` (import), `:103-112` (`Poster`), `:294-309` (`deliver_due_alerts`'s read and POST)
+- Modify: `apps/workers/bsi_workers/worker.py:8` (import), `:15` (import), `:103-112` (`Poster`), `:298-311` (`deliver_due_alerts`'s read and POST)
 - Test: `tests/integration/test_worker.py` (`_Hook` at 905–914; the unpacking at 937–946; the three local fakes at 997, 1027, 1044; append a test)
 
 **Interfaces:**
@@ -760,7 +760,7 @@ Expected: `43 passed`.
 
 - [ ] **Step 5: Banned-word grep, then the backend gate**
 
-Stage the two files (`git add apps/workers/bsi_workers/worker.py tests/integration/test_worker.py`) and run the banned-word grep on `git diff --cached -U0`. Expected: no match. Then the Backend gate with `gate-task3.txt`. Expected: `gate exit 0`; `1566 passed, 2 deselected` (1565 + 1).
+Stage the two files (`git add apps/workers/bsi_workers/worker.py tests/integration/test_worker.py`) and run the banned-word grep on `git diff --cached -U0`. Expected: no match. Then the Backend gate with `gate-task3.txt`. Expected: `gate exit 0`; `1566 passed, 2 deselected` (1565 + 1). `ruff format .` collapses the new test's `def` to one line and splits its `update(...)` chain; re-stage the file before committing.
 
 - [ ] **Step 6: Commit**
 
@@ -808,7 +808,7 @@ with
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npx vitest run src/lib/format.test.ts 2>&1 | tail -6`
-Expected: 1 failed (`alertNote says what the alerts forms did`: expected "Webhook cleared." to be "Webhook cleared; any signing secret was removed.").
+Expected: 1 failed (`alertNote says what the alerts forms did`: expected 'Webhook cleared.' to be 'Webhook cleared; any signing secret was removed.').
 
 - [ ] **Step 3: The notes**
 
@@ -906,7 +906,7 @@ with
           name="webhook_secret"
           minLength={32}
           maxLength={200}
-          autoComplete="off"
+          autoComplete="new-password"
           placeholder="Signing secret (optional, 32+ characters)"
           style={{ minWidth: 280 }}
         />
@@ -968,11 +968,12 @@ webhook_secret as typed, omits it when empty, and nulls it on Remove.
 
 - Spec coverage: §1 → Task 2; §2 → Tasks 1 and 3; §3 → Task 4; §4 → the tests in Tasks 1–4; §5 (docs, dev migration, live check) is post-merge work done by the controller, not a task.
 - Departures from the spec, all wording or layout only:
-  1. §4 names the unit test's spoof keys `"Host"`, `"user-agent"`, `"ACCEPT-ENCODING"`; the plan uses exactly those.
+  1. Wording the spec does not give, comments and names only: the models comment's sentence "Never returned by the API."; the `_PINNED` comment line; the worker comment "Signed after the session closed: no transaction spans the POST."; the actions.ts comment about not trimming; the `_webhook_secret` docstring; the `SECRET` constant in test_api_alerts.py where the spec writes `"s" * 32`.
   2. §3 says the status span is "beside" the secret input; the plan places it after the input and before the buttons.
   3. The plan adds `style={{ minWidth: 280 }}` to the secret input (the URL input has `minWidth: 360`); the spec does not mention a width.
   4. The migration file's docstring is `"""brand.webhook_secret (slice 32)"""`, matching 0021's style; the spec gives no docstring.
   5. Task 2 Step 2's expected failure for the first test is a `KeyError`, not the write-only assertion: pydantic ignores the unknown field, so the PATCH succeeds. The spec does not state the red result for the API tests.
   6. Each task runs the full backend gate once (Tasks 1–3) or the web gate once (Task 4), as the Global Constraints say; the spec's "both gates, run by the controller" is in addition.
+- Rulings applied to this plan: R7 (`autoComplete="new-password"`, asked) and R8 (the plan review's minors 1–5), both in the spec's Rulings section.
 - Placeholder scan: none (`<trailer>` is the Global Constraints' commit-trailer rule, and `<workspace>` is the SDD workspace path the task brief supplies).
 - Type consistency: `sign(secret: str, body: bytes, now: int) -> str` (Task 1) is called as `sign(secret, body, int(time.time()))` (Task 3); `headers: Mapping[str, str] | None` matches in `http_fetch`, `Poster` and the fakes; `has_webhook_secret` is the same name in the model, `BrandOut`, the schema and the page.
