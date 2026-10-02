@@ -2153,6 +2153,6 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   8. `GET` orders its rows by country, language, then kind (`brand` before `reviews`); the spec gives no order.
   9. `owned` and `organic` are pydantic computed fields on `SerpAuditOut`; the spec says only that they come from `ownership(results)`.
   10. The page shows each row's device and cost; the spec's card list has the query, country, language and fetch time.
-- Rulings applied to this plan: the spec's R1 (the Fable 5.1 trailer; a switch needs a new ruling and a plan edit) and R9 (the plan review's wording points).
-- Placeholders: `<workspace>` (the path the task brief supplies) and `<N>` (the task number in gate file names).
+- Rulings applied to this plan: the spec's R1 (the Fable 5.1 trailer; a switch needs a new ruling and a plan edit), R9 (the plan review's wording points) and R10 (the `<workspace>` placeholder names its place).
+- Placeholders: `<workspace>` (the path the task brief supplies, the plan's directory under the git-ignored `.superpowers/sdd/`) and `<N>` (the task number in gate file names).
 - Type consistency: `classify(item_type, host, own, rivals)` and `ownership(results)` are used with those signatures in Tasks 4 and 5; `serp(query, country, language, *, login, password, fetch)` and `SerpItem`'s six fields in Task 4; `m.SerpAudit`'s columns in Tasks 4 and 5; `Fetch(*responses)`, `body(...)` and `ITEMS` from Task 2's test module in Task 4; `SerpAuditsOut` in Tasks 5 and 6.
