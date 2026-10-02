@@ -158,7 +158,7 @@ const SERP_ERRORS: Record<string, string> = {
   auth: "the SERP provider rejected the login",
   funds: "the SERP provider account has no balance",
   rate: "the SERP provider's rate limit was hit",
-  http: "the SERP provider could not be reached",
+  http: "the SERP provider returned an error or could not be reached",
   truncated: "the SERP provider's answer was too large",
   json: "the SERP provider's answer could not be read",
   error: "the audit crashed",

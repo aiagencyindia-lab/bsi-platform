@@ -110,18 +110,21 @@ def test_get_reports_the_latest_audit_serp_job(
 ):
     org = make_org()
     bid = make_brand(org)
-    _job(owner, org, bid, "audit_crawl", "done", minutes=-120)
     _job(owner, org, bid, "audit_serp", "done", minutes=-60)
     newest = _job(
         owner, org, bid, "audit_serp", "failed", error="serp_not_configured"
     )
     with owner() as s, s.begin():
-        # created_at orders the jobs; make the failed one the newest.
+        # created_at orders the jobs; make the failed one the newest
+        # audit_serp job.
         s.execute(
             update(m.Job)
             .where(m.Job.id != newest, m.Job.brand_id == bid)
             .values(created_at=datetime.now(UTC) - timedelta(hours=1))
         )
+    # Added last, so the brand's newest job of all: the kind filter
+    # must skip it.
+    _job(owner, org, bid, "audit_crawl", "done", minutes=-120)
     r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
     assert r.status_code == 200, r.text
     assert r.json()["job"] == {

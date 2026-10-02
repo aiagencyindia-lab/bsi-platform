@@ -184,6 +184,11 @@ def test_an_infinite_cost_is_json():
     assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")
 
 
+def test_an_unreadable_item_is_json_and_keeps_the_cost():
+    raw = body(items=[1])
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 4_000, "json")
+
+
 def test_deeply_nested_json_is_json():
     raw = "[" * 200_000 + "]" * 200_000
     assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")

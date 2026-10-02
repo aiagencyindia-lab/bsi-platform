@@ -19,6 +19,16 @@ SERP_CAP_BYTES = 4 * 1024 * 1024
 LOCATIONS = {"IN": "India"}
 OK, NO_RESULTS = 20000, 40102
 ERRORS = {40100: "auth", 40200: "funds", 40210: "funds", 40202: "rate"}
+# What an undocumented body can raise while it is decoded or read.
+UNREADABLE = (
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    OverflowError,
+    RecursionError,
+)
 
 
 class SerpFetch(Protocol):
@@ -97,11 +107,15 @@ def _parse(doc: Any) -> SerpPage:
     error = _code(top) or _code(task["status_code"])
     if error is not None:
         return SerpPage(cost_micros=cost, error=error)
-    items = [
-        _item(raw)
-        for result in task.get("result") or []
-        for raw in result.get("items") or []
-    ]
+    try:
+        items = [
+            _item(raw)
+            for result in task.get("result") or []
+            for raw in result.get("items") or []
+        ]
+    except UNREADABLE:
+        # The task's cost is known by now; keep it with the error.
+        return SerpPage(cost_micros=cost, error="json")
     return SerpPage(items, cost)
 
 
@@ -145,13 +159,5 @@ def serp(
         return SerpPage(error="truncated")
     try:
         return _parse(json.loads(resp.body))
-    except (
-        ValueError,
-        TypeError,
-        KeyError,
-        AttributeError,
-        IndexError,
-        OverflowError,
-        RecursionError,
-    ):
+    except UNREADABLE:
         return SerpPage(error="json")
