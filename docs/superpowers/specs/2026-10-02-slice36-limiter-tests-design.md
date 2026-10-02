@@ -18,7 +18,7 @@ Decisions approved in chat (brainstorming on Fable 5.1, 2026-10-02), each after 
 - The lock test forces the interleaving (over a thread hammer, which a lock-free mutant passes on most runs under the GIL, and over both).
 - One slice with both tests (over two slices, and over the lock test alone).
 - Design Sections 1 and 2; the text of each was in chat before its approval question.
-- After the mutation run the lock test was revised by the user's choice (R2).
+- After the mutation run the lock test was revised by the user's choice (R2), and after the spec review of ff6f76b its `finally` block was changed by the user's choice (R5).
 
 ## Design
 
@@ -66,11 +66,12 @@ def test_checks_on_one_key_do_not_interleave():
     finally:
         seen.release.set()
         for t in threads:
-            t.join(5)
+            if t.ident is not None:
+                t.join(5)
     assert sorted(results, key=str) == [20, None]
 ```
 
-How it reads: the limit is 1 and the clock is fixed at t=1000 (the window [960, 1020), 20 s left). The first thread's check reads count 0 and parks inside `__setitem__`, still holding the lock. The second thread's check must wait on the lock, so after 0.2 s it is still alive and `get` has been called once. After the release the first check returns `None` and the second reads count 1 and returns 20. The `finally` sets the event so a failing run cannot hang; each wait is capped at 5 s.
+How it reads: the limit is 1 and the clock is fixed at t=1000 (the window [960, 1020), 20 s left). The first thread's check reads count 0 and parks inside `__setitem__`, still holding the lock. The second thread's check must wait on the lock, so after 0.2 s it is still alive and `get` has been called once. After the release the first check returns `None` and the second reads count 1 and returns 20. The `finally` sets the event so a failing run cannot hang; each wait is capped at 5 s. It joins only threads that were started (`t.ident is not None`), so a failure of the first assertion, before the second thread starts, shows that assertion and not a `RuntimeError` from joining an unstarted thread (R5).
 
 ### Test 2: an unknown token's budget
 
@@ -106,22 +107,26 @@ No file under apps/ or packages/ changes. No frontend, schema or migration chang
 
 ### Proof: the mutation run
 
-Run on 2026-10-02 with pytest on scratch copies of apps/api/bsi_api outside the repo, one change each; the two test files (the repo's files plus the new tests) in a separate scratch folder; `PYTHONPATH=<copy>:.` with `-p no:cacheprovider -p tests.conftest --rootdir .`. Before each run `bsi_api.ratelimit.__file__` (and for M3, M5, M6 `bsi_api.routers.public.__file__`) printed the scratch path.
+Run on 2026-10-02 with pytest on scratch copies of apps/api/bsi_api outside the repo, one change each; the two test files (the repo's files plus the two tests above) in a separate scratch folder; `PYTHONPATH=<copy>:.` with `-p no:cacheprovider -p tests.conftest --rootdir .`. Before each run `bsi_api.ratelimit.__file__` and `bsi_api.routers.public.__file__` printed the scratch copy's paths.
 
-| Copy | Change | Lock test (above) | Unknown-token test | Older tests in the two files |
-|---|---|---|---|---|
-| base | none | passed, 20 of 20 runs | passed | passed |
-| M1 | `with self._lock:` replaced by `if True:` | failed, 20 of 20 | not run with this lock test | passed |
-| M2 | the lock held only around the write at line 47 | failed, 20 of 20 | not run with this lock test | passed |
-| M4 | the lock held around the sweep and the read only; the limit check and the write outside it | failed, 20 of 20 | not run | passed |
-| M3 | `_limit` after `_run` in both routes | not run with this lock test | failed | passed |
-| M5 | `_limit` after `_run` in the PDF route only | not run | failed | passed |
-| M6 | `_limit` after `_run` in the page route only | not run | failed | passed |
+Each copy was run once against both test files together (20 tests: 5 in the unit file, 15 in the integration file):
 
-- Every lock-test failure reads `assert (True and 2 == 1)`: the second thread was alive and had already read. Each of the 20 runs per copy ran tests/unit/test_ratelimit.py's five tests: `5 passed` on base, `1 failed, 4 passed` on M1, M2 and M4.
-- Every unknown-token failure reads `assert 404 == 429`. M3 ran both files (`1 failed, 19 passed`, with the first version of the lock test, below); M5 and M6 ran the integration file (`1 failed, 14 passed` each). On base both files gave `20 passed` (with the first version of the lock test).
+| Copy | Change | Result | The failing test |
+|---|---|---|---|
+| base | none | `20 passed` | none |
+| M1 | `with self._lock:` replaced by `if True:` | `1 failed, 19 passed` | the lock test, `assert (True and 2 == 1)` |
+| M2 | the lock held only around the write at line 47 | `1 failed, 19 passed` | the lock test, `assert (True and 2 == 1)` |
+| M3 | `_limit` after `_run` in both routes | `1 failed, 19 passed` | the unknown-token test, `assert 404 == 429` |
+| M4 | the lock held around the sweep and the read only; the limit check and the write outside it | `1 failed, 19 passed` | the lock test, `assert (True and 2 == 1)` |
+| M5 | `_limit` after `_run` in the PDF route only | `1 failed, 19 passed` | the unknown-token test, `assert 404 == 429` |
+| M6 | `_limit` after `_run` in the page route only | `1 failed, 19 passed` | the unknown-token test, `assert 404 == 429` |
+
+- So on every mutant the 18 older tests and the other new test passed, and before this slice nothing in the two files pinned the lock or the placement of `_limit`.
+- `assert (True and 2 == 1)`: the second thread was alive and had already read.
+- Repeat runs of the unit file alone (5 tests), 20 per copy: base `5 passed` in 20 of 20; M1, M2 and M4 `1 failed, 4 passed` in 20 of 20, the lock test each time.
 - The first version of the lock test, approved in chat as Section 1, parked the first thread inside `get` and counted `get` calls. It failed on M1 and M2 (`assert (True and 2 == 1)`) but passed on M4 in 20 of 20 runs: with the lock released after the read, the first thread writes before the second runs. The version above replaced it (R2).
 - M4, M5 and M6 were added to the table approved in chat (R3).
+- The failure path behind R5, run once on a seventh copy whose write is `self._seen.update({key: (index, count + 1)})` (which does not go through `__setitem__`): the lock test fails with `AssertionError: assert False` at `seen.writing.wait(5)`, after the 5 s wait, and no `RuntimeError`.
 - ruff check and ruff format --check are clean on both scratch test files.
 
 ### Counts
@@ -132,6 +137,8 @@ tests/unit/test_ratelimit.py 4 → 5 tests; tests/integration/test_api_reports.p
 
 - The lock test replaces the private `_seen` with a dict subclass and relies on `check` reading with `.get` and writing with item assignment. A `check` rewritten to read or write another way needs the test rewritten with it. Asserting on `_seen` follows the two existing tests.
 - A passing run of the lock test waits 0.2 s (the second thread's join).
+- On a mutant, the lock test fails only if the second thread reaches its read within that 0.2 s. On a heavily loaded machine it might not, and the mutant would pass that run. The unchanged code cannot fail this way: its second thread is blocked on the lock, so it is alive and `reads` is 1.
+- A correct limiter that reads `_seen` with `get` once more outside the lock (a lock-free fast path) makes `reads` 2 and fails the lock test.
 - The lock test shows that two checks on one key do not interleave between the read and the write. It does not put the limiter under load, and it does not test the sweep under concurrency.
 - The unknown-token test uses a fixed clock, like the existing rate-limit test (slice 31 R5).
 
@@ -142,7 +149,7 @@ The new comments, docstring and test names are checked against `FORBIDDEN` in te
 ## Process and docs
 
 - Branch `slice36-limiter-tests`; spec reviewer (Opus 5.5); plan by writing-plans (one task, both tests, one commit); one implementer and its task review; final whole-branch review; at most one fix wave and one scoped re-review; PR; merge on the user's go-ahead.
-- Post-merge docs: a dated note (original kept) under the "Untested" line, docs/findings-slice31.md:132, naming both tests and pointing here. Two README rows, a spec row then a plan row, directly after the slice 35 plan row. No findings file of its own: this spec and the PR description carry the results.
+- Post-merge docs: a dated note (original kept) for the "Untested" line, docs/findings-slice31.md:132, naming both tests and pointing here; it goes directly after line 134 (the slice 35 note nested under line 133's note), as a bullet at line 133's indent. Two rows in docs/README.md, a spec row then a plan row, directly after line 224 (the slice 35 plan row). No findings file of its own: this spec and the PR description carry the results.
 - No live check: a test-only change touches no running system. No model calls and no spend.
 - Subagents are dispatched with `model: "opus"` while the session is on Fable 5.1.
 
@@ -151,6 +158,8 @@ The new comments, docstring and test names are checked against `FORBIDDEN` in te
 - **R1: commits carry the Fable 5.1 trailer.** Decided: slice 36 commits end with "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>", the trailer the latest attribution reminder names; if a later reminder names another, a new ruling records the switch. Found by the controller, on the attribution reminder that came with the user's model switch. Why: the process binds the trailer to the latest session reminder. Cost if wrong: a trailer naming the orchestrating model on commits written by Opus 5.5 subagents. Named in chat when made.
 - **R2: the lock test parks on the write and counts reads.** Decided: `Parked.__setitem__` parks and `Parked.get` counts, replacing the Section 1 version that parked inside `get`; the user chose this over keeping the approved test with M4 recorded as a gap. Found by the controller's mutation run (M4 passed the approved test in 20 of 20 runs). Why: M4 is the race the lock exists to prevent, and the revised test fails on M1, M2 and M4 in every run. Cost if wrong: the test depends on both the read and the write going through the dict's `get` and `__setitem__`. Asked in chat.
 - **R3: the mutation table has three mutants more than the one approved.** Decided: M4 (lock around the read only), M5 and M6 (`_limit` moved in one route only) were added to the Section 2 table (M1, M2, M3 and the unchanged copy). Found by the controller, during the mutation run. Why: weak tests were caught by extra mutants in slices 34 and 35. Cost if wrong: none; more evidence, no design change beyond R2. Named in chat when made.
+- **R4: the spec review's Important point and wording points were applied.** Decided: every copy was rerun against both test files and the proof table states each run's result and failing test (it had a column saying the older tests in the two files passed, but M1, M2 and M4 had run only the unit file and M5 and M6 only the integration file); the table's rows are in number order with one phrasing; two known limits are added (a mutant can pass a run on a loaded machine; a lock-free extra read fails the test); the post-merge docs name docs/README.md and both insertion points; `Parked.get` stays without type hints (the review's optional point; not a lint error, since ANN is not selected and mypy covers packages/core only). Found by the spec review of ff6f76b. Why: no claim wider than what was run, and nothing for the plan writer to guess. Cost if wrong: none. Named in chat when made.
+- **R5: the lock test joins only started threads.** Decided: `if t.ident is not None:` before `t.join(5)` in the `finally` block; the user chose this over leaving the test as approved with the misleading error recorded as a known limit. Found by the spec review of ff6f76b (if `assert seen.writing.wait(5)` fails, the second thread was never started and joining it raises `RuntimeError`, hiding the assertion). Why: a failing run shows the real assertion. Cost if wrong: one more line in the test. Asked in chat.
 
 ## Out of scope
 
