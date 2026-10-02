@@ -145,5 +145,13 @@ def serp(
         return SerpPage(error="truncated")
     try:
         return _parse(json.loads(resp.body))
-    except (ValueError, TypeError, KeyError, AttributeError, IndexError):
+    except (
+        ValueError,
+        TypeError,
+        KeyError,
+        AttributeError,
+        IndexError,
+        OverflowError,
+        RecursionError,
+    ):
         return SerpPage(error="json")

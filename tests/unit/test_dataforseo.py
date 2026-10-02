@@ -177,3 +177,13 @@ def test_an_unknown_country_makes_no_call():
     fetch = Fetch(Response(200, body()))
     assert _serp(fetch, country="US") == SerpPage([], 0, "location")
     assert fetch.calls == []
+
+
+def test_an_infinite_cost_is_json():
+    raw = body(cost=1e400)  # json.dumps writes Infinity; loads reads inf
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")
+
+
+def test_deeply_nested_json_is_json():
+    raw = "[" * 200_000 + "]" * 200_000
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")
