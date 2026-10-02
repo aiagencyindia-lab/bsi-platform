@@ -1,3 +1,5 @@
+import threading
+
 from bsi_api import ratelimit
 from bsi_api.ratelimit import TokenLimiter
 
@@ -59,3 +61,47 @@ def test_the_sweep_runs_once_per_window(monkeypatch):
     assert limiter.check("e") is None
     assert limiter._seen is not seen
     assert list(limiter._seen) == ["e"]
+
+
+class Parked(dict):
+    """A _seen whose writes park, so a test can hold a check between its
+    read and its write."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.reads = 0
+        self.writing = threading.Event()
+        self.release = threading.Event()
+
+    def get(self, key, default=None):
+        self.reads += 1
+        return super().get(key, default)
+
+    def __setitem__(self, key, value) -> None:
+        self.writing.set()
+        self.release.wait(5)
+        super().__setitem__(key, value)
+
+
+def test_checks_on_one_key_do_not_interleave():
+    limiter = TokenLimiter(1, 60, Clock(1_000.0))
+    seen = limiter._seen = Parked()
+    results = []
+    threads = [
+        threading.Thread(target=lambda: results.append(limiter.check("a")))
+        for _ in range(2)
+    ]
+    try:
+        threads[0].start()
+        assert seen.writing.wait(5)
+        threads[1].start()
+        threads[1].join(0.2)
+        # The first check holds the lock from its read to its write, so
+        # the second has not read yet.
+        assert threads[1].is_alive() and seen.reads == 1
+    finally:
+        seen.release.set()
+        for t in threads:
+            if t.ident is not None:
+                t.join(5)
+    assert sorted(results, key=str) == [20, None]
