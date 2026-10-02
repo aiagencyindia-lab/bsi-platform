@@ -18,6 +18,7 @@ export type Task = S["TaskOut"];
 export type Source = S["SourceOut"];
 export type SiteAudit = S["SiteAuditOut"];
 export type Queued = S["QueuedOut"];
+export type SerpAudits = S["SerpAuditsOut"];
 export type EntityMetrics = S["EntityMetricsOut"];
 export type EntityDeltas = S["EntityDeltasOut"];
 export type Changes = S["ChangesOut"];
