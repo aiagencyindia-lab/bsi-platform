@@ -257,7 +257,7 @@ Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi
 cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/serp.py packages/core/bsi_core/config.py .env.example tests/unit/test_serp.py && git commit -m "feat(core): SERP result classification and the provider settings
 
 classify() types one first-page item by the provider's item type or by
-its host (video, own, active rival, social, review site, other);
+its host (video, own, rival, social, review site, other);
 ownership() counts official organic results. Settings gain the
 DataForSEO login and password, empty by default.
 
@@ -1200,7 +1200,7 @@ def test_an_over_budget_serp_job_fails_without_a_call(
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run `pgrep -fl pytest` on its own first, then: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q -p no:cacheprovider tests/integration/test_serp_audit.py 2>&1 | tail -4`
-Expected: `10 failed, 1 passed`. `test_audit_serp_is_known_and_estimated` fails with `KeyError: 'audit_serp'`; the others fail with `TypeError: process_job() got an unexpected keyword argument 'serp_fetch'`. The one pass is `test_the_kind_is_checked`.
+Expected: `10 failed, 1 passed`. `test_audit_serp_is_known_and_estimated` fails with `KeyError: 'audit_serp'`; `test_a_failed_write_still_records_the_spend` fails with `AttributeError` (the worker has no `_serp_results` to patch yet); the other eight fail with `TypeError: process_job() got an unexpected keyword argument 'serp_fetch'`. The one pass is `test_the_kind_is_checked`.
 
 - [ ] **Step 3: Add the job to the worker**
 
@@ -1609,6 +1609,7 @@ def test_get_reports_the_latest_audit_serp_job(
             .values(created_at=datetime.now(UTC) - timedelta(hours=1))
         )
     r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
+    assert r.status_code == 200, r.text
     assert r.json()["job"] == {
         "status": "failed",
         "error": "serp_not_configured",
@@ -1870,7 +1871,9 @@ test("typeCounts lists result types, most frequent first", () => {
     { result_type: "other" },
     { result_type: "knowledge_panel" },
   ];
-  expect(typeCounts(results)).toBe("other 2 · knowledge_panel 1 · official 1");
+  expect(typeCounts(results)).toBe(
+    "other 2 · knowledge_panel 1 · official 1",
+  );
   expect(typeCounts([])).toBe("");
 });
 ```
@@ -2109,7 +2112,7 @@ with
 
 - [ ] **Step 6: Banned-word grep, then both gates**
 
-Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add apps/web/src/lib/format.ts apps/web/src/lib/format.test.ts apps/web/src/lib/types.ts "apps/web/src/app/(app)/b/[id]/layout.tsx" "apps/web/src/app/(app)/b/[id]/serp/page.tsx" "apps/web/src/app/(app)/b/[id]/serp/actions.ts"`. Run the banned-word grep (expected: no match). Run the Web gate with `<N>` = 6. Expected: `web gate exit 0`; `web-task6.txt` shows `Tests  47 passed (47)`, `Compiled successfully`, and the route `/b/[id]/serp` in the build's route list. Then run `pgrep -fl pytest` on its own and the Backend gate with `<N>` = 6. Expected: `gate exit 0`; `gate-task6.txt` shows `1640 passed, 2 deselected`. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` — expected: only the six staged files.
+Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add apps/web/src/lib/format.ts apps/web/src/lib/format.test.ts apps/web/src/lib/types.ts "apps/web/src/app/(app)/b/[id]/layout.tsx" "apps/web/src/app/(app)/b/[id]/serp/page.tsx" "apps/web/src/app/(app)/b/[id]/serp/actions.ts"`. Run the banned-word grep (expected: no match). Run the Web gate with `<N>` = 6. Expected: `web gate exit 0`; `web-task6.txt` shows `Tests  47 passed (47)`, `Compiled successfully`, and the route `/b/[id]/serp` in the build's route list. Then run `pgrep -fl pytest` on its own and the Backend gate with `<N>` = 6. Expected: `gate exit 0`; `gate-task6.txt` shows `1640 passed, 2 deselected`. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` — expected: only the six staged files (the workspace directory under `.superpowers/` is git-ignored).
 
 - [ ] **Step 7: Commit**
 
@@ -2144,12 +2147,12 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   2. The adapter checks `resp.ok` before `resp.truncated`, so a failed HTTP status with a cut body is `http`; the spec lists the two codes without an order.
   3. `SerpItem.sitelinks` is true only for an item of type `organic`; the spec says "an organic item with a non-empty `links`", which this makes exact for other item types that carry `links`.
   4. The spec's test list has "a write failure still recording the spend"; Task 4 produces it by patching `_serp_results` to return a value JSONB cannot store, so the write itself fails.
-  5. The spec's `process_job` runner passes `serp_fetch` positionally (`run_serp_audit(org_id, brand_id, job_id, meter, serp_fetch)`), as written there.
+  5. Small additions the spec does not state: `SerpPage.items` defaults to an empty list; the locale query and the `GET` query each add `id` as a tie-break after `created_at` and `fetched_at`; `SerpJobOut.status` is nullable, as `job.status` is; Task 4 adds an over-budget test and an estimate test beyond the spec's test list.
   6. The locale cap test asserts the count of calls and rows (10) and the job's cost (40,000), not which five locales were used: the seven locales share one `created_at`, so their order is by `id`.
   7. The spec's "a vitest for the page's formatting helpers" is four tests in `format.test.ts`; the page itself has no test, as the Site page has none.
   8. `GET` orders its rows by country, language, then kind (`brand` before `reviews`); the spec gives no order.
   9. `owned` and `organic` are pydantic computed fields on `SerpAuditOut`; the spec says only that they come from `ownership(results)`.
   10. The page shows each row's device and cost; the spec's card list has the query, country, language and fetch time.
-- Rulings applied to this plan: the spec's R1 (the Fable 5.1 trailer; a switch needs a new ruling and a plan edit).
+- Rulings applied to this plan: the spec's R1 (the Fable 5.1 trailer; a switch needs a new ruling and a plan edit) and R9 (the plan review's wording points).
 - Placeholders: `<workspace>` (the path the task brief supplies) and `<N>` (the task number in gate file names).
 - Type consistency: `classify(item_type, host, own, rivals)` and `ownership(results)` are used with those signatures in Tasks 4 and 5; `serp(query, country, language, *, login, password, fetch)` and `SerpItem`'s six fields in Task 4; `m.SerpAudit`'s columns in Tasks 4 and 5; `Fetch(*responses)`, `body(...)` and `ITEMS` from Task 2's test module in Task 4; `SerpAuditsOut` in Tasks 5 and 6.
