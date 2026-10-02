@@ -263,6 +263,6 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   4. Step 4 adds grep checks that each mutation is in its copy and not in the repo, and a `git status` check; the spec records only the import-path check.
   5. Global Constraints adds "Never run `rm`": scratch copies are made once on a fresh folder.
   6. The spec's `base` row (an unchanged copy run through `PYTHONPATH`, `20 passed`) is replaced by Step 3's run of the two files on the repo's own code.
-- Rulings applied to this plan: the spec's R1 (slice 36 commits carry the Fable 5.1 trailer; a new ruling records any switch) R7 (the plan review's five points), R8 (the trailer line has no override) and R9 (this line names R8), in the spec's Rulings section.
+- Rulings applied to this plan: the spec's R1 (slice 36 commits carry the Fable 5.1 trailer; a new ruling records any switch), R7 (the plan review's five points), R8 (the trailer line has no override), R9 (this line names R8) and R10 (a comma on this line), in the spec's Rulings section.
 - Placeholders: `<workspace>` and `<scratchpad>` (paths the task brief supplies), `<m>` (the copy name in Step 4's loop).
 - Type consistency: `TokenLimiter(limit, window, clock)` and `check(key) -> int | None`, as in apps/api/bsi_api/ratelimit.py; `Clock` as defined at the top of the unit test file; `_generic_404(r)` and `_scene(owner, make_org, make_brand)` as used in tests/integration/test_api_reports.py.
