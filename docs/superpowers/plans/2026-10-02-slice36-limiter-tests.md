@@ -22,7 +22,7 @@
 - **Banned words:** copy (code, comments, docstrings, test names) never contains the words listed in `FORBIDDEN` in tests/unit/test_recommend_copy.py.
 - **Banned-word grep:** `cd /Users/vineet/Downloads/ADK/bsi-platform && git diff --cached -U0 | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`, run after staging. Expected: no match (grep exits 1 and prints nothing).
 - **Backend gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform && { uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100; } > <workspace>/gate-task1.txt 2>&1; echo "gate exit $?"` (the echo prints to the terminal).
-- **Commit trailer:** exactly `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` (spec R1: the controller's latest session reminder names it). Use this line even if your own session reminder names another model. If the task brief names a different trailer, the brief wins.
+- **Commit trailer:** exactly `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` (spec R1: the controller's latest session reminder names it). Use this line even if your own session reminder names another model.
 - **Baseline counts** (collected 2026-10-02 on `98dc25f`): backend `1572/1574 tests collected (2 deselected)`, so `1572 passed, 2 deselected` (plus the 2 known third-party warnings); tests/unit/test_ratelimit.py 4; tests/integration/test_api_reports.py 14; the two files together 18.
 
 ## File map
