@@ -25,7 +25,7 @@
 - **Backend gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform && { uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100; } > <workspace>/gate-task<N>.txt 2>&1; echo "gate exit $?"` (the echo prints to the terminal). If `ruff format .` changed a file, re-stage it, re-run the banned-word grep, and say so in the report.
 - **Web gate** (Tasks 5 and 6): `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npm run gate > <workspace>/web-task<N>.txt 2>&1; echo "web gate exit $?"`.
 - **Frontend rules:** Server Components and server actions only; no new Route Handler; never call `redirect()` inside `try`/`catch`.
-- **Commit trailer:** exactly `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` (spec R1: the controller's latest session reminder names it). Use this line even if your own session reminder names another model.
+- **Commit trailer:** exactly `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (spec R1 and R12: the controller's latest session reminder names it). Use this line even if your own session reminder names another model.
 - **Baseline counts** (collected 2026-10-02 on main `5a127bf`): backend `1574 passed, 2 deselected` (plus the 2 known third-party warnings); web 43 vitest. Expected backend totals after each task: Task 1 `1598`, Task 2 `1622`, Task 3 `1623`, Task 4 `1633`, Task 5 `1640`, Task 6 `1640`; web after Task 6: 47.
 
 ## File map
@@ -261,7 +261,7 @@ its host (video, own, rival, social, review site, other);
 ownership() counts official organic results. Settings gain the
 DataForSEO login and password, empty by default.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -648,7 +648,7 @@ Overview loading on) and never raises: a failure is a SerpPage with a
 short code (serp_not_configured, location, http, truncated, json, auth,
 funds, rate, provider_<code>). The cost comes from the response.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -889,7 +889,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git add migrations/versions/0023_
 One row per query, locale and run, with the page's results in JSONB,
 the cost and an error code; tenant RLS as the other tenant tables.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1461,7 +1461,7 @@ transaction open, and writes one serp_audit row per query. A run with
 no usable page fails with the provider's short code; any failure
 carries the run's spend, so the job records it.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -1813,7 +1813,7 @@ POST /brands/{id}/audits/serp queues an audit_serp job. GET returns
 the latest page per query and locale with its ownership counts, and
 the latest audit_serp job's status and error.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2124,7 +2124,7 @@ and one card per query and locale: ownership as a count and a
 percentage, a count per result type, Knowledge Panel and AI Overview
 presence, and the results table. A failed query shows its error label.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -2153,6 +2153,6 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   8. `GET` orders its rows by country, language, then kind (`brand` before `reviews`); the spec gives no order.
   9. `owned` and `organic` are pydantic computed fields on `SerpAuditOut`; the spec says only that they come from `ownership(results)`.
   10. The page shows each row's device and cost; the spec's card list has the query, country, language and fetch time.
-- Rulings applied to this plan: the spec's R1 (the Fable 5.1 trailer; a switch needs a new ruling and a plan edit), R9 (the plan review's wording points) and R10 (the `<workspace>` placeholder names its place).
+- Rulings applied to this plan: the spec's R1 (the Fable 5.1 trailer; a switch needs a new ruling and a plan edit), R9 (the plan review's wording points), R10 (the `<workspace>` placeholder names its place) and R12 (the trailer switches to Opus 5.5).
 - Placeholders: `<workspace>` (the path the task brief supplies, the plan's directory under the git-ignored `.superpowers/sdd/`) and `<N>` (the task number in gate file names).
 - Type consistency: `classify(item_type, host, own, rivals)` and `ownership(results)` are used with those signatures in Tasks 4 and 5; `serp(query, country, language, *, login, password, fetch)` and `SerpItem`'s six fields in Task 4; `m.SerpAudit`'s columns in Tasks 4 and 5; `Fetch(*responses)`, `body(...)` and `ITEMS` from Task 2's test module in Task 4; `SerpAuditsOut` in Tasks 5 and 6.
