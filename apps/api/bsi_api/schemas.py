@@ -12,11 +12,13 @@ from typing import Annotated, Any, Literal
 
 from bsi_core.pages import normalize_url
 from bsi_core.reports import Document
+from bsi_core.serp import ownership
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
     StringConstraints,
+    computed_field,
     field_validator,
 )
 
@@ -410,6 +412,55 @@ class SiteAuditOut(BaseModel):
     fetches: int
     job_id: uuid.UUID | None
     checks: list[CheckOut]
+
+
+class SerpResultOut(BaseModel):
+    position: int
+    item_type: str
+    result_type: str
+    url: str
+    domain: str
+    title: str
+    sitelinks: bool
+
+
+class SerpAuditOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    kind: str
+    query: str
+    country: str
+    language: str
+    device: str
+    fetched_at: datetime
+    cost_micros: int
+    error: str | None
+    results: list[SerpResultOut]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def owned(self) -> int:
+        """Organic results on the brand's own hosts."""
+        return ownership(r.model_dump() for r in self.results)[0]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def organic(self) -> int:
+        """All organic results on the page."""
+        return ownership(r.model_dump() for r in self.results)[1]
+
+
+class SerpJobOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str | None
+    error: str | None
+
+
+class SerpAuditsOut(BaseModel):
+    job: SerpJobOut | None
+    audits: list[SerpAuditOut]
 
 
 class PageOptimizeIn(BaseModel):

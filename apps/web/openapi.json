@@ -4045,6 +4045,192 @@
         "title": "SentimentOut",
         "type": "object"
       },
+      "SerpAuditOut": {
+        "properties": {
+          "cost_micros": {
+            "title": "Cost Micros",
+            "type": "integer"
+          },
+          "country": {
+            "title": "Country",
+            "type": "string"
+          },
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "fetched_at": {
+            "format": "date-time",
+            "title": "Fetched At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "organic": {
+            "description": "All organic results on the page.",
+            "readOnly": true,
+            "title": "Organic",
+            "type": "integer"
+          },
+          "owned": {
+            "description": "Organic results on the brand's own hosts.",
+            "readOnly": true,
+            "title": "Owned",
+            "type": "integer"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SerpResultOut"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "query",
+          "country",
+          "language",
+          "device",
+          "fetched_at",
+          "cost_micros",
+          "error",
+          "results",
+          "owned",
+          "organic"
+        ],
+        "title": "SerpAuditOut",
+        "type": "object"
+      },
+      "SerpAuditsOut": {
+        "properties": {
+          "audits": {
+            "items": {
+              "$ref": "#/components/schemas/SerpAuditOut"
+            },
+            "title": "Audits",
+            "type": "array"
+          },
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SerpJobOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "job",
+          "audits"
+        ],
+        "title": "SerpAuditsOut",
+        "type": "object"
+      },
+      "SerpJobOut": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "status",
+          "error"
+        ],
+        "title": "SerpJobOut",
+        "type": "object"
+      },
+      "SerpResultOut": {
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "item_type": {
+            "title": "Item Type",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "result_type": {
+            "title": "Result Type",
+            "type": "string"
+          },
+          "sitelinks": {
+            "title": "Sitelinks",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "item_type",
+          "result_type",
+          "url",
+          "domain",
+          "title",
+          "sitelinks"
+        ],
+        "title": "SerpResultOut",
+        "type": "object"
+      },
       "SiteAuditOut": {
         "properties": {
           "checks": {
@@ -5282,6 +5468,123 @@
           }
         },
         "summary": "Queue Crawl",
+        "tags": [
+          "audits"
+        ]
+      }
+    },
+    "/v1/brands/{brand_id}/audits/serp": {
+      "get": {
+        "description": "The latest page per (kind, country, language), an error row\nincluded, and the latest audit_serp job so a failure that wrote no\nrows (no credentials, budget, stale) still shows.",
+        "operationId": "latest_serp_v1_brands__brand_id__audits_serp_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SerpAuditsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Latest Serp",
+        "tags": [
+          "audits"
+        ]
+      },
+      "post": {
+        "operationId": "queue_serp_v1_brands__brand_id__audits_serp_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "brand_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Brand Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Queue Serp",
         "tags": [
           "audits"
         ]

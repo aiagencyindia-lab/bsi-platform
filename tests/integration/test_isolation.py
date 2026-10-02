@@ -203,6 +203,8 @@ CASES = [
     ("GET", "/v1/brands/{b}/citations", None),
     ("POST", "/v1/brands/{b}/audits/crawl", None),
     ("GET", "/v1/brands/{b}/audits/crawl", None),
+    ("POST", "/v1/brands/{b}/audits/serp", None),
+    ("GET", "/v1/brands/{b}/audits/serp", None),
     ("GET", "/v1/brands/{b}/clusters/gaps", None),
     ("POST", "/v1/brands/{b}/prompts/label", None),
     (
