@@ -222,6 +222,8 @@ In the order they were written:
 | [superpowers/plans/2026-10-01-slice34-axes-guard-test.md](superpowers/plans/2026-10-01-slice34-axes-guard-test.md) | Implementation plan, Task 1 (one test), with the changes made during execution. |
 | [superpowers/specs/2026-10-01-slice35-sweep-test-design.md](superpowers/specs/2026-10-01-slice35-sweep-test-design.md) | Design spec: a unit test pins the rate limiter's once-per-window sweep (slice 31 R10) by the identity of its key map; a mutation run is the red evidence; the results are in this spec, the plan's execution note and PR #67, with rulings R1–R9. |
 | [superpowers/plans/2026-10-01-slice35-sweep-test.md](superpowers/plans/2026-10-01-slice35-sweep-test.md) | Implementation plan, Task 1 (one test), with the changes made during execution. |
+| [superpowers/specs/2026-10-02-slice36-limiter-tests-design.md](superpowers/specs/2026-10-02-slice36-limiter-tests-design.md) | Design spec: a unit test pins the rate limiter's lock (two checks on one key do not interleave between the read and the write) and an integration test pins an unknown share token's own budget; a mutation run is the red evidence; the results are in this spec, the plan's execution section and PR #69, with rulings R1–R17. |
+| [superpowers/plans/2026-10-02-slice36-limiter-tests.md](superpowers/plans/2026-10-02-slice36-limiter-tests.md) | Implementation plan, Task 1 (two tests), with the changes made during execution. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
