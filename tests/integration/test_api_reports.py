@@ -244,3 +244,24 @@ def test_public_routes_are_rate_limited_per_token(
     assert "nike" not in r.text.lower()
     # Another token has its own budget.
     assert client.get(f"/v1/r/{other}").status_code == 200
+
+
+def test_an_unknown_token_has_its_own_budget(
+    client, owner, make_org, make_brand
+):
+    from bsi_api.ratelimit import TokenLimiter
+
+    org, bid = _scene(owner, make_org, make_brand)
+    client.app.state.public_limiter = TokenLimiter(2, 60, lambda: 1_000.0)
+    tok = client.post(
+        f"/v1/brands/{bid}/reports/agency/runs", headers=org.headers
+    ).json()["share_token"]
+    unknown = "unknown-token-unknown-token-x"
+    _generic_404(client.get(f"/v1/r/{unknown}"))
+    _generic_404(client.get(f"/v1/r/{unknown}.pdf"))
+    # Counted before the lookup: the third request never reaches it.
+    r = client.get(f"/v1/r/{unknown}")
+    assert r.status_code == 429
+    assert r.headers["retry-after"] == "20"
+    # A real token is not charged for the unknown one.
+    assert client.get(f"/v1/r/{tok}").status_code == 200
