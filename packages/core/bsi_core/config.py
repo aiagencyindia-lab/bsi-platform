@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AwareDatetime
+from pydantic import AwareDatetime, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _LOCAL = "postgresql+psycopg://{u}:{p}@localhost:5433/bsi"
@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # Copied onto the task when it is marked done, so changing it never
     # moves a window that is already open.
     impact_window_days: int = 14
+    # Slice 37: the SERP provider's API login and password (the dashboard's
+    # API Access tab). Empty = the Brand SERP audit is not configured.
+    dataforseo_login: str = ""
+    dataforseo_password: SecretStr = SecretStr("")
 
 
 @lru_cache
