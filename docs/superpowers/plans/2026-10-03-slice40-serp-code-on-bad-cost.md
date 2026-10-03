@@ -249,4 +249,9 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-(Filled in after execution.)
+- Task 1: commit 3434fe4, as planned (the implementer's report gives every count the plan expects; the task review says "✅ Spec compliant"). Merged via PR #80 (main `e25e890`). Implementer gate (gate-task1.txt, read by the controller): backend `1693 passed, 2 deselected, 2 warnings in 246.48s (0:04:06)`, mypy `Success`, metrics coverage 100%. Controller gates on `3434fe4`: backend `1693 passed, 2 deselected, 2 warnings in 355.80s (0:05:55)`; web `Tests  48 passed (48)`. CI: `gates` passed in 3m10s with `1693 passed, 2 deselected, 2 warnings in 96.88s (0:01:36)`. Gates on main after merge: backend `1693 passed, 2 deselected, 2 warnings in 262.19s (0:04:22)`; web `Tests  48 passed (48)`.
+- Reviews, as the ledger records them:
+  - "Plan review (a5622079510ba2634, d27956b): "Ready to execute? Yes"; 0 Critical, 0 Important, 1 Minor (slice 39 spec line 116 names a test this slice renames)."
+  - "Task 1: task review (ab3c849dcff45d77d, d27956b..3434fe4): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor; 2 ⚠️ items (red/green/mutant/gate counts not re-run; banned-word grep checked by eye)."
+  - "Final review (a93fa6901301210b9, ae34ae6..3434fe4): "Ready to merge? Yes"; 0 Critical, 0 Important, 3 Minor; deferred-minor triage: both Task 1 minors "no fix needed before merge"."
+- Rulings from planning and execution: R9 and R10, in the spec's Rulings. The five deferred minors are quoted in the spec's "Deferred minors" section.

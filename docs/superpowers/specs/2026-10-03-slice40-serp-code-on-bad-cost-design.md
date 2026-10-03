@@ -179,3 +179,15 @@ Run 2026-10-03 in the scratchpad (copies of `packages/core/bsi_core` imported vi
 - **R6: the spec review's accuracy points.** Decided: `provider_<n>` has no page label and is shown as is; the out-of-scope note cites the costs printed at the slice 37 live check instead of "documented as free"; the README file is named. Found by: the spec review of 0f834a6 (Minors 3, 4, 6). Why: no claim wider than its source. Cost if wrong: none. Named in chat when made.
 - **R7: the docstring names the unreadable-item case.** Decided: "An unreadable item returns `json` with the cost." is appended to the `_parse` docstring; the user chose this over keeping the approved Section 1 text. Found by: the spec review of 0f834a6 (Minor 5). Why: the docstring covers every outcome of `_parse`, as the old one did. Cost if wrong: none. Asked in chat.
 - **R8: the re-review's one wording point was applied, with no further re-review.** Decided: the out-of-scope note says "the three error answers printed at the slice 37 live check", since attempts 1-2's responses were not printed. Found by: the re-review of 1ff86aa (optional; "Ready for the user's review? Yes"). Why: no claim wider than its source. Cost if wrong: none; wording only. Named in chat when made.
+- **R9: the slice 39 line-116 note waits for the post-merge docs.** (Added after merge.) The ledger line, as recorded: "Ruling: R9 — Decided: slice 39 spec line 116 gets a dated note in the post-merge docs PR, not now. Found by: the plan review of d27956b (Minor 1). Why: the line is a historical record and the rename is only true after merge. Cost if wrong: the line stays unannotated until the docs PR. How named: named in chat when made."
+- **R10: no fix wave after the final review.** (Added after merge.) The ledger line, as recorded: "Ruling: R10 — Decided: no fix wave after the final review; Minor 1 (my prompt's wrong count) is corrected in the PR description; Minors 2 and 3 go into the post-merge docs PR; both Task 1 deferred minors need no fix. Found by: the final review ("Ready to merge? Yes", 3 Minor). Why: none is a code defect. Cost if wrong: none; docs only. How named: named in chat when made."
+
+## Deferred minors
+
+Quoted verbatim from the ledger (deleted after this slice's docs PR merges):
+
+- "Task 1: minor (deferred): the gate's 2 warnings are third-party deprecations (fastapi/starlette testclient httpx; anyio BlockingPortal alias), not caused by this change"
+- "Task 1: minor (deferred): a non-2xx answer with an unreadable task status and a bad cost is not pinned by a test; it stays http via _refused (dataforseo.py:173), as on main"
+- "Final: minor (deferred): the controller's final-review prompt said "ten new cases (65 → 77)"; the real count is 12 new cases plus 2 renamed tests (spec and plan are correct); the PR description says 12"
+- "Final: minor (deferred): the plan's "Changes made during execution" still reads "(Filled in after execution.)"; assigned to the post-merge docs PR"
+- "Final: minor (deferred): R9 is in the ledger but not yet in the spec; carry it into the spec in the post-merge docs PR"
