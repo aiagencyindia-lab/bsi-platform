@@ -291,11 +291,49 @@ def test_a_missing_cost_is_zero():
     assert page.items
 
 
-def test_a_refused_answer_with_a_cost_out_of_range_is_http():
+def test_a_refused_answer_with_a_bad_cost_keeps_its_code():
     raw = body(cost=5, task_status=40210)
-    assert _serp(Fetch(Response(402, raw))) == SerpPage([], 0, "http")
+    assert _serp(Fetch(Response(402, raw))) == SerpPage([], 0, "funds")
 
 
-def test_a_top_level_error_with_a_cost_out_of_range_is_json():
+def test_a_top_level_error_with_a_bad_cost_keeps_its_code():
     raw = json.dumps({"status_code": 40100, "cost": 5, "tasks": None})
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "auth")
+
+
+@pytest.mark.parametrize("cost", BAD_COSTS)
+def test_a_task_error_with_a_bad_cost_keeps_its_code(cost):
+    raw = body(cost=cost, task_status=40201)
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "paused")
+
+
+def test_a_top_level_error_with_tasks_and_a_bad_cost_keeps_its_code():
+    raw = body(cost=5, status=40100)
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "auth")
+
+
+def test_a_bad_task_status_with_a_bad_cost_is_json():
+    raw = body(cost=5, task_status=[1, 2])
     assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")
+
+
+def test_a_top_level_error_keeps_a_readable_cost():
+    raw = json.dumps({"status_code": 40100, "cost": 0.004, "tasks": None})
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 4_000, "auth")
+
+
+def test_a_task_error_keeps_the_tasks_cost():
+    doc = json.loads(body(task_status=40201))
+    doc["cost"] = 0
+    page = _serp(Fetch(Response(200, json.dumps(doc))))
+    assert page == SerpPage([], 4_000, "paused")
+
+
+def test_a_task_error_with_an_infinite_cost_keeps_its_code():
+    raw = body(cost=1e400, task_status=40201)
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "paused")
+
+
+def test_a_refused_top_level_error_with_a_bad_cost_keeps_its_code():
+    raw = json.dumps({"status_code": 40100, "cost": 5, "tasks": None})
+    assert _serp(Fetch(Response(401, raw))) == SerpPage([], 0, "auth")

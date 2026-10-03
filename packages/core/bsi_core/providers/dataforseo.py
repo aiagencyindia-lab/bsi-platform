@@ -102,6 +102,15 @@ def _micros(cost: object) -> int:
     return round(cost * 1_000_000)
 
 
+def _error_micros(cost: object) -> int:
+    """The cost of an answer that carries an error code: a bad cost is 0,
+    so the code is kept."""
+    try:
+        return _micros(cost)
+    except ValueError:
+        return 0
+
+
 def _item(raw: Mapping[str, Any]) -> SerpItem:
     rank = raw.get("rank_absolute")
     kind = str(raw.get("type") or "")
@@ -116,8 +125,9 @@ def _item(raw: Mapping[str, Any]) -> SerpItem:
 
 
 def _parse(doc: Any) -> SerpPage:
-    """The page in a decoded response. Raises on an undocumented shape
-    until the task's cost is read; after that, returns `json` with it."""
+    """The page in a decoded response. Raises on an undocumented shape,
+    or on a success whose cost is bad. An error answer keeps its code; a
+    bad cost there is 0. An unreadable item returns `json` with the cost."""
     if not isinstance(doc, dict):
         raise ValueError("not an object")
     top = _status(doc["status_code"])
@@ -128,18 +138,18 @@ def _parse(doc: Any) -> SerpPage:
         error = _code(top)
         if error is None:
             raise ValueError("no task")
-        return SerpPage(cost_micros=_micros(doc.get("cost")), error=error)
+        return SerpPage(cost_micros=_error_micros(doc.get("cost")), error=error)
     task = tasks[0]
-    cost = _micros(task.get("cost"))
     # The top-level status first, then the task's (spec, The adapter).
     error = _code(top)
     if error is None:
         status = _status(task.get("status_code"))
-        if status is None:
-            return SerpPage(cost_micros=cost, error="json")
-        error = _code(status)
+        error = "json" if status is None else _code(status)
     if error is not None:
-        return SerpPage(cost_micros=cost, error=error)
+        return SerpPage(
+            cost_micros=_error_micros(task.get("cost")), error=error
+        )
+    cost = _micros(task.get("cost"))  # a bad cost on a success raises: json
     try:
         items = [
             _item(raw)
