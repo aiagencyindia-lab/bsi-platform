@@ -8,7 +8,7 @@ The slice 37 live check on dev (docs/findings-slice37.md §2, note of 2026-10-03
 
 Facts read before the approaches:
 - packages/core/bsi_core/providers/dataforseo.py:156-157: `if not resp.ok: return SerpPage(error="http")` runs before the body is read. Only a 2xx body reaches `_parse` (lines 91-119), which maps the top-level `status_code`, then `tasks[0].status_code`, through `_code` and `ERRORS = {40100: "auth", 40200: "funds", 40210: "funds", 40202: "rate"}` (line 21); any other code is `provider_<code>`.
-- The live check observed: an HTTP 401 whose JSON body carried top-level `40100` (the account call); an HTTP 403 whose JSON body carried top-level `40104` ("Please verify your account before using the API"); an HTTP 200 whose task carried `40201` ("… temporarily paused access …"). The search responses' bodies were JSON (315 and 266 bytes).
+- The live check observed: an HTTP 401 whose JSON body carried top-level `40100` (the account call); an HTTP 403 whose JSON body carried top-level `40104` ("Please verify your account before using the API"); an HTTP 200 whose task carried `40201` ("… temporarily paused access …"). The search responses' bodies were JSON (their status codes and messages decoded).
 - `_parse` raises when the top-level `status_code` is not an integer (line 96), but the task's `status_code` is passed to `_code` unchecked (line 107), so a list or long string becomes `provider_<anything>`, which the worker stores in `serp_audit.error` (deferred minor "dataforseo.py:58 the provider_<code> error string is unbounded and accepts any type", findings-slice37 §3).
 - `_parse`'s docstring says it "raises on an undocumented shape", but since commit 9555650 an item that fails to parse returns `json` with the task's cost (parked under R18, findings-slice37 §3).
 - Only two tests depend on the `http` code: tests/unit/test_dataforseo.py `test_an_http_failure_is_http` (a timeout and a 500 with body "oops") and tests/integration/test_serp_audit.py `test_a_partial_failure_keeps_both_rows_and_is_done` (a 500 "oops"). The worker and the API pass the code through; the page labels it from `SERP_ERRORS` in apps/web/src/lib/format.ts and shows an unknown code as is.
@@ -19,64 +19,114 @@ Decisions approved in chat (brainstorming on Opus 5.5, 2026-10-03), each after a
 1. A non-2xx answer: read the provider code from its body, falling back to `http` (over mapping the HTTP status alone, which leaves a 403 / `40104` as `http`; and over both, which adds a second table for HTML error pages never seen).
 2. Scope: the error-code fix plus the two findings on the same lines, the stale `_parse` docstring (R18) and a non-integer task `status_code` (over the error-code fix only; and over all six open adapter findings).
 3. Design Sections 1 and 2, the text of each in chat before its approval question.
+4. After the spec review of a80f98a: a status counts only if it is a plain integer (not a bool) from 0 to 99999 (R6), over excluding bools only, or leaving the check as first designed.
 
 ## Design
 
 ### The adapter
 
-packages/core/bsi_core/providers/dataforseo.py:
+packages/core/bsi_core/providers/dataforseo.py, as a diff against main `54775b6` (the exact change the plan applies):
 
-```python
-ERRORS = {
-    40100: "auth",
-    40104: "unverified",
-    40200: "funds",
-    40201: "paused",
-    40202: "rate",
-    40210: "funds",
-}
+```diff
+@@ -18,7 +18,15 @@
+ # per country as locales arrive; an unknown country is error "location".
+ LOCATIONS = {"IN": "India"}
+ OK, NO_RESULTS = 20000, 40102
+-ERRORS = {40100: "auth", 40200: "funds", 40210: "funds", 40202: "rate"}
++ERRORS = {
++    40100: "auth",
++    40104: "unverified",
++    40200: "funds",
++    40201: "paused",
++    40202: "rate",
++    40210: "funds",
++}
++MAX_STATUS = 99_999  # documented codes have five digits
+ # What an undocumented body can raise while it is decoded or read.
+ UNREADABLE = (
+     ValueError,
+@@ -71,6 +79,14 @@
+     return f"provider_{status}"
+ 
+ 
++def _status(value: object) -> int | None:
++    """A provider status code, or None: only a plain integer (not a
++    bool) from 0 to MAX_STATUS counts, so a stored error stays short."""
++    if isinstance(value, bool) or not isinstance(value, int):
++        return None
++    return value if 0 <= value <= MAX_STATUS else None
++
++
+ def _micros(cost: object) -> int:
+     return round(cost * 1_000_000) if isinstance(cost, int | float) else 0
+ 
+@@ -89,12 +105,13 @@
+ 
+ 
+ def _parse(doc: Any) -> SerpPage:
+-    """The page in a decoded response; raises on an undocumented shape."""
++    """The page in a decoded response. Raises on an undocumented shape
++    until the task's cost is read; after that, returns `json` with it."""
+     if not isinstance(doc, dict):
+         raise ValueError("not an object")
+-    top = doc["status_code"]
+-    if not isinstance(top, int):
+-        raise ValueError("status_code is not a number")
++    top = _status(doc["status_code"])
++    if top is None:
++        raise ValueError("status_code is not a status")
+     tasks = doc.get("tasks") or []
+     if not tasks:
+         error = _code(top)
+@@ -104,7 +121,12 @@
+     task = tasks[0]
+     cost = _micros(task.get("cost"))
+     # The top-level status first, then the task's (spec, The adapter).
+-    error = _code(top) or _code(task["status_code"])
++    error = _code(top)
++    if error is None:
++        status = _status(task.get("status_code"))
++        if status is None:
++            return SerpPage(cost_micros=cost, error="json")
++        error = _code(status)
+     if error is not None:
+         return SerpPage(cost_micros=cost, error=error)
+     try:
+@@ -119,6 +141,19 @@
+     return SerpPage(items, cost)
+ 
+ 
++def _refused(resp: Response) -> SerpPage:
++    """A non-2xx answer: the provider's error code from its body when it
++    has one; otherwise `http`. `truncated` is not consulted: a cut body
++    fails to decode, which is also `http`."""
++    try:
++        page = _parse(json.loads(resp.body))
++    except UNREADABLE:
++        return SerpPage(error="http")
++    if page.error in (None, "json"):
++        return SerpPage(error="http")
++    return SerpPage(cost_micros=page.cost_micros, error=page.error)
++
++
+ def serp(
+     query: str,
+     country: str,
+@@ -154,7 +189,7 @@
+         headers={"Authorization": f"Basic {token}"},
+     )
+     if not resp.ok:
+-        return SerpPage(error="http")
++        return _refused(resp)
+     if resp.truncated:
+         return SerpPage(error="truncated")
+     try:
 ```
 
-In `_parse`, the docstring and the task status:
-
-```python
-def _parse(doc: Any) -> SerpPage:
-    """The page in a decoded response. Raises on an undocumented shape
-    until the task's cost is read; after that, returns `json` with it."""
-    ...
-    task = tasks[0]
-    cost = _micros(task.get("cost"))
-    status = task["status_code"]
-    if not isinstance(status, int):
-        return SerpPage(cost_micros=cost, error="json")
-    # The top-level status first, then the task's (spec, The adapter).
-    error = _code(top) or _code(status)
-    ...
-```
-
-A new function before `serp`, and its use:
-
-```python
-def _refused(resp: Response) -> SerpPage:
-    """A non-2xx answer: the provider's error code from its body when it
-    has one; otherwise `http` (a timeout, a bare or cut error page)."""
-    try:
-        page = _parse(json.loads(resp.body))
-    except UNREADABLE:
-        return SerpPage(error="http")
-    if page.error in (None, "json"):
-        return SerpPage(error="http")
-    return SerpPage(cost_micros=page.cost_micros, error=page.error)
-```
-
-```python
-    if not resp.ok:
-        return _refused(resp)
-```
-
-- A non-2xx answer whose body carries a provider error code (top level or task level) gets that code (`auth`, `funds`, `rate`, `unverified`, `paused`, `provider_<n>`) and any cost the body reports.
-- A non-2xx answer with no readable code gets `http` and cost 0: a timeout (status 0, empty body), a body that is not JSON, a cut body, a body without an integer code, or a body with a success code. Items are never taken from a non-2xx answer.
-- Unchanged: the order of the checks (credentials, country, the call), the 2xx path, `truncated` for a cut 2xx body, and the never-raises contract. The worker and the API are unchanged.
+- `_status(value)`: only a plain integer (not a bool) from 0 to `MAX_STATUS = 99_999` is a provider status (R6). A top-level status that is not one raises in `_parse`, so `serp()` returns `json` with cost 0, as a non-integer one does today. A task status that is not one returns `json` with the task's cost.
+- The top-level code is mapped first; the task's status is read only when the top level is a success (R3). So a top-level error code wins even when the task's status is missing or malformed, as on main.
+- `_refused(resp)` for a non-2xx answer: a body whose top-level or task-level code is an error gives that code (`auth`, `funds`, `rate`, `unverified`, `paused`, `provider_<n>`) and the cost the body reports. Every other non-2xx answer gives `http` and cost 0: a timeout (status 0, empty body), a body that is not JSON, a cut body (`truncated` is not consulted; the cut body fails to decode), a body without a valid status, a body with a success code, or a task status that is not valid (`_parse` gives `json`, which `_refused` turns into `http`). Items are never taken from a non-2xx answer.
+- Unchanged: the order of the checks (credentials, country, the call), the 2xx path for valid statuses, `truncated` for a cut 2xx body, and the never-raises contract. The worker and the API are unchanged.
 
 ### The page
 
@@ -88,13 +138,9 @@ apps/web/src/lib/format.ts `SERP_ERRORS` gains:
 
 ### Tests
 
-tests/unit/test_dataforseo.py (no network; the file's fake `Fetch` and `body()`):
+tests/unit/test_dataforseo.py (no network; the file's fake `Fetch` and `body()`). `ERROR_CODES` gains two rows:
 
 ```python
-ERROR_CODES = [
-    (40100, "auth"),
-    (40200, "funds"),
-    (40210, "funds"),
     (40202, "rate"),
     (40104, "unverified"),
     (40201, "paused"),
@@ -102,7 +148,12 @@ ERROR_CODES = [
 ]
 ```
 
+and these tests are appended:
+
 ```python
+h(Response(200, raw))) == SerpPage([], 0, "json")
+
+
 REFUSED = [
     (401, 40100, "auth"),
     (402, 40210, "funds"),
@@ -118,6 +169,11 @@ def test_a_refused_answer_is_its_providers_code(http, status, code):
     assert _serp(Fetch(Response(http, raw))) == SerpPage([], 0, code)
 
 
+def test_a_refused_answer_keeps_a_task_code_and_its_cost():
+    raw = body(task_status=40210)
+    assert _serp(Fetch(Response(402, raw))) == SerpPage([], 4_000, "funds")
+
+
 @pytest.mark.parametrize(
     "response",
     [
@@ -125,34 +181,52 @@ def test_a_refused_answer_is_its_providers_code(http, status, code):
         Response(401, "<html>Unauthorized</html>"),
         Response(403, body()),
         Response(401, body(status=40100)[:30], truncated=True),
+        Response(403, body(task_status=[1, 2])),
     ],
 )
 def test_a_refused_answer_without_a_code_is_http(response):
     assert _serp(Fetch(response)) == SerpPage([], 0, "http")
 
 
-def test_a_non_integer_task_status_is_json_and_keeps_the_cost():
-    raw = body(task_status=[1, 2])
+@pytest.mark.parametrize("status", [[1, 2], True, 100_000, -1])
+def test_a_bad_task_status_is_json_and_keeps_the_cost(status):
+    raw = body(task_status=status)
     assert _serp(Fetch(Response(200, raw))) == SerpPage([], 4_000, "json")
+
+
+@pytest.mark.parametrize("status", [True, 100_000])
+def test_a_bad_top_level_status_is_json(status):
+    raw = body(status=status)
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")
+
+
+def test_a_top_level_error_wins_over_a_bad_task_status():
+    raw = body(status=40100, task_status=[1, 2])
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 4_000, "auth")
 ```
 
-- `ERROR_CODES` runs in the existing top-level and task-level tests, so its two new rows add 4 cases.
+- `ERROR_CODES` runs in the existing top-level and task-level tests, so its two new rows add 4 cases; the appended tests add 18 (5 + 1 + 5 + 4 + 2 + 1).
 - apps/web/src/lib/format.test.ts: one test that `serpError("unverified")` and `serpError("paused")` return the two labels.
-- Counts (*inferred* from the lists): tests/unit/test_dataforseo.py 27 → 41; backend 1643 → 1657; web 47 → 48. The plan re-collects the baseline.
+- Counts: tests/unit/test_dataforseo.py 27 → 49 (the scratch run below collected 49); backend 1643 → 1665 and web 47 → 48 (*inferred* from the lists). The plan re-collects the baseline.
 
 ### Proof
 
-Run on 2026-10-03 with pytest on a scratch copy of packages/core/bsi_core outside the repo, the changed test file in its own scratch folder, `PYTHONPATH=<copy>:.`; each run's `bsi_core.providers.dataforseo.__file__` printed the intended copy first.
+Run on 2026-10-03 with pytest on scratch copies of packages/core/bsi_core outside the repo, the changed test file in its own scratch folder, `PYTHONPATH=<copy>:.`; before each run `bsi_core.providers.dataforseo.__file__` was checked to be the intended copy.
 
-| Code | Result over the 41 tests | Failing |
+| Code | Result over the 49 tests | Failing |
 |---|---|---|
-| main (`54775b6`) | `10 failed, 31 passed` | the 4 new `ERROR_CODES` cases, the 5 `REFUSED` cases, the non-integer case |
-| patched (the design above) | `41 passed` | none |
-| mutant 1: `_refused(resp)` reverted to `SerpPage(error="http")` | `5 failed, 36 passed` | the 5 `REFUSED` cases |
-| mutant 2: `_refused` returns the parsed page as is | `1 failed, 40 passed` | `test_a_refused_answer_without_a_code_is_http[response2]` (a success body on a 403) |
-| mutant 3: the task-status integer check removed | `1 failed, 40 passed` | the non-integer case |
+| main (`54775b6`) | `16 failed, 33 passed` | the 4 new `ERROR_CODES` cases; the 5 `REFUSED` cases; `test_a_refused_answer_keeps_a_task_code_and_its_cost`; the 4 bad task statuses; the 2 bad top-level statuses |
+| patched (the design above) | `49 passed` | none |
+| m1: `_refused(resp)` reverted to `SerpPage(error="http")` | `6 failed, 43 passed` | the 5 `REFUSED` cases; the task code and cost case |
+| m2: `_refused` returns the parsed page as is | `2 failed, 47 passed` | no-code cases `response2` (a success body on a 403) and `response4` (a bad task status on a 403) |
+| m3: the task-status check removed (`_code(task.get("status_code"))`) | `5 failed, 44 passed` | no-code `response4`; the 4 bad task statuses |
+| m4: `_refused` drops the cost | `1 failed, 48 passed` | the task code and cost case |
+| m5: `_refused` lets `json` through (`if page.error is None`) | `1 failed, 48 passed` | no-code `response4` |
+| m6: the task status read before the top-level code | `1 failed, 48 passed` | `test_a_top_level_error_wins_over_a_bad_task_status` |
+| m7: `_status` accepts a bool | `2 failed, 47 passed` | the bad task status `True`; the bad top-level status `True` |
+| m8: `_status` without the 0–99999 bound | `3 failed, 46 passed` | the bad task statuses `100000` and `-1`; the bad top-level status `100000` |
 
-- The other three cases of `test_a_refused_answer_without_a_code_is_http` (`{}`, an HTML body, a cut body) pass on main and on every mutant: they pin that an unreadable error body gives `http`, and no mutant tried breaks that.
+- Three no-code cases (`{}`, an HTML body, a cut body) pass on main and on every mutant: they pin that an unreadable error body gives `http`. `test_a_top_level_error_wins_over_a_bad_task_status` passes on main: it pins the existing order against m6.
 - `ruff check`, `ruff format --check` and `mypy --strict` were clean on the scratch adapter and test file.
 
 ### No live check
@@ -172,10 +246,15 @@ New text is checked against `FORBIDDEN` in tests/unit/test_recommend_copy.py by 
 
 - **R1: commits carry the Opus 5.5 trailer.** Decided: slice 38 commits end with "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>", the trailer the latest attribution reminder names; a later reminder naming another needs a new ruling. Found by the controller at the start of the slice. Why: the process binds the trailer to the latest session reminder. Cost if wrong: a trailer naming a model that did not write the commit. Named in chat when made.
 - **R2: two extra mutants in the proof.** Decided: besides reverting the `_refused` call, the proof runs mutant 2 (the parsed page accepted as is) and mutant 3 (no task-status integer check); the spec records that three cases of the no-code test fail on no mutant tried. Found by the controller, during the prototype. Why: show each new rule is pinned by a test. Cost if wrong: none. Named in chat when made.
+- **R3: the top-level code is checked before the task's status.** Decided: `_parse` maps the top-level status first and reads the task's status (with `.get`) only when the top level is a success; one test (`test_a_top_level_error_wins_over_a_bad_task_status`) pins it. Found by the spec review of a80f98a (Important 1: the first design read the task's status first, so a top-level `40100` with a missing or malformed task status became `json`, and on a 401 `http`). Why: a regression against the approved rule "the top-level status first"; fixed, not offered as a choice. Cost if wrong: none. Named in chat when made.
+- **R4: two more tests and four more mutants.** Decided: `test_a_refused_answer_keeps_a_task_code_and_its_cost` and the no-code case `Response(403, body(task_status=[1, 2]))`; mutants m4 (cost dropped) and m5 (`json` let through), plus m6 (R3) and m7–m8 (R6), in the proof table. Found by the spec review of a80f98a (Important 2: no test pinned a task-level code or a cost on a non-2xx answer). Why: each stated behaviour has a failing mutant. Cost if wrong: none. Named in chat when made.
+- **R5: the spec review's wording points.** Decided: the docstring matches the code (the task status is read with `.get`, so a missing key no longer raises after the cost is read); the unsourced byte sizes are dropped; the design says `truncated` is not consulted on a non-2xx answer. Found by the spec review of a80f98a (Minors 3, 5, 6). Why: accuracy. Cost if wrong: none. Named in chat when made.
+- **R6: a status is a plain integer from 0 to 99999.** Decided: `_status` rejects bools and integers outside 0–99999 at both levels, so `provider_<n>` is at most five digits; the user chose this over excluding bools only, or leaving the check as first designed. Found by the spec review of a80f98a (Minor 4: `provider_True` and a 200-digit code were still possible). Why: closes the unbounded-error finding fully. Cost if wrong: a future six-digit provider code would show as `json`; none is documented. Asked in chat.
 
 ## Out of scope
 
 - Mapping HTTP statuses without a body code (a 401 or 402 HTML page stays `http`).
+- Reading `truncated` on a non-2xx answer.
 - The other four open adapter findings: a bool or negative cost, a bool or float rank, a top-level `40102` with no tasks, and tests where both levels carry errors.
 - Any worker, API, migration or schema change.
 - A live call (the account is paused).
