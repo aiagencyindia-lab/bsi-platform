@@ -229,6 +229,15 @@ test("serpError labels a known code and passes an unknown one through", () => {
   expect(serpError(null)).toBe("");
 });
 
+test("serpError labels an unverified or paused provider account", () => {
+  expect(serpError("unverified")).toBe(
+    "the SERP provider account is not verified",
+  );
+  expect(serpError("paused")).toBe(
+    "the SERP provider paused the account; contact its support",
+  );
+});
+
 test("serpStatus shows a run in progress or a failure, else nothing", () => {
   expect(serpStatus(null)).toBeNull();
   expect(serpStatus({ status: "queued", error: null })).toBe(
