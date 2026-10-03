@@ -4,7 +4,7 @@
 
 PRD F09's first slice. "Run audit now" on a new Brand SERP page queues an `audit_serp` job. For `{brand}` and `{brand} reviews` in each of the brand's locales (at most 5), the job fetches Google's first page from DataForSEO (live mode, desktop, AI Overview loading on), classifies each result by rule, and stores one `serp_audit` row per query. The page shows the ownership share (official organic results ÷ all organic results), a count per result type, Knowledge Panel and AI Overview presence, the results table, and the latest job's status.
 
-Spec: docs/superpowers/specs/2026-10-02-slice37-serp-audit-design.md (rulings R1–R29; R18–R29 added after merge). Plan: docs/superpowers/plans/2026-10-02-slice37-serp-audit.md (Tasks 1–6). Merged via PR #71 (main `1f1d058`).
+Spec: docs/superpowers/specs/2026-10-02-slice37-serp-audit-design.md (rulings R1–R30; R18–R30 added after merge). Plan: docs/superpowers/plans/2026-10-02-slice37-serp-audit.md (Tasks 1–6). Merged via PR #71 (main `1f1d058`).
 
 **Code**:
 - packages/core/bsi_core/serp.py: `classify(item_type, host, own, rivals)` and `ownership(results)`. Provider item types `knowledge_graph`, `ai_overview`, `top_stories`, `video` and `images` map to our types. `organic` and `featured_snippet` items are typed by host: youtube.com → video; the brand's own hosts → official; active competitors' domains → competitor; a fixed social list → social; a fixed review-site list → review; else other. Any other provider item type is not stored. `ownership` returns (official organic results, all organic results).
@@ -108,7 +108,7 @@ Out of scope (spec): the weekly schedule; a report section and the Health Report
 
 ## 4. Rulings
 
-R1–R11 were made before execution and R22–R23 after the post-merge docs reviews; all are in the spec's Rulings section in full. R24–R27 were made during the live check on 2026-10-03, and R28–R29 after its docs reviews; all are in the spec's Rulings. The execution, fix-wave and audit rulings, as the ledger records them:
+R1–R11 were made before execution and R22–R23 after the post-merge docs reviews; all are in the spec's Rulings section in full. R24–R27 were made during the live check on 2026-10-03, and R28–R30 after its docs reviews; all are in the spec's Rulings. The execution, fix-wave and audit rulings, as the ledger records them:
 - "Ruling: R12 — Decided: commits from execution on carry "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"; plan edited in 8b967ec; the earlier slice 37 commits keep Fable 5.1. Found by: the controller, on a new attribution reminder with the execution choice. Why: R1 requires a ruling and a plan edit for a switch. Cost if wrong: mixed trailers within one branch. How named: named in chat when made."
 - "Ruling: R13 — Decided: subagent dispatches keep `model: "opus"`. Found by: the controller, before a notice confirmed the session model. Why: "opus" gives Opus 5.5 either way. Cost if wrong: none. How named: named in chat when made."
 - "Ruling: R14 — Decided: from Task 1's dispatch on, subagents are dispatched with no `model` parameter, superseding R13. Found by: the controller, when a notice confirmed the session is on Opus 5.5. Why: memory rule "omit the Agent model param on Opus". Cost if wrong: none; both give Opus 5.5. How named: named in chat when made."
