@@ -20,6 +20,8 @@ Decisions approved in chat (brainstorming on Fable 5.1, 2026-10-02), each after 
 - Design Sections 1 and 2; the text of each was in chat before its approval question.
 - After the mutation run the lock test was revised by the user's choice (R2), and after the spec review of ff6f76b its `finally` block was changed by the user's choice (R5).
 
+Process note (2026-10-03; the process audit in docs/findings-slice37.md §5): no "Classification: ..." first line was said in chat; the decision "One slice with both tests" had no approaches in chat, so the sentence above is not true of it; and the session model was not restated after the switch to Fable 5.1.
+
 ## Design
 
 ### Test 1: the lock

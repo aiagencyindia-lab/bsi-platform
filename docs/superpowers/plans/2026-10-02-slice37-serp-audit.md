@@ -2156,3 +2156,10 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Rulings applied to this plan: the spec's R1 (the Fable 5.1 trailer; a switch needs a new ruling and a plan edit), R9 (the plan review's wording points), R10 (the `<workspace>` placeholder names its place), R12 (the trailer switches to Opus 5.5), R15 (the adapter's except tuple gained OverflowError and RecursionError), R16 (the expected backend totals are 2 higher from Task 2 on: 1624, 1625, 1635, 1642, 1642) and R17 (this fix wave); the R15, R16 and R17 labels are the writer's own wording.
 - Placeholders: `<workspace>` (the path the task brief supplies, the plan's directory under the git-ignored `.superpowers/sdd/`) and `<N>` (the task number in gate file names).
 - Type consistency: `classify(item_type, host, own, rivals)` and `ownership(results)` are used with those signatures in Tasks 4 and 5; `serp(query, country, language, *, login, password, fetch)` and `SerpItem`'s six fields in Task 4; `m.SerpAudit`'s columns in Tasks 4 and 5; `Fetch(*responses)`, `body(...)` and `ITEMS` from Task 2's test module in Task 4; `SerpAuditsOut` in Tasks 5 and 6.
+
+## Changes made during execution
+
+- Commits: 8b26c08, 29b1848, aff14dd, 8522125, 90309ba, 3566b75, ee580b5, 9555650 (Tasks 1–6, Task 2's fix round, the fix wave). Results and reviews: docs/findings-slice37.md §1.
+- Task 2: the adapter's except tuple gained `OverflowError` and `RecursionError`, with two tests (R15). The expected backend totals from Task 2 on are 2 higher than written above: 1624, 1625, 1635, 1642, 1642 (R16).
+- The fix wave (R17): the GET job test pins the kind filter; the `http` label covers non-2xx answers; a known task cost is kept when item parsing fails (one more test, backend 1643); R14–R17 written into the spec and this plan's self-review.
+- After the fix wave: R18 (the stale `_parse` docstring is parked). After the 2026-10-03 process audit: R19 and R20 (the user kept featured snippets and the job-level credential check as built) and R21 (the four corrections to this plan's code made before its commit d18b12a). The ledger lines are quoted in the spec's Rulings and in findings §4.
