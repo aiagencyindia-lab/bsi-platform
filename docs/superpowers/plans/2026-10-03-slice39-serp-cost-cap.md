@@ -211,4 +211,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-(Filled in after execution.)
+- Task 1: commits 5c42abd (the cap and tests) and 370b486 (the `tick` comment), as planned; no departures beyond the self-review's list. Merged via PR #76 (main `69dcf32`). Implementer gate (gate-task1.txt, read by the controller): backend `1681 passed, 2 deselected, 2 warnings in 241.18s (0:04:01)`, mypy `Success`, metrics coverage 100%. Controller gates on `370b486`: backend `1681 passed, 2 deselected, 2 warnings in 210.68s (0:03:30)`; web `Tests  48 passed (48)`. CI: `gates` passed in 3m11s with `1681 passed, 2 deselected, 2 warnings in 108.25s (0:01:48)`. Gates on main after merge: backend `1681 passed, 2 deselected, 2 warnings in 217.50s (0:03:37)`; web `Tests  48 passed (48)`.
+- Reviews, as the ledger records them:
+  - "Task 1: task review (a78b53778305f6329, 00dba70..370b486): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 1 Minor; 1 ⚠️ item (gate counts checked against the gate file only, not re-run)."
+  - "Final review (a5d717fd8f09aef84, 363a334..370b486): "Ready to merge? Yes"; 0 Critical, 0 Important, 3 Minor; deferred-minor triage: the Task 1 minor "does not need fixing before merge"."
+- Rulings from execution: R12 (no fix wave), in the spec's Rulings. The four deferred minors are quoted in the spec's "Deferred minors" section.
