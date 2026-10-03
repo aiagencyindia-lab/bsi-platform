@@ -11,12 +11,16 @@ import {
   KIND,
   labelNote,
   lastDay,
+  ownershipText,
   pageNote,
   pct,
   productNote,
   pts,
   REPORT_TYPE,
   reportNote,
+  serpError,
+  serpStatus,
+  typeCounts,
   usd,
   validDays,
 } from "./format";
@@ -216,4 +220,44 @@ test("droppedNote lists the words a suggestion lost", () => {
   expect(droppedNote([])).toBeNull();
   expect(droppedNote(null)).toBeNull();
   expect(droppedNote(undefined)).toBeNull();
+});
+
+test("serpError labels a known code and passes an unknown one through", () => {
+  expect(serpError("auth")).toBe("the SERP provider rejected the login");
+  expect(serpError("provider_50000")).toBe("provider_50000");
+  expect(serpError("constructor")).toBe("constructor");
+  expect(serpError(null)).toBe("");
+});
+
+test("serpStatus shows a run in progress or a failure, else nothing", () => {
+  expect(serpStatus(null)).toBeNull();
+  expect(serpStatus({ status: "queued", error: null })).toBe(
+    "Audit in progress",
+  );
+  expect(serpStatus({ status: "running", error: null })).toBe(
+    "Audit in progress",
+  );
+  expect(serpStatus({ status: "failed", error: "budget" })).toBe(
+    "Last audit failed: the daily budget is used up",
+  );
+  expect(serpStatus({ status: "done", error: null })).toBeNull();
+});
+
+test("ownershipText gives the count and a whole percentage", () => {
+  expect(ownershipText(3, 10)).toBe("3 of 10 (30%)");
+  expect(ownershipText(1, 3)).toBe("1 of 3 (33%)");
+  expect(ownershipText(0, 0)).toBe("0 of 0");
+});
+
+test("typeCounts lists result types, most frequent first", () => {
+  const results = [
+    { result_type: "other" },
+    { result_type: "official" },
+    { result_type: "other" },
+    { result_type: "knowledge_panel" },
+  ];
+  expect(typeCounts(results)).toBe(
+    "other 2 · knowledge_panel 1 · official 1",
+  );
+  expect(typeCounts([])).toBe("");
 });

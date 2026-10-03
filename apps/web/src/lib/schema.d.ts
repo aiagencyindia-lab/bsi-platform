@@ -120,6 +120,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/brands/{brand_id}/audits/serp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest Serp
+         * @description The latest page per (kind, country, language), an error row
+         *     included, and the latest audit_serp job so a failure that wrote no
+         *     rows (no credentials, budget, stale) still shows.
+         */
+        get: operations["latest_serp_v1_brands__brand_id__audits_serp_get"];
+        put?: never;
+        /** Queue Serp */
+        post: operations["queue_serp_v1_brands__brand_id__audits_serp_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/brands/{brand_id}/citations": {
         parameters: {
             query?: never;
@@ -2525,6 +2548,75 @@ export interface components {
             negative: components["schemas"]["Rate"];
             positive: components["schemas"]["Rate"];
         };
+        /** SerpAuditOut */
+        SerpAuditOut: {
+            /** Cost Micros */
+            cost_micros: number;
+            /** Country */
+            country: string;
+            /** Device */
+            device: string;
+            /** Error */
+            error: string | null;
+            /**
+             * Fetched At
+             * Format: date-time
+             */
+            fetched_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Language */
+            language: string;
+            /**
+             * Organic
+             * @description All organic results on the page.
+             */
+            readonly organic: number;
+            /**
+             * Owned
+             * @description Organic results on the brand's own hosts.
+             */
+            readonly owned: number;
+            /** Query */
+            query: string;
+            /** Results */
+            results: components["schemas"]["SerpResultOut"][];
+        };
+        /** SerpAuditsOut */
+        SerpAuditsOut: {
+            /** Audits */
+            audits: components["schemas"]["SerpAuditOut"][];
+            job: components["schemas"]["SerpJobOut"] | null;
+        };
+        /** SerpJobOut */
+        SerpJobOut: {
+            /** Error */
+            error: string | null;
+            /** Status */
+            status: string | null;
+        };
+        /** SerpResultOut */
+        SerpResultOut: {
+            /** Domain */
+            domain: string;
+            /** Item Type */
+            item_type: string;
+            /** Position */
+            position: number;
+            /** Result Type */
+            result_type: string;
+            /** Sitelinks */
+            sitelinks: boolean;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /** SiteAuditOut */
         SiteAuditOut: {
             /** Checks */
@@ -3088,6 +3180,72 @@ export interface operations {
         };
     };
     queue_crawl_v1_brands__brand_id__audits_crawl_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueuedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latest_serp_v1_brands__brand_id__audits_serp_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                brand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SerpAuditsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_serp_v1_brands__brand_id__audits_serp_post: {
         parameters: {
             query?: never;
             header?: {

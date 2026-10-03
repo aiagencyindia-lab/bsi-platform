@@ -34,6 +34,7 @@ TENANT_TABLES = [
     "report_run",
     "product",
     "keyword_search",
+    "serp_audit",
 ]
 
 
@@ -188,6 +189,17 @@ def org_b(owner, make_org, make_brand, make_observation):
         s.add(
             m.KeywordSearch(
                 org_id=b.id, brand_id=bid, keyword="b sandals", query="b"
+            )
+        )
+        s.add(
+            m.SerpAudit(
+                org_id=b.id,
+                brand_id=bid,
+                kind="brand",
+                query="b",
+                country="IN",
+                language="en",
+                fetched_at=datetime.now(UTC),
             )
         )
     return b

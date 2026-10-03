@@ -1,4 +1,5 @@
-"""Audits of the brand's own site. Only the crawlability audit so far."""
+"""Audits of the brand: its own site's crawlability, and its Google
+first pages (the Brand SERP audit)."""
 
 import uuid
 from typing import Any
@@ -8,7 +9,7 @@ from fastapi import APIRouter
 from sqlalchemy import select
 
 from ..deps import TENANT, Ctx, brand_or_404
-from ..schemas import QueuedOut, SiteAuditOut
+from ..schemas import QueuedOut, SerpAuditsOut, SiteAuditOut
 from .runs import queue_suggestion
 
 router = APIRouter(prefix="/brands/{brand_id}/audits", tags=["audits"])
@@ -45,3 +46,39 @@ def latest_crawl(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[m.SiteAudit]:
             .distinct(m.SiteAudit.domain)
         )
     )
+
+
+@router.post("/serp", status_code=202, response_model=QueuedOut)
+def queue_serp(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
+    return queue_suggestion(c, brand_id, "audit_serp", {})
+
+
+@router.get("/serp", response_model=SerpAuditsOut)
+def latest_serp(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
+    """The latest page per (kind, country, language), an error row
+    included, and the latest audit_serp job so a failure that wrote no
+    rows (no credentials, budget, stale) still shows."""
+    brand_or_404(c, brand_id)
+    audits = list(
+        c.s.scalars(
+            select(m.SerpAudit)
+            .where(m.SerpAudit.brand_id == brand_id)
+            .order_by(
+                m.SerpAudit.country,
+                m.SerpAudit.language,
+                m.SerpAudit.kind,
+                m.SerpAudit.fetched_at.desc(),
+                m.SerpAudit.id.desc(),
+            )
+            .distinct(
+                m.SerpAudit.country, m.SerpAudit.language, m.SerpAudit.kind
+            )
+        )
+    )
+    job = c.s.scalars(
+        select(m.Job)
+        .where(m.Job.brand_id == brand_id, m.Job.kind == "audit_serp")
+        .order_by(m.Job.created_at.desc(), m.Job.id.desc())
+        .limit(1)
+    ).first()
+    return {"job": job, "audits": audits}

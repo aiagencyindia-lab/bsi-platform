@@ -149,6 +149,59 @@ export const pageNote = (status: Params[string]) => note(PAGE_NOTES, status);
 /** What "Crawl competitor sites now" did, from the job status. */
 export const crawlNote = (status: Params[string]) => note(CRAWL_NOTES, status);
 
+// Why a SERP audit job or one of its queries failed.
+const SERP_ERRORS: Record<string, string> = {
+  serp_not_configured: "the SERP provider login is not set on the server",
+  budget: "the daily budget is used up",
+  stale: "the run took too long and was stopped",
+  location: "this country is not supported yet",
+  auth: "the SERP provider rejected the login",
+  funds: "the SERP provider account has no balance",
+  rate: "the SERP provider's rate limit was hit",
+  http: "the SERP provider returned an error or could not be reached",
+  truncated: "the SERP provider's answer was too large",
+  json: "the SERP provider's answer could not be read",
+  error: "the audit crashed",
+};
+
+/** A label for a SERP error code; an unknown code is shown as is. */
+export const serpError = (code: string | null | undefined) =>
+  code == null
+    ? ""
+    : Object.hasOwn(SERP_ERRORS, code)
+      ? SERP_ERRORS[code]
+      : code;
+
+/** The Brand SERP page's status line, from the latest audit_serp job. */
+export const serpStatus = (
+  job: { status?: string | null; error?: string | null } | null | undefined,
+) =>
+  !job
+    ? null
+    : job.status === "queued" || job.status === "running"
+      ? "Audit in progress"
+      : job.status === "failed"
+        ? `Last audit failed: ${serpError(job.error)}`
+        : null;
+
+/** "3 of 10 (30%)"; no percentage when the page has no organic results. */
+export const ownershipText = (owned: number, organic: number) =>
+  organic === 0
+    ? "0 of 0"
+    : `${owned} of ${organic} (${Math.round((owned / organic) * 100)}%)`;
+
+/** "other 2 · official 1": result types, most frequent first. */
+export const typeCounts = (results: { result_type: string }[]) => {
+  const counts = new Map<string, number>();
+  for (const r of results) {
+    counts.set(r.result_type, (counts.get(r.result_type) ?? 0) + 1);
+  }
+  return [...counts]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([type, n]) => `${type} ${n}`)
+    .join(" · ");
+};
+
 // Display names for alert types.
 export const ALERT_KIND: Record<string, string> = {
   mention_drop: "Mention drop",

@@ -43,6 +43,7 @@ from bsi_core.products import (
     upsert,
 )
 from bsi_core.providers.base import EngineAdapter
+from bsi_core.providers.dataforseo import SerpFetch, SerpItem, serp
 from bsi_core.providers.gemini import GeminiGroundingAdapter
 from bsi_core.recommend import refresh
 from bsi_core.reports import days_for
@@ -55,6 +56,7 @@ from bsi_core.rivals import (
     with_deadline,
 )
 from bsi_core.scheduling import budget_fits, enqueue_job, run_schedule
+from bsi_core.serp import classify
 from bsi_core.storage import LocalRawStore, RawStore
 from bsi_core.suggest import (
     COMPETITOR_JOB_MICROS,
@@ -113,6 +115,21 @@ class Poster(Protocol):
     ) -> Response: ...
 
 
+# 5 locales x 2 queries x $0.004 (a live page plus AI Overview loading).
+SERP_JOB_MICROS = 40_000
+MAX_SERP_LOCALES = 5
+
+
+class SerpFailed(RuntimeError):
+    """An audit_serp job with no usable page; carries the short error
+    code and everything the run spent."""
+
+    def __init__(self, code: str, cost_micros: int) -> None:
+        super().__init__(code)
+        self.code = code
+        self.cost_micros = cost_micros
+
+
 # What a suggestion job reserves before it spends (spec §5).
 JOB_ESTIMATES = {
     "suggest_prompts": PROMPT_JOB_MICROS,
@@ -124,6 +141,7 @@ JOB_ESTIMATES = {
     "product_run": PRODUCT_JOB_MICROS,  # the keyword phase; the search
     # phase re-checks the budget itself (products.run_products)
     "import_feed": 0,  # HTTP only: no model, no spend
+    "audit_serp": SERP_JOB_MICROS,
 }
 
 
@@ -941,12 +959,124 @@ def _finish_job(
         job.error = error
 
 
+def _serp_results(
+    items: list[SerpItem], own: list[str], rivals: list[str]
+) -> list[dict[str, Any]]:
+    """The stored form of a page: each item with our result type; an
+    item classify() does not type is dropped."""
+    out = []
+    for item in items:
+        kind = classify(item.item_type, item.domain or item.url, own, rivals)
+        if kind is not None:
+            out.append(
+                {
+                    "position": item.position,
+                    "item_type": item.item_type,
+                    "result_type": kind,
+                    "url": item.url,
+                    "domain": item.domain,
+                    "title": item.title,
+                    "sitelinks": item.sitelinks,
+                }
+            )
+    return out
+
+
+def run_serp_audit(
+    org_id: uuid.UUID,
+    brand_id: uuid.UUID,
+    job_id: uuid.UUID,
+    meter: _Meter,
+    fetch: SerpFetch = http_fetch,
+) -> str:
+    """Audit the brand's Google first pages: `{name}` and `{name} reviews`
+    in each of its first MAX_SERP_LOCALES locales.
+
+    The calls happen with no transaction open; the rows are written
+    together at the end. Any failure after the first call leaves as
+    SerpFailed with the run's spend, so the money is recorded either way.
+    """
+    settings = get_settings()
+    login = settings.dataforseo_login
+    password = settings.dataforseo_password.get_secret_value()
+    if not login or not password:
+        raise SerpFailed("serp_not_configured", 0)
+    with tenant_session(org_id) as s:
+        name = s.get_one(m.Brand, brand_id).name
+        own = list(
+            s.scalars(
+                select(m.Domain.host).where(m.Domain.brand_id == brand_id)
+            )
+        )
+        locales = [
+            (country, language)
+            for country, language in s.execute(
+                select(m.Locale.country, m.Locale.language)
+                .where(m.Locale.brand_id == brand_id)
+                .order_by(m.Locale.created_at, m.Locale.id)
+            )
+        ] or [("IN", "en")]
+        rivals = [
+            domain
+            for domains in s.scalars(
+                select(m.Competitor.domains).where(
+                    m.Competitor.brand_id == brand_id,
+                    m.Competitor.status == "active",
+                )
+            )
+            for domain in domains
+        ]
+    skipped = max(0, len(locales) - MAX_SERP_LOCALES)
+    spent = 0
+    rows: list[m.SerpAudit] = []
+    try:
+        for country, language in locales[:MAX_SERP_LOCALES]:
+            for kind, query in (
+                ("brand", name),
+                ("reviews", f"{name} reviews"),
+            ):
+                page = serp(
+                    query,
+                    country,
+                    language,
+                    login=login,
+                    password=password,
+                    fetch=fetch,
+                )
+                spent += page.cost_micros
+                meter.micros += page.cost_micros
+                rows.append(
+                    m.SerpAudit(
+                        org_id=org_id,
+                        brand_id=brand_id,
+                        job_id=job_id,
+                        kind=kind,
+                        query=query,
+                        country=country,
+                        language=language,
+                        results=_serp_results(page.items, own, rivals),
+                        fetched_at=datetime.now(UTC),
+                        cost_micros=page.cost_micros,
+                        error=page.error,
+                    )
+                )
+        with tenant_session(org_id) as s:
+            s.add_all(rows)
+    except Exception as e:
+        raise SerpFailed("error", spent) from e
+    failed = [row.error for row in rows if row.error]
+    if len(failed) == len(rows):
+        raise SerpFailed(failed[0], spent)
+    return f"serp:{len(rows)} failed:{len(failed)} skipped_locales:{skipped}"
+
+
 def process_job(
     adapter: EngineAdapter,
     generator: Any,
     embedder: Any,
     *,
     fetch: Fetch = http_fetch,
+    serp_fetch: SerpFetch = http_fetch,
 ) -> bool:
     """Run one claimed job. False = nothing was queued."""
     claimed = _claim_job()
@@ -998,6 +1128,9 @@ def process_job(
         "import_feed": lambda: run_import_feed(
             org_id, brand_id, job_id, params, fetch
         ),
+        "audit_serp": lambda: run_serp_audit(
+            org_id, brand_id, job_id, meter, serp_fetch
+        ),
     }
     try:
         result = runners[kind]()
@@ -1011,6 +1144,8 @@ def process_job(
             error = "budget"
         elif isinstance(e, CatalogueCap):
             error = "cap"
+        elif isinstance(e, SerpFailed):
+            error = e.code
         else:
             error = repr(e)[:2000]
         _finish_job(

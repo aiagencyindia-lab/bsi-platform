@@ -63,6 +63,7 @@ REPORT_CADENCES = ("off", "weekly", "monthly")
 RUN_SOURCES = ("scheduled", "manual")
 PRODUCT_SOURCES = ("csv", "feed")
 RULE_CHECKS = ("pass", "adjusted", "review")
+SERP_KINDS = ("brand", "reviews")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -605,6 +606,30 @@ class KeywordSearch(Tenant, Base):
         UniqueConstraint(
             "brand_id", "keyword", name="uq_keyword_search_brand_keyword"
         ),
+    )
+
+
+class SerpAudit(Tenant, Base):
+    """Google's first page for one brand query in one locale (slice 37,
+    PRD F09); the latest row per (kind, country, language) is what the
+    Brand SERP tab reads. A failed query is stored too (error set)."""
+
+    __tablename__ = "serp_audit"
+    brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job.id"))
+    kind: Mapped[str]
+    query: Mapped[str]
+    country: Mapped[str]
+    language: Mapped[str]
+    device: Mapped[str] = mapped_column(server_default="desktop")
+    results: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, server_default="[]"
+    )
+    fetched_at: Mapped[datetime] = mapped_column(TSZ)
+    cost_micros: Mapped[int] = mapped_column(server_default="0")
+    error: Mapped[str | None]
+    __table_args__ = (
+        CheckConstraint(_in("kind", SERP_KINDS), name="ck_serp_audit_kind"),
     )
 
 
