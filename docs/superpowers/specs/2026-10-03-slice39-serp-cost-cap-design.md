@@ -167,6 +167,7 @@ Quoted verbatim from the ledger (deleted after this slice's docs PR merges):
 
 - "Task 1: minor (deferred): the implementer's report quotes "1681 passed, 2 deselected, 2 warnings" without naming the 2 warnings (third-party deprecations, pre-existing, gate-task1.txt:30-36)"
 - "Final: minor (deferred): dataforseo.py:93-94 the `_micros` docstring lists bool, negative and above MAX_COST_USD but not NaN (kept as the spec has it, R11)"
+  - Note (2026-10-03, branch micros-docstring-nan): closed: the docstring now names NaN ("A bool, a negative number, NaN, or one above MAX_COST_USD raises ValueError."); the user chose this wording over also naming infinity (+infinity is "above MAX_COST_USD"; -infinity is a negative number).
 - "Final: minor (deferred): plan line 299 "Changes made during execution" still reads "(Filled in after execution.)"; the spec assigns it to the post-merge docs PR, with the findings-slice37 notes for lines 80, 81 and 86"
 - "Final: minor (deferred): a task with a provider error code and a bad cost loses the code (e.g. paused with cost 5 becomes json); named and accepted in the spec (Behaviour bullet 4)"
 
