@@ -156,6 +156,8 @@ const SERP_ERRORS: Record<string, string> = {
   stale: "the run took too long and was stopped",
   location: "this country is not supported yet",
   auth: "the SERP provider rejected the login",
+  unverified: "the SERP provider account is not verified",
+  paused: "the SERP provider paused the account; contact its support",
   funds: "the SERP provider account has no balance",
   rate: "the SERP provider's rate limit was hit",
   http: "the SERP provider returned an error or could not be reached",
