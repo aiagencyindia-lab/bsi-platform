@@ -33,6 +33,8 @@
 | `packages/core/bsi_core/providers/dataforseo.py` | `_error_micros`; `_parse` reads the code before the cost; its docstring | 1 |
 | `tests/unit/test_dataforseo.py` | two tests renamed with new expectations; ten new cases | 1 |
 
+Note (2026-10-03, after PR #80): the row above should say 12 new cases (7 new test functions, one parametrized over the 6 `BAD_COSTS`); the file goes from 65 to 77, as the spec and Global Constraints say (R11).
+
 ---
 
 ### Task 1: an error answer keeps its code on a bad cost
