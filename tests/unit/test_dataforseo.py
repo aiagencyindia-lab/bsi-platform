@@ -260,3 +260,42 @@ def test_a_task_without_a_status_is_json_and_keeps_the_cost():
     del doc["tasks"][0]["status_code"]
     page = _serp(Fetch(Response(200, json.dumps(doc))))
     assert page == SerpPage([], 4_000, "json")
+
+
+BAD_COSTS = [1.000001, 1e12, -0.004, float("nan"), True, False]
+
+
+@pytest.mark.parametrize("cost", BAD_COSTS)
+def test_a_bad_cost_is_json(cost):
+    raw = body(cost=cost)
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")
+
+
+def test_a_cost_at_the_cap_is_kept():
+    page = _serp(Fetch(Response(200, body(cost=1))))
+    assert (page.error, page.cost_micros) == (None, 1_000_000)
+
+
+@pytest.mark.parametrize("cost", [None, "0.004", [1]])
+def test_a_non_number_cost_is_zero(cost):
+    page = _serp(Fetch(Response(200, body(cost=cost))))
+    assert (page.error, page.cost_micros) == (None, 0)
+    assert page.items
+
+
+def test_a_missing_cost_is_zero():
+    doc = json.loads(body())
+    del doc["tasks"][0]["cost"]
+    page = _serp(Fetch(Response(200, json.dumps(doc))))
+    assert (page.error, page.cost_micros) == (None, 0)
+    assert page.items
+
+
+def test_a_refused_answer_with_a_cost_out_of_range_is_http():
+    raw = body(cost=5, task_status=40210)
+    assert _serp(Fetch(Response(402, raw))) == SerpPage([], 0, "http")
+
+
+def test_a_top_level_error_with_a_cost_out_of_range_is_json():
+    raw = json.dumps({"status_code": 40100, "cost": 5, "tasks": None})
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")

@@ -1174,8 +1174,10 @@ def tick(
             adapter, generator, embedder, fetch=fetch
         ) or process_one(adapter, store, extractor)
     except Exception:
-        # A row whose failure could not be recorded stays 'running';
-        # reset_stale() hands it back after 10 minutes.
+        # A row whose failure could not be recorded stays 'running':
+        # reset_stale() retries an observation (or fails it on its
+        # third attempt) once it is over 10 minutes old; the next
+        # claim_job() fails a job running over 10 minutes as 'stale'.
         log.exception("worker step failed")
         return False
 
