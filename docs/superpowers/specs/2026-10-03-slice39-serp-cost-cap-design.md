@@ -53,6 +53,7 @@ Behaviour:
 - A bool (`true` or `false`), a negative number, a number above $1, infinity and NaN raise `ValueError` (infinity raised `OverflowError` before; NaN raised `ValueError` at `round()` before; the outcome is the same, since both are in `UNREADABLE`).
 - On a 2xx answer, `serp()` catches the raise and returns `json`, cost 0, no items. On a non-2xx answer, `_refused` catches it and returns `http`, cost 0.
 - A body that carries a provider error code and a bad cost loses the code (for example a `paused` answer with cost 5 becomes `json`, or `http` on a non-2xx answer), as with an infinite cost today.
+  - Note (2026-10-03, slice 40): closed: an error answer now keeps its code and records cost 0 when its cost is bad; a success with a bad cost is still `json` (docs/superpowers/specs/2026-10-03-slice40-serp-code-on-bad-cost-design.md, R1).
 - The largest cost one call can record is 1,000,000 micros, so one attempt of a 10-call job records at most 10,000,000 micros. The job row accumulates across same-hour requeues (scheduling.py:251-253), so overflowing `job.cost_micros` would take 215 full attempts in one hour (2,147,483,647 / 10,000,000 = 214.7; R2). No worker, schema, API or web change; no migration.
 
 ### The `tick` comment
@@ -170,5 +171,6 @@ Quoted verbatim from the ledger (deleted after this slice's docs PR merges):
   - Note (2026-10-03, branch micros-docstring-nan): closed: the docstring now names NaN ("A bool, a negative number, NaN, or one above MAX_COST_USD raises ValueError."); the user chose this wording over also naming infinity (+infinity is "above MAX_COST_USD"; -infinity is a negative number).
 - "Final: minor (deferred): plan line 299 "Changes made during execution" still reads "(Filled in after execution.)"; the spec assigns it to the post-merge docs PR, with the findings-slice37 notes for lines 80, 81 and 86"
 - "Final: minor (deferred): a task with a provider error code and a bad cost loses the code (e.g. paused with cost 5 becomes json); named and accepted in the spec (Behaviour bullet 4)"
+  - Note (2026-10-03, slice 40): closed: an error answer now keeps its code and records cost 0 when its cost is bad; a success with a bad cost is still `json` (docs/superpowers/specs/2026-10-03-slice40-serp-code-on-bad-cost-design.md, R1).
 
 Writer's note: the plan's "Changes made during execution" section is at plan line 212; "plan line 299" is the final reviewer's reference.
