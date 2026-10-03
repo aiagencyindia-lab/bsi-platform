@@ -115,6 +115,8 @@ def test_a_top_level_error_with_a_cost_out_of_range_is_json():
 
 13 new cases; the file goes from 52 to 65. Existing tests are unchanged; `test_an_infinite_cost_is_json` and the zero-cost cases keep pinning infinity and the lower end. `BAD_COSTS` and the non-number and missing cases go through the task-level call (line 122); the top-level call (line 120) is pinned only for an above-cap cost, by `test_a_top_level_error_with_a_cost_out_of_range_is_json`; both calls go through the same `_micros`. No worker test: the worker is unchanged, and the adapter can no longer hand it a cost above 1,000,000 micros.
 
+- Note (2026-10-03, after slice 40, PR #80): `test_a_top_level_error_with_a_cost_out_of_range_is_json` is now `test_a_top_level_error_with_a_bad_cost_keeps_its_code` and expects `auth`, not `json`; `test_a_refused_answer_with_a_cost_out_of_range_is_http` is now `test_a_refused_answer_with_a_bad_cost_keeps_its_code` and expects `funds`, not `http`; on the error paths both calls now go through `_error_micros` (which calls `_micros` and turns a bad cost into 0), and only a success's cost goes through `_micros` directly (docs/superpowers/specs/2026-10-03-slice40-serp-code-on-bad-cost-design.md, R1, R9, R11).
+
 ### Proof
 
 Run 2026-10-03 in the scratchpad (copies of `packages/core/bsi_core` imported via `PYTHONPATH`, each run's `bsi_core.providers.dataforseo.__file__` checked to be the copy; the test file is the repo's plus the block above):
