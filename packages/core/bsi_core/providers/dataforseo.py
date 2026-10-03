@@ -87,8 +87,19 @@ def _status(value: object) -> int | None:
     return value if 0 <= value <= MAX_STATUS else None
 
 
+MAX_COST_USD = 1  # per call; the expected price is about $0.004
+
+
 def _micros(cost: object) -> int:
-    return round(cost * 1_000_000) if isinstance(cost, int | float) else 0
+    """The cost in micros. A missing or non-number cost is 0. A bool, a
+    negative number, or one above MAX_COST_USD raises ValueError."""
+    if isinstance(cost, bool):
+        raise ValueError("cost is a bool")
+    if not isinstance(cost, int | float):
+        return 0
+    if not 0 <= cost <= MAX_COST_USD:
+        raise ValueError("cost out of range")
+    return round(cost * 1_000_000)
 
 
 def _item(raw: Mapping[str, Any]) -> SerpItem:
