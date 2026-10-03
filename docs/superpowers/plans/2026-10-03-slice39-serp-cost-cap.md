@@ -45,7 +45,7 @@
 
 **Interfaces:**
 - Consumes: the file's existing `body(items=None, cost=0.004, status=20000, task_status=20000) -> str`, `Fetch`, `_serp(fetch, country="IN", login="me", password="pw")`, `SerpPage(items, cost_micros, error)`, `Response(status, body, error=None, truncated=False)` (from `bsi_core.crawl`), and `UNREADABLE` in the adapter (it already contains `ValueError`).
-- Produces: `MAX_COST_USD = 1`; `_micros(cost: object) -> int`, which returns 0 for a missing or non-number cost and raises `ValueError` for a bool, a negative number or one above `MAX_COST_USD`. `serp()` keeps its signature and never raises.
+- Produces: `MAX_COST_USD = 1`; `_micros(cost: object) -> int`, which returns 0 for a missing or non-number cost and raises `ValueError` for a bool, a negative number, NaN or one above `MAX_COST_USD` (infinity included). `serp()` keeps its signature and never raises.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -105,7 +105,7 @@ def test_a_top_level_error_with_a_cost_out_of_range_is_json():
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest` on its own first, then: `cd /Users/vineet/Downloads/ADK/bsi-platform && COLUMNS=200 uv run pytest -q -p no:cacheprovider tests/unit/test_dataforseo.py 2>&1 | grep -E "^FAILED|passed|failed"`
-Expected: `7 failed, 58 passed`. The FAILED lines are `test_a_bad_cost_is_json` for `1.000001`, `1000000000000.0`, `-0.004`, `True` and `False`, plus `test_a_refused_answer_with_a_cost_out_of_range_is_http` and `test_a_top_level_error_with_a_cost_out_of_range_is_json`. (The `nan` case, the at-cap case, the non-number cases and the missing case pass on main: they pin behaviour main already has.) Paste the output into the report.
+Expected: a line starting with `7 failed, 58 passed` (pytest appends the time). The FAILED lines are `test_a_bad_cost_is_json` for `1.000001`, `1000000000000.0`, `-0.004`, `True` and `False`, plus `test_a_refused_answer_with_a_cost_out_of_range_is_http` and `test_a_top_level_error_with_a_cost_out_of_range_is_json`. (The `nan` case, the at-cap case, the non-number cases and the missing case pass on main: they pin behaviour main already has.) Paste the output into the report.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -136,25 +136,26 @@ def _micros(cost: object) -> int:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run `pgrep -fl pytest` on its own first, then: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q -p no:cacheprovider tests/unit/test_dataforseo.py tests/integration/test_serp_audit.py 2>&1 | tail -1`
-Expected: `76 passed` (65 in test_dataforseo.py plus test_serp_audit.py's 11, which use the default cost of $0.004).
+Run `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest` on its own first, then: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q -p no:cacheprovider tests/unit/test_dataforseo.py tests/integration/test_serp_audit.py 2>&1 | tail -1`
+Expected: a line starting with `76 passed` (65 in test_dataforseo.py plus test_serp_audit.py's 11, which use the default cost of $0.004).
 
 - [ ] **Step 5: Mutation check (red evidence for the cap)**
 
-With the Edit tool, temporarily change the line `    if not 0 <= cost <= MAX_COST_USD:` in `packages/core/bsi_core/providers/dataforseo.py` to `    if not 0 <= cost:`, run `pgrep -fl pytest` on its own, then `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q -p no:cacheprovider tests/unit/test_dataforseo.py 2>&1 | tail -1`. Expected: `4 failed, 61 passed`. Then restore the line to `    if not 0 <= cost <= MAX_COST_USD:` with the Edit tool and confirm with `cd /Users/vineet/Downloads/ADK/bsi-platform && grep -c "    if not 0 <= cost <= MAX_COST_USD:" packages/core/bsi_core/providers/dataforseo.py` (expected `1`). Record both outputs in the report.
+With the Edit tool, temporarily change the line `    if not 0 <= cost <= MAX_COST_USD:` in `packages/core/bsi_core/providers/dataforseo.py` to `    if not 0 <= cost:`, run `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest` on its own, then `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q -p no:cacheprovider tests/unit/test_dataforseo.py 2>&1 | tail -1`. Expected: a line starting with `4 failed, 61 passed`. Then restore the line to `    if not 0 <= cost <= MAX_COST_USD:` with the Edit tool and confirm with `cd /Users/vineet/Downloads/ADK/bsi-platform && grep -c "    if not 0 <= cost <= MAX_COST_USD:" packages/core/bsi_core/providers/dataforseo.py` (expected `1`). Record both outputs in the report.
 
 - [ ] **Step 6: Banned-word grep, then the backend gate**
 
-Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/providers/dataforseo.py tests/unit/test_dataforseo.py`. Run the banned-word grep (expected: no match). Run `pgrep -fl pytest` on its own, then the Backend gate with `<N>` = 1. Expected: `gate exit 0`; `gate-task1.txt` shows `1681 passed, 2 deselected`, mypy `Success`, and the metrics coverage line at 100%. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` (expected: the two staged files, plus the untracked `.DS_Store` and `packages/.DS_Store` that were there before this slice).
+Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/providers/dataforseo.py tests/unit/test_dataforseo.py`. Run the banned-word grep (expected: no match). Run `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest` on its own, then the Backend gate with `<N>` = 1. Expected: `gate exit 0`; `gate-task1.txt` shows `1681 passed, 2 deselected`, mypy `Success`, and the metrics coverage line at 100%. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` (expected: the two staged files, plus the untracked `.DS_Store` and `packages/.DS_Store` that were there before this slice).
 
 - [ ] **Step 7: Commit the adapter change**
 
 ```bash
 cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/providers/dataforseo.py tests/unit/test_dataforseo.py && git commit -m "fix(core): cap the DataForSEO cost of one call at \$1
 
-A bool, a negative number, a cost above MAX_COST_USD, infinity or
-NaN now makes the call json (http on a non-2xx answer) with cost 0,
-so no provider cost can overflow the Integer cost_micros columns.
+A bool, a negative number or a cost above MAX_COST_USD now makes
+the call json (http on a non-2xx answer) with cost 0, as infinity and
+NaN already did, so no provider cost can overflow the Integer
+cost_micros columns.
 A missing or non-number cost still records 0.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -198,13 +199,13 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Spec coverage: The adapter (`MAX_COST_USD` directly above `_micros`, the bounded `_micros`, its docstring and comment) → Task 1 Step 3, whose replace block produces exactly the file the spec's diff produces (checked by applying both to main's file in scratch); The `tick` comment (R8) → Task 1 Step 8, its own commit (R4); Tests → Task 1 Step 1 (the appended block is identical to the spec's); Proof → the spec's scratch run, with mutant m1 repeated in Task 1 Step 5; Copy → each commit's banned-word grep. Docs: this plan and the two README rows are committed by the controller with the plan; the post-merge docs are controller work. No live check (spec, Out of scope).
 - Departures from the spec:
   1. The adapter change is a replace block, not the spec's unified diff; the result is the same file.
-  2. Only mutant m1 is repeated during execution (Task 1 Step 5); m2–m6 are the spec's evidence and are not re-run.
+  2. Only the proof table's main row (Task 1 Step 2, `7 failed, 58 passed`) and mutant m1 (Task 1 Step 5) are repeated during execution; m2–m6 are the spec's evidence and are not re-run.
   3. Task 1 Step 4 also runs tests/integration/test_serp_audit.py, which the spec mentions only as unaffected.
   4. The adapter change and the comment are one task with two commits; the spec says only that the comment is its own commit.
   5. The comment commit has no backend gate of its own (ruff check and format on the file only); the controller runs both gates before the finishing menu.
   6. The commit messages are the plan's wording; the spec does not give them.
   7. The header offers superpowers:executing-plans as well as subagent-driven-development (the template's wording); the controller uses subagent-driven execution.
-- Rulings applied to this plan: the spec's R5 (the Opus 5.5 trailer), R8 (the comment's wording) and R9 (the test name).
+- Rulings applied to this plan: the spec's R5 (the Opus 5.5 trailer), R8 (the comment's wording), R9 (the test name) and R11 (the plan review's six minors).
 - Placeholders: `<workspace>` (the plan's directory under the git-ignored `.superpowers/sdd/`, supplied in the task brief) and `<N>` (the task number).
 - Type consistency: `_micros(cost: object) -> int`, `MAX_COST_USD = 1` and `SerpPage(items, cost_micros, error)` as used in the implementation and the tests.
 
