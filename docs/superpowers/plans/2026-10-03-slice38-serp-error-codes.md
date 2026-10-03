@@ -23,6 +23,7 @@
 - **Banned-word grep:** `cd /Users/vineet/Downloads/ADK/bsi-platform && git diff --cached -U0 | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'`, run after staging. Expected: no match (grep exits 1 and prints nothing).
 - **Backend gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform && { uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100; } > <workspace>/gate-task<N>.txt 2>&1; echo "gate exit $?"`. If `ruff format .` changed a file, re-stage it, re-run the banned-word grep, and say so in the report.
 - **Web gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npm run gate > <workspace>/web-task<N>.txt 2>&1; echo "web gate exit $?"`.
+- **`<workspace>`:** the path given in your task brief (the plan's directory under the git-ignored `.superpowers/sdd/`); if none is given, stop and ask.
 - **Commit trailer:** exactly `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` (spec R1). Use this line even if your own session reminder names another model.
 - **Baseline counts** (collected 2026-10-03 on main `54775b6`): backend `1643/1645 tests collected (2 deselected)`; tests/unit/test_dataforseo.py 27; web 47 vitest. After Task 1: test_dataforseo.py 52, backend `1668 passed, 2 deselected`. After Task 2: web 48, backend unchanged at 1668.
 
@@ -285,7 +286,7 @@ Show that the new non-2xx path is what the tests pin. With the Edit tool, tempor
 
 - [ ] **Step 6: Banned-word grep, then the backend gate**
 
-Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/providers/dataforseo.py tests/unit/test_dataforseo.py`. Run the banned-word grep (expected: no match). Run `pgrep -fl pytest` on its own, then the Backend gate with `<N>` = 1. Expected: `gate exit 0`; `gate-task1.txt` shows `1668 passed, 2 deselected`, mypy `Success`, and the metrics coverage line at 100%. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` (expected: only the two staged files).
+Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add packages/core/bsi_core/providers/dataforseo.py tests/unit/test_dataforseo.py`. Run the banned-word grep (expected: no match). Run `pgrep -fl pytest` on its own, then the Backend gate with `<N>` = 1. Expected: `gate exit 0`; `gate-task1.txt` shows `1668 passed, 2 deselected`, mypy `Success`, and the metrics coverage line at 100%. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` (expected: the two staged files, plus the untracked `.DS_Store` and `packages/.DS_Store` that were there before this slice).
 
 - [ ] **Step 7: Commit**
 
@@ -340,7 +341,7 @@ test("serpError labels an unverified or paused provider account", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npx vitest run src/lib/format.test.ts 2>&1 | tail -6`
+Run: `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npx vitest run src/lib/format.test.ts 2>&1 | grep -E "AssertionError|FAIL|Tests "`
 Expected: 1 failed: `serpError labels an unverified or paused provider account`, expecting "the SERP provider account is not verified" and receiving "unverified".
 
 - [ ] **Step 3: Add the labels**
@@ -366,7 +367,7 @@ Expected: the file passes, 0 failed.
 
 - [ ] **Step 5: Banned-word grep, then both gates**
 
-Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add apps/web/src/lib/format.ts apps/web/src/lib/format.test.ts`. Run the banned-word grep (expected: no match). Run the Web gate with `<N>` = 2. Expected: `web gate exit 0`; `web-task2.txt` shows `Tests  48 passed (48)` and `Compiled successfully`; `gen:check` leaves no diff (no API change). Then run `pgrep -fl pytest` on its own and the Backend gate with `<N>` = 2. Expected: `gate exit 0`; `gate-task2.txt` shows `1668 passed, 2 deselected`. Then `git status --short` (expected: only the two staged files).
+Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add apps/web/src/lib/format.ts apps/web/src/lib/format.test.ts`. Run the banned-word grep (expected: no match). Run the Web gate with `<N>` = 2. Expected: `web gate exit 0`; `web-task2.txt` shows `Tests  48 passed (48)` and `Compiled successfully`; `gen:check` leaves no diff (no API change). Then run `pgrep -fl pytest` on its own and the Backend gate with `<N>` = 2. Expected: `gate exit 0`; `gate-task2.txt` shows `1668 passed, 2 deselected`. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` (expected: the two staged files, plus the untracked `.DS_Store` and `packages/.DS_Store` that were there before this slice).
 
 - [ ] **Step 6: Commit**
 
@@ -386,6 +387,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   2. Only mutant m1 is repeated during execution (Task 1 Step 5); m2–m11 are the spec's evidence and are not re-run.
   3. The web test's text (`serpError labels an unverified or paused provider account`, two `expect` calls) is the plan's wording; the spec says only "one test that `serpError("unverified")` and `serpError("paused")` return the two labels".
   4. Task 1 Step 4 also runs tests/integration/test_serp_audit.py, which the spec mentions only as unchanged.
-- Rulings applied to this plan: the spec's R1 (the Opus 5.5 trailer).
+  5. The header offers superpowers:executing-plans as well as subagent-driven-development (the template's wording); the spec's Process section names subagent-driven execution, which the controller uses.
+- Rulings applied to this plan: the spec's R1 (the Opus 5.5 trailer) and R8 (the plan review's five points).
 - Placeholders: `<workspace>` (the plan's directory under the git-ignored `.superpowers/sdd/`, supplied in the task brief) and `<N>` (the task number).
 - Type consistency: `_status(value: object) -> int | None`, `_refused(resp: Response) -> SerpPage` and `SerpPage(items, cost_micros, error)` as used in both blocks; the codes `unverified` and `paused` match between Task 1's `ERRORS` and Task 2's labels.
