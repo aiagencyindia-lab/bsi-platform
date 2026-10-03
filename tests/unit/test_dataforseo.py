@@ -122,6 +122,8 @@ ERROR_CODES = [
     (40200, "funds"),
     (40210, "funds"),
     (40202, "rate"),
+    (40104, "unverified"),
+    (40201, "paused"),
     (50000, "provider_50000"),
 ]
 
@@ -192,3 +194,69 @@ def test_an_unreadable_item_is_json_and_keeps_the_cost():
 def test_deeply_nested_json_is_json():
     raw = "[" * 200_000 + "]" * 200_000
     assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")
+
+
+REFUSED = [
+    (401, 40100, "auth"),
+    (402, 40210, "funds"),
+    (403, 40104, "unverified"),
+    (429, 40202, "rate"),
+    (403, 50301, "provider_50301"),
+]
+
+
+@pytest.mark.parametrize(("http", "status", "code"), REFUSED)
+def test_a_refused_answer_is_its_providers_code(http, status, code):
+    raw = json.dumps({"status_code": status, "cost": 0, "tasks": None})
+    assert _serp(Fetch(Response(http, raw))) == SerpPage([], 0, code)
+
+
+def test_a_refused_answer_keeps_a_task_code_and_its_cost():
+    raw = body(task_status=40210)
+    assert _serp(Fetch(Response(402, raw))) == SerpPage([], 4_000, "funds")
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        Response(403, "{}"),
+        Response(401, "<html>Unauthorized</html>"),
+        Response(403, body()),
+        Response(401, body(status=40100)[:30], truncated=True),
+        Response(403, body(task_status=[1, 2])),
+    ],
+)
+def test_a_refused_answer_without_a_code_is_http(response):
+    assert _serp(Fetch(response)) == SerpPage([], 0, "http")
+
+
+@pytest.mark.parametrize("status", [[1, 2], True, 100_000, -1])
+def test_a_bad_task_status_is_json_and_keeps_the_cost(status):
+    raw = body(task_status=status)
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 4_000, "json")
+
+
+@pytest.mark.parametrize("status", [True, 100_000])
+def test_a_bad_top_level_status_is_json(status):
+    raw = body(status=status)
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 0, "json")
+
+
+def test_a_top_level_error_wins_over_a_bad_task_status():
+    raw = body(status=40100, task_status=[1, 2])
+    assert _serp(Fetch(Response(200, raw))) == SerpPage([], 4_000, "auth")
+
+
+@pytest.mark.parametrize(
+    ("status", "code"), [(0, "provider_0"), (99_999, "provider_99999")]
+)
+def test_the_status_range_ends_are_codes(status, code):
+    page = _serp(Fetch(Response(200, body(task_status=status))))
+    assert page == SerpPage([], 4_000, code)
+
+
+def test_a_task_without_a_status_is_json_and_keeps_the_cost():
+    doc = json.loads(body())
+    del doc["tasks"][0]["status_code"]
+    page = _serp(Fetch(Response(200, json.dumps(doc))))
+    assert page == SerpPage([], 4_000, "json")

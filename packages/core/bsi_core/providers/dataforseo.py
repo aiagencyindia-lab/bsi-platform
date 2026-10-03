@@ -18,7 +18,15 @@ SERP_CAP_BYTES = 4 * 1024 * 1024
 # per country as locales arrive; an unknown country is error "location".
 LOCATIONS = {"IN": "India"}
 OK, NO_RESULTS = 20000, 40102
-ERRORS = {40100: "auth", 40200: "funds", 40210: "funds", 40202: "rate"}
+ERRORS = {
+    40100: "auth",
+    40104: "unverified",
+    40200: "funds",
+    40201: "paused",
+    40202: "rate",
+    40210: "funds",
+}
+MAX_STATUS = 99_999  # documented codes have five digits
 # What an undocumented body can raise while it is decoded or read.
 UNREADABLE = (
     ValueError,
@@ -71,6 +79,14 @@ def _code(status: object) -> str | None:
     return f"provider_{status}"
 
 
+def _status(value: object) -> int | None:
+    """A provider status code, or None: only a plain integer (not a
+    bool) from 0 to MAX_STATUS counts, so a stored error stays short."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if 0 <= value <= MAX_STATUS else None
+
+
 def _micros(cost: object) -> int:
     return round(cost * 1_000_000) if isinstance(cost, int | float) else 0
 
@@ -89,12 +105,13 @@ def _item(raw: Mapping[str, Any]) -> SerpItem:
 
 
 def _parse(doc: Any) -> SerpPage:
-    """The page in a decoded response; raises on an undocumented shape."""
+    """The page in a decoded response. Raises on an undocumented shape
+    until the task's cost is read; after that, returns `json` with it."""
     if not isinstance(doc, dict):
         raise ValueError("not an object")
-    top = doc["status_code"]
-    if not isinstance(top, int):
-        raise ValueError("status_code is not a number")
+    top = _status(doc["status_code"])
+    if top is None:
+        raise ValueError("status_code is not a status")
     tasks = doc.get("tasks") or []
     if not tasks:
         error = _code(top)
@@ -104,7 +121,12 @@ def _parse(doc: Any) -> SerpPage:
     task = tasks[0]
     cost = _micros(task.get("cost"))
     # The top-level status first, then the task's (spec, The adapter).
-    error = _code(top) or _code(task["status_code"])
+    error = _code(top)
+    if error is None:
+        status = _status(task.get("status_code"))
+        if status is None:
+            return SerpPage(cost_micros=cost, error="json")
+        error = _code(status)
     if error is not None:
         return SerpPage(cost_micros=cost, error=error)
     try:
@@ -117,6 +139,19 @@ def _parse(doc: Any) -> SerpPage:
         # The task's cost is known by now; keep it with the error.
         return SerpPage(cost_micros=cost, error="json")
     return SerpPage(items, cost)
+
+
+def _refused(resp: Response) -> SerpPage:
+    """A non-2xx answer: the provider's error code from its body when it
+    has one; otherwise `http`. `truncated` is not consulted: a cut body
+    fails to decode, which is also `http`."""
+    try:
+        page = _parse(json.loads(resp.body))
+    except UNREADABLE:
+        return SerpPage(error="http")
+    if page.error in (None, "json"):
+        return SerpPage(error="http")
+    return SerpPage(cost_micros=page.cost_micros, error=page.error)
 
 
 def serp(
@@ -154,7 +189,7 @@ def serp(
         headers={"Authorization": f"Basic {token}"},
     )
     if not resp.ok:
-        return SerpPage(error="http")
+        return _refused(resp)
     if resp.truncated:
         return SerpPage(error="truncated")
     try:
