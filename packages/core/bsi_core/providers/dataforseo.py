@@ -92,7 +92,7 @@ MAX_COST_USD = 1  # per call; the expected price is about $0.004
 
 def _micros(cost: object) -> int:
     """The cost in micros. A missing or non-number cost is 0. A bool, a
-    negative number, or one above MAX_COST_USD raises ValueError."""
+    negative number, NaN, or one above MAX_COST_USD raises ValueError."""
     if isinstance(cost, bool):
         raise ValueError("cost is a bool")
     if not isinstance(cost, int | float):
