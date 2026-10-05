@@ -31,6 +31,7 @@ export default async function Serp({
           <span className="muted">{auditNote(sp.queued)}</span>
         )}
       </form>
+      <p className="muted">Audited automatically once a week.</p>
       {status && <p className="muted">{status}</p>}
       {audits.length === 0 && (
         <p className="muted">
