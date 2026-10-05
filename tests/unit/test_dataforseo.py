@@ -147,6 +147,33 @@ def test_an_http_failure_is_http(response):
     assert _serp(Fetch(response)) == SerpPage([], 0, "http")
 
 
+def test_the_call_waits_for_the_serp_timeout():
+    fetch = Fetch(Response(200, body()))
+    _serp(fetch)
+    [(_, _, kw)] = fetch.calls
+    assert (kw["deadline_seconds"], kw["phase_seconds"]) == (120, 120)
+
+
+def test_a_read_timeout_is_timeout_with_the_expected_cost():
+    resp = Response(0, error="ReadTimeout('The read operation timed out')")
+    assert _serp(Fetch(resp)) == SerpPage([], 2_000, "timeout")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        "ConnectTimeout('timed out')",
+        "WriteTimeout('timed out')",
+        "PoolTimeout('timed out')",
+        "ConnectError('boom')",
+        "refused: nike.com does not resolve",
+        "timeout: over the 30 s deadline",
+    ],
+)
+def test_other_status_0_failures_are_http(error):
+    assert _serp(Fetch(Response(0, error=error))) == SerpPage([], 0, "http")
+
+
 def test_a_cut_body_is_truncated():
     cut = Response(200, body()[:50], truncated=True)
     assert _serp(Fetch(cut)) == SerpPage([], 0, "truncated")

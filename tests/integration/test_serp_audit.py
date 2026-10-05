@@ -212,7 +212,7 @@ def test_missing_credentials_fail_with_no_call_and_no_rows(
     assert fetch.calls == [] and _rows(owner, bid) == []
 
 
-def test_only_the_first_five_locales_are_audited(
+def test_only_the_first_locale_is_audited(
     configured, owner, make_org, make_brand
 ):
     org = make_org()
@@ -227,9 +227,9 @@ def test_only_the_first_five_locales_are_audited(
     job_id = _job(owner, org, bid, "audit_serp", "queued")
     fetch = Fetch(Response(200, body()))
     assert _run(fetch) is True
-    assert len(fetch.calls) == 10 and len(_rows(owner, bid)) == 10
+    assert len(fetch.calls) == 2 and len(_rows(owner, bid)) == 2
     job = _load_job(owner, job_id)
-    assert (job.status, job.cost_micros) == ("done", 40_000)
+    assert (job.status, job.cost_micros) == ("done", 8_000)
 
 
 def test_a_brand_with_no_locale_uses_in_en(

@@ -338,6 +338,26 @@ def test_a_transport_error_is_a_response_not_an_exception():
     assert r.status == 0 and "ConnectError" in r.error
 
 
+def test_a_fetch_can_ask_for_its_own_phase_timeout():
+    t = server(ok)
+    r = http_fetch(
+        "https://nike.com/",
+        "UA",
+        resolve=dns({"nike.com": [PUBLIC]}),
+        transport=t,
+        deadline_seconds=120,
+        phase_seconds=40,
+    )
+    assert r.status == 200
+    assert set(t.seen[0].extensions["timeout"].values()) == {40.0}
+
+
+def test_a_plain_fetch_keeps_the_15_s_phase_timeout():
+    r, seen = fetch("https://nike.com/", {"nike.com": [PUBLIC]})
+    assert r.status == 200
+    assert set(seen[0].extensions["timeout"].values()) == {15.0}
+
+
 def test_each_request_timeout_is_capped_by_the_time_left(monkeypatch):
     # 25 s of the 30 s deadline are gone when the request is sent (the
     # second reading is the one taken before the DNS lookup).
@@ -386,6 +406,23 @@ def test_the_lookup_wait_is_capped_by_the_time_left(monkeypatch, hang):
     t = server(ok)
     start = time.monotonic()
     r = http_fetch("https://nike.com/", "UA", resolve=hang, transport=t)
+    assert time.monotonic() - start < 1
+    assert r.error == "refused: nike.com did not resolve in time"
+    assert t.seen == []
+
+
+def test_a_fetch_can_ask_for_its_own_deadline(monkeypatch, hang):
+    # The 10 s lookup wait is cut to this fetch's 0.2 s deadline.
+    monkeypatch.setattr("bsi_core.crawl.DNS_TIMEOUT_SECONDS", 10)
+    t = server(ok)
+    start = time.monotonic()
+    r = http_fetch(
+        "https://nike.com/",
+        "UA",
+        resolve=hang,
+        transport=t,
+        deadline_seconds=0.2,
+    )
     assert time.monotonic() - start < 1
     assert r.error == "refused: nike.com did not resolve in time"
     assert t.seen == []

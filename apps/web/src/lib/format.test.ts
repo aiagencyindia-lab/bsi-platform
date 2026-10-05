@@ -238,6 +238,12 @@ test("serpError labels an unverified or paused provider account", () => {
   );
 });
 
+test("serpError labels a SERP call that timed out", () => {
+  expect(serpError("timeout")).toBe(
+    "the SERP provider took too long to answer",
+  );
+});
+
 test("serpStatus shows a run in progress or a failure, else nothing", () => {
   expect(serpStatus(null)).toBeNull();
   expect(serpStatus({ status: "queued", error: null })).toBe(

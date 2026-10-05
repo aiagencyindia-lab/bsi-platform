@@ -244,14 +244,17 @@ def http_fetch(
     cap: int = BODY_CAP_BYTES,
     raw: bool = False,
     headers: Mapping[str, str] | None = None,
+    deadline_seconds: float | None = None,
+    phase_seconds: float | None = None,
 ) -> Response:
     """The real fetch. Never raises: an error is a Response with status 0,
     and a URL it will not fetch has error "refused: <reason>".
 
     The body is decoded here, not by httpx, so a compressed body never
-    inflates past `cap`. The 30 s deadline covers resolving,
-    connecting, sending and reading on every hop; a lookup waits at most
-    DNS_TIMEOUT_SECONDS or the time left, whichever is less.
+    inflates past `cap`. The deadline (DEADLINE_SECONDS unless
+    `deadline_seconds` is given) covers resolving, connecting, sending and
+    reading on every hop; a lookup waits at most DNS_TIMEOUT_SECONDS or the
+    time left, whichever is less.
 
     POST sends `body` (and `content_type` as Content-Type) and never
     follows a redirect: a 3xx comes back as a non-ok Response. Every guard
@@ -261,9 +264,13 @@ def http_fetch(
     `truncated` says the cap cut the body. `raw=True` decodes the bytes as
     Latin-1, which is lossless: `body.encode('latin-1')` gives the exact
     bytes back. `headers` go on every hop; Host, User-Agent and
-    Accept-Encoding are always the pinned ones.
+    Accept-Encoding are always the pinned ones. `deadline_seconds` and
+    `phase_seconds` replace DEADLINE_SECONDS and PHASE_TIMEOUT_SECONDS for
+    this fetch.
     """
-    deadline = time.monotonic() + DEADLINE_SECONDS
+    limit = DEADLINE_SECONDS if deadline_seconds is None else deadline_seconds
+    phase = PHASE_TIMEOUT_SECONDS if phase_seconds is None else phase_seconds
+    deadline = time.monotonic() + limit
     try:
         # trust_env=False: an environment proxy would do its own lookup.
         with httpx.Client(transport=transport, trust_env=False) as client:
@@ -312,7 +319,7 @@ def http_fetch(
                     content=body,
                     headers=sent,
                     extensions=ext,
-                    timeout=httpx.Timeout(min(PHASE_TIMEOUT_SECONDS, left)),
+                    timeout=httpx.Timeout(min(phase, left)),
                 ) as r:
                     location = r.headers.get("location")
                     if (
