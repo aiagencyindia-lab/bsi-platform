@@ -116,6 +116,7 @@ Untested (writer's list, from the spec and the reviews): the provider against a 
   - Note (2026-10-05, slice 41): the cap is now one locale (`MAX_SERP_LOCALES = 1`, slice 41 R5), so this item reads "which locale the cap keeps".
 
 Out of scope (spec): the weekly schedule; a report section and the Health Report's findings; the "Brand SERP change" alert; SERP-based recommendations; the `negative` type and the 0.9 accuracy benchmark; SerpApi as a fallback, with failover; retries, backoff and circuit breakers on provider errors; mobile results; countries other than IN; matching social and video results to the brand's own profiles; brand aliases as extra queries; storing the raw provider response; the queued (non-live) provider modes; a longer fetch deadline.
+  - Note (2026-10-05, slice 41): the SERP call now has a longer fetch deadline: it passes 120 s as `http_fetch`'s new `deadline_seconds` and `phase_seconds` (slice 41 R1, R11).
 
 ## 4. Rulings
 

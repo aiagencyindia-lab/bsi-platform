@@ -511,7 +511,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Self-review (plan vs spec)
 
-- Spec coverage: `http_fetch` → Task 1 Step 3 (the four replace blocks, including the docstring wording of spec R7); the adapter → Task 2 Step 3; the worker (constant, comments, `tick` docstring) → Task 2 Step 3; the page → Task 3; Tests → Task 1 Step 1, Task 2 Step 1, Task 3 Step 1 (identical to the spec's blocks); Proof → the spec's scratch run, with mutants m5 (Task 1 Step 5) and m2 (Task 2 Step 5) repeated in the repo and the web label shown red and green in Task 3; Copy → each task's banned-word grep. Docs: this plan, the two docs/README.md rows and the two findings-slice37 notes are committed by the controller with the plan; the post-merge docs are controller work. The live check re-run comes after merge, asked first (spec, Docs).
+- Spec coverage: `http_fetch` → Task 1 Step 3 (the four replace blocks, including the docstring wording of spec R7); the adapter → Task 2 Step 3; the worker (constant, comments, `tick` docstring) → Task 2 Step 3; the page → Task 3; Tests → Task 1 Step 1, Task 2 Step 1, Task 3 Step 1 (identical to the spec's blocks); Proof → the spec's scratch run, with mutants m5 (Task 1 Step 5) and m2 (Task 2 Step 5) repeated in the repo and the web label shown red and green in Task 3; Copy → each task's banned-word grep. Docs: this plan, the two docs/README.md rows and the three findings-slice37 notes are committed by the controller with the plan; the post-merge docs are controller work. The live check re-run comes after merge, asked first (spec, Docs).
 - Departures from the spec:
   1. The code changes are replace blocks generated from the scratch proof's verified pairs, not the spec's unified diffs; the result is the same files.
   2. The work is split into three tasks (crawl; adapter and worker; web), each with its own commit; the spec does not set task boundaries.
@@ -520,7 +520,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   5. The commit messages are the plan's wording; the spec does not give them.
   6. The per-task backend counts (1696 after Task 1) are the plan's arithmetic; the spec gives only the final 1704.
   7. The header offers superpowers:executing-plans as well as subagent-driven-development (the template's wording); the controller uses subagent-driven execution.
-- Rulings applied to this plan: the spec's R1–R9 (R3 in the renamed locale test, R9 in the findings note), and R10 (the plan review's two wording points).
+- Rulings applied to this plan: the spec's R1–R9 (R3 in the renamed locale test, R9 in the findings note), R10 (the plan review's two wording points) and R11 (a third findings-slice37 note).
 - Placeholders: `<workspace>` (the plan's directory under the git-ignored `.superpowers/sdd/`, supplied in the task brief) and `<N>` (the task number).
 - Type consistency: `http_fetch(..., deadline_seconds: float | None = None, phase_seconds: float | None = None)` in Task 1 matches `SerpFetch` and the call in Task 2; the code `timeout` matches Task 3's label key.
 
