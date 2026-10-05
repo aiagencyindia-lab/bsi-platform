@@ -330,6 +330,49 @@ def test_the_whole_fetch_has_a_deadline(monkeypatch):
     assert r.error == "timeout: over the 30 s deadline"
 
 
+def test_a_fetch_reports_its_own_deadline(monkeypatch):
+    # As the 30 s test above, with a 60 s deadline of this fetch's own.
+    clock = itertools.count(0.0, 1.0)
+    monkeypatch.setattr("bsi_core.crawl.time.monotonic", lambda: next(clock))
+
+    def drip():
+        while True:
+            yield b"x"
+
+    t = server(lambda q: httpx.Response(200, content=drip()))
+    r = http_fetch(
+        "https://nike.com/",
+        "UA",
+        resolve=dns({"nike.com": [PUBLIC]}),
+        transport=t,
+        deadline_seconds=60,
+    )
+    assert (r.status, r.body) == (0, "")
+    assert r.error == "timeout: over the 60 s deadline"
+
+
+@pytest.mark.parametrize(
+    "clock",
+    [
+        [0.0, 61.0],  # out of time before the lookup
+        [0.0, 1.0, 61.0],  # out of time after the lookup, before sending
+    ],
+)
+def test_a_timeout_before_sending_reports_its_own_deadline(monkeypatch, clock):
+    readings = iter(clock + [61.0] * 10)
+    monkeypatch.setattr("bsi_core.crawl.time.monotonic", lambda: next(readings))
+    t = server(ok)
+    r = http_fetch(
+        "https://nike.com/",
+        "UA",
+        resolve=dns({"nike.com": [PUBLIC]}),
+        transport=t,
+        deadline_seconds=60.0,
+    )
+    assert r.error == "timeout: over the 60 s deadline"
+    assert t.seen == []
+
+
 def test_a_transport_error_is_a_response_not_an_exception():
     def boom(request):
         raise httpx.ConnectError("boom")

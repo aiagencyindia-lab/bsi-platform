@@ -225,7 +225,11 @@ def _decompressor(encoding: str) -> Any:
 # Caller headers never replace these (dropped by lower-cased name).
 _PINNED = frozenset({"host", "user-agent", "accept-encoding"})
 _REDIRECTS_REFUSED = "too many redirects"
-_TIMED_OUT = f"timeout: over the {DEADLINE_SECONDS} s deadline"
+
+
+def _timed_out(limit: float) -> Response:
+    """The Response for a fetch past its deadline of `limit` seconds."""
+    return Response(0, "", f"timeout: over the {limit:g} s deadline")
 
 
 # SECURITY: this is the SSRF guard (docs/findings-slice7.md §5.8). Every
@@ -290,7 +294,7 @@ def http_fetch(
                 host = parts.hostname.encode("idna").decode("ascii")
                 left = deadline - time.monotonic()
                 if left <= 0:
-                    return Response(0, "", _TIMED_OUT)
+                    return _timed_out(limit)
                 wait = min(DNS_TIMEOUT_SECONDS, left)
                 ip = _public_ip(host, _DEFAULT_PORT[scheme], resolve, wait)
                 netloc = f"[{ip}]" if ":" in ip else ip
@@ -301,7 +305,7 @@ def http_fetch(
                 ext = {"sni_hostname": host} if scheme == "https" else {}
                 left = deadline - time.monotonic()
                 if left <= 0:
-                    return Response(0, "", _TIMED_OUT)
+                    return _timed_out(limit)
                 sent = {
                     k: v
                     for k, v in (headers or {}).items()
@@ -338,7 +342,7 @@ def http_fetch(
                         # max_length bounds each inflate to what fits.
                         buf += z.decompress(chunk, room) if z else chunk[:room]
                         if time.monotonic() > deadline:
-                            return Response(0, "", _TIMED_OUT)
+                            return _timed_out(limit)
                         if len(buf) >= cap:
                             # Cut only if something was dropped: the rest of
                             # this chunk (inflated or not), or a later chunk.
