@@ -20,6 +20,7 @@ Classification: **bounded** — two keyword parameters on an existing function, 
 Decisions approved in chat (brainstorming on Opus 5.5, 2026-10-05), each after approaches with trade-offs, the facts above and a recommendation written in a chat message before the question:
 1. A SERP call waits up to 120 s (R1), over 55 s; the first answer also chose 2 locales per audit, superseded by decision 4.
 2. A call that times out records the expected price (4,000 micros) and error `timeout` with a page label (R2), over leaving it `http` at cost 0, or the expected price with `http`.
+   - Note (2026-10-05, R14): the re-run before merge observed $0.002 per call; `TIMEOUT_MICROS` is 2,000.
 3. Design Sections 1 and 2, the text of each in chat before its approval question (the user answered "go ahead" to each; the controller read both as approval and said so in chat, and flagged this reading again after the spec review).
 4. After the spec review of e69a73e showed a call can take about 240 s (a 120 s read, then up to a 120 s body read before the deadline check), so 2 locales could reach about 16 minutes: an audit covers 1 locale (R5), over 2 locales with a time-boxed job, or 2 locales with the bound as a known limit.
 5. After the re-review of 8a83d47 showed the ~240 s bound assumes a quick connect and send and headers in one read: the assumption is stated and the rest is a known limit (R8), over a separate 120 s read timeout with connect and write kept at 15 s.
@@ -124,7 +125,7 @@ apps/workers/bsi_workers/worker.py:
      """
 ```
 
-One locale is 2 calls; at up to about 240 s each (plus at most 10 s of lookup inside each call's deadline) the audit stays under 10 minutes, assuming a quick connect and send and headers in one read (R8). `SERP_JOB_MICROS` stays 40,000; it overestimates (2 calls × 4,000 = 8,000), which fails closed.
+One locale is 2 calls; at up to about 240 s each (plus at most 10 s of lookup inside each call's deadline) the audit stays under 10 minutes, assuming a quick connect and send and headers in one read (R8). `SERP_JOB_MICROS` stays 40,000; it overestimates (2 calls × 4,000 = 8,000), which fails closed. (R14: at the observed $0.002, 2 calls record 4,000.)
 
 ### The page
 
@@ -284,8 +285,10 @@ Run 2026-10-05 in the scratchpad (copies of `packages/core/bsi_core` and `apps/w
   and, added by R11, this one under the §3 "Out of scope (spec)" line that names "a longer fetch deadline":
 
   - Note (2026-10-05, slice 41): the SERP call now has a longer fetch deadline: it passes 120 s as `http_fetch`'s new `deadline_seconds` and `phase_seconds` (slice 41 R1, R11).
+  and, added after the re-run before merge (R16), a note after the 2026-10-05 note recording the fifth attempt, which returned pages.
 - Post-merge docs PR: the plan's "Changes made during execution", rulings from execution, deferred minors.
 - After merge: the slice 37 live check is re-run only after the user is asked (free account call, then one audit of 2 searches, about $0.008 inferred), recorded in its own docs PR.
+  - Note (2026-10-05, R16): re-run before merge at the user's request; recorded in findings-slice37 §2 by this branch; the audit cost $0.004.
 
 ### Out of scope
 
@@ -298,6 +301,7 @@ Run 2026-10-05 in the scratchpad (copies of `packages/core/bsi_core` and `apps/w
 
 - **R1: 120 s per SERP call.** Decided: `SERP_TIMEOUT_SECONDS = 120` passed as both `deadline_seconds` and `phase_seconds`; the user chose this (with 2 locales, later changed by R5) over 120 s with a time-boxed job, or 55 s with 5 locales. Found by: the brainstorm, after the 2026-10-05 live check. Why: DataForSEO's advice. Cost if wrong: a call that needs more than 120 s still times out. Asked in chat.
 - **R2: a timed-out call records the expected price as `timeout`.** Decided: a status-0 `ReadTimeout` gives `SerpPage(cost_micros=4_000, error="timeout")` and a page label; the user chose this over leaving it `http` at cost 0, or the expected price with `http`. Found by: the brainstorm (the balance fell $0.004 while 0 was recorded). Why: the budget fails closed and the cause is visible. Cost if wrong: $0.004 overcounted for a timeout the provider did not bill. Asked in chat.
+  - Note (2026-10-05, R14): the value is 2,000 micros, the price observed in the re-run before merge.
 - **R3: the locale test does not check `skipped_locales`.** Decided: the test checks the calls, the rows and the job cost; Section 2 had said it would check `skipped_locales`. Found by: the controller, writing the proof. Why: the summary string is neither stored nor returned by `process_job`; testing it (calling `run_serp_audit` directly, or reading the worker's log with caplog) was not pursued. Cost if wrong: the skipped count stays untested. Named in chat when made.
 - **R4: commits carry the Opus 5.5 trailer.** Decided: slice 41 commits end with "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>", and subagents are dispatched with no `model` parameter (the session is on Opus 5.5). Found by: the controller at the start of the slice. Why: the memory rules. Cost if wrong: none. Named in chat when made.
 - **R5: an audit covers 1 locale.** Decided: `MAX_SERP_LOCALES = 1`; the user chose this over 2 locales with a time-boxed job, or 2 locales with the bound as a known limit; asked again because the fact behind R1's 2 locales was wrong. Found by: the spec review of e69a73e (Important 1: a call can take about 240 s, so 4 calls could reach about 16 minutes). Why: 2 calls × 240 s stays under `claim_job()`'s 10 minutes. Cost if wrong: a brand's later locales are not audited. Asked in chat.
