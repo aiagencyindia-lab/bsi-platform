@@ -1,7 +1,7 @@
 """The Brand SERP audit: the table, and what the worker stores."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import bsi_workers.worker as worker
@@ -9,6 +9,7 @@ import pytest
 from bsi_core import models as m
 from bsi_core.config import Settings
 from bsi_core.crawl import Response
+from bsi_core.db import system_session
 from sqlalchemy import delete, select, text, update
 from sqlalchemy.exc import IntegrityError
 
@@ -290,3 +291,206 @@ def test_an_over_budget_serp_job_fails_without_a_call(
     job = _load_job(owner, job_id)
     assert (job.status, job.error, job.cost_micros) == ("failed", "budget", 0)
     assert fetch.calls == []
+
+
+def _page(owner, org, bid, kind, days_ago=0, error=None, results=()):
+    with owner() as s, s.begin():
+        s.add(
+            m.SerpAudit(
+                org_id=org.id,
+                brand_id=bid,
+                kind=kind,
+                query="q",
+                country="IN",
+                language="en",
+                results=list(results),
+                fetched_at=datetime.now(UTC) - timedelta(days=days_ago),
+                error=error,
+            )
+        )
+
+
+def _old_job(owner, org, bid, status, hours, kind="audit_serp"):
+    """A job created `hours` ago, in its own slot."""
+    return _job(
+        owner,
+        org,
+        bid,
+        kind,
+        status,
+        minutes=-60 * hours,
+        created_at=datetime.now(UTC) - timedelta(hours=hours),
+    )
+
+
+def _declared(owner, org, bid):
+    """Give the brand a domain: only a brand with one is ever due."""
+    with owner() as s, s.begin():
+        s.add(m.Domain(org_id=org.id, brand_id=bid, host="walkaroo.in"))
+    return bid
+
+
+def due():
+    with system_session() as s:
+        return [
+            r[0]
+            for r in s.execute(text("SELECT brand_id FROM due_serp_audits()"))
+        ]
+
+
+def _serp_jobs(owner):
+    with owner() as s:
+        return list(
+            s.scalars(
+                select(m.Job)
+                .where(m.Job.kind == "audit_serp")
+                .order_by(m.Job.created_at, m.Job.id)
+            )
+        )
+
+
+def test_a_brand_with_no_pages_and_no_jobs_is_due(owner, make_org, make_brand):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    assert due() == [bid]
+
+
+def test_a_brand_with_no_domain_is_not_due_until_one_is_declared(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    assert due() == []
+    _declared(owner, org, bid)
+    assert due() == [bid]
+
+
+def test_good_pages_for_both_queries_this_week_are_not_due(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    _page(owner, org, bid, "brand", 6, results=[{"position": 1}])
+    _page(owner, org, bid, "reviews", 6, results=[{"position": 1}])
+    assert due() == []
+
+
+def test_due_again_once_the_pages_are_over_seven_days_old(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    _page(owner, org, bid, "brand", 8)
+    _page(owner, org, bid, "reviews", 6)
+    assert due() == [bid]  # one page is too old
+    _page(owner, org, bid, "brand", 6)
+    assert due() == []
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.SerpAudit).values(
+                fetched_at=datetime.now(UTC) - timedelta(days=8)
+            )
+        )
+    assert due() == [bid]
+
+
+def test_one_good_page_and_one_failed_page_is_due(owner, make_org, make_brand):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    _page(owner, org, bid, "brand")
+    _page(owner, org, bid, "brand")  # two pages of one kind are one kind
+    assert due() == [bid]
+    _page(owner, org, bid, "reviews", error="timeout")
+    assert due() == [bid]  # an error page is not a page
+    _page(owner, org, bid, "reviews")
+    assert due() == []
+
+
+def test_a_good_page_with_no_results_counts(owner, make_org, make_brand):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    _page(owner, org, bid, "brand", results=[])
+    _page(owner, org, bid, "reviews", results=[])
+    assert due() == []
+
+
+@pytest.mark.parametrize("status", ["failed", "done"])
+def test_a_job_in_the_last_day_blocks_whatever_its_status(
+    owner, make_org, make_brand, status
+):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    job_id = _old_job(owner, org, bid, status, 23)
+    assert due() == []
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Job)
+            .where(m.Job.id == job_id)
+            .values(created_at=datetime.now(UTC) - timedelta(hours=25))
+        )
+    assert due() == [bid]
+
+
+@pytest.mark.parametrize("status", ["queued", "running"])
+def test_a_waiting_job_blocks_however_old(owner, make_org, make_brand, status):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    job_id = _old_job(owner, org, bid, status, 72)
+    assert due() == []
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Job).where(m.Job.id == job_id).values(status="failed")
+        )
+    assert due() == [bid]
+
+
+def test_three_failed_jobs_in_a_week_stop_the_retries(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    first = _old_job(owner, org, bid, "failed", 30)
+    _old_job(owner, org, bid, "failed", 60)
+    _old_job(owner, org, bid, "done", 90)  # only failures count
+    _old_job(owner, org, bid, "failed", 100, kind="audit_crawl")
+    assert due() == [bid]
+    _old_job(owner, org, bid, "failed", 120)
+    assert due() == []
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Job)
+            .where(m.Job.id == first)
+            .values(created_at=datetime.now(UTC) - timedelta(days=8))
+        )
+    assert due() == [bid]  # two failures left in the window
+
+
+def test_a_job_of_another_kind_does_not_block(owner, make_org, make_brand):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    _old_job(owner, org, bid, "done", 1, kind="audit_crawl")
+    _old_job(owner, org, bid, "queued", 2, kind="crawl_rivals")
+    assert due() == [bid]
+
+
+def test_archived_brands_are_never_due_for_a_serp_audit(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Brand).where(m.Brand.id == bid).values(status="archived")
+        )
+    assert due() == []
+
+
+def test_due_serves_every_tenant_in_brand_id_order(owner, make_org, make_brand):
+    a = make_org("A")
+    b = make_org("B")
+    brands = [
+        _declared(owner, org, make_brand(org, f"B{i}"))
+        for i in range(3)
+        for org in (a, b)
+    ]
+    assert due() == sorted(brands)
