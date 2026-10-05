@@ -145,7 +145,7 @@ with
 return _timed_out(limit)
 ```
 
-Then confirm `cd /Users/vineet/Downloads/ADK/bsi-platform && grep -c "_TIMED_OUT" packages/core/bsi_core/crawl.py` prints `0` and `cd /Users/vineet/Downloads/ADK/bsi-platform && grep -c "return _timed_out(limit)" packages/core/bsi_core/crawl.py` prints `3`.
+Then confirm `cd /Users/vineet/Downloads/ADK/bsi-platform && grep -c "_TIMED_OUT" packages/core/bsi_core/crawl.py` prints `0` (grep exits 1 on no match; that is expected) and `cd /Users/vineet/Downloads/ADK/bsi-platform && grep -c "return _timed_out(limit)" packages/core/bsi_core/crawl.py` prints `3`.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -177,7 +177,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ### Task 2: an end-to-end ReadTimeout test; the SERP_JOB_MICROS comment
 
 **Files:**
-- Test: `tests/unit/test_dataforseo.py:1-5`, `:157-160`
+- Test: `tests/unit/test_dataforseo.py:1-5`, `:157-159`
 - Modify: `apps/workers/bsi_workers/worker.py:118-119`
 
 **Interfaces:**
@@ -289,14 +289,14 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 - Spec coverage: the timeout message → Task 1 Step 3; the worker comment → Task 2 Step 4; Tests → Task 1 Step 1 and Task 2 Step 1 (identical to the spec's diffs); Proof → the spec's scratch run, with mutant m1 repeated in Task 1 Step 5 and m4 in Task 2 Step 3; Copy → each task's banned-word grep, now blocking the commit. Docs: this plan, two docs/README.md rows and five dated notes in the slice 41 spec are committed by the controller with the plan; post-merge docs are controller work.
 - Departures from the spec:
-  1. The code changes are replace blocks generated from the scratch proof's verified pairs, not the spec's unified diffs; the result is the same files. Step 3's second replacement uses replace_all over three identical lines.
+  1. The code changes are replace blocks generated from the scratch proof's verified pairs, not the spec's unified diffs; the result is the same files. Step 3's second replacement uses replace_all over three occurrences of the same text.
   2. Two tasks (crawl and its tests; the adapter test and the worker comment), each with its own commit; the spec sets no task boundaries.
   3. Only m1 and m4 are repeated in execution; m2, m3, m5 and m6 are the spec's evidence.
   4. The commit messages are the plan's wording.
   5. Per-task counts (1707 after Task 1) are the plan's arithmetic; the spec gives only 1708.
   6. The banned-word grep is written to block the commit (`! { … }`), as the user's process now requires; earlier plans' greps only reported.
   7. The header offers superpowers:executing-plans as well as subagent-driven-development (the template's wording).
-- Rulings applied: the spec's R1–R6.
+- Rulings applied: the spec's R1–R6, and R7 (the plan review's wording points).
 - Placeholders: `<workspace>` and `<N>`.
 - Type consistency: `_timed_out(limit: float) -> Response` in Task 1; Task 2 relies only on `http_fetch`'s existing `resolve=`/`transport=` keywords and `repr(e)` error.
 
