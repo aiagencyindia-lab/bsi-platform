@@ -326,16 +326,21 @@ Run 2026-10-05 in the scratchpad (copies of `packages/core/bsi_core` and `apps/w
 Quoted verbatim from the ledger (deleted after this slice's docs PR merges):
 
 - "Task 1: minor (deferred): crawl.py:228 _TIMED_OUT still says "30 s" when a fetch passes deadline_seconds (accepted in the spec)"
+  - Note (2026-10-05, slice 42): closed in slice 42 (docs/superpowers/specs/2026-10-05-slice42-deferred-minors-design.md).
 - "Task 1: minor (deferred): deadline_seconds / phase_seconds are not validated; 0 or negative values give an immediate timeout Response, never a raise; the only caller passes constants"
 - "Task 1: minor (deferred): the gate's 2 warnings are third-party deprecations (Starlette/anyio), pre-existing"
 - "Task 2: minor (deferred): a SERP call cut off at its 120 s deadline reports "over the 30 s deadline" (crawl.py:228 _TIMED_OUT); classification is right (http), only the text is wrong (same as Task 1's deferred minor)"
+  - Note (2026-10-05, slice 42): closed in slice 42 (docs/superpowers/specs/2026-10-05-slice42-deferred-minors-design.md).
 - "Task 2: minor (deferred): worker.py's Poster Protocol does not declare deadline_seconds/phase_seconds; harmless (serp() types against SerpFetch; mypy covers packages/core only)"
 - "Task 2: minor (deferred): the gate's 2 third-party warnings (Starlette/anyio), baseline"
 - "Task 2: minor (deferred): the timeout match depends on httpx's repr shape ('ReadTimeout('); pinned only by a hand-written fake string, no test drives a real httpx.ReadTimeout through http_fetch into serp()"
+  - Note (2026-10-05, slice 42): closed in slice 42 (docs/superpowers/specs/2026-10-05-slice42-deferred-minors-design.md).
 - "Task 3: minor (deferred): the timeout label ('the SERP provider took too long to answer') reads close to the stale label ('the run took too long and was stopped'); approved wording, no change"
 - "Final: minor (deferred): findings-slice37's 2026-10-05 note puts two inferences under Observed: that both the POST and the GET wrote api_key.last_used_at (code reading; only the max was read) and the ~17 s clock offset (an estimate)"
   - Note (2026-10-05, after PR #82): applied before merge in 584be30 (R15).
 - "Final: minor (deferred): docs/README.md's findings-slice37 row still says three attempts on 2026-10-03; the file now records a fourth on 2026-10-05"
   - Note (2026-10-05, after PR #82): applied before merge in 584be30 (R15).
 - "Final: minor (deferred): no test drives a real httpx.ReadTimeout through http_fetch into serp() (the reviewer checked it by hand)"
+  - Note (2026-10-05, slice 42): closed in slice 42 (docs/superpowers/specs/2026-10-05-slice42-deferred-minors-design.md).
 - "Final: minor (deferred): worker.py:118 "Kept from 5 locales x 2 queries x $0.004" describes the 40,000 figure's origin; the observed price is $0.002; left as is (R16)"
+  - Note (2026-10-05, slice 42): closed in slice 42 (docs/superpowers/specs/2026-10-05-slice42-deferred-minors-design.md).
