@@ -115,8 +115,8 @@ class Poster(Protocol):
     ) -> Response: ...
 
 
-# Kept from 5 locales x 2 queries x $0.004 (a live page plus AI Overview
-# loading); with one locale it overestimates, which fails closed.
+# A SERP audit is 2 calls at the observed $0.002 (2026-10-05), 4,000
+# micros; 40,000 is kept as a 10x margin, which fails closed.
 SERP_JOB_MICROS = 40_000
 # One locale: 2 calls of up to ~240 s each (a 120 s read, then up to a
 # 120 s body read before the deadline check) stay under claim_job()'s
