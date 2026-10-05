@@ -10,7 +10,7 @@ Spec: docs/superpowers/specs/2026-10-06-slice43-weekly-serp-schedule-design.md (
 - migrations/versions/0024_due_serp_audits.py: `due_serp_audits()`, a `SECURITY DEFINER` function returning `(brand_id, org_id)`. A brand is due when it is active, has a declared domain, lacks an error-free page for one of the two query kinds in 7 days, has no `audit_serp` job created in the last 24 hours, has no `audit_serp` job queued or running, and has fewer than 3 failed `audit_serp` jobs in 7 days.
 - apps/workers/bsi_workers/worker.py: `queue_due_serp_audits()`, called once a minute from `main()` after the rival-crawl sweep. It returns 0 without DataForSEO credentials (R1), and skips a brand, creating no job, while `budget_fits(s, org_id, 0, extra_micros=SERP_JOB_MICROS)` says the org has no room.
 - apps/web `/b/[id]/serp`: one muted sentence, "Audited automatically once a week."
-- tests/integration/test_serp_audit.py: 17 tests (20 test items).
+- tests/integration/test_serp_audit.py: 17 new tests (20 test items).
 
 **User decisions** (asked in chat, recorded in the ledger as decisions, not rulings):
 - "User decision (not a ruling): 2026-10-06, after the controller found that a brand is created before its domains, the user chose "Require a domain": a fifth due condition, the brand has at least one declared domain."
@@ -72,6 +72,10 @@ Every `Ruling:` line in the ledger, verbatim:
 > Ruling: R9. Decided: the commit trailer for slice 43's commits becomes "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"; the plan's Global Constraints and its three commit messages are changed to it before execution, and the three earlier spec and plan commits keep their Fable 5.1 trailer. This supersedes part 3 of R8. Found by: the controller, when the attribution reminder changed to Opus 5.5 after the execution choice (2026-10-06). Why: the user's standing rule is that the trailer is whatever the latest attribution reminder names. Cost if wrong: the slice's commits credit a different model from the docs commits. How named: in chat, 2026-10-06, before Task 1. The plan edit is text-only (four lines) and is not re-reviewed; disclosed here and in chat.
 
 > Ruling: R10. Decided: no final fix wave; the final review's two minors are deferred: one sweep checks each brand's budget against the same room, because a queued job spends nothing yet, so an org with several due brands can get more jobs queued than its budget fits, and the extra ones fail as budget at claim time and count toward the cap (1); the page sentence is untrue for a brand with no declared domain (2, already the spec's deferred minor). Found by: the final reviewer (Opus 5.5), 2026-10-06. Why: the review is "Ready to merge? Yes" with no Critical or Important finding; (1) spends nothing extra, since process_job re-checks the budget; (2) is a copy change to approved design text, which the user decides. Cost if wrong: on a tight budget a brand can lose a day and one of its three weekly attempts; a brand with no domain shows a sentence that does not apply to it. How named: in chat, 2026-10-06, at the finishing menu.
+
+Made while writing these docs:
+
+> Ruling: R11. Decided: the docs review's three minors are fixed: the findings say "17 new tests (20 test items)", the README's slice 43 spec row says R1–R10, and its plan row adds "with the changes made during execution". Found by: the docs reviewer (Opus 5.5, a8ccd65e1a09940c8), 2026-10-06. Why: each is a wrong or stale statement in the docs. Cost if wrong: none to behaviour. How named: in chat, 2026-10-06, before the fix commit.
 
 The two corrections, verbatim:
 
