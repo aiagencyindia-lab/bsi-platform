@@ -14,6 +14,8 @@ from ..crawl import Response, http_fetch
 URL = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
 SERP_UA = "bsi-platform-serp/1.0"
 SERP_CAP_BYTES = 4 * 1024 * 1024
+SERP_TIMEOUT_SECONDS = 120  # DataForSEO's advice for live SERP calls
+TIMEOUT_MICROS = 4_000  # one call's expected price, about $0.004
 # ponytail: a static table of the provider's location names, one line
 # per country as locales arrive; an unknown country is error "location".
 LOCATIONS = {"IN": "India"}
@@ -50,6 +52,8 @@ class SerpFetch(Protocol):
         content_type: str,
         cap: int,
         headers: Mapping[str, str] | None = None,
+        deadline_seconds: float | None = None,
+        phase_seconds: float | None = None,
     ) -> Response: ...
 
 
@@ -208,8 +212,13 @@ def serp(
         content_type="application/json",
         cap=SERP_CAP_BYTES,
         headers={"Authorization": f"Basic {token}"},
+        deadline_seconds=SERP_TIMEOUT_SECONDS,
+        phase_seconds=SERP_TIMEOUT_SECONDS,
     )
     if not resp.ok:
+        if resp.status == 0 and (resp.error or "").startswith("ReadTimeout"):
+            # Sent but not answered in time: the provider may bill it.
+            return SerpPage(cost_micros=TIMEOUT_MICROS, error="timeout")
         return _refused(resp)
     if resp.truncated:
         return SerpPage(error="truncated")

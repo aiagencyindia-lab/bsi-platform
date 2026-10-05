@@ -115,9 +115,13 @@ class Poster(Protocol):
     ) -> Response: ...
 
 
-# 5 locales x 2 queries x $0.004 (a live page plus AI Overview loading).
+# Kept from 5 locales x 2 queries x $0.004 (a live page plus AI Overview
+# loading); with one locale it overestimates, which fails closed.
 SERP_JOB_MICROS = 40_000
-MAX_SERP_LOCALES = 5
+# One locale: 2 calls of up to ~240 s each (a 120 s read, then up to a
+# 120 s body read before the deadline check) stay under claim_job()'s
+# 10 minutes, assuming a quick connect and send and headers in one read.
+MAX_SERP_LOCALES = 1
 
 
 class SerpFailed(RuntimeError):
@@ -1166,8 +1170,8 @@ def tick(
     """One loop step that never raises. False = idle/failed; caller sleeps.
 
     A job is claimed before an observation: jobs are rare, user-facing
-    and about a minute long, so a 9,000-observation run must not delay
-    one for hours.
+    and at most a few minutes long (a SERP audit up to about 8), so a
+    9,000-observation run must not delay one for hours.
     """
     try:
         return process_job(
