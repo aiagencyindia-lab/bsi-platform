@@ -1,8 +1,10 @@
 import base64
 import json
+from functools import partial
 
+import httpx
 import pytest
-from bsi_core.crawl import Response
+from bsi_core.crawl import Response, http_fetch
 from bsi_core.providers.dataforseo import (
     SERP_CAP_BYTES,
     SERP_UA,
@@ -157,6 +159,19 @@ def test_the_call_waits_for_the_serp_timeout():
 def test_a_read_timeout_is_timeout_with_the_expected_cost():
     resp = Response(0, error="ReadTimeout('The read operation timed out')")
     assert _serp(Fetch(resp)) == SerpPage([], 2_000, "timeout")
+
+
+def test_a_real_read_timeout_from_http_fetch_is_timeout():
+    # A real httpx.ReadTimeout through the real http_fetch into serp().
+    def slow(request):
+        raise httpx.ReadTimeout("The read operation timed out", request=request)
+
+    fetch = partial(
+        http_fetch,
+        resolve=lambda host, port: ["93.184.216.34"],
+        transport=httpx.MockTransport(slow),
+    )
+    assert _serp(fetch) == SerpPage([], 2_000, "timeout")
 
 
 @pytest.mark.parametrize(
