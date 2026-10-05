@@ -100,23 +100,25 @@ A brand is due when all six hold:
 6. Fewer than 3 `audit_serp` jobs for it that were created in the last 7 days have failed (decision 6).
 
 Consequences:
-- A manual audit counts: after "Run audit now" on a Tuesday, the next automatic audit is the following Tuesday. A failed manual audit counts toward condition 6 too, so three failed presses pause the automatic audit until the oldest of them is 7 days old.
+- A manual audit counts: after "Run audit now" on a Tuesday, the next automatic audit is the following Tuesday. A failed manual audit counts toward condition 6 too: three failed manual audits in three different hours (presses in one hour reuse one job row) pause the automatic audit until the oldest of them is 7 days old.
 - A partial success (one query failed) finishes the job as `done` and leaves the brand due; the retry a day later re-runs both queries. Condition 6 counts failed jobs only, so a partial success that repeats is retried every day: 2 calls, about $0.004 a day at the observed price.
 - A failure that repeats on every run (a first locale other than India, a paused or unfunded account, timeouts) settles at about 3 failed jobs a week per brand. If each call of each failed job is a billed timeout, that is 6 calls, about $0.012 a week per brand at the observed price.
 - A good page with zero results counts as a page; only an error makes it count as missing.
 - Locale is ignored: good pages from an old locale still count in the week after a brand's first locale changes.
 - A brand with no domain is audited only by "Run audit now". A domain added later to a brand that already has one is picked up at the next weekly audit, and so is a competitor declared after an audit: until then its results are typed `other` where `competitor` would be right (the ownership share does not use that type).
-- "Run audit now" is not held back by these conditions. Pressed in a later hour than a scheduled job that is still queued, it creates a second job for the brand, about $0.004.
+- "Run audit now" is not held back by these conditions. Pressed in a later hour than a scheduled job that is still queued or running, it creates a second job for the brand, about $0.004.
 - The order is by brand id. Every due brand is offered to the same sweep, so "oldest first" would change nothing.
 - `serp_audit` has no index on `brand_id`, so each brand's page count scans the table; the function's comment names an index on `(brand_id, kind, fetched_at)` as the upgrade.
-- `KINDS = 2` repeats `len(models.SERP_KINDS)` by hand, because a migration cannot import the models; a third kind would need this number changed.
+- `KINDS = 2` repeats `len(models.SERP_KINDS)` by hand: the function's text is fixed when the migration runs. A third kind needs a new migration that replaces the function, and a change to `run_serp_audit()`'s query pair.
+- Fixing the cause does not lift the cap: after a paused or unfunded account is fixed, a brand that reached three failures stays not due until its oldest failure is 7 days old, up to about 5 days. "Run audit now" is not held back.
+- An org whose daily budget is under the job's estimate ($0.04) is never audited automatically: the sweep's check never passes, no job is created and nothing shows it. Each sweep still opens one short transaction per due brand of that org.
 
 ### The worker sweep
 
 apps/workers/bsi_workers/worker.py, as a diff against main `dbcb2df`:
 
 ```diff
-@@ -828,4 +828,50 @@ def queue_due_crawl_audits() -> int:
+@@ -828,4 +828,51 @@ def queue_due_crawl_audits() -> int:
  
  
 +def queue_due_serp_audits() -> int:
@@ -125,8 +127,9 @@ apps/workers/bsi_workers/worker.py, as a diff against main `dbcb2df`:
 +    Like queue_due_crawl_audits, one brand's failure never stops the
 +    others. Unlike it:
 +    - a queued job makes its brand not due, so a second call returns 0;
-+    - with no DataForSEO credentials nothing is queued: the job would
-+      fail as serp_not_configured, once a day for every due brand;
++    - with no DataForSEO credentials nothing is queued: each due
++      brand's job would fail as serp_not_configured, up to three times
++      a week;
 +    - a brand is skipped, with no job, while its org's budget has no
 +      room for the job's estimate. It stays due and is queued once
 +      there is room; process_job checks the budget again at claim time.
@@ -167,7 +170,7 @@ apps/workers/bsi_workers/worker.py, as a diff against main `dbcb2df`:
 +
  def _record_failure(
      org_id: uuid.UUID, obs_id: uuid.UUID, error: str, retryable: bool
-@@ -1225,4 +1271,8 @@ def main() -> None:
+@@ -1225,4 +1272,8 @@ def main() -> None:
              except Exception:
                  log.exception("queue_due_rival_crawls failed")
 +            try:
@@ -284,8 +287,8 @@ def test_good_pages_for_both_queries_this_week_are_not_due(
 ):
     org = make_org()
     bid = _declared(owner, org, make_brand(org))
-    _page(owner, org, bid, "brand", 6)
-    _page(owner, org, bid, "reviews", 6)
+    _page(owner, org, bid, "brand", 6, results=[{"position": 1}])
+    _page(owner, org, bid, "reviews", 6, results=[{"position": 1}])
     assert due() == []
 
 
@@ -571,12 +574,18 @@ Quoted from the ledger:
 
 > Ruling: R5. Decided: the spec review's findings 7, 8, 9 and 10 are left as they are and recorded in the spec: KINDS = 2 stays hard-coded in the migration with its comment (7); no tests are added for a manual audit through the route, locale, a later domain, the per-brand try/except or the main() wiring, and no mutants are added for the tests that have none (8); "Run audit now" pressed in a later hour than a queued scheduled job can create a second job, about $0.004 (9); a competitor declared after the first automatic audit is classed other until the next weekly audit (10). Found by: the spec reviewer (Opus 5.5), 2026-10-06. Why: 7 cannot import models from a migration; 8 matches how the two existing sweeps are tested; 9 and 10 are small, and 10 does not change the ownership share. Cost if wrong: a third query kind would need the migration's number changed by hand; a regression in the untested paths would not be caught; one extra audit's spend; a week of other where competitor was right. How named: in chat, 2026-10-06, after the review.
 
+> Ruling: R6. Decided: the scoped re-review's seven minors (N1 to N7) are fixed in the spec and the proof: the sweep docstring says a job without credentials would fail up to three times a week, not once a day (N1); the KINDS sentence gives the real reason and remedy, a new migration and a change to run_serp_audit's query pair (N2); test_good_pages_for_both_queries_this_week_are_not_due writes pages that have a result, so test_a_good_page_with_no_results_counts differs from it (N3); the README row no longer says three times a week at most (N4); "Run audit now" stacking is stated for a queued or running job (N5); two consequences are added, that fixing the cause does not lift the cap and that an org whose budget is under the estimate is never audited automatically (N6); three failed manual audits must be in different hours to count as three (N7). The fix commit is not re-reviewed. Found by: the scoped re-reviewer (Opus 5.5), 2026-10-06. Why: each is an inaccurate or missing statement; none changes a rule the user chose. Cost if wrong: none to behaviour; one docstring and one test's fixture change. How named: in chat, 2026-10-06, after the re-review.
+
 > Correction to R2 and R4 (2026-10-06, after the proof was re-run with the failure cap and the sweep's budget check): there are 17 new tests, not R2's 15 or R4's 16; three are parametrized over two values, so the suite gains 20 test items and the expected backend count is 1728, not R2's 1726.
+
+> Correction to R1 and R5 (2026-10-06, from the re-review): with the failure cap, a brand without credentials would fail up to three times a week, not R1's "one serp_not_configured failed job a day, forever"; and a migration can import the models (migrations/env.py does), so R5's reason for finding 7 is wrong: KINDS is a number because the function's text is fixed when the migration runs, and a third kind needs a new migration, not this number changed by hand.
 
 ## Deferred minors
 
 - The page sentence "Audited automatically once a week." is also shown for a brand with no declared domain, which the sweep skips. Found by the controller while writing this spec; not fixed, because the sentence is static copy approved before decision 5.
 - The spec review's findings 7, 8, 9 and 10, left as R5 records.
+- `test_a_good_page_with_no_results_counts` and `test_good_pages_for_both_queries_this_week_are_not_due` differ only in their fixtures; no mutant tells them apart (re-review N3).
+- The commit that applies R6 was not re-reviewed.
 
 ## Live check (after merge, ask first)
 
