@@ -526,4 +526,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-(Filled in after execution.)
+- Task 1: commit 7e726e0; Task 2: commit 5b39144; Task 3: commit db34fa4, each as planned (each task review says "✅ Spec compliant"). Then, after the user asked for the live check before merging: fix 1 a467d56 (`TIMEOUT_MICROS = 2_000`, R14), fix 2 facb108 (the `MAX_COST_USD` comment, R16), and docs commits 584be30, 74e7621, 5a45934 and b00499e (the re-run, the diagnostic call, R15–R18). Merged via PR #82 (main `b0ed3a8`).
+- Gates: implementer gate-task1.txt `1696 passed, 2 deselected, 2 warnings in 230.48s (0:03:50)`; gate-task2.txt `1704 passed, 2 deselected, 2 warnings in 261.28s (0:04:21)`; web-task3.txt `Tests  49 passed (49)`; fix 1 gate `1704 passed, 2 deselected, 2 warnings in 166.46s (0:02:46)`. Controller gates on 5a45934: `1704 passed, 2 deselected, 2 warnings in 218.89s (0:03:38)`, web `Tests  49 passed (49)`. CI on b00499e: `gates` passed in 4m17s with `1704 passed, 2 deselected, 2 warnings in 142.11s (0:02:22)`. Gates on main after merge: `1704 passed, 2 deselected, 2 warnings in 237.23s (0:03:57)`; web `Tests  49 passed (49)`.
+- Reviews, as the ledger records them:
+  - "Plan review (ab0e0f7a206ea4eb9, 840e66a): "Ready to execute? Yes"; 0 Critical, 0 Important, 3 Minor. R10 applied Minors 1-2 (b478e25); the user chose R11 for Minor 3."
+  - "Task 1: task review (a88b560ab07501a65, 7c38281..7e726e0): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 3 Minor; 2 ⚠️ items (red/green/mutant/gate counts from the report; whether the 2 warnings are baseline)."
+  - "Task 2: task review (ac1547ba2f28ff1b3, 7e726e0..5b39144): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 4 Minor; 1 ⚠️ item (red/green/mutant/gate counts and the banned-word grep from the report)."
+  - "Task 3: task review (ab9fae35cf2625fce, 5b39144..db34fa4): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 1 Minor; ⚠️ items (red/green/web gate from the report; the banned-word grep; that the adapter sends 'timeout')."
+  - "Final review (adadf2b9c0d8d306f, d049be7..db34fa4): "Ready to merge? Yes"; 0 Critical, 0 Important, 3 Minor; deferred-minor triage: all 7 "No" (none must be fixed before merge); the reviewer ran a real httpx.ReadTimeout through http_fetch into serp(): SerpPage([], 4000, 'timeout')."
+  - "Fix 1 + docs review (aca8573b098807b40, db34fa4..584be30): "Ready to merge? With fixes"; 0 Critical, 0 Important, 5 Minor."
+  - "Re-review (a5483b2df6e2f0931, 584be30..74e7621): "Ready to merge? Yes"; Minors 1, 2, 5 and three of 3's statements resolved; worker.py comment and R15 left by decision; 0 new findings."
+  - "Diagnostic docs review (acf10e479e9cd64f5, 74e7621..5a45934): "Ready to merge? With fixes"; 1 Important (the note's "echoed the task as sent (India, location code 2356, google.com …)" is wider than its source: the echo has location_code and se_domain null and adds os windows; 2356 and google.com come from the result), 0 Minor."
+  - "Re-review (a4acf1f472ccec68e, 5a45934..b00499e): "Ready to merge? Yes"; R18's finding resolved; 0 new findings; side note: the observation log said null where the keys are absent — corrected in the log."
+- Rulings from planning and execution: R12–R18, in the spec's Rulings. The twelve deferred minors are quoted in the spec's "Deferred minors" section.
