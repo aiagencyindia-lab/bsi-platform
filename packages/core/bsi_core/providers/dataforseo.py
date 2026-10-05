@@ -91,7 +91,7 @@ def _status(value: object) -> int | None:
     return value if 0 <= value <= MAX_STATUS else None
 
 
-MAX_COST_USD = 1  # per call; the expected price is about $0.004
+MAX_COST_USD = 1  # per call; the observed price is $0.002 (2026-10-05)
 
 
 def _micros(cost: object) -> int:
