@@ -302,4 +302,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-(Filled in after execution.)
+- Task 1: commit b90397e; Task 2: commit 6c03876 (each task review says "✅ Spec compliant"; Task 2's implementer edited the worker comment before Step 2 instead of after Step 3, disclosed, no effect). Merged via PR #84 (main `09b62a7`).
+- Implementer gates: gate-task1.txt `1707 passed, 2 deselected, 2 warnings in 192.30s (0:03:12)`; gate-task2.txt `1708 passed, 2 deselected, 2 warnings in 166.11s (0:02:46)`. Controller gates on 6c03876: `1708 passed, 2 deselected, 2 warnings in 169.18s (0:02:49)`, web `Tests  49 passed (49)`. CI: `gates` passed in 4m25s with `1708 passed, 2 deselected, 2 warnings in 145.86s (0:02:25)`. Gates on main after merge: `1708 passed, 2 deselected, 2 warnings in 349.93s (0:05:49)`; web `Tests  49 passed (49)`.
+- Reviews, as the ledger records them:
+  - "Plan review (ae84599358966be15, e5fcd99): "Ready to execute? With fixes"; 0 Critical, 0 Important, 5 Minor; R7 applied Minors 1-3 and 5 (9bee914), Minor 4 left (departure 4)."
+  - "Task 1: task review (aaf69ae49d847296a, 9bee914..b90397e): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor; ⚠️ items (gate/red/mutant from the report; the trailer; the 2 third-party warnings)."
+  - "Task 2: task review (ae37c2bf079b16018, b90397e..6c03876): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor; ⚠️ items (counts, mutant, gate, crawl.py restore — from the report)."
+  - "Final review (ae27c97b6686f8b2a, afc5126..6c03876): "Ready to merge? Yes"; 0 Critical, 0 Important, 1 Minor; deferred-minor triage: all 4 "Not needed before merge"; a spy confirmed each pre-send case hits its own site (crawl.py:297, 308)."
+- Rulings from execution: R8, in the spec's Rulings. The five deferred minors are quoted in the spec's "Deferred minors" section.
