@@ -663,4 +663,19 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-(Filled in by the post-merge docs commit.)
+- Task 1: commit b069bd7; Task 2: commit 9d30d14; Task 3: commit 8c231d1. Each task review says "✅ Spec compliant" and "Task quality: Approved"; no fix rounds. Merged via PR #86 (main `af2ec9c`).
+- Before execution, the commit trailer in Global Constraints and the three commit commands changed from Fable 5.1 to Opus 5.5 (R9, commit b909f82); that edit was not re-reviewed.
+- Gates and CI, as the ledger records them:
+- "Task 1: implementer a97620975024bea4c, commit b069bd7; report: red 14 failed 11 passed (UndefinedFunction), green 25 passed, gate exit 0, gate-task1.txt 1722 passed, 2 deselected, 2 warnings, coverage 100%."
+- "Task 2: implementer ade870839fa0afe1b, commit 9d30d14 (trailer Opus 5.5 checked); report: red 6 failed 25 passed (AttributeError), green 31 passed, gate exit 0, gate-task2.txt 1728 passed, 2 deselected, 2 warnings, coverage 100%."
+- "Task 3: implementer a00a98821c7913e0b, commit 8c231d1; report: web gate exit 0, Tests 49 passed (49), Compiled successfully."
+- "Controller gates on 8c231d1: backend gate exit 0, 1728 passed, 2 deselected, 2 warnings in 498.98s (0:08:18), mypy Success, coverage 100%; web gate exit 0, Tests  49 passed (49), Compiled successfully."
+- "CI run 37375333423: success, 1728 passed, 2 deselected, 2 warnings in 157.90s (0:02:37); web Compiled successfully. PR #86 merged by the controller after the user chose "Merge, then docs PR" (2026-10-06)."
+- "Gates on main af2ec9c after merge: backend 1728 passed, 2 deselected, 2 warnings in 533.14s (0:08:53); web Tests  49 passed (49)."
+- Reviews, as the ledger records them:
+- "Plan review (aa8f10bf79af1addd, 9f7793a): "Ready to execute? Yes"; 0 Critical, 0 Important, 3 Minor."
+- "Task 1: task review (aa2a29b8913e6364b, b909f82..b069bd7): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 3 Minor. ⚠️ item (red/green/gate from the report) resolved by the controller: the report holds the red and green last lines and the UndefinedFunction failure, and gate-task1.txt's tail reads 1722 passed, 2 deselected, 2 warnings, 100% coverage."
+- "Task 2: task review (acdbe6a072d4b46c9, b069bd7..9d30d14): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor. ⚠️ item (the sweep counts a brand whose enqueue_job hit an existing job in the same hour slot) resolved by the controller as not a gap: a job in the current hour's slot blocks the brand through condition 4 unless it was created over 24 hours before that slot, and the API's audit_serp route queues with the default slot (this hour); the only effect would be a log count."
+- "Task 3: task review (a5c2ecd9bcc4f3d0c, 9d30d14..8c231d1): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 1 Minor. ⚠️ items resolved by the controller: the commit's trailer reads "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" (git log); the banned-word grep's exit is in the report, and the one added line has none of the words."
+- "Final review (a9ae9f028735e746c, dbcb2df..8c231d1): "Ready to merge? Yes"; 0 Critical, 0 Important, 2 Minor; every deferred minor triaged "no fix" before merge. Its "could not check" (the owning role needs BYPASSRLS, or condition 3 sees no pages) was checked by the controller on dev: bsi_owner has rolbypassrls t (and is superuser); bsi_app is NOBYPASSRLS. Production GCP is not built (sub-project 9)."
+- Rulings made after the spec was written (R7–R10) are quoted in the spec's "Rulings" section and in docs/findings-slice43.md §3, with every deferred minor.
