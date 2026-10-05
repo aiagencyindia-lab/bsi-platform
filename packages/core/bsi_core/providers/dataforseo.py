@@ -15,7 +15,7 @@ URL = "https://api.dataforseo.com/v3/serp/google/organic/live/advanced"
 SERP_UA = "bsi-platform-serp/1.0"
 SERP_CAP_BYTES = 4 * 1024 * 1024
 SERP_TIMEOUT_SECONDS = 120  # DataForSEO's advice for live SERP calls
-TIMEOUT_MICROS = 4_000  # one call's expected price, about $0.004
+TIMEOUT_MICROS = 2_000  # one call's price, $0.002 (observed 2026-10-05)
 # ponytail: a static table of the provider's location names, one line
 # per country as locales arrive; an unknown country is error "location".
 LOCATIONS = {"IN": "India"}

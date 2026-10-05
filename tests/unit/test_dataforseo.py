@@ -156,7 +156,7 @@ def test_the_call_waits_for_the_serp_timeout():
 
 def test_a_read_timeout_is_timeout_with_the_expected_cost():
     resp = Response(0, error="ReadTimeout('The read operation timed out')")
-    assert _serp(Fetch(resp)) == SerpPage([], 4_000, "timeout")
+    assert _serp(Fetch(resp)) == SerpPage([], 2_000, "timeout")
 
 
 @pytest.mark.parametrize(
