@@ -494,3 +494,109 @@ def test_due_serves_every_tenant_in_brand_id_order(owner, make_org, make_brand):
         for org in (a, b)
     ]
     assert due() == sorted(brands)
+
+
+def test_the_sweep_queues_one_job_per_due_brand_once(
+    configured, owner, make_org, make_brand
+):
+    a = make_org("A")
+    b = make_org("B")
+    brands = {
+        _declared(owner, a, make_brand(a)),
+        _declared(owner, b, make_brand(b)),
+    }
+    assert worker.queue_due_serp_audits() == 2
+    assert worker.queue_due_serp_audits() == 0  # a job is waiting
+    jobs = _serp_jobs(owner)
+    assert {j.brand_id for j in jobs} == brands and len(jobs) == 2
+    assert all((j.status, j.params) == ("queued", {}) for j in jobs)
+
+
+def test_the_sweep_retries_a_failed_audit_after_a_day_not_before(
+    configured, owner, make_org, make_brand
+):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    assert worker.queue_due_serp_audits() == 1
+    (job,) = _serp_jobs(owner)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Job)
+            .where(m.Job.id == job.id)
+            .values(status="failed", error="timeout")
+        )
+    assert worker.queue_due_serp_audits() == 0
+    assert [(j.id, j.status) for j in _serp_jobs(owner)] == [(job.id, "failed")]
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Job)
+            .where(m.Job.id == job.id)
+            .values(
+                created_at=datetime.now(UTC) - timedelta(hours=25),
+                scheduled_slot=datetime.now(UTC) - timedelta(hours=25),
+            )
+        )
+    assert worker.queue_due_serp_audits() == 1
+    assert [(j.brand_id, j.status) for j in _serp_jobs(owner)] == [
+        (bid, "failed"),
+        (bid, "queued"),
+    ]
+
+
+def test_the_sweep_skips_a_brand_while_the_budget_has_no_room(
+    configured, owner, make_org, make_brand
+):
+    org = make_org()
+    _declared(owner, org, make_brand(org))
+
+    def budget(usd):
+        with owner() as s, s.begin():
+            s.execute(
+                update(m.Organization)
+                .where(m.Organization.id == org.id)
+                .values(daily_budget_usd=Decimal(usd))
+            )
+
+    budget("0.03")  # under the job's $0.04 estimate
+    assert worker.queue_due_serp_audits() == 0
+    assert _serp_jobs(owner) == []  # no job, so the brand stays due
+    budget("0.04")
+    assert worker.queue_due_serp_audits() == 1
+    assert [j.status for j in _serp_jobs(owner)] == ["queued"]
+
+
+@pytest.mark.parametrize(
+    "missing", [{"login": ""}, {"password": ""}], ids=["login", "password"]
+)
+def test_the_sweep_queues_nothing_without_credentials(
+    monkeypatch, owner, make_org, make_brand, missing
+):
+    monkeypatch.setattr(worker, "get_settings", _settings(**missing))
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org))
+    assert due() == [bid]
+    assert worker.queue_due_serp_audits() == 0
+    assert _serp_jobs(owner) == []
+
+
+def test_a_swept_job_stores_the_pages_and_the_brand_is_no_longer_due(
+    configured, owner, make_org, make_brand
+):
+    org = make_org()
+    bid = _declared(owner, org, make_brand(org, "Walkaroo"))
+    assert worker.queue_due_serp_audits() == 1
+    assert _run(Fetch(Response(200, body()))) is True
+    (job,) = _serp_jobs(owner)
+    assert (job.status, job.error) == ("done", None)
+    assert [(r.kind, r.error) for r in _rows(owner, bid)] == [
+        ("brand", None),
+        ("reviews", None),
+    ]
+    # Not due for a week, even once the job is over a day old.
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Job)
+            .where(m.Job.id == job.id)
+            .values(created_at=datetime.now(UTC) - timedelta(hours=25))
+        )
+    assert due() == []

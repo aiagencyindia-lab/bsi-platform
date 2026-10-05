@@ -827,6 +827,53 @@ def queue_due_crawl_audits() -> int:
     return queued
 
 
+def queue_due_serp_audits() -> int:
+    """Queue a Brand SERP audit for every brand due one; returns how many.
+
+    Like queue_due_crawl_audits, one brand's failure never stops the
+    others. Unlike it:
+    - a queued job makes its brand not due, so a second call returns 0;
+    - with no DataForSEO credentials nothing is queued: each due
+      brand's job would fail as serp_not_configured, up to three times
+      a week;
+    - a brand is skipped, with no job, while its org's budget has no
+      room for the job's estimate. It stays due and is queued once
+      there is room; process_job checks the budget again at claim time.
+
+    ponytail: every due brand is queued in one sweep and jobs run one at
+    a time ahead of observations; spread the audits across the week when
+    there are a few hundred brands.
+    """
+    settings = get_settings()
+    if not (
+        settings.dataforseo_login
+        and settings.dataforseo_password.get_secret_value()
+    ):
+        return 0
+    with system_session() as s:
+        due = s.execute(
+            text("SELECT brand_id, org_id FROM due_serp_audits()")
+        ).all()
+    queued = 0
+    for brand_id, org_id in due:
+        try:
+            with tenant_session(org_id) as s:
+                if not budget_fits(s, org_id, 0, extra_micros=SERP_JOB_MICROS):
+                    continue
+                enqueue_job(
+                    s,
+                    org_id,
+                    brand_id,
+                    "audit_serp",
+                    {},
+                    requeue_failed=False,
+                )
+            queued += 1
+        except Exception:
+            log.exception("brand %s serp audit queue failed", brand_id)
+    return queued
+
+
 def _record_failure(
     org_id: uuid.UUID, obs_id: uuid.UUID, error: str, retryable: bool
 ) -> None:
@@ -1224,6 +1271,10 @@ def main() -> None:
                 log.info("queued %d rival crawls", queue_due_rival_crawls())
             except Exception:
                 log.exception("queue_due_rival_crawls failed")
+            try:
+                log.info("queued %d serp audits", queue_due_serp_audits())
+            except Exception:
+                log.exception("queue_due_serp_audits failed")
             try:
                 log.info("scanned %d brands for alerts", scan_due_alerts())
             except Exception:
