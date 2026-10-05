@@ -493,7 +493,7 @@ with
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npx vitest run src/lib/format.test.ts 2>&1 | grep -E "Tests "`
-Expected: all passed, 0 failed.
+Expected: `Tests  28 passed (28)` (27 existing tests in format.test.ts plus the new one).
 
 - [ ] **Step 5: Banned-word grep, then the web gate**
 
@@ -520,7 +520,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   5. The commit messages are the plan's wording; the spec does not give them.
   6. The per-task backend counts (1696 after Task 1) are the plan's arithmetic; the spec gives only the final 1704.
   7. The header offers superpowers:executing-plans as well as subagent-driven-development (the template's wording); the controller uses subagent-driven execution.
-- Rulings applied to this plan: the spec's R1, R2, R4–R8.
+- Rulings applied to this plan: the spec's R1–R9 (R3 in the renamed locale test, R9 in the findings note), and R10 (the plan review's two wording points).
 - Placeholders: `<workspace>` (the plan's directory under the git-ignored `.superpowers/sdd/`, supplied in the task brief) and `<N>` (the task number).
 - Type consistency: `http_fetch(..., deadline_seconds: float | None = None, phase_seconds: float | None = None)` in Task 1 matches `SerpFetch` and the call in Task 2; the code `timeout` matches Task 3's label key.
 
