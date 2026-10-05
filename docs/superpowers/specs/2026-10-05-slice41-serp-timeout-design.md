@@ -286,6 +286,7 @@ Run 2026-10-05 in the scratchpad (copies of `packages/core/bsi_core` and `apps/w
 
   - Note (2026-10-05, slice 41): the SERP call now has a longer fetch deadline: it passes 120 s as `http_fetch`'s new `deadline_seconds` and `phase_seconds` (slice 41 R1, R11).
   and, added after the re-run before merge (R16), a note after the 2026-10-05 note recording the fifth attempt, which returned pages.
+  and, added after the diagnostic call (R17), a note after that one recording it.
 - Post-merge docs PR: the plan's "Changes made during execution", rulings from execution, deferred minors.
 - After merge: the slice 37 live check is re-run only after the user is asked (free account call, then one audit of 2 searches, about $0.008 inferred), recorded in its own docs PR.
   - Note (2026-10-05, R16): re-run before merge at the user's request; recorded in findings-slice37 §2 by this branch; the audit cost $0.004.
