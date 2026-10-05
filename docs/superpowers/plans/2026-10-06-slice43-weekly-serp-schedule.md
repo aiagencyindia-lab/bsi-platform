@@ -24,7 +24,7 @@
 - **Backend gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform && { uv run ruff format . && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100; } > <workspace>/gate-task<N>.txt 2>&1; echo "gate exit $?"`. If `ruff format .` changed a file, re-stage it and say so.
 - **Web gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npm run gate > <workspace>/gate-web.txt 2>&1; echo "gate exit $?"`.
 - **`<workspace>`:** the path given in your task brief; if none is given, stop and ask.
-- **Commit trailer:** exactly `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- **Commit trailer:** exactly `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - **Baseline counts** (main `dbcb2df`): backend `1708 passed, 2 deselected`; tests/integration/test_serp_audit.py has 11 tests; web 49 vitest. After Task 1: the file has 25 test items, backend `1722 passed, 2 deselected`. After Task 2: 31 test items, backend `1728 passed, 2 deselected`. (Backend totals computed, not yet run.) Task 3 changes no count.
 
 ## File map
@@ -369,7 +369,7 @@ query kind has no error-free page in 7 days, unless an audit_serp job
 was created in the last day, one is waiting, or three have failed in
 the 7 days.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -598,7 +598,7 @@ due_serp_audits() lists, once a minute. Nothing is queued without
 DataForSEO credentials, and a brand is skipped with no job while its
 org's budget has no room for the job's estimate.
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
@@ -640,7 +640,7 @@ Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add "apps/web/src/app
 ```bash
 cd /Users/vineet/Downloads/ADK/bsi-platform && git add "apps/web/src/app/(app)/b/[id]/serp/page.tsx" && git commit -m "feat(web): the Brand SERP page says the audit is weekly
 
-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
 ---
