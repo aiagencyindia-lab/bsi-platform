@@ -160,6 +160,7 @@ const SERP_ERRORS: Record<string, string> = {
   paused: "the SERP provider paused the account; contact its support",
   funds: "the SERP provider account has no balance",
   rate: "the SERP provider's rate limit was hit",
+  timeout: "the SERP provider took too long to answer",
   http: "the SERP provider returned an error or could not be reached",
   truncated: "the SERP provider's answer was too large",
   json: "the SERP provider's answer could not be read",
