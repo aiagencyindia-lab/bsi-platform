@@ -40,6 +40,15 @@ Results, as the Task 1 report records them:
 
 None in this slice (spec §2). No dev row is stale until 2026-10-06 13:10 UTC (18:40 IST); a check is a separate, later decision with its own approval.
 
+- Note (2026-10-06, live check run after slice 43 merged, main `ad736d8`, dev at migration 0023): the user approved it in chat ("Run it now") after a read-only pre-check. Observed (controller's terminal output and dev queries):
+  - Before: 9 `keyword_search` rows, all for `BSOAgentTestBrand` `34db213a`. Eight had `searched_at` 2026-09-29 13:10:34 UTC and were stale (the 7 plural keywords and "navy flip flops"); "mens flip flops" (2026-09-30 09:27:13 UTC) was fresh. The brand has 10 products. No job was queued or running, and the org had spent $0 that day.
+  - `POST /v1/brands/34db213a…/products/run` with the dev API key returned 202 at about 14:05 UTC, job `45dea89a`. This is a write: it queued the job and set `api_key.last_used_at` to 2026-10-06 14:05:03 UTC. The API was then stopped. `process_job` ran once, with no worker loop, and returned `True` in 133.0 s.
+  - Seven grounded searches ran, each for one of the 7 plural keywords ("kids sandals", "kids shoes", "kids slippers", "men sandals", "men shoes", "women sandals", "women slippers"), IN/en, costing 37,255, 45,057, 37,167, 37,042, 36,862, 36,525 and 37,502 micros (267,410 in all), in 6.3–26.2 s each.
+  - The job finished `done` with cost 280,583 micros ($0.2806). The difference from the searches, 13,173 micros, is the job's other model calls. Each new row's `cost_micros` includes its title-parse call (38,173, 46,029, 38,112, 37,944, 37,797, 37,419 and 38,481; 273,955 in all), so 6,545 went to the 7 parse calls and 6,628 to the remaining calls.
+  - After: 8 rows. The 7 re-searched keywords have `searched_at` 2026-10-06 14:05:09 UTC; "mens flip flops" is unchanged; "navy flip flops" is gone. Across the whole table there are 8 rows. Of the brand's 10 products, 9 have `rule_check` `pass` and 1 `adjusted`.
+  - Confirmed: the run deleted the stale row no product keyword used ("navy flip flops"), which the upsert alone would have left. The cost was within about 3% of the spec's estimate (280,583 micros against 272,600, about 7 searches). Inferred from the code (products.py, the `DELETE` at run start, which commits before any search): all 8 stale rows were deleted at run start and the 7 were inserted again; the run's output cannot show this directly.
+  - Inferred: the Gemini running total is now about $11.26 of the $15 cap (about $10.98 before, plus $0.28).
+
 ## 3. Deferred and untested
 
 From the task reviews (ledger lines tagged `minor (deferred)`):
