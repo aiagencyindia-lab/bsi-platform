@@ -61,6 +61,7 @@ ALERT_LABEL = {
     "mention_drop": "Mention drop",
     "competitor_shift": "Competitor shift",
     "new_source": "New source",
+    "serp_drop": "Brand SERP drop",
 }
 # Client-facing wording for source owners; every other non-audit code
 # reads as words by the rule in label().

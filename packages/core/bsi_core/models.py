@@ -57,7 +57,12 @@ IMPACT_LABELS = (
     # not a shortage of data and must not be reported as one.
     "not_comparable",
 )
-ALERT_TYPES = ("mention_drop", "competitor_shift", "new_source")
+ALERT_TYPES = (
+    "mention_drop",
+    "competitor_shift",
+    "new_source",
+    "serp_drop",
+)
 REPORT_TYPES = ("cmo", "seo", "content", "pr", "agency")
 REPORT_CADENCES = ("off", "weekly", "monthly")
 RUN_SOURCES = ("scheduled", "manual")
@@ -457,6 +462,7 @@ class Alert(Tenant, Base):
     brand_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("brand.id"))
     type: Mapped[str]
     # mention_rate | <competitor_id>:<up|down> | <domain>
+    # | <kind>:<country>:<language> (serp_drop)
     subject_key: Mapped[str]
     title: Mapped[str]
     detail: Mapped[dict[str, Any]] = mapped_column(server_default="{}")

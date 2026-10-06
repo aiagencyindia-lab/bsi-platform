@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from bsi_core import models as m
 from bsi_core.alerts import (
     DROP_DAYS,
@@ -15,7 +16,9 @@ from bsi_core.alerts import (
 )
 from bsi_core.db import system_session, tenant_session
 from bsi_core.metrics import Filters, brand_deltas
+from bsi_core.reports import ALERT_LABEL
 from sqlalchemy import func, select, text, update
+from sqlalchemy.exc import IntegrityError
 
 from tests.integration.test_competitors import (  # noqa: F401
     NOW,
@@ -341,3 +344,16 @@ def test_is_duplicate_matches_only_a_younger_alert_of_the_same_subject(
         s.execute(update(m.Alert).values(window_to=NOW - timedelta(days=8)))
     with tenant_session(org.id) as s:
         assert not is_duplicate(s, bid, c)
+
+
+def test_the_alert_type_check_accepts_serp_drop(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    assert _alert(owner, org, bid, type="serp_drop", subject_key="brand:IN:en")
+    with pytest.raises(IntegrityError, match="ck_alert_type"):
+        _alert(owner, org, bid, type="serp_change")
+
+
+def test_every_alert_type_has_a_report_label():
+    assert set(ALERT_LABEL) == set(m.ALERT_TYPES)
+    assert ALERT_LABEL["serp_drop"] == "Brand SERP drop"
