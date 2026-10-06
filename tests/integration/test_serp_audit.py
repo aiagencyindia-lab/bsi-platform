@@ -600,3 +600,23 @@ def test_a_swept_job_stores_the_pages_and_the_brand_is_no_longer_due(
             .values(created_at=datetime.now(UTC) - timedelta(hours=25))
         )
     assert due() == []
+
+
+def test_serp_audit_is_indexed_by_brand_and_fetch_time(owner):
+    with owner() as s:
+        found = s.scalars(
+            text(
+                "SELECT indexdef FROM pg_indexes WHERE tablename = "
+                "'serp_audit' AND indexname = 'ix_serp_audit_brand_fetched'"
+            )
+        ).all()
+    assert found == [
+        "CREATE INDEX ix_serp_audit_brand_fetched ON public.serp_audit "
+        "USING btree (brand_id, fetched_at)"
+    ]
+    (index,) = [
+        i
+        for i in m.SerpAudit.__table__.indexes
+        if i.name == "ix_serp_audit_brand_fetched"
+    ]
+    assert [c.name for c in index.columns] == ["brand_id", "fetched_at"]

@@ -221,8 +221,9 @@ def detect_serp_drop(
     pages with the latest page's query, country and language are compared,
     so a renamed brand or a new locale starts a new series.
     """
-    # ponytail: loads every page of the brand; weekly pages stay few. Add
-    # a lookback window if the table grows.
+    # ponytail: loads every page of the brand (the filter is served by
+    # ix_serp_audit_brand_fetched); add a lookback window if a brand's
+    # pages grow many.
     rows = s.scalars(
         select(m.SerpAudit)
         .where(

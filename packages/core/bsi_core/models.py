@@ -636,6 +636,7 @@ class SerpAudit(Tenant, Base):
     error: Mapped[str | None]
     __table_args__ = (
         CheckConstraint(_in("kind", SERP_KINDS), name="ck_serp_audit_kind"),
+        Index("ix_serp_audit_brand_fetched", "brand_id", "fetched_at"),
     )
 
 
