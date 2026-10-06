@@ -188,4 +188,4 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - "Plan review (a0c358bc10d65c032, a6112a2): "Ready to execute? Yes"; 0 Critical, 0 Important, 1 Minor."
   - "Task 1: task review (afcc920ba4ca5b2c5, a6112a2..01552c9): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 3 Minor. ⚠️ items resolved by the controller: the report holds the red and green lines; bsi_test reads 0026 now, as expected during the branch (R2's cost applies until merge); the gate shows "182 files left unchanged"."
   - "Final review (acaddb4811bd2ff4f, 0a09f4d..01552c9): "Ready to merge? Yes"; 0 Critical, 0 Important, 2 Minor; every deferred minor triaged "no fix" before merge."
-- Rulings made after the spec was approved (R5–R6) are quoted in the spec's "Rulings" section and in docs/findings-slice45.md §3, with every deferred minor.
+- R4 (made before the approval but after the approved text) and R5–R6 (made after it) are quoted in the spec's "Rulings" section; R7 (made while fixing the post-merge docs) is quoted only in docs/findings-slice45.md §3, which quotes every ruling and deferred minor.

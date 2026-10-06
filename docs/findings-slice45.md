@@ -4,7 +4,7 @@
 
 Migration 0026 adds `ix_serp_audit_brand_fetched` on `serp_audit (brand_id, fetched_at)`, the index the slice 44 final review deferred; the `SerpAudit` model declares it too. It serves `due_serp_audits()` and the Brand SERP drop detector (brand and a `fetched_at` range); the Brand SERP API uses its `brand_id` part. No behaviour changes; no query-plan change is claimed (dev holds 12 rows).
 
-Spec: docs/superpowers/specs/2026-10-07-slice45-serp-audit-index-design.md (rulings R1–R3 and the correction to R1 in the spec as approved; R4, made before approval but after the approved text, and R5–R6 added to it by this docs commit; R7 was made while fixing these docs). Plan: docs/superpowers/plans/2026-10-07-slice45-serp-audit-index.md (Task 1). Merged via PR #92 (https://github.com/aiagencyindia-lab/bsi-platform/pull/92), main `17925a5`.
+Spec: docs/superpowers/specs/2026-10-07-slice45-serp-audit-index-design.md (rulings R1–R3 and the correction to R1 in the spec as approved; R4, made before approval but after the approved text, and R5–R6 added to it by these docs commits; R7 was made while fixing these docs). Plan: docs/superpowers/plans/2026-10-07-slice45-serp-audit-index.md (Task 1). Merged via PR #92 (https://github.com/aiagencyindia-lab/bsi-platform/pull/92), main `17925a5`.
 
 **Code**: migrations/versions/0026_serp_audit_brand_index.py (new); packages/core/bsi_core/models.py (`SerpAudit.__table_args__` gains the `Index`); packages/core/bsi_core/alerts.py (the `ponytail:` comment in `detect_serp_drop`); tests/integration/test_serp_audit.py (one test, 31 → 32 items).
 
