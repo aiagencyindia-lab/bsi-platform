@@ -49,6 +49,20 @@ Spec: docs/superpowers/specs/2026-10-06-slice43-weekly-serp-schedule-design.md (
 
 Not run yet. It is asked for separately (spec, "Live check"): migrate dev to 0024 (ask first), call `queue_due_serp_audits()` once, then `process_job` once per queued job with a `serp_fetch` wrapper that prints only statuses, codes, costs, item counts and latency; the worker loop is never started. Expected, *inferred*: `BSOAgentTestBrand` `34db213a` is due and Walkaroo is not due until 2026-10-12; 1 job, 2 searches, about $0.004.
 
+- Note (2026-10-06, live check run after PR #88, main `d64f9c2`): the user approved it in chat ("Run it now"), migration included. Observed (controller's terminal output and dev queries):
+  - Before: dev was at migration 0023. No uvicorn, worker or pytest was running, and no job was queued or running. A read-only query of the due rule listed one brand, `BSOAgentTestBrand` `34db213a` (domain `walkaroo.in`, IN/en, no `serp_audit` rows). Walkaroo `1eb6c00a` had error-free `brand` and `reviews` pages from 2026-10-05 15:04 UTC, so it was not listed.
+  - `alembic upgrade head` at about 16:21 UTC moved dev to 0024. `due_serp_audits()` exists and listed `34db213a` only. The free DataForSEO account call returned HTTP 200, `20000`, balance `0.99`.
+  - `queue_due_serp_audits()` returned 1, then 0 on a second call. It queued job `6678dca9` with status `queued`, slot 2026-10-06 16:00 UTC, and params `{}`. The worker loop was not started and the API was not used, so `api_key.last_used_at` was not written.
+  - `process_job` ran once and returned `True` in 40.8 s. Both DataForSEO calls returned HTTP 200 with no error, in 28.39 s and 11.86 s. The wrapper meant to print each call's task code, keyword, cost and item count printed `None` for all four. Per check.py and crawl.py (read afterwards, not observed in the run), it read `r.text`, but `Response` stores the body in `body`, and a bare `except` hid the error. The costs and item counts here come from the stored rows instead.
+  - The job finished `done` with cost 6,000 micros. Two `serp_audit` rows were written, IN/en, with no error:
+    - "BSOAgentTestBrand": cost 2,000, 10 results (9 `other`, 1 `social` `www.linkedin.com`).
+    - "BSOAgentTestBrand reviews": cost 4,000, 9 results (1 `ai_overview`, 1 `review` `www.ambitionbox.com`, 1 `social` `www.facebook.com`, 6 `other`).
+    - Neither page has a `walkaroo.in` result, so ownership is 0.
+  - After: `due_serp_audits()` lists no brand, no job is queued or running, and the free account call returned balance `0.984`.
+  - Confirmed: the migration's function runs on dev; the sweep queues one job for the one due brand and none on a repeat; the job stores both pages; the brand is then not due. A call can cost $0.004: the "reviews" call cost twice the $0.002 seen on 2026-10-05. Its page had an AI Overview, but so did Walkaroo's 2026-10-05 "brand" page (job `40f32b38`), which cost $0.002, so the cause of the $0.004 is not known. The balance fell by $0.006, the same as the job's cost. Dev now stays at 0024, with one more `audit_serp` job and two more `serp_audit` rows (12 in all). `SERP_JOB_MICROS` = 40,000 is five times two $0.004 calls (8,000).
+  - Inferred: the code's $0.002-per-call comments (`TIMEOUT_MICROS`, `MAX_COST_USD` and `SERP_JOB_MICROS` in dataforseo.py and worker.py) describe one observed price, not every call.
+  - Rulings made while writing this note, each from its docs review and named in chat: R12, the margin is five times, not ten (my arithmetic error); R13, the AI Overview clause no longer implies a cause; R14, the `r.text` explanation is marked as read from the code; R15, the dev state after the run moves from "Inferred" to the observed facts. Cost if wrong: none to behaviour. The re-review's one new Minor (these four first reused the names R1–R4) is fixed by this renaming, which was not reviewed again.
+
 ## 3. Rulings and deferred minors
 
 Every `Ruling:` line in the ledger, verbatim:
