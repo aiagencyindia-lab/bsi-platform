@@ -11,6 +11,7 @@ from bsi_core.alerts import (
     detect_competitor_shift,
     detect_mention_drop,
     detect_new_source,
+    detect_serp_drop,
     is_duplicate,
     scan,
 )
@@ -344,6 +345,304 @@ def test_is_duplicate_matches_only_a_younger_alert_of_the_same_subject(
         s.execute(update(m.Alert).values(window_to=NOW - timedelta(days=8)))
     with tenant_session(org.id) as s:
         assert not is_duplicate(s, bid, c)
+
+
+T0 = datetime(2026, 10, 5, 12, tzinfo=UTC)
+WEEK = timedelta(days=7)
+LATER = T0 + timedelta(days=60)
+
+
+def _serp(
+    owner,
+    org,
+    bid,
+    at,
+    owned,
+    organic=6,
+    *,
+    kind="brand",
+    error=None,
+    country="IN",
+    language="en",
+    query=None,
+    snippet=False,
+):
+    """One stored page with `owned` official organic results of
+    `organic`; snippet adds an official featured snippet."""
+    results = [
+        {
+            "position": i + 1,
+            "item_type": "organic",
+            "result_type": "official" if i < owned else "other",
+            "url": f"https://site{i}.in/",
+            "domain": f"site{i}.in",
+            "title": "t",
+            "sitelinks": False,
+        }
+        for i in range(organic)
+    ]
+    if snippet:
+        results.insert(
+            0,
+            {
+                "position": 0,
+                "item_type": "featured_snippet",
+                "result_type": "official",
+                "url": "https://walkaroo.in/",
+                "domain": "walkaroo.in",
+                "title": "t",
+                "sitelinks": False,
+            },
+        )
+    if query is None:
+        query = "Walkaroo" if kind == "brand" else "Walkaroo reviews"
+    with owner() as s, s.begin():
+        row = m.SerpAudit(
+            org_id=org.id,
+            brand_id=bid,
+            kind=kind,
+            query=query,
+            country=country,
+            language=language,
+            results=results,
+            fetched_at=at,
+            error=error,
+        )
+        s.add(row)
+        s.flush()
+        return row.id
+
+
+def _weekly(owner, org, bid, owned, kind="brand"):
+    """One page a week from T0, with these own-site counts of 6."""
+    return [
+        _serp(owner, org, bid, T0 + i * WEEK, n, kind=kind)
+        for i, n in enumerate(owned)
+    ]
+
+
+def _drops(org, bid, to=LATER):
+    with tenant_session(org.id) as s:
+        return detect_serp_drop(s, bid, to)
+
+
+def test_serp_drop_fires_when_two_later_pages_have_fewer_own_results(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org, "Walkaroo")
+    b = _serp(owner, org, bid, T0, 1, 6)
+    p = _serp(owner, org, bid, T0 + WEEK, 0, 3)
+    last = _serp(owner, org, bid, T0 + 2 * WEEK, 0, 5)
+    (c,) = _drops(org, bid)
+    assert (c.type, c.subject_key) == ("serp_drop", "brand:IN:en")
+    assert c.title == (
+        'Own-site results for "Walkaroo" (IN/en) fell from 1 of 6 to '
+        "0 of 5 (0 of 3 on the previous page compared)"
+    )
+    assert (c.window_from, c.window_to) == (T0, T0 + 2 * WEEK)
+    assert c.detail == {
+        "kind": "brand",
+        "query": "Walkaroo",
+        "country": "IN",
+        "language": "en",
+        "pages": [
+            {"serp_audit_id": b, "fetched_at": T0, "owned": 1, "organic": 6},
+            {
+                "serp_audit_id": p,
+                "fetched_at": T0 + WEEK,
+                "owned": 0,
+                "organic": 3,
+            },
+            {
+                "serp_audit_id": last,
+                "fetched_at": T0 + 2 * WEEK,
+                "owned": 0,
+                "organic": 5,
+            },
+        ],
+        "prompt_ids": [],
+        "observation_ids": [],
+    }
+
+
+@pytest.mark.parametrize(
+    "owned",
+    [[1, 0, 1], [1, 1, 0], [1, 1, 1], [0, 1, 1]],
+    ids=["recovered", "latest-only", "flat", "rise"],
+)
+def test_serp_drop_needs_both_later_pages_below_a_baseline(
+    owner, make_org, make_brand, owned
+):
+    org = make_org()
+    bid = make_brand(org)
+    _weekly(owner, org, bid, owned)
+    assert _drops(org, bid) == []
+
+
+def test_serp_drop_needs_three_pages(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    _weekly(owner, org, bid, [1, 0])
+    assert _drops(org, bid) == []
+
+
+def test_serp_drop_reads_only_pages_fetched_before_to(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _weekly(owner, org, bid, [1, 0, 0])
+    assert _drops(org, bid, to=T0 + 2 * WEEK) == []
+    (c,) = _drops(org, bid, to=T0 + 2 * WEEK + timedelta(seconds=1))
+    assert c.window_to == T0 + 2 * WEEK
+
+
+def test_serp_drop_counts_a_gap_of_exactly_one_day(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    _serp(owner, org, bid, T0, 1)
+    _serp(owner, org, bid, T0 + timedelta(days=1), 0)
+    _serp(owner, org, bid, T0 + timedelta(days=2), 0)
+    (c,) = _drops(org, bid)
+    assert c.window_from == T0
+
+
+def test_serp_drop_pages_are_at_least_a_day_apart(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    # A second press an hour after the latest page cannot confirm it.
+    _serp(owner, org, bid, T0, 1)
+    _serp(owner, org, bid, T0 + WEEK, 0)
+    _serp(owner, org, bid, T0 + WEEK + timedelta(hours=1), 0)
+    assert _drops(org, bid) == []
+    # With a page a week later, the hour-later page is the previous page
+    # and the page an hour before it is skipped: T0 is the baseline.
+    _serp(owner, org, bid, T0 + 2 * WEEK, 0)
+    (c,) = _drops(org, bid)
+    assert c.window_from == T0
+    assert [p["fetched_at"] for p in c.detail["pages"]] == [
+        T0,
+        T0 + WEEK + timedelta(hours=1),
+        T0 + 2 * WEEK,
+    ]
+
+
+def test_serp_drop_ignores_error_and_empty_pages(owner, make_org, make_brand):
+    org = make_org()
+    bid = make_brand(org)
+    _weekly(owner, org, bid, [1, 0, 0])
+    _serp(owner, org, bid, T0 + 3 * WEEK, 0, error="timeout")
+    _serp(owner, org, bid, T0 + 4 * WEEK, 0, 0)  # no organic result
+    (c,) = _drops(org, bid)
+    assert c.window_to == T0 + 2 * WEEK
+    # An empty page in the middle is skipped too: no baseline is left.
+    other = make_brand(org, "Other")
+    _serp(owner, org, other, T0, 1)
+    _serp(owner, org, other, T0 + WEEK, 0, 0)
+    _serp(owner, org, other, T0 + 2 * WEEK, 0)
+    _serp(owner, org, other, T0 + 3 * WEEK, 0, error="http")
+    assert _drops(org, other) == []
+
+
+def test_serp_drop_compares_only_the_latest_pages_locale(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _weekly(owner, org, bid, [1, 0])
+    _serp(owner, org, bid, T0 + 2 * WEEK, 0, country="US")
+    assert _drops(org, bid) == []  # one US page; the IN pages are skipped
+    _serp(owner, org, bid, T0 + 3 * WEEK, 0, country="IN")
+    (c,) = _drops(org, bid)  # IN is latest again; the US page is skipped
+    assert c.subject_key == "brand:IN:en"
+    assert c.window_to == T0 + 3 * WEEK
+    # Another language is another series: two IN/hi pages under an IN/en
+    # baseline are not a drop.
+    other = make_brand(org, "Other")
+    _serp(owner, org, other, T0, 1)
+    _serp(owner, org, other, T0 + WEEK, 0, language="hi")
+    _serp(owner, org, other, T0 + 2 * WEEK, 0, language="hi")
+    assert _drops(org, other) == []
+
+
+def test_serp_drop_compares_only_the_latest_pages_query(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _weekly(owner, org, bid, [1, 0])
+    _serp(owner, org, bid, T0 + 2 * WEEK, 0, query="Walkaroo Footwear")
+    assert _drops(org, bid) == []  # a renamed brand starts a new series
+
+
+def test_serp_drop_judges_each_query_kind_on_its_own(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _weekly(owner, org, bid, [1, 0, 0])
+    _weekly(owner, org, bid, [1, 1, 1], kind="reviews")
+    assert [c.subject_key for c in _drops(org, bid)] == ["brand:IN:en"]
+    _serp(owner, org, bid, T0 + 3 * WEEK, 0, kind="reviews")
+    _serp(owner, org, bid, T0 + 4 * WEEK, 0, kind="reviews")
+    found = _drops(org, bid)
+    assert [c.subject_key for c in found] == ["brand:IN:en", "reviews:IN:en"]
+    assert found[1].title.startswith('Own-site results for "Walkaroo reviews"')
+
+
+def test_serp_drop_counts_only_organic_official_results(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    _serp(owner, org, bid, T0, 1)
+    _serp(owner, org, bid, T0 + WEEK, 0, snippet=True)
+    _serp(owner, org, bid, T0 + 2 * WEEK, 0, snippet=True)
+    (c,) = _drops(org, bid)
+    assert [p["owned"] for p in c.detail["pages"]] == [1, 0, 0]
+
+
+def test_scan_stores_a_serp_drop_once_and_a_further_drop_again(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    weeks = [T0 + i * WEEK for i in range(5)]
+    for at, n in zip(weeks[:3], [2, 1, 1], strict=True):
+        _serp(owner, org, bid, at, n)
+    with tenant_session(org.id) as s:
+        (row,) = scan(s, org.id, bid, LATER, deliver=False)
+        assert (row.type, row.window_to) == ("serp_drop", weeks[2])
+        base = row.detail["pages"][0]["fetched_at"]
+        assert datetime.fromisoformat(base) == weeks[0]
+    with tenant_session(org.id) as s:
+        assert scan(s, org.id, bid, LATER, deliver=False) == []
+    for at in weeks[3:]:
+        _serp(owner, org, bid, at, 0)
+    with tenant_session(org.id) as s:
+        (again,) = scan(s, org.id, bid, LATER, deliver=False)
+        assert (again.window_from, again.window_to) == (weeks[2], weeks[4])
+    with owner() as s:
+        assert s.scalar(select(func.count(m.Alert.id))) == 2
+
+
+def test_scan_stores_a_new_serp_drop_after_a_recovery(
+    owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    weeks = [T0 + i * WEEK for i in range(7)]
+    for at, n in zip(weeks[:3], [1, 0, 0], strict=True):
+        _serp(owner, org, bid, at, n)
+    with tenant_session(org.id) as s:
+        (first,) = scan(s, org.id, bid, LATER, deliver=False)
+    for at, n in zip(weeks[3:], [1, 1, 0, 0], strict=True):
+        _serp(owner, org, bid, at, n)
+    with tenant_session(org.id) as s:
+        (again,) = scan(s, org.id, bid, LATER, deliver=False)
+    assert (first.window_from, first.window_to) == (weeks[0], weeks[2])
+    assert (again.window_from, again.window_to) == (weeks[4], weeks[6])
 
 
 def test_the_alert_type_check_accepts_serp_drop(owner, make_org, make_brand):
