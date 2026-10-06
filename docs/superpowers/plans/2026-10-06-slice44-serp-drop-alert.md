@@ -114,7 +114,7 @@ def test_every_alert_type_has_a_report_label():
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run `cd /Users/vineet/Downloads/ADK/bsi-platform && pgrep -fl pytest` on its own first, then: `cd /Users/vineet/Downloads/ADK/bsi-platform && uv run pytest -q -p no:cacheprovider tests/integration/test_alerts.py tests/integration/test_constraints.py 2>&1 | tail -1`
-Expected: a line starting with `2 failed, 32 passed`. One failure is an `IntegrityError` naming `ck_alert_type` (the insert of a `serp_drop` alert); the other is the label assertion.
+Expected: a line starting with `2 failed, 32 passed`. One failure is an `IntegrityError` naming `ck_alert_type` (the insert of a `serp_drop` alert); the other is `KeyError: 'serp_drop'` in `test_every_alert_type_has_a_report_label`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -863,9 +863,15 @@ Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` (expect
   7. The commit messages are the plan's wording.
   8. The header offers superpowers:executing-plans as well as subagent-driven-development (the template's wording).
 - Fixtures and copy: the fixture values (`Walkaroo`, `Walkaroo reviews`, `Walkaroo Footwear`, `site<i>.in`, `walkaroo.in`, `timeout`, `http`, `serp_change`) and the labels contain no banned word.
-- Verified before execution (R5): Tasks 1 and 2 were applied step by step to a fresh copy of main and run against bsi_test: Task 1 red `2 failed, 32 passed`, green `34 passed`; Task 2 red `1 error` (the ImportError), green `50 passed`; the finished files equal the proof's. Task 3's edits were applied and match the proof's files, but its vitest and web gate steps were not run (vitest runs only inside the repo).
+- Verified before execution (R5, quoted below): Tasks 1 and 2 were applied step by step to a fresh copy of main and run against bsi_test: Task 1 red `2 failed, 32 passed`, green `34 passed`; Task 2 red `1 error` (the ImportError), green `50 passed`; the finished files equal the proof's. Task 3's edits were applied and match the proof's files, but its vitest and web gate steps were not run (vitest runs only inside the repo).
 - Placeholders: `<workspace>` and `<N>`.
 - Type consistency: `detect_serp_drop(s, brand_id, to) -> list[Candidate]` in Task 2's tests and code; Task 1's tests use only `_alert`, `ALERT_LABEL` and `m.ALERT_TYPES`.
+
+## Rulings made while planning
+
+Quoted from the ledger:
+
+> Ruling: R5. Decided: the plan was verified by applying Tasks 1 and 2 step by step to a fresh scratch copy of main's backend and running each step against bsi_test (Task 1 red 2 failed 32 passed, green 34 passed; Task 2 red 1 error, green 50 passed; finished files equal the proof's), then running migration 0025 down to 0024 by alembic. A first verification run aborted midway and left bsi_test at 0025, which made the next run's Task 1 red show 33 errors; the controller downgraded and re-ran. Task 3's vitest and web gate steps were not run before execution. Found by: the controller, verifying the plan. Why: the plan's code is generated from the proof, and each step's expected output is checked by running it. Cost if wrong: Task 3's red step could differ from the plan; the implementer reports it. How named: in chat, 2026-10-06, before the plan commit.
 
 ## Changes made during execution
 
