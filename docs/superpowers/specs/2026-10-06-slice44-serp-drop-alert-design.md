@@ -21,6 +21,7 @@ Decisions approved in chat (brainstorming on Opus 5.5, 2026-10-06), each after a
 4. Build: a fourth detector in the daily scan; over checking after each SERP job, or a separate feed outside alerts.
 5. A renamed brand: only pages with the latest page's query are compared, as with the locale; over leaving it and documenting it, or putting the query into the alert's subject. Asked after the spec review (finding M3).
 6. Live check: none in this slice; over a seeded check on dev, or manual Walkaroo audits a day apart. First chosen with Section 3 on wrong facts (an earliest alert of 2026-10-19), then asked again after the spec review (finding I3) with the facts above.
+7. The title names the middle page "the previous page compared"; over keeping "the page before", or putting dates in the title. Asked after the spec re-review (its Minor 2).
 
 Design Sections 1, 2 and 3 were approved in chat, the text of each shown in its own message before its approval question.
 
@@ -46,7 +47,7 @@ Consequences:
 
 - Type `serp_drop`, labelled "Brand SERP drop"; subject `{kind}:{country}:{language}`; `window_from` = B's `fetched_at`, `window_to` = L's.
 - Duplicates: the same pages scanned again are suppressed; a further drop (for example 2 → 1, then 1 → 0) or a drop after a recovery is new, because its baseline is at or after the earlier alert's latest page and `is_duplicate` compares with a strict "later than".
-- Title, for example: `Own-site results for "Walkaroo" (IN/en) fell from 1 of 6 to 0 of 5 (0 of 3 on the page before)`.
+- Title, for example: `Own-site results for "Walkaroo" (IN/en) fell from 1 of 6 to 0 of 5 (0 of 3 on the previous page compared)`.
 - Detail: `kind`, `query`, `country`, `language`, `pages` (baseline, previous, latest: `serp_audit_id`, `fetched_at`, `owned`, `organic`), and empty `prompt_ids` and `observation_ids`.
 - Delivery: unchanged; the webhook body already carries `type`, `title`, `subject_key` and `detail`.
 
@@ -94,7 +95,7 @@ packages/core/bsi_core/alerts.py, as a diff against main `ae465d3`:
 +        f'Own-site results for "{query}" ({country}/{language}) fell from '
 +        f"{base['owned']} of {base['organic']} to "
 +        f"{last['owned']} of {last['organic']} "
-+        f"({prev['owned']} of {prev['organic']} on the page before)"
++        f"({prev['owned']} of {prev['organic']} on the previous page compared)"
 +    )
 +
 +
@@ -102,7 +103,7 @@ packages/core/bsi_core/alerts.py, as a diff against main `ae465d3`:
 +    s: Session, brand_id: uuid.UUID, to: datetime
 +) -> list[Candidate]:
 +    """A Brand SERP page whose own-site organic results fell, confirmed
-+    by the page before it: the latest page (L), the newest page at least
++    by an earlier page: the latest page (L), the newest page at least
 +    SERP_GAP before it (P) and the newest at least SERP_GAP before P (B,
 +    the baseline). Fires when L and P both have fewer than B.
 +
@@ -406,7 +407,7 @@ def test_serp_drop_fires_when_two_later_pages_have_fewer_own_results(
     assert (c.type, c.subject_key) == ("serp_drop", "brand:IN:en")
     assert c.title == (
         'Own-site results for "Walkaroo" (IN/en) fell from 1 of 6 to '
-        "0 of 5 (0 of 3 on the page before)"
+        "0 of 5 (0 of 3 on the previous page compared)"
     )
     assert (c.window_from, c.window_to) == (T0, T0 + 2 * WEEK)
     assert c.detail == {
@@ -651,16 +652,16 @@ Each of these 17 changes to the code fails at least one test (the parts of the r
 | M5 | pages with no organic result are kept | 1 | `test_serp_drop_ignores_error_and_empty_pages` |
 | M6 | error pages are kept | 1 | `test_serp_drop_ignores_error_and_empty_pages` |
 | M7 | pages of every country are compared | 1 | `test_serp_drop_compares_only_the_latest_pages_locale` |
-| M14 | pages of every language are compared | 1 | `test_serp_drop_compares_only_the_latest_pages_locale` |
-| M15 | pages of every query are compared | 1 | `test_serp_drop_compares_only_the_latest_pages_query` |
-| M16 | pages fetched at `to` are read (`<=`) | 1 | `test_serp_drop_reads_only_pages_fetched_before_to` |
-| M17 | a gap of exactly one day does not count (`>`) | 1 | `test_serp_drop_counts_a_gap_of_exactly_one_day` |
 | M8 | both query kinds' pages are mixed | 10 | `test_scan_stores_a_new_serp_drop_after_a_recovery`, `test_scan_stores_a_serp_drop_once_and_a_further_drop_again`, `test_serp_drop_compares_only_the_latest_pages_locale`, `test_serp_drop_counts_a_gap_of_exactly_one_day`, `test_serp_drop_counts_only_organic_official_results`, `test_serp_drop_fires_when_two_later_pages_have_fewer_own_results`, `test_serp_drop_ignores_error_and_empty_pages`, `test_serp_drop_judges_each_query_kind_on_its_own`, `test_serp_drop_pages_are_at_least_a_day_apart`, `test_serp_drop_reads_only_pages_fetched_before_to` |
 | M9 | every `official` result counts, organic or not | 1 | `test_serp_drop_counts_only_organic_official_results` |
 | M10 | `detect_serp_drop` left out of `DETECTORS` | 2 | `test_scan_stores_a_new_serp_drop_after_a_recovery`, `test_scan_stores_a_serp_drop_once_and_a_further_drop_again` |
 | M11 | `window_from` is the latest page, not the baseline | 5 | `test_scan_stores_a_new_serp_drop_after_a_recovery`, `test_scan_stores_a_serp_drop_once_and_a_further_drop_again`, `test_serp_drop_counts_a_gap_of_exactly_one_day`, `test_serp_drop_fires_when_two_later_pages_have_fewer_own_results`, `test_serp_drop_pages_are_at_least_a_day_apart` |
 | M12 | migration 0025 keeps the old three types | 4 | `test_scan_stores_a_new_serp_drop_after_a_recovery`, `test_scan_stores_a_serp_drop_once_and_a_further_drop_again`, `test_slice6_checks_match_their_constants[ck_alert_type-values4]`, `test_the_alert_type_check_accepts_serp_drop` |
 | M13 | no report label for `serp_drop` | 1 | `test_every_alert_type_has_a_report_label` |
+| M14 | pages of every language are compared | 1 | `test_serp_drop_compares_only_the_latest_pages_locale` |
+| M15 | pages of every query are compared | 1 | `test_serp_drop_compares_only_the_latest_pages_query` |
+| M16 | pages fetched at `to` are read (`<=`) | 1 | `test_serp_drop_reads_only_pages_fetched_before_to` |
+| M17 | a gap of exactly one day does not count (`>`) | 1 | `test_serp_drop_counts_a_gap_of_exactly_one_day` |
 
 ## Rulings
 
@@ -671,6 +672,10 @@ Quoted from the ledger:
 > Ruling: R2. Decided: the proof ran in a scratch copy of main's backend against the shared test database bsi_test, so the test session applied migration 0025 for real; afterwards the proof ran the migration down to 0024, up and down again through alembic, and read alembic_version (0024) and ck_alert_type. Found by: the controller, setting up the proof. Why: it exercises the migration file itself, as slice 43's R7 did. Cost if wrong: bsi_test left at 0025 would break test sessions on main until downgraded. How named: in chat, 2026-10-06, after the proof run.
 
 > Ruling: R3. Decided: the spec review's other findings are fixed in the spec and the proof: the PRD section is F15, not F09, and the alert's window is its pages (I1); tests and mutants are added for the "fetched before `to`" filter, the exact one-day gap, the language part of the locale and a recovery followed by a new drop, and the table's claim is limited to what it covers (I2); the earliest-alert date and the dev facts are corrected (I3); the spec's diffs carry full hunks (M1); the module docstring, the `is_duplicate` docstring and the `subject_key` comment in models.py are updated (M2); "the page before them" is reworded as the baseline (M4); the scan test parses the stored time instead of comparing a string (M5); the bad-type assertion matches `ck_alert_type` (M6); "pairs" is defined and the two-page case moves to its own test (M7). Found by: the spec reviewer (Opus 5.5), 2026-10-06. Why: each is a wrong or incomplete statement or a test gap, not a design choice. Cost if wrong: none to behaviour beyond the added tests. How named: in chat, 2026-10-06, after the review.
+
+> Ruling: R4. Decided: the re-review's other two Minors: R1's "13 mutants" gets a correction note (1); the mutation table is sorted by mutant number, and the alerts page's "daily over rolling windows" stays as it is, since the spec defines this alert's window as its run of pages (3). Found by: the spec re-reviewer (Opus 5.5), 2026-10-06. Why: a stale count and a cosmetic order; the page wording is still true. Cost if wrong: none to behaviour. How named: in chat, 2026-10-06, after the re-review.
+
+> Correction to R1 (2026-10-06, from the re-review): after the spec review's fixes there are 17 mutants, not 13; each fails at least one named test.
 
 ## Deferred minors
 
