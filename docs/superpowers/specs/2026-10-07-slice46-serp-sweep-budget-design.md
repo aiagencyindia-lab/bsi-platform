@@ -34,14 +34,15 @@ apps/workers/bsi_workers/worker.py, as a diff against main `95d32ad`:
 +      room; process_job checks the budget again at claim time.
  
      ponytail: every due brand is queued in one sweep and jobs run one at
-@@ -859,5 +861,16 @@ def queue_due_serp_audits() -> int:
+@@ -859,5 +861,17 @@ def queue_due_serp_audits() -> int:
          try:
              with tenant_session(org_id) as s:
 -                if not budget_fits(s, org_id, 0, extra_micros=SERP_JOB_MICROS):
 +                # ponytail: a "Run audit now" press committed after this
 +                # count is missed (the API takes no lock); process_job's
-+                # claim check still catches it. Make the press take the
-+                # org's lock if that ever matters.
++                # claim check still catches it. To close the gap, the press
++                # and this sweep would both take the org's lock before
++                # counting.
 +                waiting = s.scalar(
 +                    select(func.count()).where(
 +                        m.Job.kind == "audit_serp",
@@ -57,7 +58,7 @@ apps/workers/bsi_workers/worker.py, as a diff against main `95d32ad`:
 - Each brand's tenant session counts the org's `audit_serp` jobs that are `queued` or `running` (row-level security limits the count to the org) and asks `budget_fits` for room for that many estimates plus the brand's own.
 - Each brand's job is committed before the next brand's check, so jobs queued earlier in the same sweep are counted, and so are jobs from earlier sweeps, a "Run audit now" press, and a job being run.
 - Done and failed jobs are not counted: their cost is already in `job.cost_micros`. The count and the spend are read in separate statements, so a job that finishes between them is counted in both; that fails closed (at worst a brand waits for the next sweep).
-- A "Run audit now" press committed after the count is missed, because the API takes no lock; `process_job`'s claim check still catches it (R1, as corrected).
+- A "Run audit now" press committed after the count is missed, because the API takes no lock; `process_job`'s claim check still catches it. Closing the gap would need both the press and the sweep to take the org's lock before counting (R1, as corrected twice).
 - Unchanged: `budget_fits`, the API, `process_job` and its claim-time check.
 
 ## Testing
@@ -149,7 +150,11 @@ Quoted from the ledger:
 
 > Ruling: R3. Decided: the spec review's other findings are fixed: the ponytail comment and R1 now say a "Run audit now" press committed after the count is missed because the API takes no lock, and name the upgrade as making the press take the org's lock (Important 1; R1 is corrected below); the Context gives the corrected facts and states that the sweep becomes stricter than the claim check (Important 2); the README row no longer says "cannot" (Minor 1); the mutation table prints full test names (Minor 2); the spec names the other overlap: a job that finishes between the count and the budget read is counted twice, which fails closed (Minor 3). Minor 4 (the new _budget helper repeats the nested budget() of an existing test) is left: the existing test stays unchanged. Found by: the spec reviewer (Opus 5.5), 2026-10-07. Why: wrong or overstated statements; changing an existing test is outside this slice. Cost if wrong: none to behaviour; seven repeated test lines. How named: in chat, 2026-10-07, after the review.
 
+> Ruling: R4. Decided: N1 is fixed: the ponytail comment and the Design bullet name both steps that close the race (the press takes the org's lock, and the sweep takes it before counting); N2 is left, since the Correction to R1 follows the quote. Found by: the spec re-reviewer (Opus 5.5), 2026-10-07. Why: N1 was an incomplete statement of mine in a code comment; N2 reads correctly as written. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
+
 > Correction to R1 (2026-10-07, from the spec review): the race is a press committed at any time after the waiting-job count, not only before the budget lock, because the API press takes no lock; "lock first" would not close it.
+
+> Correction to R1 (2026-10-07, from the spec re-review): closing the race needs both the press taking the org's lock and the sweep taking that lock before it counts; the press taking the lock alone still leaves a gap.
 
 ## Deferred minors
 
