@@ -178,6 +178,7 @@ test("ALERT_KIND labels every alert type", () =>
     mention_drop: "Mention drop",
     competitor_shift: "Competitor shift",
     new_source: "New source",
+    serp_drop: "Brand SERP drop",
   }));
 
 test("reportNote says what the reports forms did", () => {

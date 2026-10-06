@@ -73,7 +73,8 @@ export default async function Alerts({
       </form>
       <p className="muted">
         The worker scans every active brand daily over rolling windows; no
-        alert comes from a single answer. Each new alert is posted to the
+        alert comes from a single answer or a single Google page. Each new
+        alert is posted to the
         webhook as JSON with a <code>text</code> field. With a signing
         secret set, each POST carries{" "}
         <code>X-BSI-Signature: t=&lt;unix seconds&gt;,v1=&lt;hex&gt;</code>,
@@ -120,6 +121,9 @@ export default async function Alerts({
                         </Link>
                       ))}
                     {typeof domain === "string" && <code>{domain}</code>}
+                    {a.type === "serp_drop" && (
+                      <Link href={`/b/${id}/serp`}>Brand SERP</Link>
+                    )}
                   </td>
                   <td className="muted">{delivery(a)}</td>
                 </tr>

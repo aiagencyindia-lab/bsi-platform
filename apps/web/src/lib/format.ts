@@ -210,6 +210,7 @@ export const ALERT_KIND: Record<string, string> = {
   mention_drop: "Mention drop",
   competitor_shift: "Competitor shift",
   new_source: "New source",
+  serp_drop: "Brand SERP drop",
 };
 
 const ALERT_NOTES: Record<string, string> = {
