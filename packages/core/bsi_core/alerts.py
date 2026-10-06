@@ -1,8 +1,9 @@
 """Alerts (PRD F15, alerts only): changes worth telling the operator about.
 
-Each detector reads rolling windows of stored answers, so nothing here can
-fire from a single observation. `to` is a parameter everywhere so tests
-are deterministic. Copy states what was observed and never promises.
+Each detector reads rolling windows of stored answers, or a run of stored
+Brand SERP pages, so nothing here can fire from a single observation or
+page. `to` is a parameter everywhere so tests are deterministic. Copy
+states what was observed and never promises.
 """
 
 import hashlib
@@ -22,6 +23,7 @@ from .competitors import visibility_changes
 from .matching import is_owned
 from .metrics import Filters, brand_deltas
 from .recommend import _rival_domains
+from .serp import ownership
 
 DROP_DAYS = 7
 DROP_MIN_PTS = 0.15
@@ -30,6 +32,9 @@ SOURCE_DAYS = 7
 # ponytail: the PRD wants "authority above threshold"; there is no
 # authority score, so a count of citing answers stands in for it.
 NEW_SOURCE_MIN_ANSWERS = 5
+# Pages compared by the Brand SERP drop alert are at least this far
+# apart, so two quick audits never confirm each other.
+SERP_GAP = timedelta(days=1)
 
 
 @dataclass(frozen=True)
@@ -191,13 +196,110 @@ def detect_new_source(
     ]
 
 
-DETECTORS = (detect_mention_drop, detect_competitor_shift, detect_new_source)
+def serp_copy(
+    query: str, country: str, language: str, pages: list[dict[str, Any]]
+) -> str:
+    """pages: baseline, previous, latest."""
+    base, prev, last = pages
+    return (
+        f'Own-site results for "{query}" ({country}/{language}) fell from '
+        f"{base['owned']} of {base['organic']} to "
+        f"{last['owned']} of {last['organic']} "
+        f"({prev['owned']} of {prev['organic']} on the previous page compared)"
+    )
+
+
+def detect_serp_drop(
+    s: Session, brand_id: uuid.UUID, to: datetime
+) -> list[Candidate]:
+    """A Brand SERP page whose own-site organic results fell, confirmed
+    by an earlier page: the latest page (L), the newest page at least
+    SERP_GAP before it (P) and the newest at least SERP_GAP before P (B,
+    the baseline). Fires when L and P both have fewer than B.
+
+    Only good pages count: no error and at least one organic result. Only
+    pages with the latest page's query, country and language are compared,
+    so a renamed brand or a new locale starts a new series.
+    """
+    # ponytail: loads every page of the brand; weekly pages stay few. Add
+    # a lookback window if the table grows.
+    rows = s.scalars(
+        select(m.SerpAudit)
+        .where(
+            m.SerpAudit.brand_id == brand_id,
+            m.SerpAudit.error.is_(None),
+            m.SerpAudit.fetched_at < to,
+        )
+        .order_by(m.SerpAudit.fetched_at.desc(), m.SerpAudit.id.desc())
+    ).all()
+    out = []
+    for kind in m.SERP_KINDS:
+        pages = [(r, *ownership(r.results)) for r in rows if r.kind == kind]
+        pages = [p for p in pages if p[2] > 0]
+        if not pages:
+            continue
+        latest = pages[0][0]
+        here = (latest.query, latest.country, latest.language)
+        picked = [pages[0]]
+        for p in pages[1:]:
+            if (p[0].query, p[0].country, p[0].language) != here:
+                continue
+            if picked[-1][0].fetched_at - p[0].fetched_at >= SERP_GAP:
+                picked.append(p)
+                if len(picked) == 3:
+                    break
+        if len(picked) < 3:
+            continue
+        (last, last_owned, _), (_, prev_owned, _), (base, base_owned, _) = (
+            picked
+        )
+        if not (last_owned < base_owned and prev_owned < base_owned):
+            continue
+        detail_pages = [
+            {
+                "serp_audit_id": r.id,
+                "fetched_at": r.fetched_at,
+                "owned": owned,
+                "organic": organic,
+            }
+            for r, owned, organic in reversed(picked)
+        ]
+        out.append(
+            Candidate(
+                "serp_drop",
+                f"{kind}:{last.country}:{last.language}",
+                serp_copy(
+                    last.query, last.country, last.language, detail_pages
+                ),
+                {
+                    "kind": kind,
+                    "query": last.query,
+                    "country": last.country,
+                    "language": last.language,
+                    "pages": detail_pages,
+                    "prompt_ids": [],
+                    "observation_ids": [],
+                },
+                base.fetched_at,
+                last.fetched_at,
+            )
+        )
+    return out
+
+
+DETECTORS = (
+    detect_mention_drop,
+    detect_competitor_shift,
+    detect_new_source,
+    detect_serp_drop,
+)
 
 
 def is_duplicate(s: Session, brand_id: uuid.UUID, c: Candidate) -> bool:
     """An alert for the same subject whose window ends after this one
-    starts. Windows of a type have one length, so that is "younger than
-    the window"."""
+    starts. For the fixed-length windows that is "younger than the
+    window"; for serp_drop it means the alert's latest page is after
+    this one's baseline page."""
     return (
         s.execute(
             text(
