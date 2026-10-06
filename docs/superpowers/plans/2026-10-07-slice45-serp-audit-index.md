@@ -176,4 +176,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-(Filled in by the post-merge docs commit.)
+- Task 1: commit 01552c9; the task review says "✅ Spec compliant" and "Task quality: Approved"; no fix rounds. Merged via PR #92 (main `17925a5`).
+- Gates and CI, as the ledger records them:
+- "Task 1: implementer af272f922bc3d031e, commit 01552c9 (trailer Opus 5.5 checked); report: red 1 failed 31 passed (assert [] == [...]), green 32 passed, gate exit 0, gate-task1.txt 1747 passed, 2 deselected, 2 warnings, coverage 100%."
+- "Controller gates on 01552c9: backend gate exit 0, 1747 passed, 2 deselected, 2 warnings in 201.43s (0:03:21); web gate exit 0, Tests  49 passed (49), Compiled successfully."
+- "CI run 37523571621: success, 1747 passed, 2 deselected, 2 warnings in 148.64s (0:02:28); web Compiled successfully. PR #92 merged by the controller after the user said "go ahead" to "Should I merge PR #92?" (2026-10-07)."
+- "Gates on main 17925a5 after merge: backend 1747 passed, 2 deselected, 2 warnings in 209.36s (0:03:29); web Tests  49 passed (49)."
+- Reviews, as the ledger records them:
+- "Spec review (a213f1603bfb53277, c52eff4): 0 Critical, 1 Important, 3 Minor."
+- "Spec re-review (a213f1603bfb53277, 8eb6f9e): "All findings addressed? Yes"; 1 new Minor (the Proof section's "the edits above ... are the ones it used" said to be false after the rewording)."
+- "Plan review (a0c358bc10d65c032, a6112a2): "Ready to execute? Yes"; 0 Critical, 0 Important, 1 Minor."
+- "Task 1: task review (afcc920ba4ca5b2c5, a6112a2..01552c9): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 3 Minor. ⚠️ items resolved by the controller: the report holds the red and green lines; bsi_test reads 0026 now, as expected during the branch (R2's cost applies until merge); the gate shows "182 files left unchanged"."
+- "Final review (acaddb4811bd2ff4f, 0a09f4d..01552c9): "Ready to merge? Yes"; 0 Critical, 0 Important, 2 Minor; every deferred minor triaged "no fix" before merge."
+- Rulings made after the spec was approved (R5–R6) are quoted in the spec's "Rulings" section and in docs/findings-slice45.md §3, with every deferred minor.
