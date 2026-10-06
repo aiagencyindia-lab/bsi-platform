@@ -245,7 +245,7 @@ In the order they were written:
 | [findings-slice44.md](findings-slice44.md) | Results: the Brand SERP drop alert (`serp_drop`, migration 0025, `detect_serp_drop` in the daily scan), the gates and reviews, no live check in this slice, and every ruling (R1–R8) and deferred minor, quoted from the ledger. |
 | [superpowers/specs/2026-10-07-slice45-serp-audit-index-design.md](superpowers/specs/2026-10-07-slice45-serp-audit-index-design.md) | Design spec: migration 0026 adds `ix_serp_audit_brand_fetched` on `serp_audit (brand_id, fetched_at)`, the index the slice 44 final review deferred; a red/green run and a mutation table are the evidence, with rulings R1–R6 and the deferred minors. |
 | [superpowers/plans/2026-10-07-slice45-serp-audit-index.md](superpowers/plans/2026-10-07-slice45-serp-audit-index.md) | Implementation plan, Task 1 (migration 0026, the model Index, the alerts.py comment and the index test), with the changes made during execution. |
-| [findings-slice45.md](findings-slice45.md) | Results: the serp_audit (brand_id, fetched_at) index (migration 0026), the gates and reviews, no live check, and every ruling (R1–R6) and deferred minor, quoted from the ledger. |
+| [findings-slice45.md](findings-slice45.md) | Results: the serp_audit (brand_id, fetched_at) index (migration 0026), the gates and reviews, no live check, and every ruling (R1–R7) and deferred minor, quoted from the ledger. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

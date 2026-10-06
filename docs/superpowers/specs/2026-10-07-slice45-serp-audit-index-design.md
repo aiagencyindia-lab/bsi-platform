@@ -135,7 +135,9 @@ Quoted from the ledger:
 
 > Correction to R1 (2026-10-07, from the spec review): 0026's docstring does not say it is the index 0024's comment named; 0024 named (brand_id, kind, fetched_at), and 0026 replaces that upgrade without kind.
 
-Rulings made after this spec was approved (added by the post-merge docs commit), quoted from the ledger:
+Rulings made after this spec's text was approved or alongside its approval (added by the post-merge docs commit), quoted from the ledger:
+
+> Ruling: R4. Decided: the re-review's new Minor is not applied: the spec stays as committed at 8eb6f9e. Found by: the spec re-reviewer (Opus 5.5), 2026-10-07. Why: the proof was re-run on the reworded text before the spec was regenerated (proof.py modified 01:13:23, its green run written 01:13:52, the full table 01:15:19, all 2026-10-07; the scratch copy holds "Replaces the upgrade" and "the filter is served by"), its ruff check and format check ran on the new text, and the controller re-ran mypy --strict on it afterwards ("Success: no issues found in 31 source files"); the reviewer could not see the run. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
 > Ruling: R5. Decided: the plan review's Minor (the plan drops the spec's expected "web 49, unchanged" gate without listing it as a departure) is left in the plan; the controller runs the web gate itself before the finishing menu, as for every slice. Found by: the plan reviewer (Opus 5.5), 2026-10-07. Why: the task touches no web file, and a plan edit would need another review round. Cost if wrong: a reader of the plan alone does not see the web gate. How named: in chat, 2026-10-07, before the execution choice.
 

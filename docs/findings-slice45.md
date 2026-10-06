@@ -4,7 +4,7 @@
 
 Migration 0026 adds `ix_serp_audit_brand_fetched` on `serp_audit (brand_id, fetched_at)`, the index the slice 44 final review deferred; the `SerpAudit` model declares it too. It serves `due_serp_audits()` and the Brand SERP drop detector (brand and a `fetched_at` range); the Brand SERP API uses its `brand_id` part. No behaviour changes; no query-plan change is claimed (dev holds 12 rows).
 
-Spec: docs/superpowers/specs/2026-10-07-slice45-serp-audit-index-design.md (rulings R1–R4 and the correction to R1 in the spec as approved; R5–R6 added to it by this docs commit). Plan: docs/superpowers/plans/2026-10-07-slice45-serp-audit-index.md (Task 1). Merged via PR #92 (https://github.com/aiagencyindia-lab/bsi-platform/pull/92), main `17925a5`.
+Spec: docs/superpowers/specs/2026-10-07-slice45-serp-audit-index-design.md (rulings R1–R3 and the correction to R1 in the spec as approved; R4, made before approval but after the approved text, and R5–R6 added to it by this docs commit; R7 was made while fixing these docs). Plan: docs/superpowers/plans/2026-10-07-slice45-serp-audit-index.md (Task 1). Merged via PR #92 (https://github.com/aiagencyindia-lab/bsi-platform/pull/92), main `17925a5`.
 
 **Code**: migrations/versions/0026_serp_audit_brand_index.py (new); packages/core/bsi_core/models.py (`SerpAudit.__table_args__` gains the `Index`); packages/core/bsi_core/alerts.py (the `ponytail:` comment in `detect_serp_drop`); tests/integration/test_serp_audit.py (one test, 31 → 32 items).
 
@@ -36,7 +36,7 @@ Spec: docs/superpowers/specs/2026-10-07-slice45-serp-audit-index-design.md (ruli
 
 ## 2. Live check
 
-None: the index changes no result (spec, "Live check"). Dev is at migration 0025; migrating it to 0026 is asked separately.
+None: the index changes no result (spec, "Live check"). The dev database was migrated from 0024 to 0025 on 2026-10-07 at the user's request ("Migrate dev to 0025"; recorded in the controller's memory, not in a repo doc) and read 0025 when these docs were fixed; migrating it to 0026 is asked separately.
 
 ## 3. Rulings and deferred minors
 
@@ -53,6 +53,8 @@ Every `Ruling:` line in the ledger, verbatim:
 > Ruling: R5. Decided: the plan review's Minor (the plan drops the spec's expected "web 49, unchanged" gate without listing it as a departure) is left in the plan; the controller runs the web gate itself before the finishing menu, as for every slice. Found by: the plan reviewer (Opus 5.5), 2026-10-07. Why: the task touches no web file, and a plan edit would need another review round. Cost if wrong: a reader of the plan alone does not see the web gate. How named: in chat, 2026-10-07, before the execution choice.
 
 > Ruling: R6. Decided: no final fix wave; the final review's two Minors are deferred: the test pins Postgres 16's exact indexdef text, schema-qualified (1), and the plain CREATE INDEX blocks writes while it builds, R1's accepted cost (2). Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes"; the exact text is what lets the column-order mutants fail, and the project pins pgvector/pgvector:pg16; the table is tiny. Cost if wrong: the test needs updating if the schema or Postgres's output format changes; a long write block if the table were ever large when migrated. How named: in chat, 2026-10-07, at the finishing menu.
+
+> Ruling: R7. Decided: the docs review's findings are fixed: R4 is quoted in the spec as a ruling made before approval but not in the approved text, and the findings and README say so (1); the dev-state clause names its source: the controller migrated dev from 0024 to 0025 at the user's request on 2026-10-07 ("Migrate dev to 0025"; recorded in memory, not in a repo doc) and dev read 0025 when these docs were fixed (2); the plan's execution section nests the quotes under their headings (3). Found by: the docs reviewer (Opus 5.5, a69a1b5912bdf04b6), 2026-10-07. Why: (1) and (2) were wrong or unsourced statements; (3) is cosmetic. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
 
 The correction, verbatim:
 
