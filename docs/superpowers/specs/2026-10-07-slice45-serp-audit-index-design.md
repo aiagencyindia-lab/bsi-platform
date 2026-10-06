@@ -5,15 +5,17 @@
 Codebase facts: main `0a09f4d`, checked 2026-10-07.
 
 `serp_audit` (migration 0023) has its primary key and an index on `org_id`, and none on `brand_id`. Three reads filter it by brand:
-- `due_serp_audits()` (migration 0024): a brand's error-free pages fetched in the last 7 days, counted by kind. Its SQL comment names the missing index as the upgrade.
-- `detect_serp_drop` (packages/core/bsi_core/alerts.py): a brand's error-free pages fetched before `to`, newest first. Its `ponytail:` comment notes it loads every page of the brand.
-- `GET /brands/{id}/audits/serp` (apps/api/bsi_api/routers/audits.py): a brand's latest page per (country, language, kind).
+- `due_serp_audits()` (migration 0024): a brand's error-free pages fetched in the last 7 days, counted by kind. Its SQL comment names an index on `(brand_id, kind, fetched_at)` as the upgrade.
+- `detect_serp_drop` (packages/core/bsi_core/alerts.py): a brand's error-free pages fetched before `to`, ordered by `fetched_at` then `id`, newest first. Its `ponytail:` comment notes it loads every page of the brand.
+- `GET /brands/{id}/audits/serp` (apps/api/bsi_api/routers/audits.py): a brand's latest page per (country, language, kind), ordered by those columns before `fetched_at`.
 
-Dev holds 12 rows. The slice 43 and 44 reviews deferred the missing index (findings-slice43 §3, findings-slice44 §3).
+Dev holds 12 rows. The slice 44 final review deferred the missing index (findings-slice44 §3, R7).
 
 Classification: **bounded** — one new migration adding an index to an existing table, with no change to behaviour or interfaces. It was the first line of the first brainstorming reply, with the session model (Opus 5.5). The user's process asks for a spec and plan even for small changes, so this file exists.
 
-Decisions approved in chat (2026-10-07), after approaches with trade-offs and a recommendation written in a chat message: the index covers `(brand_id, fetched_at)`; over `(brand_id, kind, fetched_at)` (the upgrade 0024's comment named; no query filters by kind), or `brand_id` alone (every query would still sort or range on `fetched_at` in memory). The short design was approved in chat.
+Decisions approved in chat (2026-10-07), each after approaches with trade-offs and a recommendation written in a chat message:
+1. The index covers `(brand_id, fetched_at)`: it serves the drop detector (brand, `fetched_at < to`, newest first, up to its `id` tie-break) and `due_serp_audits()` (brand and a 7-day `fetched_at` range); the Brand SERP API sorts by country, language and kind before `fetched_at`, so it uses only the `brand_id` part, as it would with any of the options. Over `brand_id` alone (the two `fetched_at` filters and the detector's order stay in memory), or `(brand_id, kind, fetched_at)` (no read filters by kind). First asked with an overstated reason against `brand_id` alone ("every query would still sort or range on `fetched_at` in memory"), then asked again after the spec review with the facts above.
+2. The short design was approved in chat.
 
 ## Design
 
@@ -22,9 +24,11 @@ migrations/versions/0026_serp_audit_brand_index.py (new):
 ```python
 """ix_serp_audit_brand_fetched on serp_audit (brand_id, fetched_at)
 
-The index migration 0024's due_serp_audits() comment named. It serves
-the reads that filter serp_audit by brand: due_serp_audits(), the Brand
-SERP drop detector and the Brand SERP page's API (slice 45).
+Replaces the upgrade migration 0024's due_serp_audits() comment named,
+(brand_id, kind, fetched_at), without kind: no read filters by kind. It
+serves due_serp_audits() and the Brand SERP drop detector (brand and a
+fetched_at range); the Brand SERP page's API uses its brand_id part
+(slice 45).
 """
 
 from alembic import op
@@ -64,8 +68,8 @@ packages/core/bsi_core/alerts.py:
      """
 -    # ponytail: loads every page of the brand; weekly pages stay few. Add
 -    # a lookback window if the table grows.
-+    # ponytail: loads every page of the brand, found through
-+    # ix_serp_audit_brand_fetched; add a lookback window if a brand's
++    # ponytail: loads every page of the brand (the filter is served by
++    # ix_serp_audit_brand_fetched); add a lookback window if a brand's
 +    # pages grow many.
      rows = s.scalars(
          select(m.SerpAudit)
@@ -126,6 +130,10 @@ Quoted from the ledger:
 > Ruling: R1. Decided: the index is named ix_serp_audit_brand_fetched and built by a plain CREATE INDEX inside the migration's transaction, not CONCURRENTLY; the migration 0024 SQL comment that names the missing index is left as written (that migration has already run), and 0026's docstring says it is that index. Found by: the controller, writing the design. Why: the table holds 12 rows on dev; CONCURRENTLY cannot run inside alembic's transaction. Cost if wrong: on a large production table the CREATE INDEX would lock writes to serp_audit while it builds. How named: in chat in the approved design, 2026-10-07.
 
 > Ruling: R2. Decided: the proof ran in a scratch copy of main's backend against the shared test database bsi_test, so the test session applied migration 0026 for real; afterwards the proof ran it down to 0025, up and down again through alembic, and read alembic_version (0025) and the index count (0). Found by: the controller, setting up the proof. Why: it exercises the migration file itself, as slices 43 and 44 did. Cost if wrong: bsi_test left at 0026 would break test sessions on main until downgraded. How named: in chat, 2026-10-07, after the proof run.
+
+> Ruling: R3. Decided: the spec review's other findings are fixed: migration 0026's docstring no longer calls this the index 0024's comment named (that was (brand_id, kind, fetched_at)); it says this index replaces that upgrade, without kind (Important 1, my error, and R1's last clause is corrected below); the deferral is credited to slice 44's review only (Minor 2); the alerts.py comment says the index serves this filter rather than that the pages are found through it (Minor 3); the Decisions text gives the corrected per-query facts (Minor 4). Found by: the spec reviewer (Opus 5.5), 2026-10-07. Why: each is a wrong or overstated statement. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the review.
+
+> Correction to R1 (2026-10-07, from the spec review): 0026's docstring does not say it is the index 0024's comment named; 0024 named (brand_id, kind, fetched_at), and 0026 replaces that upgrade without kind.
 
 ## Deferred minors
 
