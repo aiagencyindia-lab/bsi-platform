@@ -875,4 +875,21 @@ Quoted from the ledger:
 
 ## Changes made during execution
 
-(Filled in by the post-merge docs commit.)
+- Task 1: commit 3279e70; Task 2: commit 621e804; Task 3: commit 01c8612. Each task review says "✅ Spec compliant" and "Task quality: Approved"; no fix rounds. Merged via PR #90 (main `b58f646`).
+- Task 2's implementer ran the red step twice, because `tail -3` cut off the ImportError line (disclosed in its report). Task 3's implementer staged and grepped before a commit command without its own `git add` (the same three files).
+- Gates and CI, as the ledger records them:
+- "Task 1: implementer ae9e6ad519e1abe6c, commit 3279e70 (trailer Opus 5.5 checked); report: red 2 failed 32 passed (IntegrityError ck_alert_type; KeyError 'serp_drop'), green 34 passed, gate exit 0, gate-task1.txt 1730 passed, 2 deselected, 2 warnings, coverage 100%."
+- "Task 2: implementer a604833a51713c66e, commit 621e804 (trailer Opus 5.5 checked); report: red 1 error (ImportError detect_serp_drop; the red run was repeated once to capture the error line, disclosed), green 50 passed, gate exit 0, gate-task2.txt 1746 passed, 2 deselected, 2 warnings, coverage 100%."
+- "Task 3: implementer a68a6fc93ca6542d4, commit 01c8612 (trailer Opus 5.5 checked); report: vitest red 1 failed | 27 passed (28) on "ALERT_KIND labels every alert type", web gate exit 0, Tests 49 passed (49), Compiled successfully. Departure disclosed: staged the files and ran the grep before a commit command without its own git add; the same three files."
+- "Controller gates on 01c8612: backend gate exit 0, 1746 passed, 2 deselected, 2 warnings in 289.12s (0:04:49), mypy Success; web gate exit 0, Tests  49 passed (49), Compiled successfully."
+- "CI run 37514507785: success, 1746 passed, 2 deselected, 2 warnings in 144.70s (0:02:24); web Compiled successfully. PR #90 merged by the controller after the user said "go ahead" to "Should I merge PR #90?" (2026-10-07)."
+- "Gates on main b58f646 after merge: backend 1746 passed, 2 deselected, 2 warnings in 247.60s (0:04:07); web Tests  49 passed (49)."
+- Reviews, as the ledger records them:
+- "Spec review (ac4276b16901f2691, b47492a): 0 Critical, 3 Important, 7 Minor."
+- "Spec re-review (ac4276b16901f2691, 0af3c70): "All findings addressed? Yes"; 3 new Minor."
+- "Plan review (a8ce26d4916f0a951, dee54b0): "Ready to execute? Yes"; 0 Critical, 0 Important, 2 Minor."
+- "Task 1: task review (a70bd55c332f4ad9e, 893fc26..3279e70): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor. ⚠️ items resolved by the controller: the report holds the red and green lines; bsi_test reads 0025 and the dev DB bsi reads 0024 (alembic_version)."
+- "Task 2: task review (a259cea5c95f8eab7, 3279e70..621e804): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 3 Minor. ⚠️ items resolved by the controller: the report holds the ImportError, "1 error" and "50 passed" lines; the mutant table is the spec's proof evidence, not re-run (plan departure 5)."
+- "Task 3: task review (a1badcb174169eb3f, 621e804..01c8612): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 1 Minor. ⚠️ items resolved by the controller: the report holds the red run, the grep exit and the post-commit status; the build lists /b/[id]/serp."
+- "Final review (a60f6db7e4fbc9d55, ae465d3..01c8612): "Ready to merge? Yes"; 0 Critical, 0 Important, 4 Minor; every deferred minor triaged "no fix" before merge."
+- Rulings made after the spec was approved (R5–R7) are quoted in the spec's "Rulings" section and in docs/findings-slice44.md §3, with every deferred minor.
