@@ -4,7 +4,7 @@
 
 A `serp_drop` alert, labelled "Brand SERP drop". The daily alert scan compares a brand's stored Brand SERP pages and fires when the brand's own-site organic results on two later pages are both below a baseline page, the three pages at least a day apart and with the same query and locale.
 
-Spec: docs/superpowers/specs/2026-10-06-slice44-serp-drop-alert-design.md (rulings R1–R4 written before the merge, R5–R7 added by this docs commit). Plan: docs/superpowers/plans/2026-10-06-slice44-serp-drop-alert.md (Tasks 1–3). Merged via PR #90 (https://github.com/aiagencyindia-lab/bsi-platform/pull/90), main `b58f646`.
+Spec: docs/superpowers/specs/2026-10-06-slice44-serp-drop-alert-design.md (rulings R1–R4 in the spec as approved; R5–R7 added to it by this docs commit). Plan: docs/superpowers/plans/2026-10-06-slice44-serp-drop-alert.md (Tasks 1–3). Merged via PR #90 (https://github.com/aiagencyindia-lab/bsi-platform/pull/90), main `b58f646`.
 
 **Code**:
 - migrations/versions/0025_serp_drop_alert.py: `ck_alert_type` gains `serp_drop`; the downgrade deletes `serp_drop` alerts, then restores the three old types.
@@ -52,11 +52,11 @@ Spec: docs/superpowers/specs/2026-10-06-slice44-serp-drop-alert-design.md (rulin
 
 ## 2. Live check
 
-None in this slice (spec, "Live check"; the user's decision 6). No good page stored on dev has an own-site result, so none can be a baseline. With weekly pages only, the earliest real alert for Walkaroo is 2026-10-26, and only if the worker runs the weekly audits and Google shows walkaroo.in on a page from 2026-10-12 on. A check is a separate, later decision with its own approval, and it may show only "no alert".
+None in this slice (spec, "Live check"; spec decision 6). As checked on 2026-10-06, no good page stored on dev has an own-site result, so none can be a baseline. With weekly pages only, the earliest real alert for Walkaroo is 2026-10-26, and only if the worker runs the weekly audits and Google shows walkaroo.in on a page from 2026-10-12 on. A check is a separate, later decision with its own approval, and it may show only "no alert".
 
 ## 3. Rulings and deferred minors
 
-Every `Ruling:` line in the ledger, verbatim:
+Every `Ruling:` line in the ledger, verbatim (R8 was made while fixing these docs):
 
 > Ruling: R1. Decided: the red step is the whole test module failing at import (`ImportError: cannot import name 'detect_serp_drop'`), not each new test failing on its own; the per-rule red evidence is the mutation table, where each of 13 mutants fails at least one named test. Found by: the controller, running the proof. Why: the new tests import the new detector, so on main's code the module cannot load. Cost if wrong: the red step shows only that the code is missing, not that each test checks something; the mutants cover that. How named: in chat, 2026-10-06, after the proof run.
 
@@ -71,6 +71,8 @@ Every `Ruling:` line in the ledger, verbatim:
 > Ruling: R6. Decided: both plan-review Minors are fixed: Task 1 Step 2 names the second failure as `KeyError: 'serp_drop'` in `test_every_alert_type_has_a_report_label` (the verification output shows it at line 359), and the plan quotes R5 instead of only naming it. Found by: the plan reviewer (Opus 5.5), 2026-10-06. Why: a wrong failure reason would mislead an implementer checking the red step; an unquoted ruling label points nowhere. Cost if wrong: none to behaviour. How named: in chat, 2026-10-06, after the plan review.
 
 > Ruling: R7. Decided: no final fix wave. The final review's Minor 1 (the ledger's "After merge" date said 2026-10-19) is fixed in the ledger, which is not code; Minors 2–4 are deferred: no index on serp_audit.brand_id and every good page loaded per scan (2); only the newest page's locale per kind is judged, which matters only if MAX_SERP_LOCALES is raised (3); stored fetched_at uses a space rather than "T" (4). Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding; 2 is about 100 pages a brand a year today, 3 has no effect at one locale, 4 parses with fromisoformat and was the spec's choice. Cost if wrong: slower daily scans once brands or pages grow; a second locale's drops missed if locales are raised without changing the loop; a webhook consumer needing strict ISO 8601. How named: in chat, 2026-10-07, at the finishing menu.
+
+> Ruling: R8. Decided: the docs review's three Minors are fixed: the findings say R1–R4 were in the spec as approved and R5–R7 are added to it by this docs commit (all seven were made before the merge); the live-check paragraph dates the dev fact ("as checked on 2026-10-06") and says "spec decision 6"; the spec's deferred-minors block is labelled as found during execution and added by the post-merge docs commit. Found by: the docs reviewer (Opus 5.5, a9997ab315797706e), 2026-10-07. Why: each is an imprecise statement in the docs. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
 
 The correction, verbatim:
 

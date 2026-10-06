@@ -687,7 +687,7 @@ Rulings made after this spec was approved (added by the post-merge docs commit),
 
 ## Deferred minors
 
-Quoted from the ledger:
+Deferred minors found during execution (added by the post-merge docs commit), quoted from the ledger:
 
 - "Task 1: minor (deferred): the gate's 2 warnings are the known third-party Starlette/anyio deprecation warnings, present on main."
 - "Task 1: minor (deferred): test_the_alert_type_check_accepts_serp_drop asserts `_alert(...)`'s return value is truthy; the real check is that the insert does not raise."
