@@ -135,9 +135,24 @@ Quoted from the ledger:
 
 > Correction to R1 (2026-10-07, from the spec review): 0026's docstring does not say it is the index 0024's comment named; 0024 named (brand_id, kind, fetched_at), and 0026 replaces that upgrade without kind.
 
+Rulings made after this spec's text was approved or alongside its approval (added by the post-merge docs commits), quoted from the ledger:
+
+> Ruling: R4. Decided: the re-review's new Minor is not applied: the spec stays as committed at 8eb6f9e. Found by: the spec re-reviewer (Opus 5.5), 2026-10-07. Why: the proof was re-run on the reworded text before the spec was regenerated (proof.py modified 01:13:23, its green run written 01:13:52, the full table 01:15:19, all 2026-10-07; the scratch copy holds "Replaces the upgrade" and "the filter is served by"), its ruff check and format check ran on the new text, and the controller re-ran mypy --strict on it afterwards ("Success: no issues found in 31 source files"); the reviewer could not see the run. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
+
+> Ruling: R5. Decided: the plan review's Minor (the plan drops the spec's expected "web 49, unchanged" gate without listing it as a departure) is left in the plan; the controller runs the web gate itself before the finishing menu, as for every slice. Found by: the plan reviewer (Opus 5.5), 2026-10-07. Why: the task touches no web file, and a plan edit would need another review round. Cost if wrong: a reader of the plan alone does not see the web gate. How named: in chat, 2026-10-07, before the execution choice.
+
+> Ruling: R6. Decided: no final fix wave; the final review's two Minors are deferred: the test pins Postgres 16's exact indexdef text, schema-qualified (1), and the plain CREATE INDEX blocks writes while it builds, R1's accepted cost (2). Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes"; the exact text is what lets the column-order mutants fail, and the project pins pgvector/pgvector:pg16; the table is tiny. Cost if wrong: the test needs updating if the schema or Postgres's output format changes; a long write block if the table were ever large when migrated. How named: in chat, 2026-10-07, at the finishing menu.
+
 ## Deferred minors
 
-None yet.
+Deferred minors found during execution (added by the post-merge docs commit), quoted from the ledger:
+
+- "minor (deferred): plan review minor, the plan does not list dropping the spec's web gate as a departure (R5)."
+- "Task 1: minor (deferred): the gate's 2 warnings are the known third-party Starlette/anyio deprecation warnings, present on main."
+- "Task 1: minor (deferred): the 0026 docstring's first sentence is hard to parse (plan- and spec-mandated wording)."
+- "Task 1: minor (deferred): the alerts.py comment says the filter is served by the index; the index serves brand_id and the fetched_at range, not error IS NULL or the id tie-break (plan-mandated wording)."
+- "minor (deferred): final review minor 1, the index test matches Postgres 16's exact schema-qualified indexdef text (R6)."
+- "minor (deferred): final review minor 2, the plain CREATE INDEX blocks writes to serp_audit while it builds (R1, R6)."
 
 ## Live check
 
