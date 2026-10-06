@@ -677,9 +677,26 @@ Quoted from the ledger:
 
 > Correction to R1 (2026-10-06, from the re-review): after the spec review's fixes there are 17 mutants, not 13; each fails at least one named test.
 
+Rulings made after this spec was approved (added by the post-merge docs commit), quoted from the ledger:
+
+> Ruling: R5. Decided: the plan was verified by applying Tasks 1 and 2 step by step to a fresh scratch copy of main's backend and running each step against bsi_test (Task 1 red 2 failed 32 passed, green 34 passed; Task 2 red 1 error, green 50 passed; finished files equal the proof's), then running migration 0025 down to 0024 by alembic. A first verification run aborted midway and left bsi_test at 0025, which made the next run's Task 1 red show 33 errors; the controller downgraded and re-ran. Task 3's vitest and web gate steps were not run before execution. Found by: the controller, verifying the plan. Why: the plan's code is generated from the proof, and each step's expected output is checked by running it. Cost if wrong: Task 3's red step could differ from the plan; the implementer reports it. How named: in chat, 2026-10-06, before the plan commit.
+
+> Ruling: R6. Decided: both plan-review Minors are fixed: Task 1 Step 2 names the second failure as `KeyError: 'serp_drop'` in `test_every_alert_type_has_a_report_label` (the verification output shows it at line 359), and the plan quotes R5 instead of only naming it. Found by: the plan reviewer (Opus 5.5), 2026-10-06. Why: a wrong failure reason would mislead an implementer checking the red step; an unquoted ruling label points nowhere. Cost if wrong: none to behaviour. How named: in chat, 2026-10-06, after the plan review.
+
+> Ruling: R7. Decided: no final fix wave. The final review's Minor 1 (the ledger's "After merge" date said 2026-10-19) is fixed in the ledger, which is not code; Minors 2–4 are deferred: no index on serp_audit.brand_id and every good page loaded per scan (2); only the newest page's locale per kind is judged, which matters only if MAX_SERP_LOCALES is raised (3); stored fetched_at uses a space rather than "T" (4). Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding; 2 is about 100 pages a brand a year today, 3 has no effect at one locale, 4 parses with fromisoformat and was the spec's choice. Cost if wrong: slower daily scans once brands or pages grow; a second locale's drops missed if locales are raised without changing the loop; a webhook consumer needing strict ISO 8601. How named: in chat, 2026-10-07, at the finishing menu.
+
 ## Deferred minors
 
-None yet.
+Deferred minors found during execution (added by the post-merge docs commit), quoted from the ledger:
+
+- "Task 1: minor (deferred): the gate's 2 warnings are the known third-party Starlette/anyio deprecation warnings, present on main."
+- "Task 1: minor (deferred): test_the_alert_type_check_accepts_serp_drop asserts `_alert(...)`'s return value is truthy; the real check is that the insert does not raise."
+- "Task 2: minor (deferred): the gate's 2 warnings are the known third-party Starlette/anyio deprecation warnings, present on main."
+- "Task 2: minor (deferred): pages with the same fetched_at are ordered by id (a UUID), an arbitrary but stable pick; only same-timestamp pages are affected."
+- "Task 3: minor (deferred): the report says +8/-1; the diff is +7/-1."
+- "minor (deferred): final review minor 2, no index on serp_audit.brand_id and detect_serp_drop loads every good page of the brand per scan (R7)."
+- "minor (deferred): final review minor 3, only the newest page's locale per kind is judged; revisit if MAX_SERP_LOCALES is raised (R7)."
+- "minor (deferred): final review minor 4, stored detail fetched_at is "YYYY-MM-DD HH:MM:SS+00:00", not strict ISO 8601 (R7)."
 
 ## Live check
 
