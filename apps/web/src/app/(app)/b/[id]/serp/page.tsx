@@ -3,12 +3,13 @@ import {
   auditNote,
   ownershipText,
   serpError,
+  serpSchedule,
   serpStatus,
   typeCounts,
   usd,
   type Params,
 } from "@/lib/format";
-import type { SerpAudits } from "@/lib/types";
+import type { Brand, Domain, SerpAudits } from "@/lib/types";
 import { runSerpAudit } from "./actions";
 
 export default async function Serp({
@@ -20,7 +21,11 @@ export default async function Serp({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const { job, audits } = await api<SerpAudits>(`/brands/${id}/audits/serp`);
+  const [{ job, audits }, brand, domains] = await Promise.all([
+    api<SerpAudits>(`/brands/${id}/audits/serp`),
+    api<Brand>(`/brands/${id}`),
+    api<Domain[]>(`/brands/${id}/domains`),
+  ]);
   const status = serpStatus(job);
   return (
     <>
@@ -31,7 +36,7 @@ export default async function Serp({
           <span className="muted">{auditNote(sp.queued)}</span>
         )}
       </form>
-      <p className="muted">Audited automatically once a week.</p>
+      <p className="muted">{serpSchedule(brand.status, domains.length)}</p>
       {status && <p className="muted">{status}</p>}
       {audits.length === 0 && (
         <p className="muted">

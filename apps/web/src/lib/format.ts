@@ -187,6 +187,17 @@ export const serpStatus = (
         ? `Last audit failed: ${serpError(job.error)}`
         : null;
 
+/**
+ * The Brand SERP page's schedule line. due_serp_audits() (migration 0024)
+ * only considers active brands with at least one declared domain.
+ */
+export const serpSchedule = (status: string, domains: number) =>
+  status !== "active"
+    ? "Not audited automatically: the brand is archived."
+    : domains === 0
+      ? "Not audited automatically: the brand has no declared domain."
+      : "Audited automatically once a week.";
+
 /** "3 of 10 (30%)"; no percentage when the page has no organic results. */
 export const ownershipText = (owned: number, organic: number) =>
   organic === 0

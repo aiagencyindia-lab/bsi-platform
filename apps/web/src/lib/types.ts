@@ -10,6 +10,7 @@ export type Prompt = S["PromptOut"];
 export type Observation = S["ObservationOut"];
 export type ObservationDetail = S["ObservationDetail"];
 export type Competitor = S["CompetitorOut"];
+export type Domain = S["DomainOut"];
 export type Ops = S["OpsOut"];
 export type LabelQueue = S["LabelQueue"];
 export type LabelResult = S["LabelResult"];
