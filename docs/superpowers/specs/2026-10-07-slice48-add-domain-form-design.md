@@ -207,9 +207,11 @@ Rulings made after the final review (added by the post-merge docs commits), quot
 
 > Ruling: R7. Decided: the docs review's findings are fixed: the findings name the commit each ruling entered (R1 08de0dc, R2 and R3 bec426a, R4 e7e73a5, R5 3243350) and cite the user's approval of the spec at e7e73a5 from a ledger line added for it (Important 1); "these docs commits" and "the post-merge docs commits" count the commits correctly (Minor 1); the findings say the generic error page is what production shows, and that development shows the status (Minor 2). Found by: the docs reviewer (Opus 5.5, ae42920beb0944161), 2026-10-07. Why: an unrecorded claim and inexact statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
 
+> Ruling: R8. Decided: the docs re-review's two minors are fixed: findings §1 says development shows "the status, title and any detail" (a duplicate's 409 includes the host) (Minor 1); the spec says the last three deferred minors and the live-check note were added by the first post-merge docs commit, a2d82f7 (Minor 2); then a third scoped re-review, as the user chose "Fix, re-review" when offered a stop after two docs review rounds. Found by: the docs re-reviewer (Opus 5.5, a88335378dae7b06f), 2026-10-07. Why: inexact statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
+
 ## Deferred minors
 
-Every deferred minor, quoted from the ledger (the last three added by the post-merge docs commits):
+Every deferred minor, quoted from the ledger (the last three added by the first post-merge docs commit, `a2d82f7`):
 
 - "minor (deferred): spec review minor 6, the classification line, the chat approvals and the ledger quotes cannot be checked from the repo (R2)."
 - "Task 1: minor (deferred): a host the pattern passes but the API refuses (an IP address, walkaroo., www.walkaroo) lands on the error page, not an inline message; the user chose this (browser pattern over catch-and-note)."
@@ -218,4 +220,4 @@ Every deferred minor, quoted from the ledger (the last three added by the post-m
 
 ## Live check
 
-Not run: offered in chat on 2026-10-07 after PR #98 opened, and not taken up, as the ledger records (added by the post-merge docs commits; docs/findings-slice48.md §2). As approved: optional, asked first: on dev, open the Brand SERP page of an active brand with no domain, add a domain and see the line change. It writes a `domain` row (and re-flags that brand's citations) and `api_key.last_used_at`; with a domain the brand becomes due, so the worker stays stopped, and the domain is removed with `DELETE /v1/brands/{id}/domains/{domain_id}` (which re-flags the citations again) before the worker next starts; otherwise, with DataForSEO credentials and budget room, its first sweep queues a paid SERP audit.
+Not run: offered in chat on 2026-10-07 after PR #98 opened, and not taken up, as the ledger records (added by the first post-merge docs commit, `a2d82f7`; docs/findings-slice48.md §2). As approved: optional, asked first: on dev, open the Brand SERP page of an active brand with no domain, add a domain and see the line change. It writes a `domain` row (and re-flags that brand's citations) and `api_key.last_used_at`; with a domain the brand becomes due, so the worker stays stopped, and the domain is removed with `DELETE /v1/brands/{id}/domains/{domain_id}` (which re-flags the citations again) before the worker next starts; otherwise, with DataForSEO credentials and budget room, its first sweep queues a paid SERP audit.
