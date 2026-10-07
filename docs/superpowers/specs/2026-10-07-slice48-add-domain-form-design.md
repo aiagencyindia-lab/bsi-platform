@@ -18,7 +18,7 @@ Decisions approved in chat (2026-10-07), each after approaches with trade-offs a
 3. After the spec review showed the error page does not show the API's reason (the fact behind Section 1's error behaviour), re-asked: a browser `pattern` that refuses a host with no dot; over catching the error and returning with a note, or leaving it as is.
 4. After the spec review: a visible label and the warning linked with `aria-describedby`; over `aria-label` only.
 
-Design Section 1 (when the form shows, its field, button and warning, what Add does, errors) and Section 2 (the action, the page condition, two action tests) were each shown in chat and approved.
+Design Section 1 (when the form shows, its field, button and warning, what Add does, errors) and Section 2 (the action, the page condition, two action tests) were each shown in chat and approved. After the spec review, the revised Section 1 (visible label, pattern, the reworded warning, the corrected error behaviour) was shown in chat and approved again.
 
 ## Design
 
@@ -30,7 +30,7 @@ The form shows only when the brand is `active` and has no declared domain, which
 
 `addDomain` (a new server action in `serp/actions.ts`) trims the host, sends `POST /v1/brands/{id}/domains` with `{"host": "<trimmed>"}` (no `is_primary`, so the API's default `false` applies), and redirects to `/b/{id}/serp` with no note. The reloaded page has one domain, so the schedule line reads "Audited automatically once a week." and the form is gone.
 
-The browser refuses a host with no dot (for example `walkaroo` or `localhost`) before sending, showing the field's `title`. The pattern is anchored by the browser, so `walkaroo.in` passes. A host it passes but the API refuses (for example an IP address, 422), or a duplicate, makes `api()` throw before the redirect, and the `(app)` error page shows a generic message with a digest in production (`422 Validation failed (request …)` in development, with no reason), as for the webhook form. A duplicate needs a second submit: a later one (a stale tab) is a 409; two in the same moment can both pass the API's check, and the second insert fails the `(brand_id, host)` unique constraint as a 500. In both the domain was added, and reloading the page shows it. `redirect()` is not inside a try/catch.
+The browser refuses a host with no dot (for example `walkaroo` or `localhost`) before sending, showing the field's `title`. The pattern is anchored by the browser, so `walkaroo.in` passes. A host it passes but the API refuses (for example an IP address, or `walkaroo.` and `www.walkaroo`, which the API normalizes to `walkaroo`; 422), or a duplicate, makes `api()` throw before the redirect, and the `(app)` error page shows a generic message with a digest in production, as for the webhook form. In development it shows `422 Validation failed (request …)` with no reason, `409 Domain already exists: <host> (request …)`, or `500 Internal error (request …)`. A duplicate needs a second submit: a later one (a stale tab) is a 409; two in the same moment can both pass the API's check, and the second insert fails the `(brand_id, host)` unique constraint as a 500. In both the domain was added, and reloading the page shows it. `redirect()` is not inside a try/catch.
 
 Unchanged: `serpSchedule` and its three lines, "Run audit now", the status line and the audit cards. An archived brand gets no form.
 
@@ -197,6 +197,8 @@ Quoted from the ledger:
 
 > Ruling: R3. Decided: no test covers the page's form condition (brand.status === "active" && domains.length === 0) or its attributes (label, pattern, aria-describedby); the action tests cover addDomain only. Found by: the spec reviewer (Minor 7) and the controller. Why: the repo has no tests for Server Component pages; the condition is the case serpSchedule's test pins for the no-domain line. Cost if wrong: a wiring slip (the form shown for an archived brand, or hidden for a no-domain brand, or a dropped pattern) would ship unnoticed by the gate. How named: in chat, 2026-10-07, after the spec review.
 
+> Ruling: R4. Decided: the spec re-review's minors are fixed: the Design names walkaroo. and www.walkaroo as hosts the pattern passes and the API refuses (Minor 1); the error text gives the development message for each cause (422, 409, 500) (Minor 2); the live check keeps the worker's conditions (credentials, budget room) and says an active brand with no domain (Minor 3); the Context records that the revised Section 1 was shown and approved (Minor 4). Found by: the spec re-reviewer (Opus 5.5, a5fdc2e90f6b2c82c), 2026-10-07. Why: incomplete statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
+
 ## Deferred minors
 
 Quoted from the ledger:
@@ -205,4 +207,4 @@ Quoted from the ledger:
 
 ## Live check
 
-Optional, asked first: on dev, open the Brand SERP page of a brand with no domain, add a domain and see the line change. It writes a `domain` row (and re-flags that brand's citations) and `api_key.last_used_at`; with a domain the brand becomes due, so the worker stays stopped, and the domain is removed with `DELETE /v1/brands/{id}/domains/{domain_id}` (which re-flags the citations again) before the worker next starts; otherwise its first sweep queues a paid SERP audit.
+Optional, asked first: on dev, open the Brand SERP page of an active brand with no domain, add a domain and see the line change. It writes a `domain` row (and re-flags that brand's citations) and `api_key.last_used_at`; with a domain the brand becomes due, so the worker stays stopped, and the domain is removed with `DELETE /v1/brands/{id}/domains/{domain_id}` (which re-flags the citations again) before the worker next starts; otherwise, with DataForSEO credentials and budget room, its first sweep queues a paid SERP audit.
