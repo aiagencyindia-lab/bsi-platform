@@ -124,4 +124,5 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - "Plan re-review (ad35bb41ef105d741, ceebe45): "Ready to execute? Yes"; 0 Critical, 0 Important, 2 Minor."
   - "Task 1: task review (ac16c57b45a3f0f20, ceebe45..fc14c2a): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 0 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1; gate-task1.txt shows Tests  73 passed (73), Compiled successfully and no refusal line; api.test.ts is byte-identical to the proof (no Prettier change)."
   - "Final review (a10688c75b844f448, b44c2ac..fc14c2a): "Ready to merge? Yes"; 0 Critical, 0 Important, 3 Minor; the deferred minor triaged "does not need fixing before merge"."
-- R5 and R6 (from the plan reviews) and R7 (from the final review) are quoted in the spec's "Rulings" section and in docs/findings-slice51.md §3, with every deferred minor. The post-merge docs commit also fixes the spec Design line's nested backticks (R7).
+  - "Docs review (afd1deb17561e8d50, 837cbdd): "Docs ready? Yes"; 0 Critical, 0 Important, 2 Minor."
+- R5 and R6 (from the plan reviews), R7 (from the final review) and R8 (from the docs review) are quoted in the spec's "Rulings" section and in docs/findings-slice51.md §3, with every deferred minor. The post-merge docs commit also fixes the spec Design line's nested backticks (R7).
