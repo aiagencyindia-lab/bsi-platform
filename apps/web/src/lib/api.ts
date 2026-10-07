@@ -6,6 +6,10 @@ import { COOKIE } from "./cookie";
 export const API_URL = process.env.API_URL ?? "http://localhost:8000";
 export { COOKIE };
 
+/** A refused value for the log: quoted (C0 control characters escaped), at
+ * most 200 UTF-16 code units. */
+const shown = (text: string) => JSON.stringify(text).slice(0, 200);
+
 // ponytail: a backstop for anything a call site misses. It refuses dot
 // segments in any spelling, '\', '#' and anything the URL parser would
 // re-encode; a '/', '%2F' or '?' inside a value passes it, and seg() at each
@@ -13,14 +17,14 @@ export { COOKIE };
 function sendAsWritten(path: string) {
   const u = new URL(path, "http://api.invalid");
   if (u.pathname + u.search === path) return;
-  console.error("API path refused", path);
+  console.error("API path refused", shown(path), path.length);
   notFound();
 }
 
 /** One path segment from a route param, form field or API value. */
 export function seg(value: string): string {
   if (/^[A-Za-z0-9_-]+$/.test(value)) return value;
-  console.error("API path value refused", value);
+  console.error("API path value refused", shown(value), value.length);
   notFound();
 }
 

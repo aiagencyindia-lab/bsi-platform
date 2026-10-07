@@ -56,7 +56,25 @@ test.each([
   vi.stubGlobal("fetch", fetchMock);
   await expect(api(path)).rejects.toThrow("NOT_FOUND");
   expect(fetchMock).not.toHaveBeenCalled();
-  expect(log).toHaveBeenCalledWith("API path refused", path);
+  expect(log).toHaveBeenCalledWith(
+    "API path refused",
+    JSON.stringify(path),
+    path.length,
+  );
+});
+
+test("api logs a long refused path quoted, capped and with its length", async () => {
+  signedIn();
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.stubGlobal("fetch", vi.fn());
+  const path = `/brands/x#${"y".repeat(500)}`;
+  await expect(api(path)).rejects.toThrow("NOT_FOUND");
+  expect(log).toHaveBeenCalledWith(
+    "API path refused",
+    expect.any(String),
+    path.length,
+  );
+  expect(log.mock.calls[0][1]).toHaveLength(200);
 });
 
 test("api sends a path with a query string as written", async () => {
@@ -95,6 +113,25 @@ test.each(["", "..", "a/b", "a%2Fb", "a?b", "a#b", "a b"])(
   (value) => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => seg(value)).toThrow("NOT_FOUND");
-    expect(log).toHaveBeenCalledWith("API path value refused", value);
+    expect(log).toHaveBeenCalledWith(
+      "API path value refused",
+      JSON.stringify(value),
+      value.length,
+    );
   },
 );
+
+test("seg logs a long value quoted, capped and with its length", () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const value = `a\n${"b".repeat(500)}`;
+  expect(() => seg(value)).toThrow("NOT_FOUND");
+  expect(log).toHaveBeenCalledWith(
+    "API path value refused",
+    expect.any(String),
+    502,
+  );
+  const logged = log.mock.calls[0][1] as string;
+  expect(logged).toHaveLength(200);
+  expect(logged.startsWith('"a\\n')).toBe(true);
+  expect(logged).not.toContain("\n");
+});
