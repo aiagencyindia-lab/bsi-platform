@@ -22,16 +22,17 @@ Decisions approved in chat (2026-10-07), each after approaches with trade-offs a
 1. One guard in `api()` and `publicApi()`; over validating each id at every action and page, or `encodeURIComponent` at each site.
 2. On refusal, `notFound()` with a log line; over throwing an error.
 3. After the spec review of `6a55903` showed a `/` or `%2F` inside a value passes that guard (the fact behind decision 1), re-asked: the guard plus `seg()` on every interpolated value; over the guard only with the gaps stated, or closing the minor as won't-fix.
+4. After the spec review of `c2253d5`: both test hardenings, a stricter scan (a non-literal path argument fails; each `${…}` must be exactly one `seg(…)` call) and a guard refusal case with a query (`/brands/x?a=b'c`).
 
 Design Sections 1 and 2 were shown in chat and approved, then revised for decision 3 and shown and approved again.
 
 ## Design
 
-**`seg(value)`** (exported from `apps/web/src/lib/api.ts`) returns `value` when it is one or more letters, digits, `-` or `_`; otherwise it logs `console.error("API path value refused", value)` and calls `notFound()`. Every value interpolated into an `api()`/`publicApi()` path goes through it: route params, form fields, values from API answers, and values inside a hand-written query string (`prompt_id=${seg(pid)}`). Query strings built by `URLSearchParams` (`q`, `dq`, `wq`, `feedQuery`, `apiQuery(sp)`) are left as they are; their output uses only characters the URL parser keeps. The public report page uses `seg(token)` in place of `encodeURIComponent(token)`. In recommendations, `rec()` returns the `rec_id` and both calls write the path with `seg()` on each value.
+**`seg(value)`** (exported from `apps/web/src/lib/api.ts`) returns `value` when it is one or more letters, digits, `-` or `_`; otherwise it logs `console.error("API path value refused", value)` and calls `notFound()`. Every value interpolated into an `api()`/`publicApi()` path goes through it: route params, form fields, values from API answers, and values inside a hand-written query string (`prompt_id=${seg(pid)}`). Query strings built by `URLSearchParams` (`q`, `dq`, `wq`, `apiQuery(sp)`, and `feedQuery`, which is `apiQuery` output plus `&days=` and the constant `FEED_DAYS`) are left as they are; their output uses only characters the URL parser keeps. The public report page uses `seg(token)` in place of `encodeURIComponent(token)`. In recommendations, `rec()` returns the `rec_id` and both calls write the path with `seg()` on each value.
 
 **`sendAsWritten(path)`**, the backstop, parses `path` against a dummy base and requires the parsed path plus query to equal `path`; otherwise it logs `console.error("API path refused", path)` and calls `notFound()`. `api()` calls it first, before reading the cookie (no test pins that order); `publicApi()` calls it first. It refuses `.`/`..` segments in any spelling, `\`, `#`, anything the parser re-encodes (a space, a non-ASCII letter, `'` in a query), and a bare trailing `?`.
 
-Together they refuse `/`, `%2F`, `?`, `#`, `.`, `..` and spaces inside any interpolated value. A refusal shows the app's not-found page and logs the value or path; `fetch` is not called.
+Together they refuse `/`, `%2F`, `?`, `#`, `.`, `..` and spaces inside any interpolated value. A refusal shows the app's not-found page and logs the value or path; `fetch` is not called. In a server action this relies on Next handling `notFound()` there, which `api()` already relies on for an API 404; no test covers it.
 
 Unchanged: the API, the Route Handlers, and `redirect()` targets (paths inside the web app, not API calls).
 
@@ -731,7 +732,7 @@ diff --git a/apps/web/src/lib/api-paths.test.ts b/apps/web/src/lib/api-paths.tes
 new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/lib/api-paths.test.ts
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,46 @@
 +import { readdirSync, readFileSync } from "node:fs";
 +import { join } from "node:path";
 +import { expect, test } from "vitest";
@@ -739,7 +740,20 @@ new file mode 100644
 +// Query strings built by URLSearchParams, which encodes them already.
 +const QUERIES = new Set(["q", "dq", "wq", "feedQuery", "apiQuery(sp)"]);
 +const APP = join(__dirname, "..", "app");
-+const CALL = /\b(?:api|publicApi)(?:<[^>]*>)?\(\s*`([^`]*)`/g;
++const CALL = /\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*(.)/g;
++const PATH = /\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*`([^`]*)`/g;
++
++/** True for exactly one seg(...) call: its "(" closes at the last character. */
++const isSeg = (expr: string) => {
++  if (!expr.startsWith("seg(")) return false;
++  let depth = 0;
++  for (let i = 3; i < expr.length; i++) {
++    if (expr[i] === "(") depth += 1;
++    if (expr[i] === ")") depth -= 1;
++    if (depth === 0) return i === expr.length - 1;
++  }
++  return false;
++};
 +
 +test("every value in an API path goes through seg()", () => {
 +  const files = readdirSync(APP, { recursive: true, encoding: "utf8" }).filter(
@@ -748,12 +762,17 @@ new file mode 100644
 +  const bad: string[] = [];
 +  let templates = 0;
 +  for (const f of files) {
-+    for (const [, path] of readFileSync(join(APP, f), "utf8").matchAll(CALL)) {
++    const code = readFileSync(join(APP, f), "utf8")
++      .split("\n")
++      .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
++      .join("\n");
++    for (const [, first] of code.matchAll(CALL)) {
++      if (!"`\"'".includes(first)) bad.push(`${f}: path is not a literal`);
++    }
++    for (const [, path] of code.matchAll(PATH)) {
 +      templates += 1;
 +      for (const [, expr] of path.matchAll(/\$\{([^}]*)\}/g)) {
-+        if (!/^seg\(.*\)$/.test(expr) && !QUERIES.has(expr)) {
-+          bad.push(`${f}: \${${expr}}`);
-+        }
++        if (!isSeg(expr) && !QUERIES.has(expr)) bad.push(`${f}: \${${expr}}`);
 +      }
 +    }
 +  }
@@ -790,7 +809,7 @@ diff --git a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
  
  test.each([404, 422])("publicApi maps %i to notFound", async (status) => {
    stub(status);
-@@ -30,3 +39,61 @@ test("publicApi throws a plain error on 5xx and sends no auth", async () => {
+@@ -30,3 +39,62 @@ test("publicApi throws a plain error on 5xx and sends no auth", async () => {
    const init = vi.mocked(fetch).mock.calls[0][1];
    expect(init).toEqual({ cache: "no-store" });
  });
@@ -803,6 +822,7 @@ diff --git a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
 +  "/brands/x#y",
 +  "/brands/x y",
 +  "/brands/x?",
++  "/brands/x?a=b'c",
 +])("api refuses %s without calling the API", async (path) => {
 +  signedIn();
 +  const log = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -855,13 +875,14 @@ diff --git a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
 diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
 --- a/apps/web/src/lib/api.ts
 +++ b/apps/web/src/lib/api.ts
-@@ -6,8 +6,26 @@ import { COOKIE } from "./cookie";
+@@ -6,8 +6,27 @@ import { COOKIE } from "./cookie";
  export const API_URL = process.env.API_URL ?? "http://localhost:8000";
  export { COOKIE };
  
-+// ponytail: refuses dot segments in any spelling, '\', '#' and anything the
-+// URL parser would re-encode; a '?' inside a value still moves the rest of
-+// the path into the query string (same key and method, shorter route).
++// ponytail: a backstop for anything a call site misses. It refuses dot
++// segments in any spelling, '\', '#' and anything the URL parser would
++// re-encode; a '/', '%2F' or '?' inside a value passes it, and seg() at each
++// call site refuses those.
 +function sendAsWritten(path: string) {
 +  const u = new URL(path, "http://api.invalid");
 +  if (u.pathname + u.search === path) return;
@@ -882,7 +903,7 @@ diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
    const key = (await cookies()).get(COOKIE)?.value;
    if (!key) redirect("/login");
    const res = await fetch(`${API_URL}/v1${path}`, {
-@@ -47,6 +65,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+@@ -47,6 +66,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
  
  /** Server-side call to a public /v1 route: no cookie, no key. */
  export async function publicApi<T>(path: string): Promise<T> {
@@ -895,43 +916,46 @@ diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
 ## Testing
 
 `apps/web/src/lib/api.test.ts` gains (R1):
-- `api refuses %s without calling the API`, for `/brands/../x`, `/brands/./x`, `/brands/%2e%2E/x`, `/brands/..\x`, `/brands/x#y`, `/brands/x y`, `/brands/x?`: signed in, `api(path)` rejects with the mocked `notFound`'s `NOT_FOUND`, `fetch` is not called, and `console.error` is called with `"API path refused"` and the path.
+- `api refuses %s without calling the API`, for `/brands/../x`, `/brands/./x`, `/brands/%2e%2E/x`, `/brands/..\x`, `/brands/x#y`, `/brands/x y`, `/brands/x?`, `/brands/x?a=b'c`: signed in, `api(path)` rejects with the mocked `notFound`'s `NOT_FOUND`, `fetch` is not called, and `console.error` is called with `"API path refused"` and the path.
 - `api sends a path with a query string as written`: `/brands/1eb6c00a-4b18-4512-b515-dd1d8039511f/sov?days=14` reaches `fetch` as `http://localhost:8000/v1` plus that path.
 - `publicApi refuses a dot segment`: `/r/..` rejects with `NOT_FOUND` and `fetch` is not called (the log line is not asserted; the function is shared).
 - `seg returns a UUID, a report type and a share token unchanged`.
 - `seg refuses %j`, for `""`, `..`, `a/b`, `a%2Fb`, `a?b`, `a#b`, `a b`: it throws `NOT_FOUND` and logs `"API path value refused"` with the value.
 
-New `apps/web/src/lib/api-paths.test.ts`, `every value in an API path goes through seg()`: it reads every non-test `.ts`/`.tsx` file under `src/app`, finds each `api(`/`publicApi(` path template (a regex that spans lines), requires at least 40 of them (55 today), and fails, naming the file and expression, for any `${…}` that is neither `seg(…)` nor one of `q`, `dq`, `wq`, `feedQuery`, `apiQuery(sp)`.
+New `apps/web/src/lib/api-paths.test.ts`, `every value in an API path goes through seg()`: it reads every non-test `.ts`/`.tsx` file under `src/app`, skipping comment lines; fails for any `api(`/`publicApi(` call (generics allowed) whose first argument is not a quoted or template literal; finds each path template (a regex that spans lines), requires at least 40 of them (55 today), and fails, naming the file and expression, for any `${…}` that is neither exactly one `seg(…)` call (its `(` closes at the last character) nor one of `q`, `dq`, `wq`, `feedQuery`, `apiQuery(sp)`. Not scanned: files outside `src/app` (none calls `api()` today), and a raw value later stored in one of the five query variables.
 
-No test checks that every real path passes at run time (R2). Expected gates: web 70 vitest (52 on main plus 18), lint, typecheck and build pass; backend unchanged at `1753 passed, 2 deselected`.
+No test checks that every real path passes at run time (R2). Expected gates: web 71 vitest (52 on main plus 19), lint, typecheck and build pass; backend unchanged at `1753 passed, 2 deselected`.
 
 ### Proof
 
 Run 2026-10-07 in the scratchpad on a copy of main's `apps/web` (`git archive`), with the repo's `node_modules` linked.
 
-- Red, main's code with the two new test files: `Tests  17 failed | 4 passed (21)`: the 7 guard refusal cases, `publicApi refuses a dot segment`, the 8 `seg` tests (`seg` does not exist on main) and the scan test, which lists every unwrapped value; the 4 passing are the 3 existing tests and the query-string test.
-- Green, patched: the two files give `Tests  21 passed (21)`; typecheck, lint, test (`Tests  70 passed (70)`) and build (`Compiled successfully`) exit 0, with no `API path refused` or `API path value refused` line in the output. The gate's `gen:check` was not run: the copy has no backend (`scripts/export_openapi.py`). No API file changes.
-- Prettier is not in the gate. `api.ts`, both test files, and the two call-site files that were Prettier-clean on main (`recommendations/actions.ts`, `reports/actions.ts`, rewrapped) pass `prettier --check`; the other changed files were not Prettier-clean on main (R3).
+- Red, main's code with the two new test files: `Tests  18 failed | 4 passed (22)`: the 8 guard refusal cases, `publicApi refuses a dot segment`, the 8 `seg` tests (`seg` does not exist on main) and the scan test, which lists every unwrapped value; the 4 passing are the 3 existing tests and the query-string test.
+- Green, patched: the two files give `Tests  22 passed (22)`; typecheck, lint, test (`Tests  71 passed (71)`) and build (`Compiled successfully`) exit 0, with no `API path refused` or `API path value refused` line in the output. The gate's `gen:check` was not run: the copy has no backend (`scripts/export_openapi.py`). No API file changes.
+- Prettier is not in the gate. `api.ts` and both test files pass `prettier --check`. Of the 28 changed call-site files, 11 were Prettier-clean on main and all 11 stay clean (`recommendations/actions.ts` and `reports/actions.ts` rewrapped); the other 17 were not clean on main and are left as edited (R3, corrected).
 - Outside `seg(` wraps and imports, the call-site diff is Prettier rewrapping and the inlined recommendation paths.
 
-Each change below fails tests (counts from the two files, 21 tests):
+Each change below fails tests (counts from the two files, 22 tests):
 
 | Mutant | Change | Result | Failing |
 |---|---|---|---|
-| M1 | no guard in `api()` | `7 failed | 14 passed (21)` | the 7 guard refusal cases |
-| M2 | no guard in `publicApi()` | `1 failed | 20 passed (21)` | `publicApi refuses a dot segment` |
-| M3 | the query string left out of the guard's comparison | `1 failed | 20 passed (21)` | `api sends a path with a query string as written` |
-| M4 | `api()`'s guard moved after `fetch` | `7 failed | 14 passed (21)` | the 7 guard refusal cases (`fetch` was called) |
-| M5 | no guard log line | `7 failed | 14 passed (21)` | the 7 guard refusal cases |
-| M6 | `seg()` accepts `/` | `1 failed | 20 passed (21)` | `seg refuses "a/b"` |
-| M7 | no `seg()` log line | `7 failed | 14 passed (21)` | the 7 `seg` refusal cases |
-| M8 | `addDomain`'s path left unwrapped | `1 failed | 20 passed (21)` | `every value in an API path goes through seg()` |
-| M9 | `q` missing from the scan's allowlist | `1 failed | 20 passed (21)` | `every value in an API path goes through seg()` |
-| M10 | the scan's regex finds nothing | `1 failed | 20 passed (21)` | `every value in an API path goes through seg()` |
+| M1 | no guard in `api()` | `8 failed | 14 passed (22)` | the 8 guard refusal cases |
+| M2 | no guard in `publicApi()` | `1 failed | 21 passed (22)` | `publicApi refuses a dot segment` |
+| M3 | the query string left out of the guard's comparison | `1 failed | 21 passed (22)` | `api sends a path with a query string as written` |
+| M4 | `api()`'s guard moved after `fetch` | `8 failed | 14 passed (22)` | the 8 guard refusal cases (`fetch` was called) |
+| M5 | no guard log line | `8 failed | 14 passed (22)` | the 8 guard refusal cases |
+| M6 | `seg()` accepts `/` | `1 failed | 21 passed (22)` | `seg refuses "a/b"` |
+| M7 | no `seg()` log line | `7 failed | 15 passed (22)` | the 7 `seg` refusal cases |
+| M8 | `addDomain`'s path left unwrapped | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
+| M9 | `q` missing from the scan's allowlist | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
+| M10 | the scan's path regex finds nothing | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
+| M11 | `addDomain`'s path built in a variable | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
+| M12 | `addDomain`'s value written `${seg(id) + host}` | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
+| M13 | the guard ignores the query but refuses a bare `?` | `1 failed | 21 passed (22)` | `api refuses /brands/x?a=b'c without calling the API` |
 
 ## Rulings
 
-Quoted from the ledger:
+Quoted from the ledger (R2's "about 40" was written before the 55 templates were counted, R4):
 
 > Ruling: R1. Decided: the refusal tests sign in with a mocked cookie (a signedIn() helper) and silence console.error with vi.spyOn, and afterEach calls vi.restoreAllMocks(); none of this was in the Section 2 text. Found by: the controller, running the proof: without a cookie, mutant M4 (the guard moved after fetch) failed only because api() crashed reading an undefined cookie store, not on the "fetch not called" assertion. Why: each mutant then fails on the assertion that names its fault, and the gate output stays free of "API path refused" lines. Cost if wrong: an unexpected console.error in those tests would be hidden. How named: in chat, 2026-10-07, after the proof run.
 
@@ -941,10 +965,14 @@ Quoted from the ledger:
 
 > Ruling: R4. Decided: the spec review's other findings are fixed in the rewritten spec: route params can be set by any link (GET-only, the operator's own key) (Important 3); the live check is possible read-only from the address bar, and is offered after merge, asked first (Important 2); `../..` can leave /v1 (Minor 4); the counts are 55 path templates in 28 files (Minor 5); the value lists name observation_id, entity_id, rec_id and pid (Minor 6); the claim that api() checks before reading the cookie is kept and pinned by no test, stated as such (Minor 7); the publicApi refusal test does not assert the log line, stated (Minor 8); the "?" gap no longer exists for interpolated values, since seg() refuses "?" (Minor 9). Found by: the spec reviewer (Opus 5.5, ad3141fc576bdde33), 2026-10-07. Why: wrong or incomplete statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the proof run.
 
+> Ruling: R5. Decided: the second spec review's other findings are fixed: the Proof and R3's Prettier statement is corrected by a Correction to R3 line (11 changed call-site files were Prettier-clean on main and stay clean, 2 of them rewrapped; 17 were not clean on main) (Important 1); R2's "about 40" gets a note that 55 path templates were counted later (R4) (Minor 3); the live check is called "page views only", not read-only, since each view writes api_key.last_used_at (Minor 4); feedQuery is described as apiQuery output plus "&days=" and the constant FEED_DAYS (Minor 5); the ponytail comment on sendAsWritten says seg() at each call site refuses "/", "%2F" and "?" (Minor 6); the Design says a refusal in a server action relies on Next handling notFound() there, which api() already relies on for an API 404 (Minor 7). Found by: the spec reviewer (Opus 5.5, a015dcf18c3d22bd2), 2026-10-07. Why: wrong or incomplete statements of mine, one in a code comment. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the second spec review.
+
+> Correction to R3 (2026-10-07, from the second spec review): 11 of the 28 changed call-site files were Prettier-clean on main and all 11 stay clean (recommendations/actions.ts and reports/actions.ts rewrapped); the other 17 were not clean on main and are left as edited.
+
 ## Deferred minors
 
 None yet.
 
 ## Live check
 
-Optional, read-only, asked first after merge: on dev, with uvicorn and `next dev` running, open `/b/<uuid>/prompts/a'b` (today an API 422 error page; with this change the not-found page and "API path value refused" in the web server log). Each page view authenticates with the API key, which writes `api_key.last_used_at`.
+Optional (page views only), asked first after merge: on dev, with uvicorn and `next dev` running, open `/b/<uuid>/prompts/a'b` (today an API 422 error page; with this change the not-found page and "API path value refused" in the web server log). Each page view authenticates with the API key, which writes `api_key.last_used_at`.
