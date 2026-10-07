@@ -28,7 +28,7 @@ Design Sections 1 and 2 were shown in chat and approved, then revised for decisi
 
 ## Design
 
-**`seg(value)`** (exported from `apps/web/src/lib/api.ts`) returns `value` when it is one or more letters, digits, `-` or `_`; otherwise it logs `console.error("API path value refused", value)` and calls `notFound()`. Every value interpolated into an `api()`/`publicApi()` path goes through it: route params, form fields, values from API answers, and values inside a hand-written query string (`prompt_id=${seg(pid)}`). Query strings built by `URLSearchParams` (`q`, `dq`, `wq`, `apiQuery(sp)`, and `feedQuery`, which is `apiQuery` output plus `&days=` and the constant `FEED_DAYS`) are left as they are; their output uses only characters the URL parser keeps. The public report page uses `seg(token)` in place of `encodeURIComponent(token)`. In recommendations, `rec()` returns the `rec_id` and both calls write the path with `seg()` on each value.
+**`seg(value)`** (exported from `apps/web/src/lib/api.ts`) returns `value` when it is one or more letters, digits, `-` or `_`; otherwise it logs `console.error("API path value refused", value)` and calls `notFound()`. Every value interpolated into an `api()`/`publicApi()` path goes through it: route params, form fields, values from API answers, and values inside a hand-written query string (`prompt_id=${seg(pid)}`). Query strings built by `URLSearchParams` (`q`, `dq`, `wq`, `apiQuery(sp)`, and `feedQuery`, which is `apiQuery` output plus `days=` and the constant `FEED_DAYS`, joined with `&` or `?`) are left as they are; their output uses only characters the URL parser keeps. The public report page uses `seg(token)` in place of `encodeURIComponent(token)`. In recommendations, `rec()` returns the `rec_id` and both calls write the path with `seg()` on each value.
 
 **`sendAsWritten(path)`**, the backstop, parses `path` against a dummy base and requires the parsed path plus query to equal `path`; otherwise it logs `console.error("API path refused", path)` and calls `notFound()`. `api()` calls it first, before reading the cookie (no test pins that order); `publicApi()` calls it first. It refuses `.`/`..` segments in any spelling, `\`, `#`, anything the parser re-encodes (a space, a non-ASCII letter, `'` in a query), and a bare trailing `?`.
 
@@ -732,7 +732,7 @@ diff --git a/apps/web/src/lib/api-paths.test.ts b/apps/web/src/lib/api-paths.tes
 new file mode 100644
 --- /dev/null
 +++ b/apps/web/src/lib/api-paths.test.ts
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,50 @@
 +import { readdirSync, readFileSync } from "node:fs";
 +import { join } from "node:path";
 +import { expect, test } from "vitest";
@@ -740,7 +740,9 @@ new file mode 100644
 +// Query strings built by URLSearchParams, which encodes them already.
 +const QUERIES = new Set(["q", "dq", "wq", "feedQuery", "apiQuery(sp)"]);
 +const APP = join(__dirname, "..", "app");
-+const CALL = /\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*(.)/g;
++const CALL = /\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*/g;
++// The whole first argument is one literal, followed by "," or ")".
++const LITERAL = /^(`[^`]*`|"[^"]*"|'[^']*')\s*[,)]/;
 +const PATH = /\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*`([^`]*)`/g;
 +
 +/** True for exactly one seg(...) call: its "(" closes at the last character. */
@@ -766,8 +768,10 @@ new file mode 100644
 +      .split("\n")
 +      .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
 +      .join("\n");
-+    for (const [, first] of code.matchAll(CALL)) {
-+      if (!"`\"'".includes(first)) bad.push(`${f}: path is not a literal`);
++    for (const m of code.matchAll(CALL)) {
++      if (!LITERAL.test(code.slice(m.index + m[0].length))) {
++        bad.push(`${f}: path is not one literal`);
++      }
 +    }
 +    for (const [, path] of code.matchAll(PATH)) {
 +      templates += 1;
@@ -875,14 +879,13 @@ diff --git a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
 diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
 --- a/apps/web/src/lib/api.ts
 +++ b/apps/web/src/lib/api.ts
-@@ -6,8 +6,27 @@ import { COOKIE } from "./cookie";
+@@ -6,8 +6,26 @@ import { COOKIE } from "./cookie";
  export const API_URL = process.env.API_URL ?? "http://localhost:8000";
  export { COOKIE };
  
-+// ponytail: a backstop for anything a call site misses. It refuses dot
-+// segments in any spelling, '\', '#' and anything the URL parser would
-+// re-encode; a '/', '%2F' or '?' inside a value passes it, and seg() at each
-+// call site refuses those.
++// ponytail: refuses dot segments in any spelling, '\', '#' and anything the
++// URL parser would re-encode; a '?' inside a value still moves the rest of
++// the path into the query string (same key and method, shorter route).
 +function sendAsWritten(path: string) {
 +  const u = new URL(path, "http://api.invalid");
 +  if (u.pathname + u.search === path) return;
@@ -903,7 +906,7 @@ diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
    const key = (await cookies()).get(COOKIE)?.value;
    if (!key) redirect("/login");
    const res = await fetch(`${API_URL}/v1${path}`, {
-@@ -47,6 +66,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+@@ -47,6 +65,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
  
  /** Server-side call to a public /v1 route: no cookie, no key. */
  export async function publicApi<T>(path: string): Promise<T> {
@@ -922,7 +925,7 @@ diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
 - `seg returns a UUID, a report type and a share token unchanged`.
 - `seg refuses %j`, for `""`, `..`, `a/b`, `a%2Fb`, `a?b`, `a#b`, `a b`: it throws `NOT_FOUND` and logs `"API path value refused"` with the value.
 
-New `apps/web/src/lib/api-paths.test.ts`, `every value in an API path goes through seg()`: it reads every non-test `.ts`/`.tsx` file under `src/app`, skipping comment lines; fails for any `api(`/`publicApi(` call (generics allowed) whose first argument is not a quoted or template literal; finds each path template (a regex that spans lines), requires at least 40 of them (55 today), and fails, naming the file and expression, for any `${…}` that is neither exactly one `seg(…)` call (its `(` closes at the last character) nor one of `q`, `dq`, `wq`, `feedQuery`, `apiQuery(sp)`. Not scanned: files outside `src/app` (none calls `api()` today), and a raw value later stored in one of the five query variables.
+New `apps/web/src/lib/api-paths.test.ts`, `every value in an API path goes through seg()`: it reads every non-test `.ts`/`.tsx` file under `src/app`, skipping comment lines; fails for any `api(`/`publicApi(` call (generics allowed) whose whole first argument is not one quoted or template literal followed by `,` or `)` (so a literal joined with `+` fails); finds each path template (a regex that spans lines), requires at least 40 of them (55 today), and fails, naming the file and expression, for any `${…}` that is neither exactly one `seg(…)` call (its `(` closes at the last character) nor one of `q`, `dq`, `wq`, `feedQuery`, `apiQuery(sp)`. Not scanned: files outside `src/app` (none calls `api()` today), and a raw value later stored in one of the five query variables. Comment skipping is by line: a code line starting with `*`, or with `/* … */` before code, is skipped; a block-comment line not starting with `*` is scanned, which can only fail the test. None occurs today.
 
 No test checks that every real path passes at run time (R2). Expected gates: web 71 vitest (52 on main plus 19), lint, typecheck and build pass; backend unchanged at `1753 passed, 2 deselected`.
 
@@ -952,6 +955,8 @@ Each change below fails tests (counts from the two files, 22 tests):
 | M11 | `addDomain`'s path built in a variable | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
 | M12 | `addDomain`'s value written `${seg(id) + host}` | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
 | M13 | the guard ignores the query but refuses a bare `?` | `1 failed | 21 passed (22)` | `api refuses /brands/x?a=b'c without calling the API` |
+| M14 | `addDomain`'s path written `"/brands/" + id + "/domains"` | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
+| M15 | `addDomain`'s path written as a template joined with `+` | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
 
 ## Rulings
 
@@ -968,6 +973,8 @@ Quoted from the ledger (R2's "about 40" was written before the 55 templates were
 > Ruling: R5. Decided: the second spec review's other findings are fixed: the Proof and R3's Prettier statement is corrected by a Correction to R3 line (11 changed call-site files were Prettier-clean on main and stay clean, 2 of them rewrapped; 17 were not clean on main) (Important 1); R2's "about 40" gets a note that 55 path templates were counted later (R4) (Minor 3); the live check is called "page views only", not read-only, since each view writes api_key.last_used_at (Minor 4); feedQuery is described as apiQuery output plus "&days=" and the constant FEED_DAYS (Minor 5); the ponytail comment on sendAsWritten says seg() at each call site refuses "/", "%2F" and "?" (Minor 6); the Design says a refusal in a server action relies on Next handling notFound() there, which api() already relies on for an API 404 (Minor 7). Found by: the spec reviewer (Opus 5.5, a015dcf18c3d22bd2), 2026-10-07. Why: wrong or incomplete statements of mine, one in a code comment. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the second spec review.
 
 > Correction to R3 (2026-10-07, from the second spec review): 11 of the 28 changed call-site files were Prettier-clean on main and all 11 stay clean (recommendations/actions.ts and reports/actions.ts rewrapped); the other 17 were not clean on main and are left as edited.
+
+> Ruling: R6. Decided: the spec re-review's findings are fixed: the scan test now requires the whole first argument of each api()/publicApi() call to be one quoted or template literal followed by "," or ")", so a literal joined with "+" fails, as the user's "Harden scan" choice said (Important 1; mutants M14 and M15 added); feedQuery is described as apiQuery output plus "days=" and the constant FEED_DAYS, joined with "&" or "?" (Minor 1); the spec states the comment skipping's limits (a code line starting with "*" or "/* … */" is skipped; a block-comment line not starting with "*" is scanned, which can only fail the test) (Minor 2). Found by: the spec re-reviewer (Opus 5.5, a698f8d3a147689af), 2026-10-07. Why: the test fell short of the user's approved choice, and two statements were inexact. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
 ## Deferred minors
 
