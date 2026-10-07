@@ -1284,7 +1284,7 @@ cd /Users/vineet/Downloads/ADK/bsi-platform && git commit -m "fix(web): every va
 Route params, form fields and API values were put into API paths as
 they came, so a '/', '%2F', '..' or '?' inside one could send the
 request to another route. Each is now checked by seg(), and a source
-scan test fails if a value skips it.
+scan test fails if a value in an src/app path template skips it.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```

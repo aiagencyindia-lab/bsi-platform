@@ -981,6 +981,10 @@ Quoted from the ledger (R2's "about 40" was written before the 55 templates were
 
 > Ruling: R8. Decided: the 9daba5a re-review's Minor 1 (the api.ts hunk headers changed with the content; the reviewer said no action needed) is left, unrecorded by R7 until now; the 90ee504 re-review's Minor 2 (a scanned block-comment line holding an unclosed api(` could also hide a later template from the scan; none exists today) is deferred. Found by: the spec re-reviewer (Opus 5.5, a0abfd1c7e77ff3bb), 2026-10-07. Why: Minor 1 needs no change; Minor 2 needs a contrived comment that no file has. Cost if wrong: such a comment, if ever written, could let one unwrapped value past the scan; seg() at that call site and the api() guard still apply at run time only if the value is wrapped or would be re-encoded. How named: in chat, 2026-10-07, after the re-review.
 
+> Correction to R8 (2026-10-07, from the plan review): a scanned block-comment line holding an unclosed api(` hides the next template's values from the PATH check, but the test still fails on "path is not one literal" unless the next backtick after it is followed by "," or ")"; and the api() guard refuses dot segments, "\", "#" and re-encoded characters, not only re-encoded ones. The deferred minor quoted with R8 overstates the risk in the same way.
+
+> Ruling: R9. Decided: the plan review's Minor 1 is fixed by the Correction to R8 line; Minor 2 is fixed: the Task 2 commit message says the scan "fails if a value in an src/app path template skips it"; Minor 3 (Task 1's commit step stages again, Task 2's relies on Step 5) is left as harmless. Found by: the plan reviewer (Opus 5.5, adbe523df7912402a), 2026-10-07. Why: an overstated risk and an overstated commit message of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan review.
+
 ## Deferred minors
 
 Quoted from the ledger:
