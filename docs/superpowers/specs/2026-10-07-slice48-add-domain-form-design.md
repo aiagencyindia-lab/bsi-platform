@@ -4,17 +4,19 @@
 
 Codebase facts: main `5d6326f`, checked 2026-10-07.
 
-Slice 47 made the Brand SERP page (`apps/web/src/app/(app)/b/[id]/serp/page.tsx`) say "Not audited automatically: the brand has no declared domain." for an active brand with no domain. Its final review deferred a minor: the line names a fix the web app gives no way to make, since no web page calls the domains API (findings-slice47 §3, R7).
+Slice 47 made the Brand SERP page (`apps/web/src/app/(app)/b/[id]/serp/page.tsx`) say "Not audited automatically: the brand has no declared domain." for an active brand with no domain. Its final review deferred a minor: the line names a fix the web app gives no way to make, since no web page adds a domain; they are declared only through the API (findings-slice47 §3, R7).
 
 `POST /v1/brands/{id}/domains` (`apps/api/bsi_api/routers/brands.py`, `create_domain`) takes `{"host", "is_primary"}`. The host is normalized and must be a public host name (422 otherwise); a host already declared for the brand is 409. On success it re-flags the brand's citations (`reflag_citations`). `is_primary` is stored but read nowhere. A brand with a declared domain becomes eligible for the weekly Brand SERP audit (`due_serp_audits()`, migration 0024; paid DataForSEO searches) and the weekly site audit. Once it has a domain, a brand is due as soon as one of its two query kinds has no error-free page in the last 7 days, no `audit_serp` job was created in the last day or is still queued or running, and fewer than 3 failed in 7 days; so, while the worker runs with DataForSEO credentials and budget room, its first audit can be queued at the next sweep (every 60 s).
 
-The web app's existing write pattern is a server action that calls `api()` and then `redirect()` (the webhook form, `apps/web/src/app/(app)/b/[id]/alerts/actions.ts`); `api()` throws on a non-2xx answer other than 401/404, which the `(app)` error page shows.
+The web app's existing write pattern is a server action that calls `api()` and then `redirect()` (the webhook form, `apps/web/src/app/(app)/b/[id]/alerts/actions.ts`); `api()` logs and throws on a non-2xx answer other than 401/404, and the `(app)` error page shows the thrown error; in production Next replaces a server action's error message with a generic one plus a digest (the problem and its request id stay in the web server log). A 422 from the API carries its reasons in `errors[]` and no `detail`, so `api()`'s message is only `422 Validation failed (request …)`.
 
 Classification: **bounded** (an existing page and an existing API route), said as the first line of the first brainstorming reply with the session model (Opus 5.5). The user's process asks for a spec and plan even for small changes, so the full process is followed.
 
 Decisions approved in chat (2026-10-07), each after approaches with trade-offs and a recommendation written in a chat message:
 1. An add-domain form on the Brand SERP page; over naming the API route in the line, or a full domains screen (list, add, remove, primary).
 2. A warning by the form and no separate confirmation note; over the warning plus a "Domain added." note, or no warning.
+3. After the spec review showed the error page does not show the API's reason (the fact behind Section 1's error behaviour), re-asked: a browser `pattern` that refuses a host with no dot; over catching the error and returning with a note, or leaving it as is.
+4. After the spec review: a visible label and the warning linked with `aria-describedby`; over `aria-label` only.
 
 Design Section 1 (when the form shows, its field, button and warning, what Add does, errors) and Section 2 (the action, the page condition, two action tests) were each shown in chat and approved.
 
@@ -22,13 +24,13 @@ Design Section 1 (when the form shows, its field, button and warning, what Add d
 
 The form shows only when the brand is `active` and has no declared domain, which is exactly when the schedule line says "Not audited automatically: the brand has no declared domain.". It sits under that line:
 
-- a text field `host`, `required`, `placeholder="example.com"`, `aria-label="Domain"`;
+- a visible label "Domain" (`<label htmlFor="host">`) and a text field `id="host"`, `name="host"`, `required`, `pattern=".*\..*"` with `title="A domain name such as example.com"`, `placeholder="example.com"`, `aria-describedby="host-cost"`;
 - a button "Add domain";
-- a muted line: "Adding a domain starts the weekly Brand SERP audit: paid Google searches, counted against the daily budget. The first can run within minutes."
+- a muted line, `id="host-cost"`: "Adding a domain lets the weekly Brand SERP audit run for this brand: paid Google searches, counted against the daily budget. The first can run within minutes."
 
 `addDomain` (a new server action in `serp/actions.ts`) trims the host, sends `POST /v1/brands/{id}/domains` with `{"host": "<trimmed>"}` (no `is_primary`, so the API's default `false` applies), and redirects to `/b/{id}/serp` with no note. The reloaded page has one domain, so the schedule line reads "Audited automatically once a week." and the form is gone.
 
-A refused host (422) or a duplicate (409; only a race, since the form shows with no domains) makes `api()` throw before the redirect, and the `(app)` error page shows the status and the API's message, as for the webhook form. `redirect()` is not inside a try/catch.
+The browser refuses a host with no dot (for example `walkaroo` or `localhost`) before sending, showing the field's `title`. The pattern is anchored by the browser, so `walkaroo.in` passes. A host it passes but the API refuses (for example an IP address, 422), or a duplicate, makes `api()` throw before the redirect, and the `(app)` error page shows a generic message with a digest in production (`422 Validation failed (request …)` in development, with no reason), as for the webhook form. A duplicate needs a second submit: a later one (a stale tab) is a 409; two in the same moment can both pass the API's check, and the second insert fails the `(brand_id, host)` unique constraint as a 500. In both the domain was added, and reloading the page shows it. `redirect()` is not inside a try/catch.
 
 Unchanged: `serpSchedule` and its three lines, "Run audit now", the status line and the audit cards. An archived brand gets no form.
 
@@ -125,7 +127,7 @@ diff --git a/apps/web/src/app/(app)/b/[id]/serp/page.tsx b/apps/web/src/app/(app
  
  export default async function Serp({
    params,
-@@ -37,6 +37,25 @@ export default async function Serp({
+@@ -37,6 +37,29 @@ export default async function Serp({
          )}
        </form>
        <p className="muted">{serpSchedule(brand.status, domains.length)}</p>
@@ -133,18 +135,22 @@ diff --git a/apps/web/src/app/(app)/b/[id]/serp/page.tsx b/apps/web/src/app/(app
 +        <>
 +          <form action={addDomain} className="row">
 +            <input type="hidden" name="brand_id" value={id} />
++            <label htmlFor="host">Domain</label>
 +            <input
++              id="host"
 +              name="host"
 +              required
++              pattern=".*\..*"
++              title="A domain name such as example.com"
 +              placeholder="example.com"
-+              aria-label="Domain"
++              aria-describedby="host-cost"
 +            />
 +            <button>Add domain</button>
 +          </form>
-+          <p className="muted">
-+            Adding a domain starts the weekly Brand SERP audit: paid Google
-+            searches, counted against the daily budget. The first can run within
-+            minutes.
++          <p className="muted" id="host-cost">
++            Adding a domain lets the weekly Brand SERP audit run for this brand:
++            paid Google searches, counted against the daily budget. The first
++            can run within minutes.
 +          </p>
 +        </>
 +      )}
@@ -160,15 +166,16 @@ New `apps/web/src/app/(app)/b/[id]/serp/actions.test.ts` (in the diff above), wi
 - `addDomain posts the trimmed host, then returns to the page`: for `"  walkaroo.in "`, `fetch` is called once with `http://localhost:8000/v1/brands/<id>/domains` and exactly `method: "POST"`, `cache: "no-store"`, headers `Content-Type: application/json` and `Authorization: Bearer bsi_key_1`, body `{"host":"walkaroo.in"}`; `redirect` is called with `/b/<id>/serp`.
 - `addDomain does not redirect when the API refuses the host`: with a 422 answer, `addDomain` rejects with a message starting `422` and `redirect` is not called. The test silences `console.error`, which `api()` calls on every non-2xx answer, and `afterEach` restores it (R1).
 
-No test covers the page's form condition (`brand.status === "active" && domains.length === 0`); it is page wiring, as in slice 47 (R2 there). Expected gates: web 52 vitest (50 on main plus 2), lint, typecheck and build pass; backend unchanged at `1753 passed, 2 deselected`.
+No test covers the page's form condition (`brand.status === "active" && domains.length === 0`) or its attributes (R3). Expected gates: web 52 vitest (50 on main plus 2), lint, typecheck and build pass; backend unchanged at `1753 passed, 2 deselected`.
 
 ### Proof
 
 Run 2026-10-07 in the scratchpad on a copy of main's `apps/web` (`git archive`), with the repo's `node_modules` linked.
 
 - Red, main's code with the new test file: `Tests  2 failed (2)`, both `TypeError: addDomain is not a function`.
-- Green, patched: the test file gives `Tests  2 passed (2)`; typecheck, lint, test (`Tests  52 passed (52)`) and build (`Compiled successfully`) exit 0. The gate's last step, `gen:check`, was not run: the copy holds only `apps/web` and has no `scripts/export_openapi.py`. No API file changes.
-- Prettier is not in the gate. Main's `page.tsx` passes `prettier --check`; the new warning paragraph is wrapped as Prettier wraps it, and all three changed files pass.
+- Green, patched (re-run after the spec review's changes): the test file gives `Tests  2 passed (2)`; typecheck, lint, test (`Tests  52 passed (52)`) and build (`Compiled successfully`) exit 0. The gate's last step, `gen:check`, was not run: the copy holds only `apps/web` and has no `scripts/export_openapi.py`. No API file changes.
+- Prettier is not in the gate. Main's `page.tsx` passes `prettier --check`; the new code is written as Prettier writes it, and all three changed files pass.
+- The pattern, checked in Node with the `v` flag browsers use (`^(?:.*\..*)$`): `walkaroo` false, `localhost` false, `walkaroo.in` true, `127.0.0.1` true (left to the API).
 
 Each change below fails one of the two tests (`Tests  1 failed | 1 passed (2)`):
 
@@ -186,10 +193,16 @@ Quoted from the ledger:
 
 > Ruling: R1. Decided: the error test silences console.error with vi.spyOn (api() logs every non-2xx answer) and afterEach calls vi.restoreAllMocks(); neither was in the Section 2 text. Found by: the controller, running the proof. Why: the gate's test output stays free of a logged "API problem" line, and the spy does not leak into other tests. Cost if wrong: an unexpected console.error in that test would be hidden. How named: in chat, 2026-10-07, after the proof run.
 
+> Ruling: R2. Decided: the spec review's other findings are fixed: the spec states what a refused host shows (production: a generic error with a digest, the API problem in the web server log; development: "422 Validation failed (request …)" with no reason, since the 422 carries its reasons in errors[] and no detail) (Important 1); "no web page adds a domain" replaces "no web page calls the domains API" (Minor 1); a later duplicate submit is a 409 and a same-moment double submit is a 500 from the unique constraint, both after the domain was added (Minor 2); the warning says "lets the weekly Brand SERP audit run for this brand" instead of "starts" (Minor 3); the live check removes the domain before the worker next starts and names the delete's re-flag (Minor 5); the untested page condition is its own ruling, R3 (Minor 7). Minor 6 (chat-only claims) is left. Found by: the spec reviewer (Opus 5.5, a862091404531fe1d), 2026-10-07. Why: wrong or overstated statements of mine. Cost if wrong: none to behaviour beyond the warning's wording. How named: in chat, 2026-10-07, after the spec review.
+
+> Ruling: R3. Decided: no test covers the page's form condition (brand.status === "active" && domains.length === 0) or its attributes (label, pattern, aria-describedby); the action tests cover addDomain only. Found by: the spec reviewer (Minor 7) and the controller. Why: the repo has no tests for Server Component pages; the condition is the case serpSchedule's test pins for the no-domain line. Cost if wrong: a wiring slip (the form shown for an archived brand, or hidden for a no-domain brand, or a dropped pattern) would ship unnoticed by the gate. How named: in chat, 2026-10-07, after the spec review.
+
 ## Deferred minors
 
-None yet.
+Quoted from the ledger:
+
+- "minor (deferred): spec review minor 6, the classification line, the chat approvals and the ledger quotes cannot be checked from the repo (R2)."
 
 ## Live check
 
-Optional, asked first: on dev, open the Brand SERP page of a brand with no domain, add a domain and see the line change. It writes a `domain` row (and re-flags that brand's citations) and `api_key.last_used_at`; if the worker were running it could then queue a paid SERP audit, so the worker stays stopped. Removing the domain afterwards needs `DELETE /v1/brands/{id}/domains/{domain_id}`.
+Optional, asked first: on dev, open the Brand SERP page of a brand with no domain, add a domain and see the line change. It writes a `domain` row (and re-flags that brand's citations) and `api_key.last_used_at`; with a domain the brand becomes due, so the worker stays stopped, and the domain is removed with `DELETE /v1/brands/{id}/domains/{domain_id}` (which re-flags the citations again) before the worker next starts; otherwise its first sweep queues a paid SERP audit.
