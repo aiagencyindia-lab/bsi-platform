@@ -31,7 +31,7 @@ The page shows exactly one line where the fixed sentence was:
 | active, no declared domain | "Not audited automatically: the brand has no declared domain." |
 | active, at least one domain | "Audited automatically once a week." |
 
-Archived is checked first: an archived brand with no domain gets the archived reason. Any status other than `active` gets the archived line; only `'archived'` is ever written, and no test pins another value to it (R3). Everything else on the page is unchanged.
+Archived is checked first: an archived brand with no domain gets the archived reason. Any status other than `active` gets the archived line; the only other value ever written is `'archived'`, and no test pins another value to it (R3). Everything else on the page is unchanged.
 
 The page fetches the audits, the brand and its domains in one `Promise.all`. The layout already fetches `/brands/{id}`, so that request is made twice per render; no caching is added.
 
@@ -173,6 +173,10 @@ Quoted from the ledger:
 > Ruling: R2. Decided: no test covers the page's wiring (the three fetches and the arguments passed to serpSchedule); the vitest and the mutation table cover the helper only. Found by: the controller, running the proof. Why: the repo has no tests for Server Component pages, and adding a page-test harness is outside this slice; tsc pins the argument types. Cost if wrong: a wiring slip (for example passing aliases.length) would ship unnoticed by the gate. How named: in chat, 2026-10-07, after the proof run.
 
 > Ruling: R3. Decided: spec review Minor 1 is fixed by stating in the spec that any status other than active gets the archived line (only 'archived' is ever written), with no added test; Minor 2 is fixed by naming the two other cases where the page still says weekly (three failed audit_serp jobs in 7 days, and an org budget with no room) next to the missing-credentials case; Minor 3 (R2's example is narrow) is left. Found by: the spec reviewer (Opus 5.5), 2026-10-07. Why: Minor 1 and 2 were unstated or incomplete statements; a test pinning "paused" to the archived line would pin a wrong label for a status nobody writes; Minor 3 is accurate as written. Cost if wrong: if another brand status is ever added, its page says "archived" until the helper is changed. How named: in chat, 2026-10-07, after the spec review.
+
+> Ruling: R4. Decided: spec re-review Minor 1 is fixed: the spec's Design paragraph says "the only other value ever written is 'archived'" instead of "only 'archived' is ever written", and R3's same wording is corrected by a Correction to R3 line. Found by: the spec re-reviewer (Opus 5.5), 2026-10-07. Why: 'active' is also written, as the column default, so the old wording was loose. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
+
+> Correction to R3 (2026-10-07, from the spec re-review): "only 'archived' is ever written" means the only value other than 'active' (the column default) ever written is 'archived'.
 
 ## Deferred minors
 
