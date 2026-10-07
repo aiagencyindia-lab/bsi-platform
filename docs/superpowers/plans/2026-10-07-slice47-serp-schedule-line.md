@@ -244,4 +244,4 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - "Plan re-review (af86e01e9fb2168cf, 8af3242): "Ready to execute? Yes"; 0 findings."
   - "Task 1: task review (a0ff63e05bdf8e1eb, 8af3242..5e74f54): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 1 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1 (Co-Authored-By: Claude Opus 5.5); gate-task1.txt shows Tests  50 passed (50), Compiled successfully and gen completing, and git status shows no openapi.json or schema.d.ts change, so gen:check passed; the report holds the RED and GREEN lines."
   - "Final review (ab97f02a1a6ce7aff, 872b849..5e74f54): "Ready to merge? Yes"; 0 Critical, 0 Important, 4 Minor; both deferred minors triaged "Not needed before merge"."
-- R7 (made after the final review) and R8 (from the docs review) are quoted in the spec's "Rulings" section and in docs/findings-slice47.md §3, with every deferred minor.
+- R7 (made after the final review), R8 and R9 (from the docs reviews) are quoted in the spec's "Rulings" section and in docs/findings-slice47.md §3, with every deferred minor.

@@ -190,6 +190,8 @@ Rulings made after the final review (added by the post-merge docs commits), quot
 
 > Ruling: R8. Decided: the docs review's findings are fixed: the spec and findings say R5 and R6 were added during planning, after the user approved the spec at 70d0a4c, and only R7 by the post-merge docs commits (Important 1); a ledger line records the live-check offer and the findings cite it (Minor 1); the findings say only the last two deferred minors were added by these docs commits (Minor 2) and that the User decisions line was also added to the ledger after the merge (Minor 3). Found by: the docs reviewer (Opus 5.5, ae3f5f04aa8dcb9d2), 2026-10-07. Why: overstatements or unrecorded claims of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
 
+> Ruling: R9. Decided: the docs re-review's Minor 1 is fixed: findings §2's lead-in says the live-check ledger line was added after the merge; no third review, as the user chose "Fix, stop" when offered a stop after two docs review rounds. Found by: the docs re-reviewer (Opus 5.5, ad98a4e193c7a096b), 2026-10-07. Why: an omission of mine of the same kind as the docs review's Minor 3. Cost if wrong: none to behaviour; the fix commit is unreviewed. How named: in chat, 2026-10-07, before the fix commit.
+
 ## Deferred minors
 
 Every deferred minor, quoted from the ledger (the last two added by the post-merge docs commits):

@@ -4,7 +4,7 @@
 
 The Brand SERP page (`apps/web/src/app/(app)/b/[id]/serp/page.tsx`) used to say "Audited automatically once a week." for every brand. It now fetches the brand and its domains alongside the audits and shows one line from `serpSchedule(status, domains)` (`apps/web/src/lib/format.ts`): "Not audited automatically: the brand is archived." for any status other than `active`, "Not audited automatically: the brand has no declared domain." for an active brand with no domain, and "Audited automatically once a week." otherwise. These are the two conditions under which `due_serp_audits()` (migration 0024) considers a brand; its recency, job and failure conditions, missing DataForSEO credentials and budget room are not shown (spec, Context). This fixes the slice 43 deferred minor (findings-slice43 §3, R10). Web only: no API, migration or backend change.
 
-Spec: docs/superpowers/specs/2026-10-07-slice47-serp-schedule-line-design.md (rulings R1–R4 and the correction to R3 as approved by the user at `70d0a4c`; R5 and R6 added during planning; R7, R8 and the last two deferred minors added by these docs commits). Plan: docs/superpowers/plans/2026-10-07-slice47-serp-schedule-line.md (Task 1). Merged via PR #96 (https://github.com/aiagencyindia-lab/bsi-platform/pull/96), main `eb5fb1d`.
+Spec: docs/superpowers/specs/2026-10-07-slice47-serp-schedule-line-design.md (rulings R1–R4 and the correction to R3 as approved by the user at `70d0a4c`; R5 and R6 added during planning; R7, R8, R9 and the last two deferred minors added by these docs commits). Plan: docs/superpowers/plans/2026-10-07-slice47-serp-schedule-line.md (Task 1). Merged via PR #96 (https://github.com/aiagencyindia-lab/bsi-platform/pull/96), main `eb5fb1d`.
 
 **Code**: apps/web/src/lib/format.ts (`serpSchedule`); apps/web/src/lib/types.ts (`Domain`); apps/web/src/app/(app)/b/[id]/serp/page.tsx (three fetches in one `Promise.all`, the rendered line); apps/web/src/lib/format.test.ts (one test, four cases; web 49 → 50).
 
@@ -40,7 +40,7 @@ Spec: docs/superpowers/specs/2026-10-07-slice47-serp-schedule-line-design.md (ru
 
 ## 2. Live check
 
-Not run. The spec names it as optional and asked first. As the ledger records it:
+Not run. The spec names it as optional and asked first. As the ledger records it (a line added to the ledger after the merge, by the docs review fixes):
 
 - "Live check (2026-10-07): offered in chat after PR #96 opened, as optional ("I'll only run it if you say so"); the user's next messages were "check CI" three times and "go ahead" to the merge question; not run."
 
@@ -65,6 +65,8 @@ Every `Ruling:` line in the ledger, verbatim:
 > Ruling: R7. Decided: no final fix wave. Minor 1 (any non-active status reads archived) is the deferred Task 1 minor; Minor 2 (the no-domain line names a fix the web app gives no way to make, since domains are declared only through the API) is deferred as a product question; Minors 3 and 4 (the plan's "Changes made during execution", the README rows, findings-slice47 and a slice 47 note in findings-slice43) are done by the post-merge docs commits. Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and both deferred minors triaged "not needed before merge". Cost if wrong: an operator reading the no-domain line has to find the domains API themselves. How named: in chat, 2026-10-07, before the gates and the finishing menu.
 
 > Ruling: R8. Decided: the docs review's findings are fixed: the spec and findings say R5 and R6 were added during planning, after the user approved the spec at 70d0a4c, and only R7 by the post-merge docs commits (Important 1); a ledger line records the live-check offer and the findings cite it (Minor 1); the findings say only the last two deferred minors were added by these docs commits (Minor 2) and that the User decisions line was also added to the ledger after the merge (Minor 3). Found by: the docs reviewer (Opus 5.5, ae3f5f04aa8dcb9d2), 2026-10-07. Why: overstatements or unrecorded claims of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
+
+> Ruling: R9. Decided: the docs re-review's Minor 1 is fixed: findings §2's lead-in says the live-check ledger line was added after the merge; no third review, as the user chose "Fix, stop" when offered a stop after two docs review rounds. Found by: the docs re-reviewer (Opus 5.5, ad98a4e193c7a096b), 2026-10-07. Why: an omission of mine of the same kind as the docs review's Minor 3. Cost if wrong: none to behaviour; the fix commit is unreviewed. How named: in chat, 2026-10-07, before the fix commit.
 
 The correction, verbatim:
 
