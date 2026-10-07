@@ -987,12 +987,21 @@ Quoted from the ledger (R2's "about 40" was written before the 55 templates were
 
 > Ruling: R10. Decided: the plan re-review's Minor 1 is fixed: the plan's Architecture line says the scan test "fails if a value in an src/app path template skips seg()"; its Minor 2 (the Correction to R8 does not list the bare trailing "?" and simplifies the whitespace before "," or ")") is left, since nothing it says is false. No further review round: the commit changes one sentence. Found by: the plan re-reviewer (Opus 5.5, acc9e70f6a69ca2f7), 2026-10-07. Why: the same overstatement R9 fixed in the commit message. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan re-review.
 
+Rulings made after the final review (added by the post-merge docs commits), quoted from the ledger:
+
+> Ruling: R11. Decided: no final fix wave. Minor 1 (the spec's Deferred minors list quotes only the spec-phase minor) is fixed by the post-merge docs commit, which adds the four task-review minors, and the PR body lists all five; Minor 2 (the refusal log lines record the value or path uncapped) is deferred; Minor 3 (the scan drops code lines that start with a comment marker) is the limit the spec already states. Found by: the final reviewer (Opus 5.5, a9f3c63a8276cb04c), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and every deferred minor triaged "Not before merge". Cost if wrong: a very long tampered value is logged in full (log noise only). How named: in chat, 2026-10-07, before the gates and the finishing menu.
+
 ## Deferred minors
 
-Quoted from the ledger:
+Every deferred minor, quoted from the ledger (the last five added by the first post-merge docs commit):
 
 - "minor (deferred): spec re-review (90ee504) minor 2, a scanned block-comment line holding an unclosed api(` could make the scan's PATH regex run on to the next real template and hide its interpolations; none exists today (R8)."
+- "Task 1: minor (deferred): publicApi refuses a dot segment stubs console.error but does not assert the "API path refused" log line (plan-mandated, stated in the spec)."
+- "Task 1: minor (deferred): vi.restoreAllMocks() does not clear the cookies mockResolvedValue between tests; harmless, since every test that needs a cookie calls signedIn()."
+- "Task 2: minor (deferred): the scan's QUERIES allowlist exempts q, dq, wq, feedQuery and apiQuery(sp) by name, so a raw value later stored in one of them would pass (plan-mandated, stated in the spec)."
+- "Task 2: minor (deferred): the scan reads only src/app; no api()/publicApi() caller exists outside it today (plan-mandated, stated in the spec)."
+- "minor (deferred): final review minor 2, the refusal log lines in seg() and sendAsWritten record the raw value or path with no length cap (R11)."
 
 ## Live check
 
-Optional (page views only), asked first after merge: on dev, with uvicorn and `next dev` running, open `/b/<uuid>/prompts/a'b` (today an API 422 error page; with this change the not-found page and "API path value refused" in the web server log). Each page view authenticates with the API key, which writes `api_key.last_used_at`.
+Not run: offered in chat on 2026-10-07 after PR #100 opened, and not taken up, as the ledger records (added by the first post-merge docs commit; docs/findings-slice49.md §2). As approved: optional (page views only), asked first after merge: on dev, with uvicorn and `next dev` running, open `/b/<uuid>/prompts/a'b` (today an API 422 error page; with this change the not-found page and "API path value refused" in the web server log). Each page view authenticates with the API key, which writes `api_key.last_used_at`.
