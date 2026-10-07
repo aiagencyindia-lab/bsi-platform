@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { pageNote, type Params } from "@/lib/format";
 import type { PageAudit } from "@/lib/types";
 
@@ -21,7 +21,7 @@ export default async function Pages({
   const { id } = await params;
   const sp = await searchParams;
   // Newest first, latest per (cluster, url): the API orders it.
-  const audits = await api<PageAudit[]>(`/brands/${id}/pages`);
+  const audits = await api<PageAudit[]>(`/brands/${seg(id)}/pages`);
   return (
     <>
       {pageNote(sp.queued) && <p className="muted">{pageNote(sp.queued)}</p>}

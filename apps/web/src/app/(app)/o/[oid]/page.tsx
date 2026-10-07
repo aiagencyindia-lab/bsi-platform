@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { highlight, usd } from "@/lib/format";
 import type { Brand, Competitor, ObservationDetail } from "@/lib/types";
 
@@ -9,10 +9,10 @@ export default async function ObservationPage({
   params: Promise<{ oid: string }>;
 }) {
   const { oid } = await params;
-  const o = await api<ObservationDetail>(`/observations/${oid}`);
+  const o = await api<ObservationDetail>(`/observations/${seg(oid)}`);
   const [brand, rivals] = await Promise.all([
-    api<Brand>(`/brands/${o.brand_id}`),
-    api<Competitor[]>(`/brands/${o.brand_id}/competitors`),
+    api<Brand>(`/brands/${seg(o.brand_id)}`),
+    api<Competitor[]>(`/brands/${seg(o.brand_id)}/competitors`),
   ]);
   const names = new Map<string, string>([
     [brand.id, brand.name],

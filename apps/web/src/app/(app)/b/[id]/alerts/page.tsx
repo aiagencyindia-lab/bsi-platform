@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { ALERT_KIND, alertNote, lastDay, type Params } from "@/lib/format";
 import type { Alert, Brand } from "@/lib/types";
 import { scanNow, setWebhook } from "./actions";
@@ -27,8 +27,8 @@ export default async function Alerts({
   const { id } = await params;
   const sp = await searchParams;
   const [brand, alerts] = await Promise.all([
-    api<Brand>(`/brands/${id}`),
-    api<Alert[]>(`/brands/${id}/alerts`),
+    api<Brand>(`/brands/${seg(id)}`),
+    api<Alert[]>(`/brands/${seg(id)}/alerts`),
   ]);
   const msg = alertNote(sp.queued);
   return (

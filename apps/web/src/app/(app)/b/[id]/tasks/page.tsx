@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { ciText, pct, pts, type Rate } from "@/lib/format";
 import type { Task } from "@/lib/types";
 import { updateTask } from "./actions";
@@ -29,7 +29,7 @@ export default async function Tasks({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const tasks = await api<Task[]>(`/brands/${id}/tasks`);
+  const tasks = await api<Task[]>(`/brands/${seg(id)}/tasks`);
   return (
     <>
       {tasks.length === 0 && (

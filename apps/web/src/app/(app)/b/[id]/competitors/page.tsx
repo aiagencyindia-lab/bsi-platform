@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Filters } from "@/components/Filters";
 import { CiBar } from "@/components/Tile";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import {
   apiQuery,
   ciText,
@@ -46,10 +46,10 @@ export default async function Competitors({
   const fq = apiQuery(sp, [], ["date_from"]);
   const feedQuery = `${fq}${fq ? "&" : "?"}days=${FEED_DAYS}`;
   const [rows, d, feed, site] = await Promise.all([
-    api<EntityMetrics[]>(`/brands/${id}/competitors/metrics${q}`),
-    api<EntityDeltas>(`/brands/${id}/competitors/deltas${wq}`),
-    api<Changes>(`/brands/${id}/competitors/changes${feedQuery}`),
-    api<SiteChanges>(`/brands/${id}/competitors/site-changes${feedQuery}`),
+    api<EntityMetrics[]>(`/brands/${seg(id)}/competitors/metrics${q}`),
+    api<EntityDeltas>(`/brands/${seg(id)}/competitors/deltas${wq}`),
+    api<Changes>(`/brands/${seg(id)}/competitors/changes${feedQuery}`),
+    api<SiteChanges>(`/brands/${seg(id)}/competitors/site-changes${feedQuery}`),
   ]);
   const deltaText = (eid: string, key: "mention_rate" | "sov") => {
     const x = d.deltas?.[eid]?.[key];

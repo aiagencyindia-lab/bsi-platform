@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Filters } from "@/components/Filters";
 import { Tile } from "@/components/Tile";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { apiQuery, KIND, pct, validDays, type Params } from "@/lib/format";
 import type { Deltas, Metrics, Recommendation, Sov } from "@/lib/types";
 
@@ -21,10 +21,10 @@ export default async function Overview({
   const days = valid ?? 7;
   const dq = apiQuery(sp, ["days"], valid ? ["date_from"] : ["date_from", "days"]);
   const [m, d, sov, recs] = await Promise.all([
-    api<Metrics>(`/brands/${id}/metrics${q}`),
-    api<Deltas>(`/brands/${id}/deltas${dq}`),
-    api<Sov>(`/brands/${id}/sov${q}`),
-    api<Recommendation[]>(`/brands/${id}/recommendations/top`),
+    api<Metrics>(`/brands/${seg(id)}/metrics${q}`),
+    api<Deltas>(`/brands/${seg(id)}/deltas${dq}`),
+    api<Sov>(`/brands/${seg(id)}/sov${q}`),
+    api<Recommendation[]>(`/brands/${seg(id)}/recommendations/top`),
   ]);
   const max = Math.max(...sov.entities.map((e) => e.share ?? 0), 0.0001);
   return (

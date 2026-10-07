@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Filters } from "@/components/Filters";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { apiQuery, type Params } from "@/lib/format";
 import type { Source } from "@/lib/types";
 
@@ -20,7 +20,7 @@ export default async function Citations({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  let rows = await api<Source[]>(`/brands/${id}/citations${apiQuery(sp)}`);
+  let rows = await api<Source[]>(`/brands/${seg(id)}/citations${apiQuery(sp)}`);
   const gapOnly = sp.gap === "1";
   if (gapOnly) rows = rows.filter((r) => r.gap);
   const sort =

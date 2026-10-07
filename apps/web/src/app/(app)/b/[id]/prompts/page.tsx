@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Filters } from "@/components/Filters";
 import { CiBar } from "@/components/Tile";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { apiQuery, ciText, pct, pts, type Params } from "@/lib/format";
 import type { PromptMetrics } from "@/lib/types";
 
@@ -24,7 +24,7 @@ export default async function Prompts({
   const { id } = await params;
   const sp = await searchParams;
   const rows = await api<PromptMetrics[]>(
-    `/brands/${id}/prompts/metrics${apiQuery(sp)}`,
+    `/brands/${seg(id)}/prompts/metrics${apiQuery(sp)}`,
   );
   const sort = typeof sp.sort === "string" && sp.sort in KEYS ? sp.sort : "spread";
   const dir = sp.dir === "asc" ? 1 : -1;

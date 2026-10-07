@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 
 const back = (id: string, status: string) =>
   redirect(`/b/${id}/reports?queued=${status}`);
@@ -9,7 +9,7 @@ const back = (id: string, status: string) =>
 export async function setCadence(form: FormData) {
   const id = String(form.get("brand_id"));
   const type = String(form.get("type"));
-  await api(`/brands/${id}/reports/${type}`, {
+  await api(`/brands/${seg(id)}/reports/${seg(type)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ cadence: String(form.get("cadence")) }),
@@ -20,21 +20,25 @@ export async function setCadence(form: FormData) {
 export async function generateNow(form: FormData) {
   const id = String(form.get("brand_id"));
   const type = String(form.get("type"));
-  await api(`/brands/${id}/reports/${type}/runs`, { method: "POST" });
+  await api(`/brands/${seg(id)}/reports/${seg(type)}/runs`, { method: "POST" });
   back(id, "generated");
 }
 
 export async function share(form: FormData) {
   const id = String(form.get("brand_id"));
   const run = String(form.get("run_id"));
-  await api(`/brands/${id}/reports/runs/${run}/share`, { method: "POST" });
+  await api(`/brands/${seg(id)}/reports/runs/${seg(run)}/share`, {
+    method: "POST",
+  });
   back(id, "shared");
 }
 
 export async function revoke(form: FormData) {
   const id = String(form.get("brand_id"));
   const run = String(form.get("run_id"));
-  await api(`/brands/${id}/reports/runs/${run}/share`, { method: "DELETE" });
+  await api(`/brands/${seg(id)}/reports/runs/${seg(run)}/share`, {
+    method: "DELETE",
+  });
   back(id, "revoked");
 }
 
@@ -44,7 +48,7 @@ export async function setBranding(form: FormData) {
     const v = String(form.get(k) ?? "").trim();
     return v === "" ? null : v;
   };
-  await api(`/brands/${id}`, {
+  await api(`/brands/${seg(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

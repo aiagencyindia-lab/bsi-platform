@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { droppedNote, productNote, type Params } from "@/lib/format";
 import type { Product, ProductRuns } from "@/lib/types";
 import { clearProducts, importCsv, importFeed, runProducts } from "./actions";
@@ -41,8 +41,8 @@ export default async function Products({
   const { id } = await params;
   const sp = await searchParams;
   const [products, runs] = await Promise.all([
-    api<Product[]>(`/brands/${id}/products`),
-    api<ProductRuns>(`/brands/${id}/products/runs`),
+    api<Product[]>(`/brands/${seg(id)}/products`),
+    api<ProductRuns>(`/brands/${seg(id)}/products/runs`),
   ]);
   let msg = productNote(sp.queued);
   if (msg && sp.queued === "imported" && typeof sp.n === "string") {

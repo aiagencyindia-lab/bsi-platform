@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 
 export async function updateTask(form: FormData) {
   const id = String(form.get("brand_id"));
@@ -12,7 +12,7 @@ export async function updateTask(form: FormData) {
   };
   const status = form.get("status");
   if (status) body.status = String(status);
-  await api(`/brands/${id}/tasks/${String(form.get("task_id"))}`, {
+  await api(`/brands/${seg(id)}/tasks/${seg(String(form.get("task_id")))}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

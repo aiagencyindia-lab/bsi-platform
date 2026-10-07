@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Filters } from "@/components/Filters";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import {
   apiQuery,
   ciText,
@@ -25,7 +25,7 @@ export default async function ClustersPage({
   const { id } = await params;
   const sp = await searchParams;
   // The API sorts clusters and brief sources; the page keeps its order.
-  const data = await api<Clusters>(`/brands/${id}/clusters/gaps${apiQuery(sp)}`);
+  const data = await api<Clusters>(`/brands/${seg(id)}/clusters/gaps${apiQuery(sp)}`);
   return (
     <>
       <Filters sp={sp} />

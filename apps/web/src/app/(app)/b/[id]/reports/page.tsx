@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { REPORT_TYPE, reportNote, type Params } from "@/lib/format";
 import type { Brand, Report, ReportRun } from "@/lib/types";
 import {
@@ -21,9 +21,9 @@ export default async function Reports({
   const { id } = await params;
   const sp = await searchParams;
   const [brand, reports, runs] = await Promise.all([
-    api<Brand>(`/brands/${id}`),
-    api<Report[]>(`/brands/${id}/reports`),
-    api<ReportRun[]>(`/brands/${id}/reports/runs`),
+    api<Brand>(`/brands/${seg(id)}`),
+    api<Report[]>(`/brands/${seg(id)}/reports`),
+    api<ReportRun[]>(`/brands/${seg(id)}/reports/runs`),
   ]);
   const msg = reportNote(sp.queued);
   return (

@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import {
   auditNote,
   ownershipText,
@@ -22,9 +22,9 @@ export default async function Serp({
   const { id } = await params;
   const sp = await searchParams;
   const [{ job, audits }, brand, domains] = await Promise.all([
-    api<SerpAudits>(`/brands/${id}/audits/serp`),
-    api<Brand>(`/brands/${id}`),
-    api<Domain[]>(`/brands/${id}/domains`),
+    api<SerpAudits>(`/brands/${seg(id)}/audits/serp`),
+    api<Brand>(`/brands/${seg(id)}`),
+    api<Domain[]>(`/brands/${seg(id)}/domains`),
   ]);
   const status = serpStatus(job);
   return (

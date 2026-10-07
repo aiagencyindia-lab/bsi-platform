@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { ReportBody } from "@/components/ReportBody";
-import { publicApi } from "@/lib/api";
+import { publicApi, seg } from "@/lib/api";
 import type { ReportRunDetail } from "@/lib/types";
 
 type Props = { params: Promise<{ token: string }> };
 
 const load = async (params: Props["params"]) =>
-  publicApi<ReportRunDetail>(`/r/${encodeURIComponent((await params).token)}`);
+  publicApi<ReportRunDetail>(`/r/${seg((await params).token)}`);
 
 // White-label: override the root layout's title, which names the product.
 // Next memoizes the identical GET within one request, so this is not a

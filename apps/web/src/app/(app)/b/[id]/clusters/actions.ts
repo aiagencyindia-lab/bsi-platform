@@ -1,12 +1,12 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import type { Queued } from "@/lib/types";
 
 export async function labelPrompts(form: FormData) {
   const id = String(form.get("brand_id"));
-  const job = await api<Queued>(`/brands/${id}/prompts/label`, {
+  const job = await api<Queued>(`/brands/${seg(id)}/prompts/label`, {
     method: "POST",
   });
   // The API returns this hour's job, which may already be done.
@@ -15,7 +15,7 @@ export async function labelPrompts(form: FormData) {
 
 export async function optimizeUrl(form: FormData) {
   const id = String(form.get("brand_id"));
-  const job = await api<Queued>(`/brands/${id}/pages/optimize`, {
+  const job = await api<Queued>(`/brands/${seg(id)}/pages/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

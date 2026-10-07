@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { usd } from "@/lib/format";
 import type { Observation, Prompt } from "@/lib/types";
 
@@ -11,8 +11,8 @@ export default async function PromptDetail({
   const { id, pid } = await params;
   // There is no GET /brands/{id}/prompts/{pid}; find it in the list instead.
   const [rows, prompts] = await Promise.all([
-    api<Observation[]>(`/observations?brand_id=${id}&prompt_id=${pid}&limit=200`),
-    api<Prompt[]>(`/brands/${id}/prompts`),
+    api<Observation[]>(`/observations?brand_id=${seg(id)}&prompt_id=${seg(pid)}&limit=200`),
+    api<Prompt[]>(`/brands/${seg(id)}/prompts`),
   ]);
   const prompt = prompts.find((p) => p.id === pid);
   return (
