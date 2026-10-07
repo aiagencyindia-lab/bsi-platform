@@ -108,4 +108,5 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 2: minor (deferred): queued += 1 counts a brand whose enqueue_job hit an existing row in the same slot (on_conflict_do_nothing); log count only, and not reachable through the API's routes."
 - "Task 3: minor (deferred): the sentence is untrue for a brand with no declared domain (already the spec's deferred minor)."
 - "minor (deferred): final review minor 1, the sweep's budget check is per brand and does not count jobs queued earlier in the same sweep (R10)."
+  - Note (2026-10-07, after slice 46, PR #94): fixed; the sweep now counts the org's queued and running audit_serp jobs against the budget. The slice 46 spec review found this minor overstated: an extra job failed at claim time only when other spend that day had used the room (docs/findings-slice46.md §1).
 - "minor (deferred): final review minor 2, the page sentence is untrue for a brand with no declared domain (R10; the spec's deferred minor)."

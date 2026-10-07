@@ -156,9 +156,19 @@ Quoted from the ledger:
 
 > Correction to R1 (2026-10-07, from the spec re-review): closing the race needs both the press taking the org's lock and the sweep taking that lock before it counts; the press taking the lock alone still leaves a gap.
 
+Rulings made after this spec was approved (added by the post-merge docs commits), quoted from the ledger:
+
+> Ruling: R5. Decided: no final fix wave. Minor 1 (the spec's "Deferred minors: None yet." is stale, since spec-review Minor 4 was deferred before the spec's last commit) is fixed by the post-merge docs commit, which lists the deferred minors in the spec; Minor 2 (a second worker process running the sweep would race the same way as a press) is deferred: the deployment runs a single worker, and the upgrade the comment names (lock before counting) covers it too. Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding. Cost if wrong: if workers are ever scaled out, two sweeps could each queue past the budget, caught at claim time. How named: in chat, 2026-10-07, at the finishing menu.
+
 ## Deferred minors
 
-None yet.
+"None yet." was stale when the spec was approved: spec-review Minor 4 had already been deferred (R3). Every deferred minor, quoted from the ledger (added by the post-merge docs commits):
+
+- "minor (deferred): spec review minor 4, the new _budget test helper repeats the nested budget() in test_the_sweep_skips_a_brand_while_the_budget_has_no_room (R3)."
+- "Task 1: minor (deferred): `(waiting or 0)` guards a count that is never NULL; it satisfies the Optional type of s.scalar (plan-mandated)."
+- "Task 1: minor (deferred): the gate's 2 warnings are the known third-party Starlette/anyio deprecation warnings, present on main."
+- "Task 1: minor (deferred): the count has no org_id filter; row-level security scopes it, and the other-org test pins that (R2)."
+- "minor (deferred): final review minor 2, a second worker process running the sweep would race the same way as a press; the deployment runs one worker (R5)."
 
 ## Live check
 
