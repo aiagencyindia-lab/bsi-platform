@@ -9,7 +9,8 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
 }));
 
-const { publicApi } = await import("./api");
+const { api, publicApi, seg } = await import("./api");
+const { cookies } = await import("next/headers");
 
 const stub = (status: number) =>
   vi.stubGlobal(
@@ -17,7 +18,15 @@ const stub = (status: number) =>
     vi.fn(async () => new Response("{}", { status })),
   );
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+const signedIn = () =>
+  vi.mocked(cookies).mockResolvedValue({
+    get: () => ({ value: "bsi_key_1" }),
+  } as never);
 
 test.each([404, 422])("publicApi maps %i to notFound", async (status) => {
   stub(status);
@@ -30,3 +39,62 @@ test("publicApi throws a plain error on 5xx and sends no auth", async () => {
   const init = vi.mocked(fetch).mock.calls[0][1];
   expect(init).toEqual({ cache: "no-store" });
 });
+
+test.each([
+  "/brands/../x",
+  "/brands/./x",
+  "/brands/%2e%2E/x",
+  "/brands/..\\x",
+  "/brands/x#y",
+  "/brands/x y",
+  "/brands/x?",
+  "/brands/x?a=b'c",
+])("api refuses %s without calling the API", async (path) => {
+  signedIn();
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(api(path)).rejects.toThrow("NOT_FOUND");
+  expect(fetchMock).not.toHaveBeenCalled();
+  expect(log).toHaveBeenCalledWith("API path refused", path);
+});
+
+test("api sends a path with a query string as written", async () => {
+  signedIn();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("{}", { status: 200 })),
+  );
+  const path = "/brands/1eb6c00a-4b18-4512-b515-dd1d8039511f/sov?days=14";
+  await api(path);
+  expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
+    `http://localhost:8000/v1${path}`,
+  );
+});
+
+test("publicApi refuses a dot segment", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(publicApi("/r/..")).rejects.toThrow("NOT_FOUND");
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+test("seg returns a UUID, a report type and a share token unchanged", () => {
+  for (const v of [
+    "1eb6c00a-4b18-4512-b515-dd1d8039511f",
+    "cmo",
+    "Ab3_-xYz9Ab3_-xYz9Ab3",
+  ]) {
+    expect(seg(v)).toBe(v);
+  }
+});
+
+test.each(["", "..", "a/b", "a%2Fb", "a?b", "a#b", "a b"])(
+  "seg refuses %j",
+  (value) => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => seg(value)).toThrow("NOT_FOUND");
+    expect(log).toHaveBeenCalledWith("API path value refused", value);
+  },
+);

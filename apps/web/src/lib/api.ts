@@ -6,8 +6,27 @@ import { COOKIE } from "./cookie";
 export const API_URL = process.env.API_URL ?? "http://localhost:8000";
 export { COOKIE };
 
+// ponytail: a backstop for anything a call site misses. It refuses dot
+// segments in any spelling, '\', '#' and anything the URL parser would
+// re-encode; a '/', '%2F' or '?' inside a value passes it, and seg() at each
+// call site refuses those.
+function sendAsWritten(path: string) {
+  const u = new URL(path, "http://api.invalid");
+  if (u.pathname + u.search === path) return;
+  console.error("API path refused", path);
+  notFound();
+}
+
+/** One path segment from a route param, form field or API value. */
+export function seg(value: string): string {
+  if (/^[A-Za-z0-9_-]+$/.test(value)) return value;
+  console.error("API path value refused", value);
+  notFound();
+}
+
 /** Server-side call to /v1. The key comes from the httpOnly cookie. */
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  sendAsWritten(path);
   const key = (await cookies()).get(COOKIE)?.value;
   if (!key) redirect("/login");
   const res = await fetch(`${API_URL}/v1${path}`, {
@@ -47,6 +66,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 /** Server-side call to a public /v1 route: no cookie, no key. */
 export async function publicApi<T>(path: string): Promise<T> {
+  sendAsWritten(path);
   const res = await fetch(`${API_URL}/v1${path}`, { cache: "no-store" });
   // 422 = malformed token (e.g. a link truncated by a mail client): to the
   // reader that is just a link that doesn't exist.

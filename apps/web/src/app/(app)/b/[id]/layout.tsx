@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import type { Brand } from "@/lib/types";
 
 export default async function BrandLayout({
@@ -11,7 +11,7 @@ export default async function BrandLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const brand = await api<Brand>(`/brands/${id}`);
+  const brand = await api<Brand>(`/brands/${seg(id)}`);
   return (
     <>
       <h1>{brand.name}</h1>

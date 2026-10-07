@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { RivalPages } from "@/components/RivalPages";
 import { KIND } from "@/lib/format";
 import type { Recommendation } from "@/lib/types";
@@ -20,7 +20,7 @@ export default async function Recommendations({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const recs = await api<Recommendation[]>(`/brands/${id}/recommendations`);
+  const recs = await api<Recommendation[]>(`/brands/${seg(id)}/recommendations`);
   return (
     <>
       <form action={generate} className="row">

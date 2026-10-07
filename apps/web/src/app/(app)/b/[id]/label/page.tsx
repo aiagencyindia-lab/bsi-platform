@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { ciText, highlight, pct, type Params } from "@/lib/format";
 import type { LabelQueue } from "@/lib/types";
 import { saveLabel } from "./actions";
@@ -19,7 +19,7 @@ export default async function Label({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const q = await api<LabelQueue>(`/brands/${id}/labels/next`);
+  const q = await api<LabelQueue>(`/brands/${seg(id)}/labels/next`);
   const item = q.item;
   return (
     <>

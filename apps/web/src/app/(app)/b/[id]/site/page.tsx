@@ -1,4 +1,4 @@
-import { api } from "@/lib/api";
+import { api, seg } from "@/lib/api";
 import { auditNote, type Params } from "@/lib/format";
 import type { SiteAudit } from "@/lib/types";
 import { runAudit } from "./actions";
@@ -12,7 +12,7 @@ export default async function Site({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const audits = await api<SiteAudit[]>(`/brands/${id}/audits/crawl`);
+  const audits = await api<SiteAudit[]>(`/brands/${seg(id)}/audits/crawl`);
   return (
     <>
       <form action={runAudit} className="row">
