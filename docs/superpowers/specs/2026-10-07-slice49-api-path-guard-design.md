@@ -879,13 +879,14 @@ diff --git a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
 diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
 --- a/apps/web/src/lib/api.ts
 +++ b/apps/web/src/lib/api.ts
-@@ -6,8 +6,26 @@ import { COOKIE } from "./cookie";
+@@ -6,8 +6,27 @@ import { COOKIE } from "./cookie";
  export const API_URL = process.env.API_URL ?? "http://localhost:8000";
  export { COOKIE };
  
-+// ponytail: refuses dot segments in any spelling, '\', '#' and anything the
-+// URL parser would re-encode; a '?' inside a value still moves the rest of
-+// the path into the query string (same key and method, shorter route).
++// ponytail: a backstop for anything a call site misses. It refuses dot
++// segments in any spelling, '\', '#' and anything the URL parser would
++// re-encode; a '/', '%2F' or '?' inside a value passes it, and seg() at each
++// call site refuses those.
 +function sendAsWritten(path: string) {
 +  const u = new URL(path, "http://api.invalid");
 +  if (u.pathname + u.search === path) return;
@@ -906,7 +907,7 @@ diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
    const key = (await cookies()).get(COOKIE)?.value;
    if (!key) redirect("/login");
    const res = await fetch(`${API_URL}/v1${path}`, {
-@@ -47,6 +65,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+@@ -47,6 +66,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
  
  /** Server-side call to a public /v1 route: no cookie, no key. */
  export async function publicApi<T>(path: string): Promise<T> {
@@ -925,7 +926,7 @@ diff --git a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
 - `seg returns a UUID, a report type and a share token unchanged`.
 - `seg refuses %j`, for `""`, `..`, `a/b`, `a%2Fb`, `a?b`, `a#b`, `a b`: it throws `NOT_FOUND` and logs `"API path value refused"` with the value.
 
-New `apps/web/src/lib/api-paths.test.ts`, `every value in an API path goes through seg()`: it reads every non-test `.ts`/`.tsx` file under `src/app`, skipping comment lines; fails for any `api(`/`publicApi(` call (generics allowed) whose whole first argument is not one quoted or template literal followed by `,` or `)` (so a literal joined with `+` fails); finds each path template (a regex that spans lines), requires at least 40 of them (55 today), and fails, naming the file and expression, for any `${…}` that is neither exactly one `seg(…)` call (its `(` closes at the last character) nor one of `q`, `dq`, `wq`, `feedQuery`, `apiQuery(sp)`. Not scanned: files outside `src/app` (none calls `api()` today), and a raw value later stored in one of the five query variables. Comment skipping is by line: a code line starting with `*`, or with `/* … */` before code, is skipped; a block-comment line not starting with `*` is scanned, which can only fail the test. None occurs today.
+New `apps/web/src/lib/api-paths.test.ts`, `every value in an API path goes through seg()`: it reads every non-test `.ts`/`.tsx` file under `src/app`, skipping comment lines; fails for any `api(`/`publicApi(` call (generics allowed) whose whole first argument is not one quoted or template literal followed by `,` or `)` (so a literal joined with `+` fails); finds each path template (a regex that spans lines), requires at least 40 of them (55 today), and fails, naming the file and expression, for any `${…}` that is neither exactly one `seg(…)` call (its `(` closes at the last character) nor one of `q`, `dq`, `wq`, `feedQuery`, `apiQuery(sp)`. Not scanned: files outside `src/app` (none calls `api()` today), and a raw value later stored in one of the five query variables. Comment skipping is by line: a code line starting with `*`, or with `/* … */` before code, is skipped; a block-comment line not starting with `*` is scanned, so an `api(` inside it is checked like code and can also add to the template count. None occurs today.
 
 No test checks that every real path passes at run time (R2). Expected gates: web 71 vitest (52 on main plus 19), lint, typecheck and build pass; backend unchanged at `1753 passed, 2 deselected`.
 
@@ -975,6 +976,8 @@ Quoted from the ledger (R2's "about 40" was written before the 55 templates were
 > Correction to R3 (2026-10-07, from the second spec review): 11 of the 28 changed call-site files were Prettier-clean on main and all 11 stay clean (recommendations/actions.ts and reports/actions.ts rewrapped); the other 17 were not clean on main and are left as edited.
 
 > Ruling: R6. Decided: the spec re-review's findings are fixed: the scan test now requires the whole first argument of each api()/publicApi() call to be one quoted or template literal followed by "," or ")", so a literal joined with "+" fails, as the user's "Harden scan" choice said (Important 1; mutants M14 and M15 added); feedQuery is described as apiQuery output plus "days=" and the constant FEED_DAYS, joined with "&" or "?" (Minor 1); the spec states the comment skipping's limits (a code line starting with "*" or "/* … */" is skipped; a block-comment line not starting with "*" is scanned, which can only fail the test) (Minor 2). Found by: the spec re-reviewer (Opus 5.5, a698f8d3a147689af), 2026-10-07. Why: the test fell short of the user's approved choice, and two statements were inexact. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
+
+> Ruling: R7. Decided: the R6 commit's regression is fixed: the proof's api.ts had been restored after the R6 mutant run from a copy taken before R5's comment change, which put back the old ponytail comment on sendAsWritten; the R5 wording ("a '/', '%2F' or '?' inside a value passes it, and seg() at each call site refuses those") is restored in the proof and the spec's diff, and the other proof files were checked against their latest versions (Important 1); the comment-limits text says a scanned block-comment line could also add to the template count, not only fail the test (Minor 2). Found by: the spec re-reviewer (Opus 5.5, a63daf67355d2d13a), 2026-10-07. Why: a regression from my own file restore, and an overstatement. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
 ## Deferred minors
 
