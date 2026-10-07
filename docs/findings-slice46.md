@@ -2,7 +2,7 @@
 
 ## 1. What was built
 
-`queue_due_serp_audits()` (apps/workers/bsi_workers/worker.py) counts the org's `audit_serp` jobs that are queued or running, in the org's tenant session, and asks `budget_fits` for room for one $0.04 estimate per waiting job plus the brand's own. Jobs queued earlier in the same sweep, in earlier sweeps, or by "Run audit now" now take room. This fixes the slice 43 deferred minor (findings-slice43 §3, R10), which the spec review found overstated: on main an extra job failed at claim time only when other spend that day had used the room, since a finished SERP job records about $0.004. The sweep is now stricter than the claim check: on a tight budget a brand is skipped, stays due, and is queued a minute or so later.
+`queue_due_serp_audits()` (apps/workers/bsi_workers/worker.py) counts the org's `audit_serp` jobs that are queued or running, in the org's tenant session, and asks `budget_fits` for room for one $0.04 estimate per waiting job plus the brand's own. Jobs queued earlier in the same sweep, in earlier sweeps, or by a "Run audit now" press committed before the count now take room (a press committed after the count is missed, R1). This fixes the slice 43 deferred minor (findings-slice43 §3, R10), which the spec review found overstated: on main an extra job failed at claim time only when other spend that day had used the room, since a finished SERP job records about $0.004. The sweep is now stricter than the claim check: on a tight budget a brand is skipped, stays due, and is queued later, once the waiting jobs finish and record their real cost (the sweep runs every minute); if other spend that day has used the room, that can be the next day.
 
 Spec: docs/superpowers/specs/2026-10-07-slice46-serp-sweep-budget-design.md (rulings R1–R4 and both corrections to R1 in the spec as approved; R5 added to it by these docs commits). Plan: docs/superpowers/plans/2026-10-07-slice46-serp-sweep-budget.md (Task 1). Merged via PR #94 (https://github.com/aiagencyindia-lab/bsi-platform/pull/94), main `b0dcc6b`.
 
@@ -41,7 +41,7 @@ None (spec, "Live check"): reproducing an over-queued sweep on dev would need ma
 
 ## 3. Rulings and deferred minors
 
-Every `Ruling:` line in the ledger, verbatim:
+Every `Ruling:` line in the ledger, verbatim (R6 was made while fixing these docs):
 
 > Ruling: R1. Decided: the waiting-job count runs before budget_fits takes the org's advisory lock, and a "Run audit now" press (which takes no lock) committed in that gap is not counted; a ponytail comment names this and the upgrade (lock first). Found by: the controller, writing the design. Why: process_job re-checks the budget when it claims the job, so a missed job costs at most one budget failure, as on main. Cost if wrong: in that rare race one extra job can be queued past the budget and fail at claim time. How named: in chat in the approved design, 2026-10-07.
 
@@ -52,6 +52,8 @@ Every `Ruling:` line in the ledger, verbatim:
 > Ruling: R4. Decided: N1 is fixed: the ponytail comment and the Design bullet name both steps that close the race (the press takes the org's lock, and the sweep takes it before counting); N2 is left, since the Correction to R1 follows the quote. Found by: the spec re-reviewer (Opus 5.5), 2026-10-07. Why: N1 was an incomplete statement of mine in a code comment; N2 reads correctly as written. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
 > Ruling: R5. Decided: no final fix wave. Minor 1 (the spec's "Deferred minors: None yet." is stale, since spec-review Minor 4 was deferred before the spec's last commit) is fixed by the post-merge docs commit, which lists the deferred minors in the spec; Minor 2 (a second worker process running the sweep would race the same way as a press) is deferred: the deployment runs a single worker, and the upgrade the comment names (lock before counting) covers it too. Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding. Cost if wrong: if workers are ever scaled out, two sweeps could each queue past the budget, caught at claim time. How named: in chat, 2026-10-07, at the finishing menu.
+
+> Ruling: R6. Decided: the docs review's finding 1 and nit 2 are fixed: the findings now say a skipped brand is queued later, once the waiting jobs finish and record their real cost (the sweep runs every minute), instead of "a minute or so later"; and that a "Run audit now" press takes room only when it is committed before the count (R1). Nit 3 ("these docs commits") becomes accurate with this fix commit. Found by: the docs reviewer (Opus 5.5, aef0a3c476b33aaaf), 2026-10-07. Why: both were overstatements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
 
 The corrections, verbatim:
 

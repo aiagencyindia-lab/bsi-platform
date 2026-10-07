@@ -248,7 +248,7 @@ In the order they were written:
 | [findings-slice45.md](findings-slice45.md) | Results: the serp_audit (brand_id, fetched_at) index (migration 0026), the gates and reviews, no live check, and every ruling (R1–R7) and deferred minor, quoted from the ledger. |
 | [superpowers/specs/2026-10-07-slice46-serp-sweep-budget-design.md](superpowers/specs/2026-10-07-slice46-serp-sweep-budget-design.md) | Design spec: the weekly SERP sweep counts the org's queued and running audit_serp jobs against the budget at their full estimate, so one sweep does not queue past the budget (the slice 43 deferred minor; R1 names the race with a manual press); a red/green run and a mutation table are the evidence, with rulings R1–R5 and the deferred minors. |
 | [superpowers/plans/2026-10-07-slice46-serp-sweep-budget.md](superpowers/plans/2026-10-07-slice46-serp-sweep-budget.md) | Implementation plan, Task 1 (the waiting-job count in queue_due_serp_audits and its three tests), with the changes made during execution. |
-| [findings-slice46.md](findings-slice46.md) | Results: the SERP sweep counts waiting audit_serp jobs against the budget (the slice 43 minor, found overstated), the gates and reviews, no live check, and every ruling (R1–R5) and deferred minor, quoted from the ledger. |
+| [findings-slice46.md](findings-slice46.md) | Results: the SERP sweep counts waiting audit_serp jobs against the budget (the slice 43 minor, found overstated), the gates and reviews, no live check, and every ruling (R1–R6) and deferred minor, quoted from the ledger. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
