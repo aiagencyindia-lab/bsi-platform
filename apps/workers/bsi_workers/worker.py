@@ -837,8 +837,10 @@ def queue_due_serp_audits() -> int:
       brand's job would fail as serp_not_configured, up to three times
       a week;
     - a brand is skipped, with no job, while its org's budget has no
-      room for the job's estimate. It stays due and is queued once
-      there is room; process_job checks the budget again at claim time.
+      room for the job's estimate plus one estimate for each of the
+      org's audit_serp jobs still queued or running (those have
+      recorded no cost yet). It stays due and is queued once there is
+      room; process_job checks the budget again at claim time.
 
     ponytail: every due brand is queued in one sweep and jobs run one at
     a time ahead of observations; spread the audits across the week when
@@ -858,7 +860,19 @@ def queue_due_serp_audits() -> int:
     for brand_id, org_id in due:
         try:
             with tenant_session(org_id) as s:
-                if not budget_fits(s, org_id, 0, extra_micros=SERP_JOB_MICROS):
+                # ponytail: a "Run audit now" press committed after this
+                # count is missed (the API takes no lock); process_job's
+                # claim check still catches it. To close the gap, the press
+                # and this sweep would both take the org's lock before
+                # counting.
+                waiting = s.scalar(
+                    select(func.count()).where(
+                        m.Job.kind == "audit_serp",
+                        m.Job.status.in_(("queued", "running")),
+                    )
+                )
+                extra = SERP_JOB_MICROS * ((waiting or 0) + 1)
+                if not budget_fits(s, org_id, 0, extra_micros=extra):
                     continue
                 enqueue_job(
                     s,

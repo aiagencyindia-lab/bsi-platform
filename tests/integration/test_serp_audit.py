@@ -620,3 +620,55 @@ def test_serp_audit_is_indexed_by_brand_and_fetch_time(owner):
         if i.name == "ix_serp_audit_brand_fetched"
     ]
     assert [c.name for c in index.columns] == ["brand_id", "fetched_at"]
+
+
+def _budget(owner, org, usd):
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Organization)
+            .where(m.Organization.id == org.id)
+            .values(daily_budget_usd=Decimal(usd))
+        )
+
+
+def test_one_sweep_queues_no_more_serp_jobs_than_the_budget_has_room_for(
+    configured, owner, make_org, make_brand
+):
+    org = make_org()
+    for name in ("A", "B", "C"):
+        _declared(owner, org, make_brand(org, name))
+    _budget(owner, org, "0.08")  # room for two $0.04 estimates
+    assert worker.queue_due_serp_audits() == 2
+    assert len(_serp_jobs(owner)) == 2
+
+
+@pytest.mark.parametrize("status", ["queued", "running"])
+def test_a_waiting_serp_job_takes_budget_room(
+    configured, owner, make_org, make_brand, status
+):
+    org = make_org()
+    other = make_brand(org, "Other")  # no domain, so never due
+    _job(owner, org, other, "audit_serp", status)
+    bid = _declared(owner, org, make_brand(org))
+    _budget(owner, org, "0.04")
+    assert worker.queue_due_serp_audits() == 0
+    _budget(owner, org, "0.08")
+    assert worker.queue_due_serp_audits() == 1
+    assert bid in {j.brand_id for j in _serp_jobs(owner)}
+
+
+@pytest.mark.parametrize("which", ["other-org", "other-kind", "done"])
+def test_other_jobs_take_no_serp_budget_room(
+    configured, owner, make_org, make_brand, which
+):
+    org = make_org()
+    _declared(owner, org, make_brand(org))
+    if which == "other-org":
+        elsewhere = make_org("B")
+        _job(owner, elsewhere, make_brand(elsewhere), "audit_serp", "queued")
+    elif which == "other-kind":
+        _job(owner, org, make_brand(org, "Other"), "audit_crawl", "queued")
+    else:
+        _job(owner, org, make_brand(org, "Other"), "audit_serp", "done")
+    _budget(owner, org, "0.04")
+    assert worker.queue_due_serp_audits() == 1
