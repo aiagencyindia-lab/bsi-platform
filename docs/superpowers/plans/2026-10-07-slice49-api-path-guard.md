@@ -1307,4 +1307,24 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-None yet.
+- Task 1: commit c44ac3f; Task 2: commit 4660364; both task reviews say "✅ Spec compliant" and "Task quality: Approved"; no fix rounds. All 31 files are byte-identical to the spec's proof copies. Merged via PR #100 (main `e3b3f61`).
+- Gates and CI, as the ledger records them:
+  - "Task 1: implementer abb1354587c39f771, commit c44ac3f (trailer Opus 5.5 checked); report: red Tests 17 failed | 4 passed (21), green Tests 21 passed (21); gate exit 0, gate-task1.txt Tests  70 passed (70), Compiled successfully, no refusal line, gen:check no diff; controller check: api.ts and api.test.ts are byte-identical to the spec's proof copies."
+  - "Task 2: implementer a2d9fd3db78da39ab, commit 4660364 (trailer Opus 5.5 checked); report: red Tests 1 failed (1), green Tests 22 passed (22) with api.test.ts; staged 29; gate exit 0, gate-task2.txt Tests  71 passed (71), Compiled successfully, no refusal line, gen:check no diff; controller check: all 31 slice files are byte-identical to the spec's proof copies."
+  - "Controller gates on 4660364: backend gate exit 0, 1753 passed, 2 deselected, 2 warnings in 235.68s (0:03:55), mypy Success, metrics coverage 100%; web gate exit 0, Tests  71 passed (71), Compiled successfully, no refusal line."
+  - "PR opened for slice49-api-path-guard on head 4660364 after the user chose "Push and create a Pull Request" at the finishing menu (2026-10-07)."
+  - "CI run 37614186076: success on 4660364, 1753 passed, 2 deselected, 2 warnings in 129.64s (0:02:09); web Tests  71 passed (71), Compiled successfully."
+  - "PR #100 merged by the controller after the user said "go ahead" to "Should I merge PR #100?" (2026-10-07); merge commit e3b3f61; local main fast-forwarded to e3b3f61; branch deleted on GitHub and locally."
+  - "Gates on main e3b3f61 after merge: backend 1753 passed, 2 deselected, 2 warnings in 256.79s (0:04:16), coverage 100%; web Tests  71 passed (71), Compiled successfully."
+- Reviews, as the ledger records them:
+  - "Spec review (ad3141fc576bdde33, 6a55903): "Spec ready? No"; 0 Critical, 3 Important, 6 Minor."
+  - "Spec review (a015dcf18c3d22bd2, c2253d5): "Spec ready? No"; 0 Critical, 1 Important, 7 Minor."
+  - "Spec re-review (a698f8d3a147689af, ef3b796): "Spec ready? No"; 0 Critical, 1 Important, 2 Minor."
+  - "Spec re-review (a63daf67355d2d13a, 9daba5a): "Spec ready? No"; 0 Critical, 1 Important (a regression: the R5 comment reverted), 2 Minor."
+  - "Spec re-review (a0abfd1c7e77ff3bb, 90ee504): "Spec ready? Yes" once Minor 1 is recorded; 0 Critical, 0 Important, 2 Minor."
+  - "Plan review (adbe523df7912402a, 23c1ae8 and 761252f): "Ready to execute? Yes"; 0 Critical, 0 Important, 3 Minor."
+  - "Plan re-review (acc9e70f6a69ca2f7, 718b8df): "Ready to execute? Yes"; 0 Critical, 0 Important, 2 Minor."
+  - "Task 1: task review (a43a23dfe41844d65, d5edba8..c44ac3f): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1 (Co-Authored-By: Claude Opus 5.5); gate-task1.txt shows Tests  70 passed (70), Compiled successfully and no refusal line; the report holds the RED and GREEN lines; api.ts and api.test.ts are byte-identical to the proof."
+  - "Task 2: task review (a1ab877d3884b5e50, c44ac3f..4660364): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1; gate-task2.txt shows Tests  71 passed (71), Compiled successfully and no refusal line; the report holds the RED and GREEN lines; all 31 slice files are byte-identical to the proof."
+  - "Final review (a9f3c63a8276cb04c, c45a729..4660364): "Ready to merge? Yes"; 0 Critical, 0 Important, 3 Minor; every deferred minor triaged "Not before merge"."
+- R11 (made after the final review), R12 and R13 (from the docs reviews) are quoted in the spec's "Rulings" section and in docs/findings-slice49.md §3, with every deferred minor.

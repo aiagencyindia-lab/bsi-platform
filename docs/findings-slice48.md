@@ -77,3 +77,4 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 1: minor (deferred): a host the pattern passes but the API refuses (an IP address, walkaroo., www.walkaroo) lands on the error page, not an inline message; the user chose this (browser pattern over catch-and-note)."
 - "Task 1: minor (deferred): a missing brand_id becomes the string "null" and posts to /brands/null/domains; the hidden field always sets it, and runSerpAudit has the same pattern."
 - "minor (deferred): final review minor 3, brand_id from the hidden field goes into the API path without encodeURIComponent; the same in runSerpAudit and setWebhook; fix across all server actions together (R6)."
+  - Note (2026-10-07, after slice 49, PR #100): fixed; every value in an API path, in server actions and pages, now goes through seg(), and api() refuses a path fetch would not send as written (docs/findings-slice49.md §1).
