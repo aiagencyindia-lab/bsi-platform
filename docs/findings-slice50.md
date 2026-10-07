@@ -4,7 +4,7 @@
 
 `apps/web/src/lib/api.ts` gains a module-private `shown(text) = JSON.stringify(text).slice(0, 200)`; the guard logs `("API path refused", shown(path), path.length)` and `seg` logs `("API path value refused", shown(value), value.length)`, so `seg("a/b")` logs `API path value refused "a/b" 3`. `JSON.stringify` escapes `\`, `"` and the C0 control characters, so a refusal is one line in a plain terminal; the cap is 200 UTF-16 code units, and the full length shows a cut (U+007F, U+0085, U+2028 and U+2029 stay unescaped; a cut can end inside an escape or split a surrogate pair). What is refused, the `notFound()` after it and the `"API problem"` log are unchanged. This fixes the slice 49 deferred minor (findings-slice49 §3, R11). Web only.
 
-Spec: docs/superpowers/specs/2026-10-07-slice50-refusal-log-cap-design.md (R1, R2 and the Correction to R1 entered in `7261182`, the version the user approved; R3, from the plan review, and R4, from the final review, added by the post-merge docs commit). Plan: docs/superpowers/plans/2026-10-07-slice50-refusal-log-cap.md (Task 1). Merged via PR #102 (https://github.com/aiagencyindia-lab/bsi-platform/pull/102), main `eeecd0b`.
+Spec: docs/superpowers/specs/2026-10-07-slice50-refusal-log-cap-design.md (R1, R2 and the Correction to R1 entered in `7261182`, the version the user approved; R3, from the plan review, and R4, from the final review, added by the first post-merge docs commit; R5 and R6, from the docs reviews, by the docs-review fix commits). Plan: docs/superpowers/plans/2026-10-07-slice50-refusal-log-cap.md (Task 1). Merged via PR #102 (https://github.com/aiagencyindia-lab/bsi-platform/pull/102), main `eeecd0b`.
 
 **Code**: apps/web/src/lib/api.ts (`shown`, the two log lines); apps/web/src/lib/api.test.ts (the guard and `seg` refusal asserts; two new long-value tests). Web 71 → 73.
 
@@ -31,6 +31,8 @@ Spec: docs/superpowers/specs/2026-10-07-slice50-refusal-log-cap-design.md (R1, R
 - "Plan review (ab86501954b7a3d30, d51944a): "Ready to execute? Yes"; 0 Critical, 0 Important, 3 Minor."
 - "Task 1: task review (aeda51a1c7222e82c, d51944a..08645d3): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1; gate-task1.txt shows Tests  73 passed (73), Compiled successfully and no refusal line; the report holds the RED and GREEN lines; both files are byte-identical to the rebuilt proof."
 - "Final review (abdfc26968fa43d67, be011d5..08645d3): "Ready to merge? Yes"; 0 Critical, 0 Important, 2 Minor; both deferred minors triaged "does not need fixing before merge"."
+- "Docs review (a6462c0907b1bf8e2, 7a5a214): "Docs ready? No"; 0 Critical, 1 Important, 2 Minor."
+- "Docs re-review (a7148395d07f8da65, 11a06c8): "Docs ready? Yes"; 0 Critical, 0 Important, 3 Minor."
 
 **Commits** (`git log --oneline --reverse be011d5..eeecd0b^2`, oldest first):
 
@@ -58,6 +60,8 @@ Every `Ruling:` line in the ledger, verbatim:
 > Ruling: R4. Decided: no final fix wave. Minor 1 (the api long-path test checks the length, not the content) is the already deferred Task 1 minor; Minor 2 (the plan's "Changes made during execution" still says "None yet.") is done by the post-merge docs commit, as in every slice. Found by: the final reviewer (Opus 5.5, abdfc26968fa43d67), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and both deferred minors triaged "does not need fixing before merge". Cost if wrong: a wrong slice offset in the guard's log alone would go unnoticed by the tests. How named: in chat, 2026-10-07, before the gates and the finishing menu.
 
 > Ruling: R5. Decided: the docs review's findings are fixed: the findings and the plan quote the ledger's Note correcting "/tmp/null was empty" right after the spec re-review line (Important 1); the plan's sub-list heading becomes "Execution, gates and CI, as the ledger records them" (Minor 1); the findings say R1, R2 and the Correction to R1 entered in 7261182, "the version the user approved" (Minor 2). Found by: the docs reviewer (Opus 5.5, a6462c0907b1bf8e2), 2026-10-07. Why: a quoted statement the ledger marks as wrong, and two inexact phrasings of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
+
+> Ruling: R6. Decided: the docs re-review's three minors are fixed: the findings credit R3 and R4 to the first post-merge docs commit and R5 and R6 to the docs-review fix commits (Minor 1); the spec says the second deferred minor was added by the first post-merge docs commit, 7a5a214 (Minor 2); the findings' and the plan's reviews lists quote the docs review and re-review lines (Minor 3); no further review, as the user chose "Fix, stop" when offered a stop after two docs review rounds. Found by: the docs re-reviewer (Opus 5.5, a7148395d07f8da65), 2026-10-07. Why: incomplete or ambiguous statements of mine. Cost if wrong: none to behaviour; the fix commit is unreviewed. How named: in chat, 2026-10-07, before the fix commit.
 
 Every `Correction to R` line, verbatim:
 

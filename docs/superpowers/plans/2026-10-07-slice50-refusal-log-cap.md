@@ -228,4 +228,6 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - "Plan review (ab86501954b7a3d30, d51944a): "Ready to execute? Yes"; 0 Critical, 0 Important, 3 Minor."
   - "Task 1: task review (aeda51a1c7222e82c, d51944a..08645d3): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1; gate-task1.txt shows Tests  73 passed (73), Compiled successfully and no refusal line; the report holds the RED and GREEN lines; both files are byte-identical to the rebuilt proof."
   - "Final review (abdfc26968fa43d67, be011d5..08645d3): "Ready to merge? Yes"; 0 Critical, 0 Important, 2 Minor; both deferred minors triaged "does not need fixing before merge"."
-- R3 (from the plan review), R4 (from the final review) and R5 (from the docs review) are quoted in the spec's "Rulings" section and in docs/findings-slice50.md §3, with every deferred minor.
+  - "Docs review (a6462c0907b1bf8e2, 7a5a214): "Docs ready? No"; 0 Critical, 1 Important, 2 Minor."
+  - "Docs re-review (a7148395d07f8da65, 11a06c8): "Docs ready? Yes"; 0 Critical, 0 Important, 3 Minor."
+- R3 (from the plan review), R4 (from the final review), R5 and R6 (from the docs reviews) are quoted in the spec's "Rulings" section and in docs/findings-slice50.md §3, with every deferred minor.
