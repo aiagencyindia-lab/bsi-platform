@@ -229,4 +229,19 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-None yet.
+- Task 1: commit 5e74f54; the task review says "✅ Spec compliant" and "Task quality: Approved"; no fix rounds. The four files are byte-identical to the spec's proof copies. Merged via PR #96 (main `eb5fb1d`).
+- Gates and CI, as the ledger records them:
+  - "Task 1: implementer acbcdb3c4a9b1c4e4, commit 5e74f54 (trailer Opus 5.5 checked); report: red Tests 1 failed | 28 passed (29), green Tests 29 passed (29), gate exit 0, gate-task1.txt Tests  50 passed (50), Compiled successfully, gen:check no diff; controller check: the four files are byte-identical to the spec's proof copies."
+  - "Controller gates on 5e74f54: backend gate exit 0, 1753 passed, 2 deselected, 2 warnings in 237.44s (0:03:57), mypy Success, metrics coverage 100%; web gate exit 0, Tests  50 passed (50), Compiled successfully."
+  - "PR #96 opened (https://github.com/aiagencyindia-lab/bsi-platform/pull/96) on head 5e74f54 after the user chose "2 PR" at the finishing menu (2026-10-07); the app could not bind it (repo is not this session's checkout); CI gates IN_PROGRESS at the first check."
+  - "CI run 37591785967: success on 5e74f54, 1753 passed, 2 deselected, 2 warnings in 150.12s (0:02:30); web Tests  50 passed (50), Compiled successfully."
+  - "PR #96 merged by the controller after the user said "go ahead" to "Should I merge PR #96?" (2026-10-07); merge commit eb5fb1d; local main fast-forwarded to eb5fb1d; remote branch deleted, local branch deleted by gh."
+  - "Gates on main eb5fb1d after merge: backend 1753 passed, 2 deselected, 2 warnings in 191.24s (0:03:11), coverage 100%; web Tests  50 passed (50), Compiled successfully."
+- Reviews, as the ledger records them:
+  - "Spec review (af09cbf416947d149, 9228161): "Spec ready? Yes"; 0 Critical, 0 Important, 3 Minor."
+  - "Spec re-review (a93fa1af2ddf5d188, 2c7ce54): "Spec ready? Yes"; 0 Critical, 0 Important, 1 Minor (the "only 'archived' is ever written" wording)."
+  - "Plan review (ac5492d2b1c12a649, 017693f and 70d0a4c): "Ready to execute? Yes"; 0 Critical, 0 Important, 3 Minor."
+  - "Plan re-review (af86e01e9fb2168cf, 8af3242): "Ready to execute? Yes"; 0 findings."
+  - "Task 1: task review (a0ff63e05bdf8e1eb, 8af3242..5e74f54): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 1 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1 (Co-Authored-By: Claude Opus 5.5); gate-task1.txt shows Tests  50 passed (50), Compiled successfully and gen completing, and git status shows no openapi.json or schema.d.ts change, so gen:check passed; the report holds the RED and GREEN lines."
+  - "Final review (ab97f02a1a6ce7aff, 872b849..5e74f54): "Ready to merge? Yes"; 0 Critical, 0 Important, 4 Minor; both deferred minors triaged "Not needed before merge"."
+- R7 (made after the final review), R8 and R9 (from the docs reviews) are quoted in the spec's "Rulings" section and in docs/findings-slice47.md §3, with every deferred minor.

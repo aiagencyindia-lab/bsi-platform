@@ -178,16 +178,28 @@ Quoted from the ledger:
 
 > Correction to R3 (2026-10-07, from the spec re-review): "only 'archived' is ever written" means the only value other than 'active' (the column default) ever written is 'archived'.
 
+Rulings made during planning, after the user approved this spec at `70d0a4c`, quoted from the ledger:
+
 > Ruling: R5. Decided: the spec's Proof is corrected to say the scratch run's npm run gate passed typecheck, lint, test and build but its last step, gen:check, could not run there (the copy holds only apps/web, so scripts/export_openapi.py is missing); the plan's Step 2 expected output adds the "Failed Tests 1" banner line that its grep also prints; the plan records that its verification ran the same four steps. Found by: the controller, verifying the plan on a fresh copy of main. Why: the Proof listed the gate's passing lines without saying its last step failed in the scratch copy, and Step 2's expected output was incomplete. Cost if wrong: none to behaviour; gen:check runs in the implementer's web gate on the branch, where the backend exists. How named: in chat, 2026-10-07, after verifying the plan.
 
 > Ruling: R6. Decided: the plan review's three minors are fixed: the spec's Proof says gen:check "failed" in the proof run (it ran and could not find scripts/export_openapi.py) and the plan says it "was not run" in the plan verification, naming which run each means (Minor 1); the Frontend constraint reads "Do not run npm run gen other than through the gate's gen:check" (Minor 2); a departure 7 says the spec's optional live check is left to the controller (Minor 3). Found by: the plan reviewer (Opus 5.5), 2026-10-07. Why: unclear or incomplete statements. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan review.
 
+Rulings made after the final review (added by the post-merge docs commits), quoted from the ledger:
+
+> Ruling: R7. Decided: no final fix wave. Minor 1 (any non-active status reads archived) is the deferred Task 1 minor; Minor 2 (the no-domain line names a fix the web app gives no way to make, since domains are declared only through the API) is deferred as a product question; Minors 3 and 4 (the plan's "Changes made during execution", the README rows, findings-slice47 and a slice 47 note in findings-slice43) are done by the post-merge docs commits. Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and both deferred minors triaged "not needed before merge". Cost if wrong: an operator reading the no-domain line has to find the domains API themselves. How named: in chat, 2026-10-07, before the gates and the finishing menu.
+
+> Ruling: R8. Decided: the docs review's findings are fixed: the spec and findings say R5 and R6 were added during planning, after the user approved the spec at 70d0a4c, and only R7 by the post-merge docs commits (Important 1); a ledger line records the live-check offer and the findings cite it (Minor 1); the findings say only the last two deferred minors were added by these docs commits (Minor 2) and that the User decisions line was also added to the ledger after the merge (Minor 3). Found by: the docs reviewer (Opus 5.5, ae3f5f04aa8dcb9d2), 2026-10-07. Why: overstatements or unrecorded claims of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
+
+> Ruling: R9. Decided: the docs re-review's Minor 1 is fixed: findings §2's lead-in says the live-check ledger line was added after the merge; no third review, as the user chose "Fix, stop" when offered a stop after two docs review rounds. Found by: the docs re-reviewer (Opus 5.5, ad98a4e193c7a096b), 2026-10-07. Why: an omission of mine of the same kind as the docs review's Minor 3. Cost if wrong: none to behaviour; the fix commit is unreviewed. How named: in chat, 2026-10-07, before the fix commit.
+
 ## Deferred minors
 
-Quoted from the ledger:
+Every deferred minor, quoted from the ledger (the last two added by the post-merge docs commits):
 
 - "minor (deferred): spec review minor 3, R2's cost line names aliases.length as the example; passing another array's .length (for example audits.length) would also type-check (R3)."
+- "Task 1: minor (deferred): a brand status other than active or archived would read "the brand is archived"; only 'archived' is written today (R3)."
+- "minor (deferred): final review minor 2, the no-domain line names a fix the web app gives no way to make; domains are declared only through the API (R7)."
 
 ## Live check
 
-Optional, asked first: dev's brands are all active; three have no domain, so their Brand SERP page would show the no-domain line. Viewing it needs uvicorn and `next dev`, and each page view authenticates with the API key, which writes `api_key.last_used_at`.
+Not run: offered in chat on 2026-10-07 after PR #96 opened, and not taken up, as the ledger records (added by the post-merge docs commits; docs/findings-slice47.md §2). As approved: optional, asked first: dev's brands are all active; three have no domain, so their Brand SERP page would show the no-domain line. Viewing it needs uvicorn and `next dev`, and each page view authenticates with the API key, which writes `api_key.last_used_at`.
