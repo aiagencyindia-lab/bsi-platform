@@ -56,14 +56,14 @@ Mutants of the guard's log line only (`api.ts` otherwise as on main), each run w
 
 | Mutant | Guard's second argument | Old test | New test |
 |---|---|---|---|
-| M1 | `JSON.stringify(path).slice(-200)` | `23 passed (23)` | `1 failed | 22 passed (23)` (the long-path test) |
-| M4 | `JSON.stringify(path.slice(0, 198))` | `23 passed (23)` | `1 failed | 22 passed (23)` (the long-path test) |
-| M5 | `JSON.stringify(path.slice(-198))` | `23 passed (23)` | `1 failed | 22 passed (23)` (the long-path test) |
-| M2 | `path.slice(0, 200)` | `8 failed | 15 passed (23)` (the short-path refusal cases) | `9 failed | 14 passed (23)` (the same 8 and the long-path test) |
-| M3 | `JSON.stringify(path).slice(1, 201)` | `8 failed | 15 passed (23)` (the short-path refusal cases) | `9 failed | 14 passed (23)` (the same 8 and the long-path test) |
-| M6 | `shown(path).replaceAll('\\"', '"')` (the escaping of a double quote dropped) | `23 passed (23)` | `1 failed | 22 passed (23)` (the long-path test) |
+| M1 | `JSON.stringify(path).slice(-200)` | `23 passed (23)` | `1 failed \| 22 passed (23)` (the long-path test) |
+| M4 | `JSON.stringify(path.slice(0, 198))` | `23 passed (23)` | `1 failed \| 22 passed (23)` (the long-path test) |
+| M5 | `JSON.stringify(path.slice(-198))` | `23 passed (23)` | `1 failed \| 22 passed (23)` (the long-path test) |
+| M2 | `path.slice(0, 200)` | `8 failed \| 15 passed (23)` (the short-path refusal cases) | `9 failed \| 14 passed (23)` (the same 8 and the long-path test) |
+| M3 | `JSON.stringify(path).slice(1, 201)` | `8 failed \| 15 passed (23)` (the short-path refusal cases) | `9 failed \| 14 passed (23)` (the same 8 and the long-path test) |
+| M6 | `shown(path).replaceAll('\\"', '"')` (the escaping of a double quote dropped) | `23 passed (23)` | `1 failed \| 22 passed (23)` (the long-path test) |
 
-M1, M4, M5 and M6 pass the old test and fail the new one; M2 and M3 were already caught (R1). All rows were re-run on the new path (R3). The new test's boundary (R2, corrected; R3): a mutant that drops the escaping of control characters still passes, because no test path holds one.
+M1, M4, M5 and M6 pass the old test and fail the new one; M2 and M3 were already caught (R1). All rows were re-run with the updated test (R3). The new test's boundary (R2, corrected; R3; R4): these still pass, because no test path exercises them: a mutant that drops the escaping of control characters; one that changes escaping only for paths over 200 characters in a way this path does not exercise, such as dropping backslash escaping only for long paths; and one that stops escaping lone surrogates.
 
 ## Rulings
 
@@ -75,7 +75,11 @@ Quoted from the ledger:
 
 > Correction to R2 (2026-10-07, from the spec re-review): "only a contrived length-dependent mutant ... passes the new test" is false: a guard log line that stops escaping a double quote or control characters, for paths of any length, also passed all tests, since no test path held either; the spec's own sentence says "such as" and is true.
 
+(The sentence it refers to was replaced in R3.)
+
 > Ruling: R3. Decided: the spec is updated for the user's "Add a '"'" decision: the Design gives the new path and expected text, the mutation table adds M6 (the guard's log line with the escaping of a double quote dropped: passes the old test, fails the new one) and re-runs M1 to M5 on the new path with the same results, and the boundary sentence now says that a mutant dropping the escaping of control characters (which no test path holds) still passes. Found by: the controller, running the updated proof. Why: the spec must describe the test as changed and its remaining gap. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the proof run.
+
+> Ruling: R4. Decided: the second spec re-review's four minors are fixed: the boundary sentence names the open gaps it found (dropping the escaping of control characters; changing escaping only for paths over 200 characters in a way this path does not exercise, such as dropping backslash escaping only for long paths; lone surrogates) (Minor 1); a note after the quoted Correction to R2 says the sentence it refers to was replaced in R3 (Minor 2); "re-run on the new path" becomes "re-run with the updated test" (Minor 3); the "|" inside the mutation table's cells is escaped so the table renders (Minor 4). Found by: the spec re-reviewer (Opus 5.5, a894f91ae9e541d17), 2026-10-07. Why: incomplete or loose statements of mine and a rendering fault. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
 ## Deferred minors
 
