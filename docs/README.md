@@ -261,6 +261,9 @@ In the order they were written:
 | [superpowers/specs/2026-10-07-slice50-refusal-log-cap-design.md](superpowers/specs/2026-10-07-slice50-refusal-log-cap-design.md) | Design spec: the two refusal log lines in the web app's api.ts print the value JSON-quoted (C0 control characters escaped) and capped at 200 code units, plus its full length (the slice 49 deferred minor); a red/green run and a mutation table are the evidence, with rulings R1–R6, one correction and the deferred minors. |
 | [superpowers/plans/2026-10-07-slice50-refusal-log-cap.md](superpowers/plans/2026-10-07-slice50-refusal-log-cap.md) | Implementation plan, Task 1 (shown(), the two log lines and their tests), with the changes made during execution. |
 | [findings-slice50.md](findings-slice50.md) | Results: quoted, capped refusal logs with the length (the slice 49 minor), the gates and reviews, no live check, and every ruling (R1–R6), correction and deferred minor, quoted from the ledger. |
+| [superpowers/specs/2026-10-07-slice51-guard-log-content-test-design.md](superpowers/specs/2026-10-07-slice51-guard-log-content-test-design.md) | Design spec: the guard's long-path log test uses a path with a double quote and asserts the exact 200-character logged text (the slice 50 deferred minor); a mutation table with the old and new test is the evidence, with rulings R1–R7, one correction and the deferred minors. |
+| [superpowers/plans/2026-10-07-slice51-guard-log-content-test.md](superpowers/plans/2026-10-07-slice51-guard-log-content-test.md) | Implementation plan, Task 1 (the one test), with the changes made during execution. |
+| [findings-slice51.md](findings-slice51.md) | Results: the guard's long-path log test checks the logged text (the slice 50 minor), the gates and reviews, no live check, and every ruling (R1–R7), correction and deferred minor, quoted from the ledger. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

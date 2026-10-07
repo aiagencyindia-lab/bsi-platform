@@ -14,7 +14,7 @@ Design Section 1 (what the test checks) and Section 2 (the edit and its proof) w
 
 ## Design
 
-The test keeps its setup (signed in, a stubbed `fetch`, `api(path)` rejecting with `NOT_FOUND`), its path becomes `/brands/x#"` + 500 `y`s, and it checks one log call: `("API path refused", `"/brands/x#\\"${"y".repeat(187)}`, path.length)`. The second argument is the opening `"`, `/brands/x#` (10 characters), the escaped quote `\"` (2 characters) and 187 `y`s: 200 characters, no closing quote. The separate `toHaveLength(200)` line is removed; the literal fixes the length. No code change.
+The test keeps its setup (signed in, a stubbed `fetch`, `api(path)` rejecting with `NOT_FOUND`), its path becomes `/brands/x#"` + 500 `y`s, and it checks one log call: ``("API path refused", `"/brands/x#\\"${"y".repeat(187)}`, path.length)`` (the diff below shows it as code). The second argument is the opening `"`, `/brands/x#` (10 characters), the escaped quote `\"` (2 characters) and 187 `y`s: 200 characters, no closing quote. The separate `toHaveLength(200)` line is removed; the literal fixes the length. No code change.
 
 As a diff against main `b44c2ac` (generated from the proof below):
 
@@ -81,11 +81,20 @@ Quoted from the ledger:
 
 > Ruling: R4. Decided: the second spec re-review's four minors are fixed: the boundary sentence names the open gaps it found (dropping the escaping of control characters; changing escaping only for paths over 200 characters in a way this path does not exercise, such as dropping backslash escaping only for long paths; lone surrogates) (Minor 1); a note after the quoted Correction to R2 says the sentence it refers to was replaced in R3 (Minor 2); "re-run on the new path" becomes "re-run with the updated test" (Minor 3); the "|" inside the mutation table's cells is escaped so the table renders (Minor 4). Found by: the spec re-reviewer (Opus 5.5, a894f91ae9e541d17), 2026-10-07. Why: incomplete or loose statements of mine and a rendering fault. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
+Rulings made after this spec was approved (added by the post-merge docs commit), quoted from the ledger:
+
+> Ruling: R5. Decided: the plan review's findings are fixed: Step 1's three blocks, one of which deleted a line by replacing it with an empty block (an Edit-tool implementer would leave a blank line that no gate step catches), become one block covering the whole changed run of 8 lines, replaced by 7 (Important 1); departure 1 says so (Minor 1); the "byte-identical" claim now holds under both readings of a block, with and without its trailing newline, as checked on a fresh copy (Minor 2). Found by: the plan reviewer (Opus 5.5, a4ddf97913dab5850), 2026-10-07. Why: a plan step that could be applied two ways, one of them wrong. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan review.
+
+> Ruling: R6. Decided: the plan re-review's two minors need no change: the plan cites R5, which is in the ledger and is added to the spec by the post-merge docs commit, as plan-review rulings were in slice 50 (Minor 1); Step 1's one-item numbered list is cosmetic (Minor 2). No further plan review. Found by: the plan re-reviewer (Opus 5.5, ad35bb41ef105d741), 2026-10-07. Why: neither is wrong for execution. Cost if wrong: a reader of the plan before the docs PR cannot find R5 in the spec. How named: in chat, 2026-10-07, after the plan re-review.
+
+> Ruling: R7. Decided: no final fix wave. Minor 1 (toHaveBeenCalledWith matches any console.error call, and the removed line had pinned call 0) is deferred; Minor 2 (the spec's Design line nests backticks inside backticks, so it renders broken) is fixed by the post-merge docs commit; Minor 3 (the hunk header) needs no action. Found by: the final reviewer (Opus 5.5, a10688c75b844f448), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding. Cost if wrong: a second, matching console.error call elsewhere in the guard's path would let the test pass even if the first call were wrong (the guard logs once today). How named: in chat, 2026-10-07, before the gates and the finishing menu.
+
 ## Deferred minors
 
-Quoted from the ledger:
+Every deferred minor, quoted from the ledger (the second added by the post-merge docs commit):
 
 - "minor (deferred): spec review notes, the proof directory being written only by the controller, the chat approvals and the backend count cannot be checked from the repo offline (R2)."
+- "minor (deferred): final review minor 1, the long-path test's toHaveBeenCalledWith matches any console.error call, not call 0; expect(log).toHaveBeenCalledTimes(1) would pin it; the guard logs once today (R7)."
 
 ## Live check
 

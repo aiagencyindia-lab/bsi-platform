@@ -108,4 +108,20 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-None yet.
+- Task 1: commit fc14c2a; the task review says "✅ Spec compliant" and "Task quality: Approved" with no findings; no fix rounds. The test file is byte-identical to the spec's proof copy. Merged via PR #104 (main `ad330b6`).
+- Execution, gates and CI, as the ledger records them:
+  - "Task 1: implementer aa693ecc7bed81c98, commit fc14c2a (trailer Opus 5.5 checked); report: Step 2 Tests 23 passed (23) with no failing run first (a passing test made stricter); gate exit 0, gate-task1.txt Tests  73 passed (73), Compiled successfully, no refusal line, gen:check no diff; controller check: api.test.ts is byte-identical to the proof and api.ts is unchanged."
+  - "Controller gates on fc14c2a: backend gate exit 0, 1753 passed, 2 deselected, 2 warnings in 176.02s (0:02:56), mypy Success, metrics coverage 100%; web gate exit 0, Tests  73 passed (73), Compiled successfully, no refusal line."
+  - "PR opened for slice51-guard-log-content-test on head fc14c2a after the user chose "Push and create a Pull Request" at the finishing menu (2026-10-08)."
+  - "CI run 37670695791: success on fc14c2a, 1753 passed, 2 deselected, 2 warnings in 109.67s (0:01:49); web Tests  73 passed (73), Compiled successfully."
+  - "PR #104 merged by the controller after the user said "go ahead" to "Should I merge PR #104?" (2026-10-08); merge commit ad330b6; local main fast-forwarded to ad330b6; branch deleted on GitHub and locally."
+  - "Gates on main ad330b6 after merge: backend 1753 passed, 2 deselected, 2 warnings in 205.31s (0:03:25), coverage 100%; web Tests  73 passed (73), Compiled successfully."
+- Reviews, as the ledger records them:
+  - "Spec review (af3e879d99a9f5e90, 5b53d24): "Spec ready? Yes"; 0 Critical, 0 Important, 2 Minor."
+  - "Spec re-review (a9997b9f0e8348a43, b37e39b): "Spec ready? Yes"; 0 Critical, 0 Important, 1 Minor; the reviewer's shell commands were refused because the safety classifier gave no verdict, so it read the working-tree files instead of git; the branch had only spec commits, so its api.test.ts was main's."
+  - "Spec re-review (a894f91ae9e541d17, 1333e8c): "Spec ready? Yes"; 0 Critical, 0 Important, 4 Minor."
+  - "Plan review (a4ddf97913dab5850, 26e3c5f and c8a7f52): "Ready to execute? No"; 0 Critical, 1 Important, 2 Minor."
+  - "Plan re-review (ad35bb41ef105d741, ceebe45): "Ready to execute? Yes"; 0 Critical, 0 Important, 2 Minor."
+  - "Task 1: task review (ac16c57b45a3f0f20, ceebe45..fc14c2a): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 0 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1; gate-task1.txt shows Tests  73 passed (73), Compiled successfully and no refusal line; api.test.ts is byte-identical to the proof (no Prettier change)."
+  - "Final review (a10688c75b844f448, b44c2ac..fc14c2a): "Ready to merge? Yes"; 0 Critical, 0 Important, 3 Minor; the deferred minor triaged "does not need fixing before merge"."
+- R5 and R6 (from the plan reviews) and R7 (from the final review) are quoted in the spec's "Rulings" section and in docs/findings-slice51.md §3, with every deferred minor. The post-merge docs commit also fixes the spec Design line's nested backticks (R7).
