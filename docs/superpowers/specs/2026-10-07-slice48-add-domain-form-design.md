@@ -199,6 +199,8 @@ Quoted from the ledger:
 
 > Ruling: R4. Decided: the spec re-review's minors are fixed: the Design names walkaroo. and www.walkaroo as hosts the pattern passes and the API refuses (Minor 1); the error text gives the development message for each cause (422, 409, 500) (Minor 2); the live check keeps the worker's conditions (credentials, budget room) and says an active brand with no domain (Minor 3); the Context records that the revised Section 1 was shown and approved (Minor 4). Found by: the spec re-reviewer (Opus 5.5, a5fdc2e90f6b2c82c), 2026-10-07. Why: incomplete statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
+> Ruling: R5. Decided: the plan review's three minors are fixed: Step 2 names "a Failed Tests 2 banner" instead of quoting its dashes (Minor 1); Step 5 says the gate file, not its stdout, has no API problem line (Minor 2); departure 2 adds the spec's Prettier check (Minor 3). Found by: the plan reviewer (Opus 5.5, a5ed8116671076bb7), 2026-10-07. Why: inexact statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan review.
+
 ## Deferred minors
 
 Quoted from the ledger:

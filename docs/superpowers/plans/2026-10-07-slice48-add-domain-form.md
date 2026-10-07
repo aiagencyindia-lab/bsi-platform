@@ -111,7 +111,7 @@ test("addDomain does not redirect when the API refuses the host", async () => {
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npx vitest run "src/app/(app)/b/[id]/serp/actions.test.ts" 2>&1 | grep -E "TypeError|Tests "`
-Expected: a `⎯⎯⎯ Failed Tests 2 ⎯⎯⎯` banner, `TypeError: addDomain is not a function` (twice) and `Tests  2 failed (2)`.
+Expected: a `Failed Tests 2` banner, `TypeError: addDomain is not a function` (twice) and `Tests  2 failed (2)`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -196,7 +196,7 @@ Expected: `Tests  2 passed (2)` and no `FAIL` line.
 
 - [ ] **Step 5: Banned-word grep, then the web gate**
 
-Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add "apps/web/src/app/(app)/b/[id]/serp/actions.ts" "apps/web/src/app/(app)/b/[id]/serp/page.tsx" "apps/web/src/app/(app)/b/[id]/serp/actions.test.ts"`. Run the banned-word grep (expected: exit 0, no output). Run the Web gate. Expected: `gate exit 0`; `gate-task1.txt` shows `Tests  52 passed (52)` and `Compiled successfully`, and its stdout has no `API problem` line. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` (expected: the three staged files plus the untracked `.DS_Store` and `packages/.DS_Store`).
+Stage: `cd /Users/vineet/Downloads/ADK/bsi-platform && git add "apps/web/src/app/(app)/b/[id]/serp/actions.ts" "apps/web/src/app/(app)/b/[id]/serp/page.tsx" "apps/web/src/app/(app)/b/[id]/serp/actions.test.ts"`. Run the banned-word grep (expected: exit 0, no output). Run the Web gate. Expected: `gate exit 0`; `gate-task1.txt` shows `Tests  52 passed (52)` and `Compiled successfully`, and the file has no `API problem` line. Then `cd /Users/vineet/Downloads/ADK/bsi-platform && git status --short` (expected: the three staged files plus the untracked `.DS_Store` and `packages/.DS_Store`).
 
 - [ ] **Step 6: Commit**
 
@@ -217,7 +217,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - Spec coverage: the form, its label, pattern and warning, and its condition → Step 3.2; `addDomain` → Step 3.1; the two tests → Step 1; the expected web gate (52) → Step 5.
 - Departures from the spec:
   1. The code changes are a new file plus whole-line replace blocks taken from the scratch proof's final files, not the spec's unified diff; the result is the same files.
-  2. The spec's mutation table and pattern check are not repeated in execution.
+  2. The spec's mutation table, pattern check and Prettier check are not repeated in execution.
   3. The commit message is the plan's wording.
   4. The spec's expected backend gate (`1753 passed, 2 deselected`, unchanged) is not a plan step; the controller runs it before the finishing menu.
   5. The spec's optional live check (asked first) is not a plan step; the controller asks the user after the task.
