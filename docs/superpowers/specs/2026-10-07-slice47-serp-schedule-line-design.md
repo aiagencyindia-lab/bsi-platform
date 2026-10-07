@@ -182,12 +182,18 @@ Quoted from the ledger:
 
 > Ruling: R6. Decided: the plan review's three minors are fixed: the spec's Proof says gen:check "failed" in the proof run (it ran and could not find scripts/export_openapi.py) and the plan says it "was not run" in the plan verification, naming which run each means (Minor 1); the Frontend constraint reads "Do not run npm run gen other than through the gate's gen:check" (Minor 2); a departure 7 says the spec's optional live check is left to the controller (Minor 3). Found by: the plan reviewer (Opus 5.5), 2026-10-07. Why: unclear or incomplete statements. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan review.
 
+Rulings made after this spec was approved (added by the post-merge docs commits), quoted from the ledger:
+
+> Ruling: R7. Decided: no final fix wave. Minor 1 (any non-active status reads archived) is the deferred Task 1 minor; Minor 2 (the no-domain line names a fix the web app gives no way to make, since domains are declared only through the API) is deferred as a product question; Minors 3 and 4 (the plan's "Changes made during execution", the README rows, findings-slice47 and a slice 47 note in findings-slice43) are done by the post-merge docs commits. Found by: the final reviewer (Opus 5.5), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and both deferred minors triaged "not needed before merge". Cost if wrong: an operator reading the no-domain line has to find the domains API themselves. How named: in chat, 2026-10-07, before the gates and the finishing menu.
+
 ## Deferred minors
 
-Quoted from the ledger:
+Every deferred minor, quoted from the ledger (the last two added by the post-merge docs commits):
 
 - "minor (deferred): spec review minor 3, R2's cost line names aliases.length as the example; passing another array's .length (for example audits.length) would also type-check (R3)."
+- "Task 1: minor (deferred): a brand status other than active or archived would read "the brand is archived"; only 'archived' is written today (R3)."
+- "minor (deferred): final review minor 2, the no-domain line names a fix the web app gives no way to make; domains are declared only through the API (R7)."
 
 ## Live check
 
-Optional, asked first: dev's brands are all active; three have no domain, so their Brand SERP page would show the no-domain line. Viewing it needs uvicorn and `next dev`, and each page view authenticates with the API key, which writes `api_key.last_used_at`.
+Not run: offered in chat on 2026-10-07 after PR #96 opened, and not taken up (added by the post-merge docs commits; docs/findings-slice47.md §2). As approved: optional, asked first: dev's brands are all active; three have no domain, so their Brand SERP page would show the no-domain line. Viewing it needs uvicorn and `next dev`, and each page view authenticates with the API key, which writes `api_key.last_used_at`.
