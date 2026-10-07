@@ -194,4 +194,16 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-(Filled in by the post-merge docs commit.)
+- Task 1: commit 42e1a01; the task review says "✅ Spec compliant" and "Task quality: Approved"; no fix rounds. Merged via PR #94 (main `b0dcc6b`).
+- Gates and CI, as the ledger records them:
+  - "Task 1: implementer aaffbe7cbbba4117e, commit 42e1a01 (trailer Opus 5.5 checked); report: red 3 failed 35 passed (the three expected tests), green 38 passed, gate exit 0, gate-task1.txt 1753 passed, 2 deselected, 2 warnings, coverage 100%."
+  - "Controller gates on 42e1a01: backend gate exit 0, 1753 passed, 2 deselected, 2 warnings in 197.26s (0:03:17); web gate exit 0, Tests  49 passed (49), Compiled successfully."
+  - "CI run 37585894591: success, 1753 passed, 2 deselected, 2 warnings in 151.98s (0:02:31); web Compiled successfully. PR #94 merged by the controller after the user said "go ahead" to "Should I merge PR #94?" (2026-10-07)."
+  - "Gates on main b0dcc6b after merge: backend 1753 passed, 2 deselected, 2 warnings in 284.42s (0:04:44); web Tests  49 passed (49)."
+- Reviews, as the ledger records them:
+  - "Spec review (a407d31a0279a0c01, e36a242): 0 Critical, 2 Important, 4 Minor."
+  - "Spec re-review (a407d31a0279a0c01, e3352df): Important 1, Important 2 and Minors 1–3 addressed, Minor 4 stated as a limitation; 1 new Important (N1: the upgrade path named only half of what closes the race) and 1 new Minor (N2: the Design section points at R1 "as corrected")."
+  - "Plan review (ae25cd6fea1341d78, b53a329): "Ready to execute? Yes"; 0 findings."
+  - "Task 1: task review (a74119f4fde487dc1, b53a329..42e1a01): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 3 Minor. ⚠️ items resolved by the controller: the report holds the red and green lines; the mutation table is the spec's evidence (plan departure 2); the web gate is run by the controller before the menu (plan departure 4)."
+  - "Final review (a4fc92584de3223a2, 95d32ad..42e1a01): "Ready to merge? Yes"; 0 Critical, 0 Important, 2 Minor; every deferred minor triaged "no fix" before merge."
+- R5 (made at the finishing menu) is quoted in the spec's "Rulings" section and in docs/findings-slice46.md §3, with every deferred minor.
