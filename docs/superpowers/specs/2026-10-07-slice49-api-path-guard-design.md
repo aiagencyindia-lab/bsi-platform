@@ -979,9 +979,13 @@ Quoted from the ledger (R2's "about 40" was written before the 55 templates were
 
 > Ruling: R7. Decided: the R6 commit's regression is fixed: the proof's api.ts had been restored after the R6 mutant run from a copy taken before R5's comment change, which put back the old ponytail comment on sendAsWritten; the R5 wording ("a '/', '%2F' or '?' inside a value passes it, and seg() at each call site refuses those") is restored in the proof and the spec's diff, and the other proof files were checked against their latest versions (Important 1); the comment-limits text says a scanned block-comment line could also add to the template count, not only fail the test (Minor 2). Found by: the spec re-reviewer (Opus 5.5, a63daf67355d2d13a), 2026-10-07. Why: a regression from my own file restore, and an overstatement. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
+> Ruling: R8. Decided: the 9daba5a re-review's Minor 1 (the api.ts hunk headers changed with the content; the reviewer said no action needed) is left, unrecorded by R7 until now; the 90ee504 re-review's Minor 2 (a scanned block-comment line holding an unclosed api(` could also hide a later template from the scan; none exists today) is deferred. Found by: the spec re-reviewer (Opus 5.5, a0abfd1c7e77ff3bb), 2026-10-07. Why: Minor 1 needs no change; Minor 2 needs a contrived comment that no file has. Cost if wrong: such a comment, if ever written, could let one unwrapped value past the scan; seg() at that call site and the api() guard still apply at run time only if the value is wrapped or would be re-encoded. How named: in chat, 2026-10-07, after the re-review.
+
 ## Deferred minors
 
-None yet.
+Quoted from the ledger:
+
+- "minor (deferred): spec re-review (90ee504) minor 2, a scanned block-comment line holding an unclosed api(` could make the scan's PATH regex run on to the next real template and hide its interpolations; none exists today (R8)."
 
 ## Live check
 
