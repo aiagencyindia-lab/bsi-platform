@@ -985,6 +985,8 @@ Quoted from the ledger (R2's "about 40" was written before the 55 templates were
 
 > Ruling: R9. Decided: the plan review's Minor 1 is fixed by the Correction to R8 line; Minor 2 is fixed: the Task 2 commit message says the scan "fails if a value in an src/app path template skips it"; Minor 3 (Task 1's commit step stages again, Task 2's relies on Step 5) is left as harmless. Found by: the plan reviewer (Opus 5.5, adbe523df7912402a), 2026-10-07. Why: an overstated risk and an overstated commit message of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan review.
 
+> Ruling: R10. Decided: the plan re-review's Minor 1 is fixed: the plan's Architecture line says the scan test "fails if a value in an src/app path template skips seg()"; its Minor 2 (the Correction to R8 does not list the bare trailing "?" and simplifies the whitespace before "," or ")") is left, since nothing it says is false. No further review round: the commit changes one sentence. Found by: the plan re-reviewer (Opus 5.5, acc9e70f6a69ca2f7), 2026-10-07. Why: the same overstatement R9 fixed in the commit message. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan re-review.
+
 ## Deferred minors
 
 Quoted from the ledger:

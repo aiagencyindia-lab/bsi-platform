@@ -4,7 +4,7 @@
 
 **Goal:** Every value interpolated into an `api()`/`publicApi()` path goes through `seg()`, and `api()`/`publicApi()` refuse a path `fetch` would not send as written.
 
-**Architecture:** `apps/web/src/lib/api.ts` gains `seg(value)` (letters, digits, `-`, `_` only; otherwise a log line and `notFound()`) and `sendAsWritten(path)` (the parsed path plus query must equal the path; otherwise a log line and `notFound()`), called first in `api()` and `publicApi()`. The 28 call-site files wrap each interpolated value in `seg()`. A source-scan test fails if any value skips `seg()`.
+**Architecture:** `apps/web/src/lib/api.ts` gains `seg(value)` (letters, digits, `-`, `_` only; otherwise a log line and `notFound()`) and `sendAsWritten(path)` (the parsed path plus query must equal the path; otherwise a log line and `notFound()`), called first in `api()` and `publicApi()`. The 28 call-site files wrap each interpolated value in `seg()`. A source-scan test fails if a value in an `src/app` path template skips `seg()`.
 
 **Tech Stack:** Next.js 15 App Router (Server Components, server actions), TypeScript, vitest 3, Node 22.
 
