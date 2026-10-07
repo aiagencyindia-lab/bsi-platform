@@ -4,7 +4,7 @@
 
 `apps/web/src/lib/api.ts` gains `seg(value)`, which returns a value of one or more letters, digits, `-` or `_` and otherwise logs `API path value refused` and calls `notFound()`, and `sendAsWritten(path)`, called first in `api()` and `publicApi()`, which refuses a path `fetch` would not send as written (dot segments in any spelling, `\`, `#`, anything the URL parser re-encodes, a bare trailing `?`), logging `API path refused`. Every value interpolated into an `api()`/`publicApi()` path in 28 files under `apps/web/src/app` (55 path templates: route params, form fields, values from API answers) is wrapped in `seg()`; `URLSearchParams` query strings and `redirect()` targets are unchanged. A source-scan test (`api-paths.test.ts`) fails if a path argument is not one literal or a value in a `src/app` path template skips `seg()`. This fixes the slice 48 deferred minor (findings-slice48 §3, R6). The change keeps requests on their intended route; the request already carried the operator's own key and the call site's method, so it is not a privilege fix. Web only: no API, migration or backend change.
 
-Spec: docs/superpowers/specs/2026-10-07-slice49-api-path-guard-design.md (R1 and R2 entered in `6a55903`, R3 and R4 in `c2253d5`, R5 and the Correction to R3 in `ef3b796`, R6 in `9daba5a`, R7 in `90ee504`, R8 in `23c1ae8`, where the user approved the spec; R9 and the Correction to R8 in `718b8df` and R10 in `d5edba8`, during planning; R11 and the five later deferred minors added by the post-merge docs commits). Plan: docs/superpowers/plans/2026-10-07-slice49-api-path-guard.md (Tasks 1 and 2). Merged via PR #100 (https://github.com/aiagencyindia-lab/bsi-platform/pull/100), main `e3b3f61`.
+Spec: docs/superpowers/specs/2026-10-07-slice49-api-path-guard-design.md (R1 and R2 entered in `6a55903`, R3 and R4 in `c2253d5`, R5 and the Correction to R3 in `ef3b796`, R6 in `9daba5a`, R7 in `90ee504`, R8 in `23c1ae8`, where the user approved the spec; R9 and the Correction to R8 in `718b8df` and R10 in `d5edba8`, during planning; R11 and the five later deferred minors added by the first post-merge docs commit, R12 by the second). Plan: docs/superpowers/plans/2026-10-07-slice49-api-path-guard.md (Tasks 1 and 2). Merged via PR #100 (https://github.com/aiagencyindia-lab/bsi-platform/pull/100), main `e3b3f61`.
 
 **Code**: apps/web/src/lib/api.ts (`seg`, `sendAsWritten`); 28 call-site files under apps/web/src/app; apps/web/src/lib/api.test.ts (18 new tests); apps/web/src/lib/api-paths.test.ts (new, 1 test). Web 52 → 71.
 
@@ -14,7 +14,7 @@ Spec: docs/superpowers/specs/2026-10-07-slice49-api-path-guard-design.md (R1 and
 - "User decisions (2026-10-07, after the second spec review): both test hardenings, "Harden scan" (fail on a non-literal path argument; each ${…} exactly one seg(…) call) and "Query refusal case" (/brands/x?a=b'c; web 70 -> 71), after approaches written in chat."
 - "User decision (2026-10-07): after "go ahead" and the confirming question, "Approve, write plan" approved the spec as it stood at 23c1ae8 (including that unreviewed commit)."
 - "User decision (2026-10-07): execution "Subagent-driven"."
-- Paraphrased, since the ledger line spells out the banned token itself: on 2026-10-07 the banned-word grep blocked the docs commit on PR #100's number; asked, the user chose "Allow PR numbers", so the grep now blocks the ranking token only when no digit follows it, and PR numbers #100–#199 pass.
+- Paraphrased, since the ledger line spells out the banned token itself: on 2026-10-07 the banned-word grep blocked "PR #100"; asked, the user chose "Allow PR numbers", so the grep now blocks the ranking token only when no digit follows it, and PR numbers #100–#199 pass.
 
 **Results** (quoted from the ledger):
 - "Task 1: implementer abb1354587c39f771, commit c44ac3f (trailer Opus 5.5 checked); report: red Tests 17 failed | 4 passed (21), green Tests 21 passed (21); gate exit 0, gate-task1.txt Tests  70 passed (70), Compiled successfully, no refusal line, gen:check no diff; controller check: api.ts and api.test.ts are byte-identical to the spec's proof copies."
@@ -55,7 +55,7 @@ Spec: docs/superpowers/specs/2026-10-07-slice49-api-path-guard-design.md (R1 and
 
 ## 2. Live check
 
-Not run. The spec names it as optional (page views only) and asked first. As the ledger records it:
+Not run. The spec names it as optional (page views only) and asked first after merge; it was offered after PR #100 opened, before the merge. As the ledger records it:
 
 - "Live check (2026-10-07): offered in chat after PR #100 opened, as optional ("I'll only run it if you say so"); the user's next messages were "check CI" twice and "go ahead" to the merge question; not run."
 
@@ -86,6 +86,8 @@ Every `Ruling:` line in the ledger, verbatim:
 > Ruling: R10. Decided: the plan re-review's Minor 1 is fixed: the plan's Architecture line says the scan test "fails if a value in an src/app path template skips seg()"; its Minor 2 (the Correction to R8 does not list the bare trailing "?" and simplifies the whitespace before "," or ")") is left, since nothing it says is false. No further review round: the commit changes one sentence. Found by: the plan re-reviewer (Opus 5.5, acc9e70f6a69ca2f7), 2026-10-07. Why: the same overstatement R9 fixed in the commit message. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan re-review.
 
 > Ruling: R11. Decided: no final fix wave. Minor 1 (the spec's Deferred minors list quotes only the spec-phase minor) is fixed by the post-merge docs commit, which adds the four task-review minors, and the PR body lists all five; Minor 2 (the refusal log lines record the value or path uncapped) is deferred; Minor 3 (the scan drops code lines that start with a comment marker) is the limit the spec already states. Found by: the final reviewer (Opus 5.5, a9f3c63a8276cb04c), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and every deferred minor triaged "Not before merge". Cost if wrong: a very long tampered value is logged in full (log noise only). How named: in chat, 2026-10-07, before the gates and the finishing menu.
+
+> Ruling: R12. Decided: the docs review's three minors are fixed: R11 and the five later deferred minors are credited to the first post-merge docs commit, in the findings and the spec (Minor 1); the paraphrased grep decision says the grep blocked "PR #100", as the ledger does, without the added "docs commit" detail (Minor 2); the findings and the spec say the live check was offered after PR #100 opened, before its merge, not after merge as the spec planned (Minor 3). Found by: the docs reviewer (Opus 5.5, a588d4b509344bc75), 2026-10-07. Why: inexact statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
 
 Every `Correction to R` line, verbatim:
 
