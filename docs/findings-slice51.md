@@ -4,7 +4,7 @@
 
 The test `api logs a long refused path quoted, capped and with its length` in `apps/web/src/lib/api.test.ts` now sends the path `/brands/x#"` followed by 500 `y`s and asserts a log call with the exact arguments: `"API path refused"`, then the opening quote, `/brands/x#`, an escaped quote and 187 `y`s (200 characters, no closing quote), then `path.length`. It replaces `expect.any(String)` plus a length check. Four mutants of the guard's log line that passed the old test now fail (a cut from the wrong end, the cap applied before quoting, the tail kept and quoted, the escaping of a double quote dropped). Still not caught, as the spec states: dropping the escaping of control characters, escaping changes only for paths over 200 characters that this path does not exercise, and lone surrogates. This fixes the slice 50 deferred minor (findings-slice50 §3, the Task 1 minor; R4). Test only: no code change; web stays at 73.
 
-Spec: docs/superpowers/specs/2026-10-07-slice51-guard-log-content-test-design.md (R1 entered in `5b53d24`, R2 in `b37e39b`, the Correction to R2 and R3 in `1333e8c`, R4 in `26e3c5f`, the version the user approved; R5, R6 and R7 added by the first post-merge docs commit, R8 by the docs-review fix commit). Plan: docs/superpowers/plans/2026-10-07-slice51-guard-log-content-test.md (Task 1). Merged via PR #104 (https://github.com/aiagencyindia-lab/bsi-platform/pull/104), main `ad330b6`.
+Spec: docs/superpowers/specs/2026-10-07-slice51-guard-log-content-test-design.md (R1 entered in `5b53d24`, R2 in `b37e39b`, the Correction to R2 and R3 in `1333e8c`, R4 in `26e3c5f`, the version the user approved; R5, R6 and R7 added by the first post-merge docs commit, R8 and R9 by the docs-review fix commits). Plan: docs/superpowers/plans/2026-10-07-slice51-guard-log-content-test.md (Task 1). Merged via PR #104 (https://github.com/aiagencyindia-lab/bsi-platform/pull/104), main `ad330b6`.
 
 **Code**: apps/web/src/lib/api.test.ts (one test).
 
@@ -31,6 +31,7 @@ Spec: docs/superpowers/specs/2026-10-07-slice51-guard-log-content-test-design.md
 - "Task 1: task review (ac16c57b45a3f0f20, ceebe45..fc14c2a): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 0 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1; gate-task1.txt shows Tests  73 passed (73), Compiled successfully and no refusal line; api.test.ts is byte-identical to the proof (no Prettier change)."
 - "Final review (a10688c75b844f448, b44c2ac..fc14c2a): "Ready to merge? Yes"; 0 Critical, 0 Important, 3 Minor; the deferred minor triaged "does not need fixing before merge"."
 - "Docs review (afd1deb17561e8d50, 837cbdd): "Docs ready? Yes"; 0 Critical, 0 Important, 2 Minor."
+- "Docs re-review (a1d40632dcaf76bbb, fb988bb): "Docs ready? Yes"; 0 Critical, 0 Important, 1 Minor."
 
 **Commits** (`git log --oneline --reverse b44c2ac..ad330b6^2`, oldest first):
 
@@ -67,6 +68,8 @@ Every `Ruling:` line in the ledger, verbatim:
 > Ruling: R7. Decided: no final fix wave. Minor 1 (toHaveBeenCalledWith matches any console.error call, and the removed line had pinned call 0) is deferred; Minor 2 (the spec's Design line nests backticks inside backticks, so it renders broken) is fixed by the post-merge docs commit; Minor 3 (the hunk header) needs no action. Found by: the final reviewer (Opus 5.5, a10688c75b844f448), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding. Cost if wrong: a second, matching console.error call elsewhere in the guard's path would let the test pass even if the first call were wrong (the guard logs once today). How named: in chat, 2026-10-07, before the gates and the finishing menu.
 
 > Ruling: R8. Decided: the docs review's two minors are fixed: findings §1 says the test "asserts a log call with the exact arguments", not "the guard's exact log call", since toHaveBeenCalledWith matches any call (the R7 minor) (Minor 1); its source citation reads "(findings-slice50 §3, the Task 1 minor; R4)" (Minor 2). Found by: the docs reviewer (Opus 5.5, afd1deb17561e8d50), 2026-10-08. Why: an overstatement and a loose citation of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-08, before the fix commit.
+
+> Ruling: R9. Decided: the docs re-review's Minor 1 is fixed: the plan's last execution note says "the first post-merge docs commit" fixed the spec Design line's nested backticks, as the findings and spec now name it; no further review, as the user chose "Fix, stop" when offered a stop after two docs review rounds. Found by: the docs re-reviewer (Opus 5.5, a1d40632dcaf76bbb), 2026-10-08. Why: an unqualified name once two post-merge docs commits exist. Cost if wrong: none to behaviour; the fix commit is unreviewed. How named: in chat, 2026-10-08, before the fix commit.
 
 Every `Correction to R` line, verbatim:
 
