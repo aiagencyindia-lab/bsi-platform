@@ -14,6 +14,7 @@ Spec: docs/superpowers/specs/2026-10-07-slice49-api-path-guard-design.md (R1 and
 - "User decisions (2026-10-07, after the second spec review): both test hardenings, "Harden scan" (fail on a non-literal path argument; each ${…} exactly one seg(…) call) and "Query refusal case" (/brands/x?a=b'c; web 70 -> 71), after approaches written in chat."
 - "User decision (2026-10-07): after "go ahead" and the confirming question, "Approve, write plan" approved the spec as it stood at 23c1ae8 (including that unreviewed commit)."
 - "User decision (2026-10-07): execution "Subagent-driven"."
+- Paraphrased, since the ledger line spells out the banned token itself: on 2026-10-07 the banned-word grep blocked the docs commit on PR #100's number; asked, the user chose "Allow PR numbers", so the grep now blocks the ranking token only when no digit follows it, and PR numbers #100–#199 pass.
 
 **Results** (quoted from the ledger):
 - "Task 1: implementer abb1354587c39f771, commit c44ac3f (trailer Opus 5.5 checked); report: red Tests 17 failed | 4 passed (21), green Tests 21 passed (21); gate exit 0, gate-task1.txt Tests  70 passed (70), Compiled successfully, no refusal line, gen:check no diff; controller check: api.ts and api.test.ts are byte-identical to the spec's proof copies."
