@@ -151,11 +151,13 @@ Quoted from the ledger:
 
 > Correction to R1 (2026-10-07, from the controller's check before the spec edit): the route-param encoding claim is recorded in the slice 49 spec's Context ("Next passes route params to the page still percent-encoded"), not in findings-slice49 §1, and it names no Next version; the spec cites that.
 
-Rulings made after this spec was approved (added by the post-merge docs commit), quoted from the ledger:
+Rulings made after this spec was approved (R3 and R4 added by the first post-merge docs commit, R5 by the docs-review fix commit), quoted from the ledger:
 
 > Ruling: R3. Decided: the plan review's three minors need no change: Step 1's first block opens the new guard test and the file's existing "});" closes it, which applies exactly (Minor 1); the "byte-identical to the proof" claim could not be checked by the reviewer, who was kept out of the scratchpad, but it confirmed the plan gives the spec's diff (Minor 2); the one placeholder is defined (Minor 3). No re-review: the plan is unchanged. Found by: the plan reviewer (Opus 5.5, ab86501954b7a3d30), 2026-10-07. Why: no statement is wrong. Cost if wrong: an implementer might pause on the open block; the brief's exact blocks still apply. How named: in chat, 2026-10-07, after the plan review.
 
 > Ruling: R4. Decided: no final fix wave. Minor 1 (the api long-path test checks the length, not the content) is the already deferred Task 1 minor; Minor 2 (the plan's "Changes made during execution" still says "None yet.") is done by the post-merge docs commit, as in every slice. Found by: the final reviewer (Opus 5.5, abdfc26968fa43d67), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and both deferred minors triaged "does not need fixing before merge". Cost if wrong: a wrong slice offset in the guard's log alone would go unnoticed by the tests. How named: in chat, 2026-10-07, before the gates and the finishing menu.
+
+> Ruling: R5. Decided: the docs review's findings are fixed: the findings and the plan quote the ledger's Note correcting "/tmp/null was empty" right after the spec re-review line (Important 1); the plan's sub-list heading becomes "Execution, gates and CI, as the ledger records them" (Minor 1); the findings say R1, R2 and the Correction to R1 entered in 7261182, "the version the user approved" (Minor 2). Found by: the docs reviewer (Opus 5.5, a6462c0907b1bf8e2), 2026-10-07. Why: a quoted statement the ledger marks as wrong, and two inexact phrasings of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, before the fix commit.
 
 ## Deferred minors
 
