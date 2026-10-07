@@ -19,6 +19,7 @@ import {
   REPORT_TYPE,
   reportNote,
   serpError,
+  serpSchedule,
   serpStatus,
   typeCounts,
   usd,
@@ -257,6 +258,17 @@ test("serpStatus shows a run in progress or a failure, else nothing", () => {
     "Last audit failed: the daily budget is used up",
   );
   expect(serpStatus({ status: "done", error: null })).toBeNull();
+});
+
+test("serpSchedule says whether the weekly sweep audits the brand", () => {
+  const weekly = "Audited automatically once a week.";
+  const noDomain =
+    "Not audited automatically: the brand has no declared domain.";
+  const archived = "Not audited automatically: the brand is archived.";
+  expect(serpSchedule("active", 1)).toBe(weekly);
+  expect(serpSchedule("active", 0)).toBe(noDomain);
+  expect(serpSchedule("archived", 0)).toBe(archived);
+  expect(serpSchedule("archived", 2)).toBe(archived);
 });
 
 test("ownershipText gives the count and a whole percentage", () => {
