@@ -17,7 +17,7 @@
 - **Off limits:** do NOT edit `tests/conftest.py` or create databases. Never touch the dev DB (`bsi`), the network, the worker loop or DataForSEO. Never run `alembic` by hand. No backend file changes in this slice; do not run pytest.
 - **Tool refusals:** if any tool refuses, stop and report BLOCKED. Do not switch tools or work around it. (The Edit tool's "read the file first" precondition is not a refusal.)
 - **Writing files:** use the Edit or Write tools; never a shell heredoc or zsh `echo` to write files. Never run `rm`.
-- **Frontend:** Server Components and server actions only; do not add a Route Handler. Do not run `npm run gen` (no API change).
+- **Frontend:** Server Components and server actions only; do not add a Route Handler. Do not run `npm run gen` other than through the gate's `gen:check` (no API change).
 - **Banned words:** copy (code, comments, test names) never contains the words listed in `FORBIDDEN` in tests/unit/test_recommend_copy.py.
 - **Banned-word grep (must block the commit):** `cd /Users/vineet/Downloads/ADK/bsi-platform && ! { git diff --cached -U0 | grep '^+' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1|top spot|dominat|certain'; }`, run after staging. Expected: exit 0 and no output.
 - **Web gate:** `cd /Users/vineet/Downloads/ADK/bsi-platform/apps/web && npm run gate > <workspace>/gate-task1.txt 2>&1; echo "gate exit $?"`.
@@ -223,7 +223,8 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   4. The spec's expected backend gate (`1753 passed, 2 deselected`, unchanged) is not a plan step; the controller runs it before the finishing menu.
   5. The implementer does not run Prettier (not in the gate; the spec notes `format.test.ts` already fails `prettier --check` on main).
   6. The header offers superpowers:executing-plans as well as subagent-driven-development (the template's wording).
-- Verified before execution (2026-10-07): Steps 1–4 were applied mechanically from this plan's replace blocks to a fresh scratch copy of main's `apps/web`: Step 2 printed the expected three lines, Step 4 `Tests  29 passed (29)`; typecheck, lint, test (`Tests  50 passed (50)`) and build (`Compiled successfully`) exited 0; the four finished files are byte-identical to the spec's proof copies. The gate's `gen:check` step was not run there (the copy has no backend) (R5).
+  7. The spec's optional live check (asked first) is not a plan step; the controller asks the user after the task (R6).
+- Verified before execution (2026-10-07): Steps 1–4 were applied mechanically from this plan's replace blocks to a fresh scratch copy of main's `apps/web`: Step 2 printed the expected three lines, Step 4 `Tests  29 passed (29)`; typecheck, lint, test (`Tests  50 passed (50)`) and build (`Compiled successfully`) exited 0; the four finished files are byte-identical to the spec's proof copies. The gate's `gen:check` step was not run in this verification (the copy has no backend); in the spec's proof run it ran and failed for the same reason (R5, R6).
 - Placeholders: `<workspace>`.
 
 ## Changes made during execution
