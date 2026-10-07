@@ -201,12 +201,19 @@ Quoted from the ledger:
 
 > Ruling: R5. Decided: the plan review's three minors are fixed: Step 2 names "a Failed Tests 2 banner" instead of quoting its dashes (Minor 1); Step 5 says the gate file, not its stdout, has no API problem line (Minor 2); departure 2 adds the spec's Prettier check (Minor 3). Found by: the plan reviewer (Opus 5.5, a5ed8116671076bb7), 2026-10-07. Why: inexact statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the plan review.
 
+Rulings made after the final review (added by the post-merge docs commits), quoted from the ledger:
+
+> Ruling: R6. Decided: no final fix wave. Minor 1 (a brand deleted between render and submit shows the not-found page) and Minor 4 (no real issue) need no change; Minor 2 (does the site audit cost money?) is answered no: JOB_ESTIMATES sets "audit_crawl": 0 with the comment "HTTP only: no model, no spend" (apps/workers/bsi_workers/worker.py:142), so the warning names the only paid audit; Minor 3 (brand_id from the hidden field is put into the path unencoded, as in runSerpAudit and setWebhook) is deferred for a change across all actions. The Task 1 brand_id minor's outcome is a 422 from the API's UUID path check, shown on the error page, as the reviewer corrected. Found by: the final reviewer (Opus 5.5, a7e496a90b2a79544), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and every deferred minor triaged "Not required before merge". Cost if wrong: a crafted brand_id could reach another /v1 route with the same tenant key and method, with no privilege gain. How named: in chat, 2026-10-07, before the gates and the finishing menu.
+
 ## Deferred minors
 
-Quoted from the ledger:
+Every deferred minor, quoted from the ledger (the last three added by the post-merge docs commits):
 
 - "minor (deferred): spec review minor 6, the classification line, the chat approvals and the ledger quotes cannot be checked from the repo (R2)."
+- "Task 1: minor (deferred): a host the pattern passes but the API refuses (an IP address, walkaroo., www.walkaroo) lands on the error page, not an inline message; the user chose this (browser pattern over catch-and-note)."
+- "Task 1: minor (deferred): a missing brand_id becomes the string "null" and posts to /brands/null/domains; the hidden field always sets it, and runSerpAudit has the same pattern."
+- "minor (deferred): final review minor 3, brand_id from the hidden field goes into the API path without encodeURIComponent; the same in runSerpAudit and setWebhook; fix across all server actions together (R6)."
 
 ## Live check
 
-Optional, asked first: on dev, open the Brand SERP page of an active brand with no domain, add a domain and see the line change. It writes a `domain` row (and re-flags that brand's citations) and `api_key.last_used_at`; with a domain the brand becomes due, so the worker stays stopped, and the domain is removed with `DELETE /v1/brands/{id}/domains/{domain_id}` (which re-flags the citations again) before the worker next starts; otherwise, with DataForSEO credentials and budget room, its first sweep queues a paid SERP audit.
+Not run: offered in chat on 2026-10-07 after PR #98 opened, and not taken up, as the ledger records (added by the post-merge docs commits; docs/findings-slice48.md §2). As approved: optional, asked first: on dev, open the Brand SERP page of an active brand with no domain, add a domain and see the line change. It writes a `domain` row (and re-flags that brand's citations) and `api_key.last_used_at`; with a domain the brand becomes due, so the worker stays stopped, and the domain is removed with `DELETE /v1/brands/{id}/domains/{domain_id}` (which re-flags the citations again) before the worker next starts; otherwise, with DataForSEO credentials and budget room, its first sweep queues a paid SERP audit.
