@@ -152,7 +152,7 @@ The helper's comment departs from the Section 2 text ("mirrors due_serp_audits()
 Run 2026-10-07 in the scratchpad on a copy of main's `apps/web` (`git archive`), with the repo's `node_modules` linked.
 
 - Red, main's code with the new test: `1 failed | 28 passed (29)` in `format.test.ts`; the failing test is the new one.
-- Green, patched: `npm run gate` gives `Tests  50 passed (50)` and `Compiled successfully`.
+- Green, patched: `npm run gate` passes typecheck, lint, test (`Tests  50 passed (50)`) and build (`Compiled successfully`); its last step, `gen:check`, could not run in the scratch copy, which holds only `apps/web` (`scripts/export_openapi.py` is missing). No API file changes; `gen:check` runs in the web gate on the branch (R5).
 - Prettier is not in the gate. `format.test.ts` already fails `prettier --check` on main; the added lines are not in Prettier's diff.
 
 Each change below fails the new test (`1 failed | 28 passed (29)`):
@@ -177,6 +177,8 @@ Quoted from the ledger:
 > Ruling: R4. Decided: spec re-review Minor 1 is fixed: the spec's Design paragraph says "the only other value ever written is 'archived'" instead of "only 'archived' is ever written", and R3's same wording is corrected by a Correction to R3 line. Found by: the spec re-reviewer (Opus 5.5), 2026-10-07. Why: 'active' is also written, as the column default, so the old wording was loose. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 
 > Correction to R3 (2026-10-07, from the spec re-review): "only 'archived' is ever written" means the only value other than 'active' (the column default) ever written is 'archived'.
+
+> Ruling: R5. Decided: the spec's Proof is corrected to say the scratch run's npm run gate passed typecheck, lint, test and build but its last step, gen:check, could not run there (the copy holds only apps/web, so scripts/export_openapi.py is missing); the plan's Step 2 expected output adds the "Failed Tests 1" banner line that its grep also prints; the plan records that its verification ran the same four steps. Found by: the controller, verifying the plan on a fresh copy of main. Why: the Proof listed the gate's passing lines without saying its last step failed in the scratch copy, and Step 2's expected output was incomplete. Cost if wrong: none to behaviour; gen:check runs in the implementer's web gate on the branch, where the backend exists. How named: in chat, 2026-10-07, after verifying the plan.
 
 ## Deferred minors
 
