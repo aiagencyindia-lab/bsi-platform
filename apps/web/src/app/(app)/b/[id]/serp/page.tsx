@@ -10,7 +10,7 @@ import {
   type Params,
 } from "@/lib/format";
 import type { Brand, Domain, SerpAudits } from "@/lib/types";
-import { runSerpAudit } from "./actions";
+import { addDomain, runSerpAudit } from "./actions";
 
 export default async function Serp({
   params,
@@ -37,6 +37,29 @@ export default async function Serp({
         )}
       </form>
       <p className="muted">{serpSchedule(brand.status, domains.length)}</p>
+      {brand.status === "active" && domains.length === 0 && (
+        <>
+          <form action={addDomain} className="row">
+            <input type="hidden" name="brand_id" value={id} />
+            <label htmlFor="host">Domain</label>
+            <input
+              id="host"
+              name="host"
+              required
+              pattern=".*\..*"
+              title="A domain name such as example.com"
+              placeholder="example.com"
+              aria-describedby="host-cost"
+            />
+            <button>Add domain</button>
+          </form>
+          <p className="muted" id="host-cost">
+            Adding a domain lets the weekly Brand SERP audit run for this brand:
+            paid Google searches, counted against the daily budget. The first
+            can run within minutes.
+          </p>
+        </>
+      )}
       {status && <p className="muted">{status}</p>}
       {audits.length === 0 && (
         <p className="muted">
