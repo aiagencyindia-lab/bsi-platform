@@ -151,11 +151,18 @@ Quoted from the ledger:
 
 > Correction to R1 (2026-10-07, from the controller's check before the spec edit): the route-param encoding claim is recorded in the slice 49 spec's Context ("Next passes route params to the page still percent-encoded"), not in findings-slice49 §1, and it names no Next version; the spec cites that.
 
+Rulings made after this spec was approved (added by the post-merge docs commit), quoted from the ledger:
+
+> Ruling: R3. Decided: the plan review's three minors need no change: Step 1's first block opens the new guard test and the file's existing "});" closes it, which applies exactly (Minor 1); the "byte-identical to the proof" claim could not be checked by the reviewer, who was kept out of the scratchpad, but it confirmed the plan gives the spec's diff (Minor 2); the one placeholder is defined (Minor 3). No re-review: the plan is unchanged. Found by: the plan reviewer (Opus 5.5, ab86501954b7a3d30), 2026-10-07. Why: no statement is wrong. Cost if wrong: an implementer might pause on the open block; the brief's exact blocks still apply. How named: in chat, 2026-10-07, after the plan review.
+
+> Ruling: R4. Decided: no final fix wave. Minor 1 (the api long-path test checks the length, not the content) is the already deferred Task 1 minor; Minor 2 (the plan's "Changes made during execution" still says "None yet.") is done by the post-merge docs commit, as in every slice. Found by: the final reviewer (Opus 5.5, abdfc26968fa43d67), 2026-10-07. Why: "Ready to merge? Yes" with no Critical or Important finding, and both deferred minors triaged "does not need fixing before merge". Cost if wrong: a wrong slice offset in the guard's log alone would go unnoticed by the tests. How named: in chat, 2026-10-07, before the gates and the finishing menu.
+
 ## Deferred minors
 
-Quoted from the ledger:
+Every deferred minor, quoted from the ledger (the second added by the post-merge docs commit):
 
 - "minor (deferred): spec review minor 5, the chat approvals and the backend count "1753 passed, 2 deselected" cannot be checked from the repo offline (R1)."
+- "Task 1: minor (deferred): the api long-path test checks the logged text's length (200) but not its content, so a wrong slice offset in the guard's log alone would pass; the seg long-value test checks the content through the shared shown() (plan-mandated)."
 
 ## Live check
 

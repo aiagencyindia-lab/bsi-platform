@@ -211,4 +211,20 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 ## Changes made during execution
 
-None yet.
+- Task 1: commit 08645d3; the first dispatch returned NEEDS_CONTEXT because the brief lacked the Global Constraints (a controller script error), and the resumed implementer finished it; the task review says "✅ Spec compliant" and "Task quality: Approved"; no fix rounds. Both files are byte-identical to the spec's rebuilt proof. Merged via PR #102 (main `eeecd0b`).
+- Gates and CI, as the ledger records them:
+  - "Task 1: implementer a2134b4b98115cf55 reported NEEDS_CONTEXT: the brief lacked the Global Constraints, because the controller's append script failed with a Python f-string error; the controller appended them and resumed the implementer."
+  - "Task 1: implementer a2134b4b98115cf55 (resumed), commit 08645d3 (trailer Opus 5.5 checked); report: red Tests 17 failed | 6 passed (23), green Tests 23 passed (23); gate exit 0, gate-task1.txt Tests  73 passed (73), Compiled successfully, no refusal line, gen:check no diff; controller check: api.ts and api.test.ts are byte-identical to the rebuilt proof (s50b)."
+  - "Controller gates on 08645d3: backend gate exit 0, 1753 passed, 2 deselected, 2 warnings in 205.70s (0:03:25), mypy Success, metrics coverage 100%; web gate exit 0, Tests  73 passed (73), Compiled successfully, no refusal line."
+  - "PR opened for slice50-refusal-log-cap on head 08645d3 after the user chose "Push and create a Pull Request" at the finishing menu (2026-10-07)."
+  - "PR #102's description first said R1–R3 are quoted in the spec; the spec quotes R1, R2 and the Correction to R1 only; corrected through gh api PATCH (2026-10-07)."
+  - "CI run 37620460567: success on 08645d3, 1753 passed, 2 deselected, 2 warnings in 109.18s (0:01:49); web Tests  73 passed (73), Compiled successfully."
+  - "PR #102 merged by the controller after the user said "go ahead" to "Should I merge PR #102?" (2026-10-07); merge commit eeecd0b; local main fast-forwarded to eeecd0b; branch deleted on GitHub and locally."
+  - "Gates on main eeecd0b after merge (exact): backend 1753 passed, 2 deselected, 2 warnings in 341.40s (0:05:41), coverage 100%; web Tests  73 passed (73), Compiled successfully."
+- Reviews, as the ledger records them:
+  - "Spec review (abaf5a03f31a8dfdb, c5abbd6): "Spec ready? Yes"; 0 Critical, 0 Important, 6 Minor."
+  - "Spec re-review (a207c2739f349dbd6, 7261182): "Spec ready? Yes"; 0 Critical, 0 Important, 1 Minor (noted only, no change needed). The reviewer worked in its own new directory and reported a stray /tmp/null holding tsc output; the controller looked at it (empty) and removed it."
+  - "Plan review (ab86501954b7a3d30, d51944a): "Ready to execute? Yes"; 0 Critical, 0 Important, 3 Minor."
+  - "Task 1: task review (aeda51a1c7222e82c, d51944a..08645d3): "✅ Spec compliant"; "Task quality: Approved"; 0 Critical, 0 Important, 2 Minor. ⚠️ items resolved by the controller: the trailer is checked by git log -1; gate-task1.txt shows Tests  73 passed (73), Compiled successfully and no refusal line; the report holds the RED and GREEN lines; both files are byte-identical to the rebuilt proof."
+  - "Final review (abdfc26968fa43d67, be011d5..08645d3): "Ready to merge? Yes"; 0 Critical, 0 Important, 2 Minor; both deferred minors triaged "does not need fixing before merge"."
+- R3 (from the plan review) and R4 (from the final review) are quoted in the spec's "Rulings" section and in docs/findings-slice50.md §3, with every deferred minor.

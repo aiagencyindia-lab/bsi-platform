@@ -105,3 +105,4 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 2: minor (deferred): the scan's QUERIES allowlist exempts q, dq, wq, feedQuery and apiQuery(sp) by name, so a raw value later stored in one of them would pass (plan-mandated, stated in the spec)."
 - "Task 2: minor (deferred): the scan reads only src/app; no api()/publicApi() caller exists outside it today (plan-mandated, stated in the spec)."
 - "minor (deferred): final review minor 2, the refusal log lines in seg() and sendAsWritten record the raw value or path with no length cap (R11)."
+  - Note (2026-10-07, after slice 50, PR #102): fixed; both refusal log lines print the value JSON-quoted and capped at 200 code units, plus its full length (docs/findings-slice50.md §1).
