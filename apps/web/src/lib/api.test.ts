@@ -67,14 +67,13 @@ test("api logs a long refused path quoted, capped and with its length", async ()
   signedIn();
   const log = vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubGlobal("fetch", vi.fn());
-  const path = `/brands/x#${"y".repeat(500)}`;
+  const path = `/brands/x#"${"y".repeat(500)}`;
   await expect(api(path)).rejects.toThrow("NOT_FOUND");
   expect(log).toHaveBeenCalledWith(
     "API path refused",
-    expect.any(String),
+    `"/brands/x#\\"${"y".repeat(187)}`,
     path.length,
   );
-  expect(log.mock.calls[0][1]).toHaveLength(200);
 });
 
 test("api sends a path with a query string as written", async () => {
