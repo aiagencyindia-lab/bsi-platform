@@ -29,7 +29,7 @@ No new route (test_isolation.py unchanged), no migration, dev untouched. After t
 
 ## Section 2 — Web
 
-`SerpAudits` in apps/web/src/lib/types.ts gains `serp_configured: boolean` and `failed_7d: number`.
+`SerpAudits` in apps/web/src/lib/types.ts is `S["SerpAuditsOut"]`, generated from the schema, so it gains `serp_configured: boolean` and `failed_7d: number` through `npm run gen`; types.ts is not edited by hand.
 
 apps/web/src/lib/format.ts:
 
@@ -56,23 +56,34 @@ export const serpSchedule = (
       : !configured
         ? "Not audited automatically: the SERP provider is not configured."
         : failed7d >= SERP_MAX_FAILURES
-          ? "Not audited automatically: 3 audits failed in the last 7 days; the sweep tries again when the oldest failure is more than 7 days old."
+          ? `Not audited automatically: ${failed7d} audits failed in the last 7 days; the sweep tries again once fewer than ${SERP_MAX_FAILURES} remain in that window.`
           : "Audited automatically once a week.";
 ```
 
-Precedence (user-approved): archived → no domain → not configured → failures → weekly. apps/web/src/app/(app)/b/[id]/serp/page.tsx passes `serp_configured` and `failed_7d` from the `/audits/serp` response it already fetches; no new request. `serpStatus(job)` still shows the latest job's error beneath. The add-domain form condition is unchanged. Budget is not mentioned. The copy holds none of the FORBIDDEN words of tests/unit/test_recommend_copy.py (checked by the commit grep).
+The failures line interpolates the count (it can exceed 3: "Run audit now" jobs count too) and the threshold, so it stays true for any count and follows the constant (user decision after the spec review, 2026-10-08, re-asked because the first wording misstated counts above 3 and the resume condition). Precedence (user-approved): archived → no domain → not configured → failures → weekly. apps/web/src/app/(app)/b/[id]/serp/page.tsx passes `serp_configured` and `failed_7d` from the `/audits/serp` response it already fetches; no new request. `serpStatus(job)` still shows the latest job's error beneath. The add-domain form condition is unchanged. Budget is not mentioned. The copy holds none of the FORBIDDEN words of tests/unit/test_recommend_copy.py (checked by the commit grep).
 
 ## Section 3 — Testing
 
-Backend, tests/integration/test_api_serp.py (helpers: `_job(owner, org, bid, "audit_serp", status, minutes=…, error=…)` from test_worker; settings via `monkeypatch.setattr(audits, "get_settings", lambda: Settings(...))` on the audits module, as test_serp_audit.py does for the worker):
+Backend, tests/integration/test_api_serp.py. The module adds `from bsi_api.routers import audits` and `from bsi_core.config import Settings`. Settings are patched with `monkeypatch.setattr(audits, "get_settings", lambda: Settings(dataforseo_login=…, dataforseo_password=…))` on the audits module (the router imports the name at module level, so the lambda bypasses `lru_cache`; explicit kwargs override `.env`), as test_serp_audit.py does for the worker. Every test that reads `serp_configured` patches it: `Settings` reads `.env`, which holds credentials in the main checkout and nothing in a worktree. Job rows come from `_job(owner, org, bid, "audit_serp", status, minutes=…, error=…)` (test_worker), which sets `scheduled_slot`, not `created_at`; `created_at` is `server_default=func.now()`, so every job whose age matters gets its `created_at` set by `update(m.Job).values(created_at=…)` as the existing `test_get_reports_the_latest_audit_serp_job` does, and each `audit_serp` job on one brand gets a distinct `minutes` (unique `(brand_id, kind, scheduled_slot)`).
 
-- `test_get_reports_serp_configured`: login and password set → `serp_configured` true; password empty → false.
-- `test_get_counts_failed_audit_serp_jobs_in_7_days`: three failed jobs at −1, −3 and −6 days → `failed_7d == 3`; excluded (count stays 3): a failed job at −8 days, a `done` job at −2 days, a failed `audit_crawl` job at −2 days, another org's brand's failed jobs (org_b). Boundary: −7 days + 1 minute counts, −7 days − 1 minute does not (`created_at` set by `update()` as the existing test does).
-- `test_get_is_empty_before_any_audit` asserts the whole body and gains the two keys (`failed_7d: 0`).
+- `test_get_reports_serp_configured`: login and password set → `serp_configured` true; login set, password empty → false; login empty, password set → false.
+- `test_get_counts_failed_audit_serp_jobs_in_7_days`: on the brand, three failed `audit_serp` jobs with `created_at` at −1, −3 and −6 days → `failed_7d == 3`. Also present and excluded (the count is exactly 3): a failed `audit_serp` job at −8 days; a `done` `audit_serp` job at −2 days; a failed `audit_crawl` job at −2 days; two failed `audit_serp` jobs at −2 and −4 days on a second brand of the same org (RLS would hide another org's rows whether or not the query filters on brand, so the same-org brand is what proves the `brand_id` filter).
+- `test_failed_7d_window_boundary`: two failed `audit_serp` jobs, `created_at` at −7 days + 1 minute and −7 days − 1 minute → `failed_7d == 1`. This proves the window exists and is 7 days; a one-minute margin against DB `now()` cannot tell `>` from `>=`, and the spec does not claim it does.
+- `test_get_is_empty_before_any_audit` patches settings with both credentials set and asserts the whole body with `serp_configured: True` and `failed_7d: 0`.
 
-Web: format.test.ts `serpSchedule` cases: `("active", 1, false, 0)` → not configured; `("active", 1, true, 3)` and `(…, 5)` → failures; `("active", 1, true, 2)` → weekly; `("active", 0, false, 3)` → no domain; `("archived", 1, false, 3)` → archived. api-paths.test.ts unchanged; `gen:check` proves schema.d.ts.
+Web: format.test.ts `serpSchedule` cases, asserting the exact strings:
+- `("active", 1, true, 1)` → "Audited automatically once a week." (the existing case, now with the two new arguments);
+- `("active", 1, true, 2)` → weekly;
+- `("active", 1, true, 3)` → "Not audited automatically: 3 audits failed in the last 7 days; the sweep tries again once fewer than 3 remain in that window.";
+- `("active", 1, true, 5)` → the same line with "5 audits failed";
+- `("active", 1, false, 0)` → "Not audited automatically: the SERP provider is not configured.";
+- `("active", 1, false, 3)` → not configured (precedence over failures);
+- `("active", 0, false, 3)` → "Not audited automatically: the brand has no declared domain.";
+- `("archived", 1, false, 3)` and `("archived", 0, true, 0)` → "Not audited automatically: the brand is archived."
 
-Proof: red on main, green patched, and a mutation table, each caught by a named test: M1 count without the `status == "failed"` filter; M2 without the 7-day window; M3 without the `kind` filter; M4 `configured` ignoring the password; M5 `>` instead of `>=` in the web threshold; M6 precedence swapped (not-configured after failures).
+api-paths.test.ts unchanged; `gen:check` proves schema.d.ts.
+
+Proof: red on main, green patched, and a mutation table, each caught by a named test: M1 count without the `status == "failed"` filter (the `done` job); M2 without the 7-day window (the −8 days job and the boundary test); M3 without the `kind` filter (the `audit_crawl` job); M4 `configured` ignoring the password (the empty-password case); M5 `>` instead of `>=` in the web threshold (`("active", 1, true, 3)`); M6 precedence swapped, failures before not-configured (`("active", 1, false, 3)`); M7 count without the `brand_id` filter (the same-org second brand); M8 `configured` ignoring the login (the empty-login case).
 
 Gates: both, run by the controller before the finishing menu; counts stated after running.
 
@@ -86,7 +97,9 @@ Out of scope: the budget-room skip; making the flag describe the worker's settin
 
 ## Rulings
 
-None at spec time. (Rulings made later are appended here by the docs commits, with the ledger line quoted.)
+Every `Ruling:` line in the ledger, verbatim (later ones are appended by the docs commits):
+
+> Ruling: R1. Decided: the spec review's other findings are fixed in the spec: a serpSchedule case ('active', 1, false, 3) -> not configured catches M6 (C1); test_get_is_empty_before_any_audit patches audits.get_settings and expects serp_configured true (I2); the count test adds failed audit_serp jobs on a second brand of the same org and a mutant M7 'count without the brand_id filter' (I3); every job's created_at is set by update() with a distinct minutes per job, the main case expects 3 and the window boundary is its own test expecting 1 of 2 jobs (I4); types.ts gains the fields through npm run gen, not by hand (m1); the boundary proves the window exists, not > versus >= (m2); an empty-login, set-password case expects false (m3); the (…, 5) case is written in full (m4); the test module imports the audits router (m5). Found by: the spec reviewer (Opus 5.5), 2026-10-08. Why: a test gap, two nondeterministic or ambiguous test designs, and loose wording of mine. Cost if wrong: none to behaviour. How named: quoted in chat. (2026-10-08 03:21 UTC)
 
 ## Deferred
 
