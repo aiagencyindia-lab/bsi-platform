@@ -7,6 +7,7 @@ from typing import Any
 
 from bsi_core import models as m
 from bsi_core.config import get_settings
+from bsi_core.scheduling import serp_budget_fits
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
@@ -104,4 +105,5 @@ def latest_serp(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
             and settings.dataforseo_password.get_secret_value()
         ),
         "failed_7d": failed or 0,
+        "budget_room": serp_budget_fits(c.s, c.org_id),
     }

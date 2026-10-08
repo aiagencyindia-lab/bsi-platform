@@ -4138,6 +4138,10 @@
             "title": "Audits",
             "type": "array"
           },
+          "budget_room": {
+            "title": "Budget Room",
+            "type": "boolean"
+          },
           "failed_7d": {
             "title": "Failed 7D",
             "type": "integer"
@@ -4161,7 +4165,8 @@
           "job",
           "audits",
           "serp_configured",
-          "failed_7d"
+          "failed_7d",
+          "budget_room"
         ],
         "title": "SerpAuditsOut",
         "type": "object"

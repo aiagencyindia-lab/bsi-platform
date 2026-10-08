@@ -19,6 +19,9 @@ DEFAULT_SAMPLES = 2
 # Active prompts per organization, by plan (spec §5).
 PLAN_LIMITS = {"starter": 100, "pro": 500, "agency": 2_000}
 DEFAULT_LIMIT = PLAN_LIMITS["starter"]  # an unknown plan is Starter
+# A SERP audit is 2 calls at the observed $0.002 (2026-10-05), 4,000
+# micros; 40,000 is kept as a 10x margin, which fails closed.
+SERP_JOB_MICROS = 40_000
 
 
 def first_run(now: datetime, hour_utc: int) -> datetime:
@@ -135,6 +138,27 @@ def budget_fits(
     # headroom absorbs it.
     estimate = settings.obs_cost_estimate_micros
     return bool(spent + extra_micros + (pending + n_obs) * estimate <= cap)
+
+
+def serp_budget_fits(s: Session, org_id: uuid.UUID) -> bool:
+    """True if one more audit_serp job fits in the org's budget for today,
+    counting one estimate for each of the org's audit_serp jobs still
+    queued or running (those have recorded no cost yet).
+
+    The weekly sweep's check, and the Brand SERP page's reason when the
+    sweep skips a brand. Like budget_fits, which it calls, it takes the
+    org's advisory lock to the end of the transaction.
+    """
+    # Row-level security scopes the count to the org; budget_fits fails
+    # closed outside the org's tenant session.
+    waiting = s.scalar(
+        select(func.count()).where(
+            m.Job.kind == "audit_serp",
+            m.Job.status.in_(("queued", "running")),
+        )
+    )
+    extra = SERP_JOB_MICROS * ((waiting or 0) + 1)
+    return budget_fits(s, org_id, 0, extra_micros=extra)
 
 
 def check_active_limit(

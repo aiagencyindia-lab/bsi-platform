@@ -55,7 +55,13 @@ from bsi_core.rivals import (
     snapshot_domain,
     with_deadline,
 )
-from bsi_core.scheduling import budget_fits, enqueue_job, run_schedule
+from bsi_core.scheduling import (
+    SERP_JOB_MICROS,
+    budget_fits,
+    enqueue_job,
+    run_schedule,
+    serp_budget_fits,
+)
 from bsi_core.serp import classify
 from bsi_core.storage import LocalRawStore, RawStore
 from bsi_core.suggest import (
@@ -115,9 +121,6 @@ class Poster(Protocol):
     ) -> Response: ...
 
 
-# A SERP audit is 2 calls at the observed $0.002 (2026-10-05), 4,000
-# micros; 40,000 is kept as a 10x margin, which fails closed.
-SERP_JOB_MICROS = 40_000
 # One locale: 2 calls of up to ~240 s each (a 120 s read, then up to a
 # 120 s body read before the deadline check) stay under claim_job()'s
 # 10 minutes, assuming a quick connect and send and headers in one read.
@@ -861,18 +864,11 @@ def queue_due_serp_audits() -> int:
         try:
             with tenant_session(org_id) as s:
                 # ponytail: a "Run audit now" press committed after this
-                # count is missed (the API takes no lock); process_job's
+                # count is missed (the press takes no lock); process_job's
                 # claim check still catches it. To close the gap, the press
                 # and this sweep would both take the org's lock before
                 # counting.
-                waiting = s.scalar(
-                    select(func.count()).where(
-                        m.Job.kind == "audit_serp",
-                        m.Job.status.in_(("queued", "running")),
-                    )
-                )
-                extra = SERP_JOB_MICROS * ((waiting or 0) + 1)
-                if not budget_fits(s, org_id, 0, extra_micros=extra):
+                if not serp_budget_fits(s, org_id):
                     continue
                 enqueue_job(
                     s,
