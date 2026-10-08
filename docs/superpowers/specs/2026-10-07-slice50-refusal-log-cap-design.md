@@ -134,12 +134,12 @@ Each change below fails tests (counts from `api.test.ts`, 23 tests):
 
 | Mutant | Change | Result | Failing |
 |---|---|---|---|
-| M1 | no cap | `2 failed | 21 passed (23)` | the two long-value tests |
-| M2 | no quoting (the raw text, capped) | `16 failed | 7 passed (23)` | the 8 guard and 7 `seg` refusal cases, and `seg logs a long value…` |
-| M3 | no length in `seg`'s log | `8 failed | 15 passed (23)` | the 7 `seg` refusal cases and `seg logs a long value…` |
-| M4 | no length in the guard's log | `9 failed | 14 passed (23)` | the 8 guard refusal cases and `api logs a long refused path…` |
-| M5 | a cap of 2,000 | `2 failed | 21 passed (23)` | the two long-value tests |
-| M6 | the guard's log quoted but uncapped | `1 failed | 22 passed (23)` | `api logs a long refused path quoted, capped and with its length` |
+| M1 | no cap | `2 failed \| 21 passed (23)` | the two long-value tests |
+| M2 | no quoting (the raw text, capped) | `16 failed \| 7 passed (23)` | the 8 guard and 7 `seg` refusal cases, and `seg logs a long value…` |
+| M3 | no length in `seg`'s log | `8 failed \| 15 passed (23)` | the 7 `seg` refusal cases and `seg logs a long value…` |
+| M4 | no length in the guard's log | `9 failed \| 14 passed (23)` | the 8 guard refusal cases and `api logs a long refused path…` |
+| M5 | a cap of 2,000 | `2 failed \| 21 passed (23)` | the two long-value tests |
+| M6 | the guard's log quoted but uncapped | `1 failed \| 22 passed (23)` | `api logs a long refused path quoted, capped and with its length` |
 
 ## Rulings
 
