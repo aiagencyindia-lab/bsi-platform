@@ -531,4 +531,4 @@ EOF
 
 - Task 1 and Task 2, Step 5 (R4): restoring a mutated file with `git checkout -- <file>` restores HEAD and would wipe the task's uncommitted implementation. The Task 1 implementer staged the implemented file before the mutants, so the restore came from the index; Task 2's dispatch carried the same instruction. Code unchanged.
 - Task 1, Step 6: `npm run gen` changed `openapi.json` by +11/−1 (the plan said +11 or +12) and `schema.d.ts` by +4.
-- No other departure: both task reviewers applied the plan's blocks by script to the task's base and found the committed files byte-identical.
+- No other departure was reported. Both task reviewers applied their brief's blocks (extracted from this plan) by script to the task's base and found the files those blocks produce byte-identical; the generated `openapi.json` and `schema.d.ts` were checked to hold exactly the two new properties.
