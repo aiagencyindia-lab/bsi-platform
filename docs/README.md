@@ -264,6 +264,9 @@ In the order they were written:
 | [superpowers/specs/2026-10-07-slice51-guard-log-content-test-design.md](superpowers/specs/2026-10-07-slice51-guard-log-content-test-design.md) | Design spec: the guard's long-path log test uses a path with a double quote and asserts the exact 200-character logged text (the slice 50 deferred minor); a mutation table with the old and new test is the evidence, with rulings R1–R9, one correction and the deferred minors. |
 | [superpowers/plans/2026-10-07-slice51-guard-log-content-test.md](superpowers/plans/2026-10-07-slice51-guard-log-content-test.md) | Implementation plan, Task 1 (the one test), with the changes made during execution. |
 | [findings-slice51.md](findings-slice51.md) | Results: the guard's long-path log test checks the logged text (the slice 50 minor), the gates and reviews, no live check, and every ruling (R1–R9), correction and deferred minor, quoted from the ledger. |
+| [findings-slice52.md](findings-slice52.md) | Results: the guard's long-path log test pins one console.error call (the slice 51 minor), bounded path with no spec or plan file, the gates and reviews, no live check, and every ruling (R1–R2) and deferred minor, quoted from the ledger. |
+| [findings-slice53.md](findings-slice53.md) | Results: the slice 49 and slice 50 spec mutation tables escape the `\|` inside their cells so they render, docs only, bounded path, and every ruling (R1–R2), quoted from the ledger. |
+| [findings-slice54.md](findings-slice54.md) | Results: a refused (422) or duplicate (409) domain from the Brand SERP add-domain form shows a note instead of the error page (the slice 48 minor, reversing the slice 48 decision with the user's approval), bounded path, the gates and reviews, no live check, and every ruling (R2) and deferred minor, quoted from the ledger. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

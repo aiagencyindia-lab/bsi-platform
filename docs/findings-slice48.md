@@ -75,6 +75,7 @@ Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): spec review minor 6, the classification line, the chat approvals and the ledger quotes cannot be checked from the repo (R2)."
 - "Task 1: minor (deferred): a host the pattern passes but the API refuses (an IP address, walkaroo., www.walkaroo) lands on the error page, not an inline message; the user chose this (browser pattern over catch-and-note)."
+  - Note (2026-10-08, after slice 54, PR #108): fixed; a 422 or 409 from the add-domain post now redirects to the Brand SERP page with a note, reversing the browser-pattern decision above with the user's approval of the slice 54 design (docs/findings-slice54.md §1). Two simultaneous submits still reach the error page through the unique-constraint 500 (R2 above).
 - "Task 1: minor (deferred): a missing brand_id becomes the string "null" and posts to /brands/null/domains; the hidden field always sets it, and runSerpAudit has the same pattern."
 - "minor (deferred): final review minor 3, brand_id from the hidden field goes into the API path without encodeURIComponent; the same in runSerpAudit and setWebhook; fix across all server actions together (R6)."
   - Note (2026-10-07, after slice 49, PR #100): fixed; every value in an API path, in server actions and pages, now goes through seg(), and api() refuses a path fetch would not send as written (docs/findings-slice49.md §1).
