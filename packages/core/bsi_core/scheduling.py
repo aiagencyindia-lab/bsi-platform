@@ -145,9 +145,9 @@ def serp_budget_fits(s: Session, org_id: uuid.UUID) -> bool:
     counting one estimate for each of the org's audit_serp jobs still
     queued or running (those have recorded no cost yet).
 
-    The weekly sweep's check, and the Brand SERP page's reason when the
-    sweep skips a brand. Like budget_fits, which it calls, it takes the
-    org's advisory lock to the end of the transaction.
+    The weekly sweep's check, and the Brand SERP page's budget note. Like
+    budget_fits, which it calls, it takes the org's advisory lock to the end
+    of the transaction.
     """
     # Row-level security scopes the count to the org; budget_fits fails
     # closed outside the org's tenant session.
