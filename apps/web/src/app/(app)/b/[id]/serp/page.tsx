@@ -1,6 +1,7 @@
 import { api, seg } from "@/lib/api";
 import {
   auditNote,
+  domainNote,
   ownershipText,
   serpError,
   serpSchedule,
@@ -37,6 +38,9 @@ export default async function Serp({
         )}
       </form>
       <p className="muted">{serpSchedule(brand.status, domains.length)}</p>
+      {domainNote(sp.domain) && (
+        <p className="muted">{domainNote(sp.domain)}</p>
+      )}
       {brand.status === "active" && domains.length === 0 && (
         <>
           <form action={addDomain} className="row">
