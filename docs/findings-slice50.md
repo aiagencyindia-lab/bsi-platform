@@ -71,3 +71,4 @@ Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): spec review minor 5, the chat approvals and the backend count "1753 passed, 2 deselected" cannot be checked from the repo offline (R1)."
 - "Task 1: minor (deferred): the api long-path test checks the logged text's length (200) but not its content, so a wrong slice offset in the guard's log alone would pass; the seg long-value test checks the content through the shared shown() (plan-mandated)."
+  - Note (2026-10-08, after slice 51, PR #104): fixed; the test now uses a path with a double quote and asserts the exact logged text (docs/findings-slice51.md §1).
