@@ -22,11 +22,12 @@ export default async function Serp({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const [{ job, audits }, brand, domains] = await Promise.all([
-    api<SerpAudits>(`/brands/${seg(id)}/audits/serp`),
-    api<Brand>(`/brands/${seg(id)}`),
-    api<Domain[]>(`/brands/${seg(id)}/domains`),
-  ]);
+  const [{ job, audits, serp_configured, failed_7d }, brand, domains] =
+    await Promise.all([
+      api<SerpAudits>(`/brands/${seg(id)}/audits/serp`),
+      api<Brand>(`/brands/${seg(id)}`),
+      api<Domain[]>(`/brands/${seg(id)}/domains`),
+    ]);
   const status = serpStatus(job);
   return (
     <>
@@ -37,7 +38,9 @@ export default async function Serp({
           <span className="muted">{auditNote(sp.queued)}</span>
         )}
       </form>
-      <p className="muted">{serpSchedule(brand.status, domains.length)}</p>
+      <p className="muted">
+        {serpSchedule(brand.status, domains.length, serp_configured, failed_7d)}
+      </p>
       {domainNote(sp.domain) && (
         <p className="muted">{domainNote(sp.domain)}</p>
       )}
