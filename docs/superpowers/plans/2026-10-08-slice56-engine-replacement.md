@@ -81,7 +81,7 @@ def summary(searched, cost, calls=20, completed=None):
     }
 
 
-def test_the_highest_share_wins_when_intervals_do_not_overlap():
+def test_a_model_below_the_bar_loses_to_one_above_it():
     results = {LITE: summary(20, 60_000), FLASH: summary(5, 20_000)}
     assert engine_probe.pick(results) == LITE
 
@@ -179,7 +179,7 @@ def test_the_probe_stops_before_the_crossing_try(tmp_path, monkeypatch):
     # another kind of entry does not count.
     ledger.write_text(
         json.dumps({"kind": "sampling:A", "micros": 9_000_000})
-        + "\n"
+        + "\n  \n"
         + (json.dumps({"kind": "engine_probe:x", "micros": 100_000}) + "\n")
         * 30
     )
@@ -191,6 +191,7 @@ def test_the_probe_stops_before_the_crossing_try(tmp_path, monkeypatch):
         ),
     )
     adapters = {m: FakeAdapter(120_000) for m in engine_probe.MODELS}
+    written = []
     out = engine_probe.run(
         adapters,
         ["p0", "p1"],
@@ -198,7 +199,9 @@ def test_the_probe_stops_before_the_crossing_try(tmp_path, monkeypatch):
         ledger,
         tmp_path / "raw",
         sleep=lambda s: None,
+        write=written.append,
     )
+    assert [w["stopped"] for w in written] == ["probe stop"]
     # 3,000,000 + 4 x 120,000 = 3,480,000; the next reservation is the
     # largest entry, 120,000, and 3.6M would cross 3.5M: stop.
     assert out["stopped"] == "probe stop"
@@ -662,8 +665,11 @@ def probe_costs(ledger: Path) -> list[int]:
     """Every engine_probe ledger entry, earlier runs included."""
     if not ledger.exists():
         return []
-    rows = [json.loads(x) for x in ledger.read_text().splitlines() if x]
-    return [int(r["micros"]) for r in rows if r["kind"].startswith(KIND)]
+    lines = ledger.read_text().splitlines()
+    rows = [json.loads(x) for x in lines if x.strip()]
+    return [
+        int(r["micros"]) for r in rows if r.get("kind", "").startswith(KIND)
+    ]
 
 
 def reservation(costs: list[int]) -> int:
@@ -852,7 +858,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice56 && uv run pytest -q -p no:cacheprovider tests/unit/test_engine_probe.py tests/unit/test_gemini_adapter.py tests/integration/test_metrics.py tests/integration/test_competitors.py tests/integration/test_impact.py`
-Expected (proof): all pass (`13` probe tests among them).
+Expected (proof): all pass (13 probe tests; unit files 34 passed, integration files 42 passed).
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice56 && uv run ruff format --check . && uv run ruff check . && uv run mypy`
 Expected (proof): all files already formatted; `All checks passed!`; `Success: no issues found in 31 source files`.
@@ -866,7 +872,7 @@ Stage first: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice56 && git add -A packag
 | M1 | `brand_deltas`: `comparability(versions, set())` | integration | 2 failed |
 | M2 | `_comparable`: `comparability(versions, set())` | integration | 1 failed |
 | M3 | `comparability`: the models check before the versions check | integration | 1 failed (`test_brand_deltas_names_the_pipeline_first`) |
-| M4 | `window_models` without `AND o.model IS NOT NULL` | integration | 1 failed (`test_brand_deltas_ignores_null_models`) |
+| M4 | `window_models` without `AND o.model IS NOT NULL` | integration | 1 failed (`test_brand_deltas_ignores_null_models`, by a TypeError from `sorted()` over `None`) |
 | M5 | `pick` returns `leader` (no step 4) | unit | 2 failed |
 | M6 | `pick` bar `>= 0` instead of `>= BAR` | unit | 4 failed |
 | M7 | `summarize`: `rate(searched, len(done))` | unit | 1 failed (`test_summarize_counts_failed_calls_as_not_searched`) |
@@ -875,6 +881,8 @@ Stage first: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice56 && git add -A packag
 | M10 | 3.1-flash-lite row `Price(0.25, 1.50, 0, 0)` | unit | 1 failed |
 | M11 | `pick`'s final key `(mean_cost, m)` (no retirement date) | unit | 1 failed |
 | M12 | `pick` eligibility `calls >= 0` | unit | 1 failed |
+| M13 | `run` without `write(out)` after the loop | unit | 1 failed (`test_the_probe_stops_before_the_crossing_try`) |
+| M14 | `probe_costs` reading lines without `if x.strip()` | unit | 1 failed (`test_the_probe_stops_before_the_crossing_try`) |
 
 - [ ] **Step 6: Commit**
 
@@ -902,7 +910,7 @@ It prints the ledger and DB spend first and stops if the ledger reads below 6,85
 
 ### Task 2: the switch (addendum after the probe)
 
-Ruling R4: Task 2's blocks depend on the probe's pick, its measured searched share and mean cost, and the estimate the spec's formula gives from them, so they are added to this plan as a dated addendum after the probe run, generated from a scratchpad proof against the real values, and reviewed before dispatch. Its content is fixed by the spec (Section 2 and Section 3 item 3): the `engine_model` default and comment, `.env.example`, `obs_cost_estimate_micros = max(50_000, the smallest multiple of 10,000 strictly above mean + 2,000)`, the default-engine test reading `Settings.model_fields["engine_model"].default`, and `CannedGemini` in tests/integration/test_full_flow.py pinned to `model="gemini-2.5-flash"`. If `pick` returns `None`, no addendum is written until the user decides.
+Ruling R4: Task 2's blocks depend on the probe's pick, its measured searched share and mean cost, and the estimate the spec's formula gives from them, so they are added to this plan as a dated addendum after the probe run, generated from a scratchpad proof against the real values, and reviewed before dispatch. Its content is fixed by the spec (Section 2 and Section 3 item 3): the `engine_model` default, with its comment stating the probe's measured searched share and mean cost; `.env.example`; `obs_cost_estimate_micros = max(50_000, the smallest multiple of 10,000 strictly above mean + 2,000)`; the default-engine test (`test_default_engine_is_gemini_2_5_flash_priced_per_grounded_prompt`) renamed and rewritten to assert that `Settings.model_fields["engine_model"].default` is the picked model and has a `PRICES` row; and `CannedGemini` in tests/integration/test_full_flow.py pinned to `model="gemini-2.5-flash"`. The dev `.env`'s `ENGINE_MODEL` changes only after asking the user. If `pick` returns `None`, no addendum is written until the user decides.
 
 ---
 
@@ -915,6 +923,9 @@ Ruling R4: Task 2's blocks depend on the probe's pick, its measured searched sha
 5. Spec Section 3's test list has one `summarize` test the spec does not name (`test_summarize_counts_failed_calls_as_not_searched`); the proof showed mutant M7 survived without it.
 6. The impact test sets models by `requested_at` equality on the two seeded windows rather than adding a parameter to `seed()`.
 7. Task 2 is an addendum after the probe (R4), not written now.
+8. Spec Section 1 says each call records the final try's raw response; the script writes the raw response only for a completed call (a failed call may have no payload).
+9. A failed call's record holds only `ok` and `error`; its tries' costs appear in the ledger-based total probe spend, not in the call record.
+10. `probe_costs` skips blank ledger lines and reads `kind` with `.get`, beyond what the spec states, so a stray blank line cannot crash the stop check (mutant M14).
 
 ## Changes made during execution
 
