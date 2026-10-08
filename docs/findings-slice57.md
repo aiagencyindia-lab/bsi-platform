@@ -40,7 +40,9 @@ Spec: docs/superpowers/specs/2026-10-08-slice57-serp-budget-skip-design.md (ruli
 - "User decision (2026-10-08): finishing option 2 (push and create a PR). Pushed slice57-serp-budget-skip at 2b70b15; PR #114 opened against main (body checked: banned-word grep empty; rulings named as the spec R1-R10 + correction, the plan R11-R13, the ledger R14-R17)."
 - "User decision (2026-10-08): "check ci then merge". PR #114 merged as 7101fcd; remote branch deleted; local branch kept (used by the bsi-wt/slice57 worktree)."
 
-**Results** (quoted from the ledger):
+**Results** (selected ledger lines, quoted; the dispatch, pre-flight-scan and workspace lines are in the ledger only):
+- "Task 1: cannot-verify resolved: the exact user-visible line is Task 2's format.ts (checked in Task 2's review); the brand's own waiting job making budget_room False is handled by Task 2's jobStatus hide rule (spec decision 4, R8, R9). Both are Task 2 scope, not gaps in Task 1."
+- "Task 2: cannot-verify resolved: the banned-word grep over git show -U0 2ce5478 printed nothing (controller ran it); typecheck, npm run gate and Step 7 pending in phase 2."
 - "Task 1: implementer DONE (commit dcf8a19; RED 2 failed, 7 passed; GREEN 59 passed; M1-M6 killed as in the proof; gen +6 -1 / +2; ruff, mypy clean; no concerns)"
 - "Task 2: phase 1 implementer DONE (commit aea40f6 on slice57-web; RED 1 failed, 29 passed (30); GREEN 30 passed (30); M7, M8, M10-M12 killed (1 failed, 75 passed (76)); M9, M13 survived (76 passed); typecheck, gate, Step 7 skipped per R14; concern: the failing test name per mutant was not recorded)"
 - "Task 1: complete (commits a62b051..dcf8a19, review clean)"
@@ -82,7 +84,8 @@ Spec: docs/superpowers/specs/2026-10-08-slice57-serp-budget-skip-design.md (ruli
 - "Review verdict (2026-10-08): Task 2 phase 1 task review of a62b051..aea40f6: Spec compliant; Task quality Approved; 0 critical, 0 important, 2 minor."
 - "Review verdict (2026-10-08): final whole-branch review of 77da2e7..2ce5478: Ready to merge Yes; 0 critical, 0 important, 3 minor; all 6 deferred minors triaged as not blocking."
 - "Review verdict (2026-10-08): scoped re-review of the final fix wave 2ce5478..2b70b15: All findings addressed (R15 finding ADDRESSED; no new breakage; no out-of-scope observations)."
-- Docs review: see the docs PR.
+- "Review verdict (2026-10-08): docs review of 23d460c: Approved with minors (55 quotes match the ledger byte for byte; facts, notes, tables, links and banned-word grep pass; 2 minors: R17's 'above' points the wrong way in the spec; Results is a selection without saying so)."
+- Docs re-review: see the docs PR.
 
 **Commits** (`git log --oneline --reverse 77da2e7..7101fcd^2`, oldest first):
 
@@ -140,6 +143,8 @@ Every `Ruling:` and `Correction to R` line in the ledger, verbatim (R1–R13 and
 > Ruling: R16. Decided: the docs PR also adds a dated note to the docs/README.md findings-slice55 row ("budget room still not shown"), alongside R7's two findings notes. Found by: the final reviewer (minor 2). Why: that row goes stale with this slice, the same as the two lines R7 names. Cost if wrong: one README row. How named: ledger and chat.
 
 > Ruling: R17. Decided: the test-settings minor above is deferred, not fixed. Found by: the final reviewer (minor 3). Why: no environment that runs the gate sets a budget under $0.04, and pinning the org budget in that test would widen a one-line fix wave into test changes. Cost if wrong: a red test on a developer machine with a tiny DAILY_BUDGET_USD, fixed by one line in the test. How named: ledger and chat.
+
+> Ruling: R18. Decided: the docs review's two minors are fixed in a second docs commit: in the spec, a bracketed note after the verbatim R17 line says the minor it names is the last item under Deferred; in the findings, the Results list also quotes the two cannot-verify-resolved lines and says it leaves out the dispatch, pre-flight-scan and workspace lines. Found by: the docs reviewer (Opus 5.5), 2026-10-08. Why: a verbatim copy whose pointer no longer holds in its new place, and a selection of mine presented without saying so. Cost if wrong: none to behaviour. How named: ledger and chat.
 
 Every `minor (deferred)` line in the ledger, verbatim:
 

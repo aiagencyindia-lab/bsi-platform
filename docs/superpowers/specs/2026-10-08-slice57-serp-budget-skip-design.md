@@ -383,6 +383,8 @@ Ruling: R16. Decided: the docs PR also adds a dated note to the docs/README.md f
 
 Ruling: R17. Decided: the test-settings minor above is deferred, not fixed. Found by: the final reviewer (minor 3). Why: no environment that runs the gate sets a budget under $0.04, and pinning the org budget in that test would widen a one-line fix wave into test changes. Cost if wrong: a red test on a developer machine with a tiny DAILY_BUDGET_USD, fixed by one line in the test. How named: ledger and chat.
 
+(The minor R17 names is the last item under Deferred below.)
+
 ## Docs follow-ups
 
 - findings-slice47.md and findings-slice55.md: a dated note under each line that says the budget case is not shown (R7).
