@@ -106,6 +106,12 @@ const AUDIT_NOTES: Record<string, string> = {
   failed: "Queued again after a failed run.",
 };
 
+const DOMAIN_NOTES: Record<string, string> = {
+  refused:
+    "Not added: enter a public domain name such as example.com, not an IP address.",
+  exists: "Not added: that domain is already declared for this brand.",
+};
+
 const LABEL_QUEUED = "Queued; the worker labels them within a minute.";
 const LABEL_NOTES: Record<string, string> = {
   queued: LABEL_QUEUED,
@@ -139,6 +145,10 @@ const note = (notes: Record<string, string>, status: Params[string]) =>
 
 /** What "Run audit now" did, from the job status the API returned. */
 export const auditNote = (status: Params[string]) => note(AUDIT_NOTES, status);
+
+/** What "Add domain" did, from the API's refusal. */
+export const domainNote = (status: Params[string]) =>
+  note(DOMAIN_NOTES, status);
 
 /** What "Label now" did, from the job status the API returned. */
 export const labelNote = (status: Params[string]) => note(LABEL_NOTES, status);

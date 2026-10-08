@@ -44,12 +44,32 @@ test("addDomain posts the trimmed host, then returns to the page", async () => {
   expect(redirect).toHaveBeenCalledWith(`/b/${ID}/serp`);
 });
 
-test("addDomain does not redirect when the API refuses the host", async () => {
+test("addDomain shows a note when the API refuses the host", async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => new Response("{}", { status: 422 })),
   );
-  await expect(addDomain(form("localhost"))).rejects.toThrow(/^422/);
+  await addDomain(form("localhost"));
+  expect(redirect).toHaveBeenCalledWith(`/b/${ID}/serp?domain=refused`);
+});
+
+test("addDomain shows a note when the domain is already declared", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("{}", { status: 409 })),
+  );
+  await addDomain(form("walkaroo.in"));
+  expect(redirect).toHaveBeenCalledWith(`/b/${ID}/serp?domain=exists`);
+});
+
+test("addDomain does not redirect when the API fails", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("{}", { status: 500 })),
+  );
+  await expect(addDomain(form("walkaroo.in"))).rejects.toThrow(/^500/);
   expect(redirect).not.toHaveBeenCalled();
 });

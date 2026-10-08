@@ -5,6 +5,7 @@ import {
   apiQuery,
   auditNote,
   ciText,
+  domainNote,
   crawlNote,
   droppedNote,
   highlight,
@@ -90,6 +91,17 @@ test("highlight orders spans by position, not by argument order", () => {
     { text: "Puma is fine.", hit: true },
     { text: " C.", hit: false },
   ]);
+});
+
+test("domainNote says why a domain was not added", () => {
+  expect(domainNote("refused")).toBe(
+    "Not added: enter a public domain name such as example.com, not an IP address.",
+  );
+  expect(domainNote("exists")).toBe(
+    "Not added: that domain is already declared for this brand.",
+  );
+  expect(domainNote(undefined)).toBeNull();
+  expect(domainNote("constructor")).toBeNull();
 });
 
 test("auditNote says what the run button actually did", () => {
