@@ -4,11 +4,11 @@ Classification: architectural, said first in chat on 2026-10-09, before the firs
 
 ## Context
 
-Five deferred items name one gap: no test renders the Brand SERP page (apps/web/src/app/(app)/b/[id]/serp/page.tsx). Slice 47 R2 (the page's wiring: three fetches and the `serpSchedule` arguments), slice 48 R3 (the add-domain form's condition and attributes), slice 54 M4 (the domain note rendered outside the form condition) and slice 57 R3 with its correction (M9, `budget_room` passed; M13, `job?.status` passed) were each deferred because "the repo has no tests for Server Component pages". The gate (tsc, eslint, vitest) catches none of those slips.
+Five deferred items name one gap: no test renders the Brand SERP page (apps/web/src/app/(app)/b/[id]/serp/page.tsx). Slice 47 R2 (the page's wiring: three fetches and the `serpSchedule` arguments), slice 48 R3 (the add-domain form's condition and attributes), slice 54 M4 (the domain note rendered outside the form condition) and slice 57 R3 with its correction (M9, `budget_room` passed; M13, `job?.status` passed) were each deferred for the same reason, in each ruling's own words: 47 R2 and 48 R3 say "the repo has no tests for Server Component pages", 54 M4 "no test renders the page", 57 R3 "no test renders the Brand SERP page". The gate (tsc, eslint, vitest) catches none of those slips.
 
-The repo already has what a page test needs: `renderToStaticMarkup` from react-dom/server is the pattern in src/components/ReportBody.test.tsx and RivalPages.test.tsx, and src/app/(app)/b/[id]/serp/actions.test.ts shows the mocking (`server-only`, `next/headers`, `next/navigation`, a `fetch` stub). The page is an async function, so a test can await it and render the element. No DOM library is installed or needed.
+The repo already has what a page test needs: `renderToStaticMarkup` from react-dom/server is the pattern in src/components/ReportBody.test.tsx and RivalPages.test.tsx, and src/app/(app)/b/[id]/serp/actions.test.ts and src/lib/api.test.ts show the mocking (`server-only`, `next/headers`, `next/navigation`, a `fetch` stub; the `notFound` that throws `NOT_FOUND` is api.test.ts's). The page is an async function, so a test can await it and render the element. No DOM library is installed or needed.
 
-An inventory of docs/findings-slice47.md to findings-slice57.md (2026-10-09) found 45 deferred-minor lines: 8 fixed, 35 open; about 11 of the open ones are test-only.
+An inventory of docs/findings-slice47.md to findings-slice57.md, read in chat on 2026-10-09 and not kept as a file, found 35 open deferred minors, about 11 of them test-only; the rest were fixed by later slices or are documentation items.
 
 User decisions (2026-10-09), with the approaches text shown in chat before each:
 1. Scope A, over B (A plus the behaviour minors 48:79, 47:80, 54:73, 54:75) and C (all 35 open minors): one page-render test, plus the five test-only web minors: 57:155 (no `jobStatus = null` case), 54:72 (`domainNote` import out of order), 52:64 (the `test.each` guard cases do not pin the `console.error` count), 49:103 (the `publicApi` dot-segment test asserts no log), 49:104 (`restoreAllMocks` leaves the cookie `mockResolvedValue`). No behaviour change.
@@ -20,7 +20,7 @@ User decisions (2026-10-09), with the approaches text shown in chat before each:
 
 New file apps/web/src/app/(app)/b/[id]/serp/page.test.tsx.
 
-Setup, as in actions.test.ts: `vi.mock("server-only")`; `vi.mock("next/headers")` with a cookie store whose `get` returns `bsi_key_1`; `vi.mock("next/navigation")` with `notFound` throwing `NOT_FOUND` and a `redirect` spy; then `const { default: Serp } = await import("./page")`.
+Setup, as in actions.test.ts and api.test.ts: `vi.mock("server-only")`; `vi.mock("next/headers")` with a cookie store whose `get` returns `bsi_key_1`; `vi.mock("next/navigation")` with `notFound` throwing `NOT_FOUND` and a `redirect` spy; then `const { default: Serp } = await import("./page")`.
 
 A `render(data, sp)` helper stubs `fetch` with a map from the three URLs (`http://localhost:8000/v1/brands/{ID}/audits/serp`, `/brands/{ID}`, `/brands/{ID}/domains`) to `Response.json(body)`; any other URL gets a 500, so a wrong path fails as an API error. It records each call's URL and `Authorization` header, awaits `Serp({ params: Promise.resolve({ id: ID }), searchParams: Promise.resolve(sp) })`, and returns `renderToStaticMarkup(element)` with the calls. Fixtures are full typed objects: `brand(status)` with two aliases (so a page that counted aliases instead of domains shows), one `Domain`, and `serp(budget_room, job)` with no audits. A ponytail comment says the helper is factored out to src/test/ when a second page gets a test.
 
@@ -263,13 +263,15 @@ Mutations, each applied alone to the patched copy and reverted (whole vitest run
 | M4 | aliases.length in place of domains.length (both uses) | killed: an active brand with no domain gets the no-domain line and the form (1 failed) |
 | M5 | host input loses pattern | killed: an active brand with no domain gets the no-domain line and the form (1 failed) |
 | M6 | sendAsWritten logs twice | killed: the 8 `test.each` guard cases, the long-path test and the publicApi dot-segment test (10 failed) |
-| M7 | publicApi skips the guard | killed: publicApi refuses a dot segment (1 failed) |
+| M7 | publicApi skips the guard | killed: publicApi refuses a dot segment (1 failed); main's test already kills this one (the stubbed `fetch` returns undefined, so the call throws a TypeError), so it shows nothing new. The 49:103 log assertion is exercised by M6, which fails the publicApi test through `toHaveBeenCalledTimes(1)`. |
 
 ## Rulings
 
 Ruling: R1. Decided: the proof's `render` helper returns the `fetch` calls as `(url, Authorization)` pairs and case 1 compares the sorted URL list, rather than asserting call order. Found by: the controller, writing the proof. Why: `Promise.all` starts the three fetches together; their order is not part of the page's contract. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 Ruling: R2. Decided: the spec's vitest count is 76 → 80, not the plan-mode draft's 77. Found by: the controller, the proof's green run. Why: four `test()` cases, not one; the draft counted the page test as one. Cost if wrong: none. How named: this spec and chat.
+
+Ruling: R3. Decided: the spec review's six minors are fixed in a second spec commit: the inventory sentence no longer states a total (the chat reading gave 45, the reviewer's grep 46, and a plain grep cannot settle it); the deferral reason quotes each ruling's own words; the M7 row says main's test already kills it and that M6 exercises the new publicApi log assertion; the README clause is replaced by "no README row mentions the gap"; findings-slice47.md line 79 joins the docs follow-ups; api.test.ts is cited beside actions.test.ts for the throwing `notFound`. Found by: the spec reviewer (Opus 5.5), 2026-10-09. Why: an unverifiable count, a quotation that was true for two of four rulings, a mutant that proved nothing, a pointer at nothing, an omission, and a mis-citation, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 ## Out of scope
 
@@ -279,7 +281,7 @@ Ruling: R2. Decided: the spec's vitest count is 76 → 80, not the plan-mode dra
 
 ## Docs follow-ups
 
-- Dated notes under the lines that record the gap: findings-slice47.md R2, findings-slice48.md R3, findings-slice54.md M4 (the table row and the deferred line), findings-slice57.md R3 and its deferred line; and the README rows that mention the page-render gap.
+- Dated notes under the lines that record the gap: findings-slice47.md R2 and its deferred line 79 (R2's example is narrow: another array's `.length` would type-check; cases 2 and 3, with one domain and no audits, catch `audits.length` too), findings-slice48.md R3, findings-slice54.md M4 (the table row and the deferred line), findings-slice57.md R3 and its deferred line. No README row mentions the gap, so only the slice 58 rows are added.
 
 ## Deferred
 
