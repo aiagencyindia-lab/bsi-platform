@@ -39,6 +39,11 @@ Every block below was applied by script to a fresh copy of a790162 and verified 
 **Interfaces:**
 - Produces: `SerpAuditsOut.serp_configured: bool`, `SerpAuditsOut.failed_7d: int`; the web type `SerpAudits` (`S["SerpAuditsOut"]` in apps/web/src/lib/types.ts, not edited by hand) gains both after `npm run gen`.
 
+- [ ] **Step 0: Install the worktree's dependencies**
+
+The worktree is a fresh checkout: no `.venv`, no `apps/web/node_modules`. Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice55 && uv sync && cd apps/web && npm ci`
+Expected: both finish without error; `git status` shows no tracked file changed (both directories are gitignored).
+
 - [ ] **Step 1: Write the failing tests**
 
 In `tests/integration/test_api_serp.py` (the imports at the top), replace this block (it occurs exactly once; the block ends on a whole line):
@@ -139,9 +144,11 @@ def test_get_is_empty_before_any_audit(
     }
 ```
 
-Append to the end of `tests/integration/test_api_serp.py` (after its last line, which ends with a newline):
+Append to the end of `tests/integration/test_api_serp.py` (its last line, `    }`, ends with a newline). The appended text begins with two blank lines, so that ruff's two-blank-lines-between-functions rule holds; the block below shows them:
 
 ```python
+
+
 def test_get_reports_serp_configured(client, make_org, make_brand, monkeypatch):
     org = make_org()
     bid = make_brand(org)
@@ -325,7 +332,7 @@ Apply each mutant to the file named, run the test file, paste the summary, then 
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice55/apps/web && npm run gen`
 (`gen` runs `scripts/export_openapi.py` against the app object and then `openapi-typescript`; no server and no `.env` are needed.)
-Expected (proof run): `openapi.json` +12/−1 and `src/lib/schema.d.ts` +4; `git diff --stat` shows exactly those two generated files changed under apps/web; both contain `serp_configured` and `failed_7d`.
+Expected: `openapi.json` gains the two properties (about +11 or +12 lines, −1; report what you see) and `src/lib/schema.d.ts` +4; `git diff --stat` shows exactly those two generated files changed under apps/web; both contain `serp_configured` and `failed_7d`.
 
 - [ ] **Step 7: Lint, type-check and commit**
 
@@ -515,8 +522,10 @@ EOF
 1. Spec Section 3 gives the count test's rows in prose; the plan fixes each `_job` call's `minutes` (brand: −0, −1, −2 for the counted jobs, −10, −20, −30 for the excluded ones; the second brand: −0, −1) and names the second brand `"Other"` (`make_brand(org, name="Other")`), which the spec leaves open.
 2. Spec Section 1 shows `select(func.count()).select_from(m.Job).where(…)`; the plan returns `failed or 0`, because `Session.scalar()` is typed `int | None`.
 3. Spec Section 3 says `test_get_is_empty_before_any_audit` "patches settings"; the plan adds `monkeypatch` to its fixtures and calls the shared `_configured` helper, and defines `_configured` and `_aged` helpers the spec does not name.
-4. Spec Section 2 shows the page passing the two values; the plan reformats the `Promise.all` destructuring across two lines (ruff/eslint-neutral; the proof's eslint run is clean) and wraps the schedule `<p>` over three lines.
+4. Spec Section 2 shows the page passing the two values; the plan reformats the `Promise.all` destructuring across two lines (eslint-neutral; the proof's eslint run is clean) and wraps the schedule `<p>` over three lines.
 5. The spec's "red on main" for the web is one failing `expect` inside the existing `serpSchedule` test (the file keeps 30 tests, the suite 76), not a new test.
+6. Spec Section 1's `SerpAuditsOut` block has no comments; the plan adds a two-line comment above each new field. Fields and types are identical.
+7. Spec Section 1 names the settings variable `s`; the plan names it `settings`, to keep it apart from the session `c.s`; the expression is the same, wrapped over four lines for the 80-column limit.
 
 ## Changes made during execution
 
