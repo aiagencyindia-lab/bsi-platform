@@ -69,6 +69,7 @@ test("api logs a long refused path quoted, capped and with its length", async ()
   vi.stubGlobal("fetch", vi.fn());
   const path = `/brands/x#"${"y".repeat(500)}`;
   await expect(api(path)).rejects.toThrow("NOT_FOUND");
+  expect(log).toHaveBeenCalledTimes(1);
   expect(log).toHaveBeenCalledWith(
     "API path refused",
     `"/brands/x#\\"${"y".repeat(187)}`,
