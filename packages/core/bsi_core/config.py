@@ -15,9 +15,11 @@ class Settings(BaseSettings):
 
     database_url: str = _LOCAL.format(u="bsi_app", p="app")
     owner_database_url: str = _LOCAL.format(u="bsi_owner", p="owner")
-    # 2.5 searched in 80 of 80 answers; 3.8 in about 1 in 4, so most of its
-    # answers had no citations (findings-slice2 §7, findings-slice5 §1).
-    engine_model: str = "gemini-2.5-flash"
+    # gemini-2.5-flash retires 2026-10-20. Slice 56's probe on the 20 Run 1
+    # prompts (2026-10-08): 3.5-flash-lite searched 20 of 20 at a mean
+    # $0.0300 per observation; 3.1-flash-lite 20 of 20 at $0.0537;
+    # 3.8-flash 6 of 20 (findings-slice56).
+    engine_model: str = "gemini-3.5-flash-lite"
     extract_model: str = "gemini-3.5-flash-lite"
     embed_model: str = "gemini-embedding-001"
     judge_mode: Literal["batched", "isolated"] = "batched"
@@ -30,6 +32,8 @@ class Settings(BaseSettings):
     spend_since: AwareDatetime = datetime(2026, 9, 19, 10, 0, tzinfo=UTC)
     # Slice 3: per-organization daily cap on scheduled runs (spec §3).
     daily_budget_usd: float = 2.0
+    # Slice 56: max(50,000, the next multiple of 10,000 above the engine's
+    # measured mean plus 2,000 for extraction) = max(50,000, 40,000).
     obs_cost_estimate_micros: int = 50_000
     # Slice 6: days either side of a task's done_at that impact compares.
     # Copied onto the task when it is marked done, so changing it never

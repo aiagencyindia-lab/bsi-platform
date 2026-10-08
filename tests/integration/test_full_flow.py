@@ -14,7 +14,8 @@ RAW = json.loads(Path("tests/fixtures/gemini_min.json").read_text())
 
 class CannedGemini(GeminiGroundingAdapter):
     def __init__(self):
-        super().__init__(client=object())
+        # Pinned: the cost asserted below is gemini-2.5-flash's price.
+        super().__init__(client=object(), model="gemini-2.5-flash")
 
     def query(self, prompt, country, language):
         return EngineResult(

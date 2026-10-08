@@ -3,7 +3,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from bsi_core.providers.gemini import GeminiGroundingAdapter
+from bsi_core.config import Settings
+from bsi_core.providers.gemini import PRICES, GeminiGroundingAdapter
 from google.genai import errors
 
 RAW = json.loads(Path("tests/fixtures/gemini_min.json").read_text())
@@ -37,9 +38,11 @@ def test_cost_counts_tokens_and_the_grounded_prompt():
     assert adapter.cost(ungrounded) == 303
 
 
-def test_default_engine_is_gemini_2_5_flash_priced_per_grounded_prompt():
-    # 2.5 searched in every answer; 3.8 in about 1 in 4 (findings-slice5).
-    assert GeminiGroundingAdapter(client=object()).cost(RAW) == 35_303
+def test_default_engine_is_the_slice_56_pick_and_has_a_price():
+    # The declared default, not get_settings(), which follows .env.
+    default = Settings.model_fields["engine_model"].default
+    assert default == "gemini-3.5-flash-lite"
+    assert default in PRICES
 
 
 def test_gemini_3_8_flash_is_priced_per_search_query():
