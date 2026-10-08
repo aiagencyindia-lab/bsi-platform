@@ -12,7 +12,7 @@ User decisions (2026-10-08), with the approaches text shown in chat before each:
 1. Approach A, over (B) returning headroom and estimate numbers for the web to compare and (C) the web reading `/v1/ops`, which misses the waiting-job margin: one `budget_room: bool` on the audits response, from one shared helper in `bsi_core` that the sweep also calls; `SERP_JOB_MICROS` moves to `bsi_core` because the API must not import the worker.
 2. Section 1 (backend) approved with option (i): the helper calls `budget_fits`, so the API request takes the org's advisory transaction lock as the sweep does, over (ii) splitting `budget_fits` into a lock-free part.
 3. Sections 2 (web) and 3 (tests) approved.
-4. After the spec review (finding: the budget line showed for brands the sweep is not skipping, because the sweep checks the budget only for brands `due_serp_audits()` returns, and the brand's own waiting job counts against it), option 2 over (1) computing `budget_room = not due or fits` in the API through `due_serp_audits()` and (3) both: keep `budget_room`, reword the line so it never says the brand is skipped, and leave it out while the brand's own audit is queued or running.
+4. After the spec review (finding: the budget line showed for brands the sweep is not skipping, because the sweep checks the budget only for brands `due_serp_audits()` returns, and the brand's own waiting job counts against it), option 2 (keep `budget_room`, reword the line so it never says the brand is skipped, and leave it out while the brand's own audit is queued or running) over (1) computing `budget_room = not due or fits` in the API through `due_serp_audits()` and (3) both.
 
 ## Section 1 — Backend
 
@@ -29,7 +29,7 @@ Limits, stated: the field is the API process's view at request time; the sweep r
 
 > Audited automatically once a week; today the daily budget has no room for a Brand SERP audit, so a due audit waits until there is room. The budget resets at midnight UTC.
 
-It never says the brand is skipped: `budget_room` is computed whether or not the brand is due. While the brand's own audit is queued or running, that job is what fills the room, so the line stays "Audited automatically once a week." (R8).
+It never says the brand is skipped: `budget_room` is computed whether or not the brand is due. While the brand's own audit is queued or running, the brand is not due (`due_serp_audits()` excludes it), so the sweep checks no budget for it and the line stays "Audited automatically once a week." (R8).
 
 The Brand SERP page (apps/web/src/app/(app)/b/[id]/serp/page.tsx) destructures `budget_room` from the audits response it already fetches and passes it and `job?.status` on. No new fetch; `SerpAudits` in types.ts is generated.
 
@@ -163,7 +163,7 @@ Generated from the proof (the scratchpad copy of main 77da2e7 with the change ap
      }
 --- a/apps/web/src/lib/format.ts
 +++ b/apps/web/src/lib/format.ts
-@@ -204,13 +204,19 @@
+@@ -204,13 +204,20 @@
   * The Brand SERP page's schedule line. due_serp_audits() (migration 0024)
   * only considers active brands with at least one declared domain, and
   * stops after SERP_MAX_FAILURES failed jobs in 7 days; the sweep itself
@@ -172,7 +172,8 @@ Generated from the proof (the scratchpad copy of main 77da2e7 with the change ap
 + * while the org's budget has no room for the audit (serp_budget_fits).
 + * budgetRoom is computed whether or not the brand is due, so the budget
 + * note never says the brand is skipped, and is left out while the
-+ * brand's own audit is queued or running (that job counts against it).
++ * brand's own audit is queued or running (due_serp_audits() then
++ * excludes the brand, so the sweep checks no budget for it).
   */
  export const serpSchedule = (
    status: string,
@@ -184,7 +185,7 @@ Generated from the proof (the scratchpad copy of main 77da2e7 with the change ap
  ) =>
    status !== "active"
      ? "Not audited automatically: the brand is archived."
-@@ -220,7 +226,9 @@
+@@ -220,7 +227,9 @@
          ? "Not audited automatically: the SERP provider is not configured."
          : failed7d >= SERP_MAX_FAILURES
            ? `Not audited automatically: ${failed7d} audits failed in the last 7 days; the sweep tries again once fewer than ${SERP_MAX_FAILURES} remain in that window.`
@@ -367,6 +368,10 @@ Ruling: R6. Decided: Limits says a page load can wait on the org's advisory lock
 Ruling: R7. Decided: the docs PR adds a dated note under the findings-slice47.md and findings-slice55.md lines that say the budget case is not shown. Found by: the spec reviewer (finding 4). Why: those lines become stale with this slice. Cost if wrong: two stale lines. How named: this spec and chat.
 
 Ruling: R8. Decided: the hide rule is a sixth `serpSchedule` parameter, `jobStatus?: string | null`, given `job?.status` by the page, not a boolean the page computes. Found by: the controller, writing the second proof. Why: the rule then lives in the tested function (M10 to M12 are killed); the page only passes a field through, as it does the others. Cost if wrong: an optional sixth argument. How named: this spec and chat.
+
+Ruling: R9. Decided: the reason for leaving the line out while the brand's own audit is queued or running is that `due_serp_audits()` then excludes the brand, in Section 2 and the format.ts comment, instead of "that job is what fills the room". Found by: the spec re-reviewer (new minor 1). Why: other brands' waiting jobs can fill the room too; the exclusion is what makes the sweep check no budget. Cost if wrong: one sentence and one comment. How named: this spec and chat.
+
+Ruling: R10. Decided: decision 4 names option 2's content first, then the options it was chosen over. Found by: the spec re-reviewer (new minor 2). Why: the old order read as if the content described option 3. Cost if wrong: none; wording. How named: this spec and chat.
 
 ## Docs follow-ups
 
