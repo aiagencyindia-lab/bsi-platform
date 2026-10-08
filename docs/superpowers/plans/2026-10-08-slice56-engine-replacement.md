@@ -1074,4 +1074,11 @@ Addendum departures from the spec:
 
 ## Changes made during execution
 
-(filled by the post-merge docs commit)
+- Departure 7 is out of date: the Task 2 addendum was written on 2026-10-08 after the probe (`7e0c617`) and replaced the placeholder section that held R4's text. R4, verbatim from the ledger:
+
+  > Ruling: R4. Decided: the plan gives Task 1 in full now and Task 2 (the switch) as a dated addendum written after the probe run, generated from a scratchpad proof against the real pick, reviewed by a plan reviewer before Task 2 is dispatched; Task 2's values (the model id, its measured share and cost, the estimate) cannot be written before the probe without placeholders. Found by: the controller, writing the plan. Why: the spec's sequencing (Task 1, probe, Task 2) makes Task 2 depend on a measurement. Cost if wrong: one more plan review round before Task 2. How named: quoted in chat. (2026-10-08 09:18 UTC)
+
+- Departures 11 and 12 are listed inside the Task 2 addendum, not in the Departures list above (R7).
+- Task 1 ran as written (`6b3caf8`); its implementer's first mutant loop ran no tests because of a zsh path-splitting bug and was re-run in full.
+- The probe ran from `6b3caf8` and its results were committed by the controller (`85fce17`).
+- Task 2 ran as written (`a723f60`).
