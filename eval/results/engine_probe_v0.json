@@ -1,0 +1,662 @@
+{
+ "models": [
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-3.8-flash"
+ ],
+ "results": {
+  "gemini-3.5-flash-lite": {
+   "calls": 20,
+   "completed": 20,
+   "failed": 0,
+   "share": {
+    "value": 1.0,
+    "n": 20,
+    "ci_low": 0.8388698745050667,
+    "ci_high": 1.0
+   },
+   "mean_queries": 2.0,
+   "mean_cost": 30039.5,
+   "mean_brands": 1.55
+  },
+  "gemini-3.1-flash-lite": {
+   "calls": 20,
+   "completed": 20,
+   "failed": 0,
+   "share": {
+    "value": 1.0,
+    "n": 20,
+    "ci_low": 0.8388698745050667,
+    "ci_high": 1.0
+   },
+   "mean_queries": 3.75,
+   "mean_cost": 53652.5,
+   "mean_brands": 1.35
+  },
+  "gemini-3.8-flash": {
+   "calls": 20,
+   "completed": 20,
+   "failed": 0,
+   "share": {
+    "value": 0.3,
+    "n": 20,
+    "ci_low": 0.14547527396899385,
+    "ci_high": 0.5189767762289793
+   },
+   "mean_queries": 0.5,
+   "mean_cost": 19476.15,
+   "mean_brands": 1.6
+  }
+ },
+ "calls": {
+  "gemini-3.5-flash-lite": [
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30249,
+    "tokens_in": 29,
+    "tokens_out": 896,
+    "latency": 9.37,
+    "brands": 3
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30265,
+    "tokens_in": 33,
+    "tokens_out": 902,
+    "latency": 6.19,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30584,
+    "tokens_in": 30,
+    "tokens_out": 1030,
+    "latency": 6.53,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30193,
+    "tokens_in": 36,
+    "tokens_out": 873,
+    "latency": 6.22,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 29965,
+    "tokens_in": 34,
+    "tokens_out": 782,
+    "latency": 6.28,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30357,
+    "tokens_in": 31,
+    "tokens_out": 939,
+    "latency": 6.5,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30439,
+    "tokens_in": 30,
+    "tokens_out": 972,
+    "latency": 19.47,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30824,
+    "tokens_in": 30,
+    "tokens_out": 1126,
+    "latency": 7.07,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 29781,
+    "tokens_in": 28,
+    "tokens_out": 709,
+    "latency": 16.08,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30150,
+    "tokens_in": 33,
+    "tokens_out": 856,
+    "latency": 7.25,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 29748,
+    "tokens_in": 35,
+    "tokens_out": 695,
+    "latency": 6.24,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30034,
+    "tokens_in": 31,
+    "tokens_out": 810,
+    "latency": 5.91,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30204,
+    "tokens_in": 37,
+    "tokens_out": 877,
+    "latency": 7.5,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30592,
+    "tokens_in": 30,
+    "tokens_out": 1033,
+    "latency": 7.44,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30323,
+    "tokens_in": 35,
+    "tokens_out": 925,
+    "latency": 65.11,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 29854,
+    "tokens_in": 29,
+    "tokens_out": 738,
+    "latency": 5.59,
+    "brands": 3
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30357,
+    "tokens_in": 32,
+    "tokens_out": 939,
+    "latency": 7.0,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 30065,
+    "tokens_in": 32,
+    "tokens_out": 822,
+    "latency": 6.15,
+    "brands": 4
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 28376,
+    "tokens_in": 37,
+    "tokens_out": 146,
+    "latency": 2.63,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 28430,
+    "tokens_in": 34,
+    "tokens_out": 168,
+    "latency": 2.47,
+    "brands": 1
+   }
+  ],
+  "gemini-3.1-flash-lite": [
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57347,
+    "tokens_in": 6,
+    "tokens_out": 897,
+    "latency": 6.6,
+    "brands": 4
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57238,
+    "tokens_in": 10,
+    "tokens_out": 824,
+    "latency": 6.43,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57272,
+    "tokens_in": 7,
+    "tokens_out": 847,
+    "latency": 31.01,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57043,
+    "tokens_in": 13,
+    "tokens_out": 693,
+    "latency": 37.89,
+    "brands": 3
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 3,
+    "cost": 43120,
+    "tokens_in": 11,
+    "tokens_out": 745,
+    "latency": 30.6,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57398,
+    "tokens_in": 8,
+    "tokens_out": 931,
+    "latency": 9.3,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 3,
+    "cost": 43031,
+    "tokens_in": 7,
+    "tokens_out": 686,
+    "latency": 31.32,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 3,
+    "cost": 43317,
+    "tokens_in": 7,
+    "tokens_out": 877,
+    "latency": 38.5,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57023,
+    "tokens_in": 5,
+    "tokens_out": 681,
+    "latency": 42.36,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57303,
+    "tokens_in": 10,
+    "tokens_out": 867,
+    "latency": 11.78,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 3,
+    "cost": 43246,
+    "tokens_in": 12,
+    "tokens_out": 829,
+    "latency": 18.66,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 3,
+    "cost": 43166,
+    "tokens_in": 8,
+    "tokens_out": 776,
+    "latency": 28.73,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57288,
+    "tokens_in": 14,
+    "tokens_out": 856,
+    "latency": 25.58,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 5,
+    "cost": 71314,
+    "tokens_in": 7,
+    "tokens_out": 875,
+    "latency": 12.78,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57160,
+    "tokens_in": 12,
+    "tokens_out": 771,
+    "latency": 13.86,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 3,
+    "cost": 43173,
+    "tokens_in": 6,
+    "tokens_out": 781,
+    "latency": 10.29,
+    "brands": 3
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 4,
+    "cost": 57106,
+    "tokens_in": 8,
+    "tokens_out": 736,
+    "latency": 24.53,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 3,
+    "cost": 43355,
+    "tokens_in": 8,
+    "tokens_out": 902,
+    "latency": 11.7,
+    "brands": 4
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 28356,
+    "tokens_in": 13,
+    "tokens_out": 235,
+    "latency": 3.14,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 7,
+    "cost": 98794,
+    "tokens_in": 10,
+    "tokens_out": 528,
+    "latency": 15.7,
+    "brands": 1
+   }
+  ],
+  "gemini-3.8-flash": [
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 13341,
+    "tokens_in": 29,
+    "tokens_out": 1773,
+    "latency": 18.11,
+    "brands": 5
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 12590,
+    "tokens_in": 33,
+    "tokens_out": 1672,
+    "latency": 53.68,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 1,
+    "cost": 27898,
+    "tokens_in": 30,
+    "tokens_out": 1847,
+    "latency": 59.73,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 15166,
+    "tokens_in": 36,
+    "tokens_out": 2015,
+    "latency": 33.7,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 11624,
+    "tokens_in": 34,
+    "tokens_out": 1543,
+    "latency": 23.31,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 11552,
+    "tokens_in": 31,
+    "tokens_out": 1534,
+    "latency": 34.11,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 43060,
+    "tokens_in": 30,
+    "tokens_out": 2002,
+    "latency": 66.84,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 1,
+    "cost": 31130,
+    "tokens_in": 30,
+    "tokens_out": 2278,
+    "latency": 67.03,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 11824,
+    "tokens_in": 28,
+    "tokens_out": 1571,
+    "latency": 24.69,
+    "brands": 0
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 12680,
+    "tokens_in": 33,
+    "tokens_out": 1684,
+    "latency": 26.24,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 10680,
+    "tokens_in": 35,
+    "tokens_out": 1417,
+    "latency": 23.02,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 10262,
+    "tokens_in": 31,
+    "tokens_out": 1362,
+    "latency": 27.2,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 14388,
+    "tokens_in": 37,
+    "tokens_out": 1911,
+    "latency": 99.19,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 15600,
+    "tokens_in": 30,
+    "tokens_out": 2074,
+    "latency": 39.88,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 15608,
+    "tokens_in": 35,
+    "tokens_out": 2074,
+    "latency": 29.74,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 12030,
+    "tokens_in": 30,
+    "tokens_out": 1598,
+    "latency": 34.49,
+    "brands": 2
+   },
+   {
+    "ok": true,
+    "searched": false,
+    "queries": 0,
+    "cost": 14486,
+    "tokens_in": 32,
+    "tokens_out": 1925,
+    "latency": 20.61,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 41390,
+    "tokens_in": 32,
+    "tokens_out": 1779,
+    "latency": 102.33,
+    "brands": 4
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 31746,
+    "tokens_in": 37,
+    "tokens_out": 492,
+    "latency": 69.5,
+    "brands": 1
+   },
+   {
+    "ok": true,
+    "searched": true,
+    "queries": 2,
+    "cost": 32468,
+    "tokens_in": 34,
+    "tokens_out": 589,
+    "latency": 72.67,
+    "brands": 2
+   }
+  ]
+ },
+ "probe_spend_micros": 2063363,
+ "stopped": null,
+ "pick": "gemini-3.5-flash-lite"
+}
