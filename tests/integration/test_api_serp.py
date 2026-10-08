@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from bsi_api.routers import audits
 from bsi_core import models as m
@@ -107,6 +108,7 @@ def test_get_is_empty_before_any_audit(
         "audits": [],
         "serp_configured": True,
         "failed_7d": 0,
+        "budget_room": True,
     }
 
 
@@ -177,6 +179,34 @@ def test_get_reports_serp_configured(client, make_org, make_brand, monkeypatch):
         r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
         assert r.status_code == 200, r.text
         assert r.json()["serp_configured"] is expected, (login, password)
+
+
+def test_get_reports_budget_room(
+    client, owner, make_org, make_brand, monkeypatch
+):
+    """The sweep's own check: one $0.04 estimate for the next job plus
+    one for each audit_serp job still queued or running."""
+    _configured(monkeypatch)
+    org = make_org()
+    bid = make_brand(org)
+
+    def room(usd):
+        with owner() as s, s.begin():
+            s.execute(
+                update(m.Organization)
+                .where(m.Organization.id == org.id)
+                .values(daily_budget_usd=Decimal(usd))
+            )
+        r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
+        assert r.status_code == 200, r.text
+        return r.json()["budget_room"]
+
+    assert room("0.04") is True
+    assert room("0.03") is False
+    # A waiting job on another brand of the org counts too.
+    _job(owner, org, make_brand(org, name="Other"), "audit_serp", "queued")
+    assert room("0.04") is False
+    assert room("0.08") is True
 
 
 def test_get_counts_failed_audit_serp_jobs_in_7_days(

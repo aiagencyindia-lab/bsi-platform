@@ -281,16 +281,29 @@ test("serpSchedule says whether the weekly sweep audits the brand", () => {
     "Not audited automatically: the SERP provider is not configured.";
   const failed = (n: number) =>
     `Not audited automatically: ${n} audits failed in the last 7 days; the sweep tries again once fewer than 3 remain in that window.`;
-  expect(serpSchedule("active", 1, true, 1)).toBe(weekly);
-  expect(serpSchedule("active", 1, true, 2)).toBe(weekly);
-  expect(serpSchedule("active", 1, true, 3)).toBe(failed(3));
-  expect(serpSchedule("active", 1, true, 5)).toBe(failed(5));
-  expect(serpSchedule("active", 1, false, 0)).toBe(unconfigured);
+  const noBudget =
+    "Audited automatically once a week; today the daily budget has no room for a Brand SERP audit, so a due audit waits until there is room. The budget resets at midnight UTC.";
+  expect(serpSchedule("active", 1, true, 1, true)).toBe(weekly);
+  expect(serpSchedule("active", 1, true, 2, true)).toBe(weekly);
+  expect(serpSchedule("active", 1, true, 3, true)).toBe(failed(3));
+  expect(serpSchedule("active", 1, true, 5, true)).toBe(failed(5));
+  expect(serpSchedule("active", 1, false, 0, true)).toBe(unconfigured);
   // Not configured outranks the failure pause.
-  expect(serpSchedule("active", 1, false, 3)).toBe(unconfigured);
-  expect(serpSchedule("active", 0, false, 3)).toBe(noDomain);
-  expect(serpSchedule("archived", 1, false, 3)).toBe(archived);
-  expect(serpSchedule("archived", 0, true, 0)).toBe(archived);
+  expect(serpSchedule("active", 1, false, 3, true)).toBe(unconfigured);
+  expect(serpSchedule("active", 0, false, 3, true)).toBe(noDomain);
+  expect(serpSchedule("archived", 1, false, 3, true)).toBe(archived);
+  expect(serpSchedule("archived", 0, true, 0, true)).toBe(archived);
+  expect(serpSchedule("active", 1, true, 2, false)).toBe(noBudget);
+  expect(serpSchedule("active", 1, true, 0, false, "done")).toBe(noBudget);
+  expect(serpSchedule("active", 1, true, 0, false, "failed")).toBe(noBudget);
+  // The brand's own waiting job counts against the budget: no note.
+  expect(serpSchedule("active", 1, true, 0, false, "queued")).toBe(weekly);
+  expect(serpSchedule("active", 1, true, 0, false, "running")).toBe(weekly);
+  // Every other reason outranks the budget.
+  expect(serpSchedule("active", 1, true, 3, false)).toBe(failed(3));
+  expect(serpSchedule("active", 1, false, 0, false)).toBe(unconfigured);
+  expect(serpSchedule("active", 0, true, 0, false)).toBe(noDomain);
+  expect(serpSchedule("archived", 1, true, 0, false)).toBe(archived);
 });
 
 test("ownershipText gives the count and a whole percentage", () => {

@@ -2591,6 +2591,8 @@ export interface components {
         SerpAuditsOut: {
             /** Audits */
             audits: components["schemas"]["SerpAuditOut"][];
+            /** Budget Room */
+            budget_room: boolean;
             /** Failed 7D */
             failed_7d: number;
             job: components["schemas"]["SerpJobOut"] | null;

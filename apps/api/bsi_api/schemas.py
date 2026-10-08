@@ -467,6 +467,10 @@ class SerpAuditsOut(BaseModel):
     # Failed audit_serp jobs in the last 7 days; due_serp_audits()
     # (migration 0024) stops at 3. The web holds the threshold.
     failed_7d: int
+    # The sweep's own budget check (serp_budget_fits) on today's UTC
+    # spend: while it is False the sweep skips the brand, if it is due,
+    # with no job. The brand's own waiting audit_serp job counts too.
+    budget_room: bool
 
 
 class PageOptimizeIn(BaseModel):

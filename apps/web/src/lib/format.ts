@@ -204,13 +204,20 @@ const SERP_MAX_FAILURES = 3;
  * The Brand SERP page's schedule line. due_serp_audits() (migration 0024)
  * only considers active brands with at least one declared domain, and
  * stops after SERP_MAX_FAILURES failed jobs in 7 days; the sweep itself
- * queues nothing without DataForSEO credentials.
+ * queues nothing without DataForSEO credentials, and skips a due brand
+ * while the org's budget has no room for the audit (serp_budget_fits).
+ * budgetRoom is computed whether or not the brand is due, so the budget
+ * note never says the brand is skipped, and is left out while the
+ * brand's own audit is queued or running (due_serp_audits() then
+ * excludes the brand, so the sweep checks no budget for it).
  */
 export const serpSchedule = (
   status: string,
   domains: number,
   configured: boolean,
   failed7d: number,
+  budgetRoom: boolean,
+  jobStatus?: string | null,
 ) =>
   status !== "active"
     ? "Not audited automatically: the brand is archived."
@@ -220,7 +227,9 @@ export const serpSchedule = (
         ? "Not audited automatically: the SERP provider is not configured."
         : failed7d >= SERP_MAX_FAILURES
           ? `Not audited automatically: ${failed7d} audits failed in the last 7 days; the sweep tries again once fewer than ${SERP_MAX_FAILURES} remain in that window.`
-          : "Audited automatically once a week.";
+          : !budgetRoom && jobStatus !== "queued" && jobStatus !== "running"
+            ? "Audited automatically once a week; today the daily budget has no room for a Brand SERP audit, so a due audit waits until there is room. The budget resets at midnight UTC."
+            : "Audited automatically once a week.";
 
 /** "3 of 10 (30%)"; no percentage when the page has no organic results. */
 export const ownershipText = (owned: number, organic: number) =>
