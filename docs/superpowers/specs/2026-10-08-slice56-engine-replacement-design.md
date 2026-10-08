@@ -1,0 +1,101 @@
+# Slice 56 design: replace the gemini-2.5-flash engine before it retires
+
+Classification: architectural, said first in chat on 2026-10-08 before the first question. Session model Opus 5.5 throughout.
+
+## Context
+
+The grounded-search engine is `gemini-2.5-flash` (packages/core/bsi_core/config.py `engine_model`, `.env`, `.env.example`). Google's Vertex AI "Model versions and lifecycle" page, updated 2026-10-07 and read on 2026-10-08, lists its retirement date as October 20, 2026. After that date every observation call would fail. Google lists `gemini-3.8-flash`, `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite` as replacements. The extraction model (`extract_model`, `gemini-3.5-flash-lite`) lasts to July 21, 2027 or later, and the embeddings model `gemini-embedding-001` to no sooner than May 20, 2028, so only the engine is affected.
+
+The choice is not a config edit. On 2026-09-22 the engine moved off `gemini-3.8-flash` because it searched in about 1 answer in 4 (findings-slice2: 26–33%), while `gemini-2.5-flash` searched in 80 of 80 (findings-slice5). On every Gemini 3 model grounding is billed per search query ($14 per 1,000; 5,000 a month free across Gemini 3, which the platform does not model), not per grounded prompt as on 2.5 ($35 per 1,000). So the cost of an observation depends on how often, and how much, each model searches.
+
+Spend: $11.23 of the $15.00 project cap is used (ledger 6,858,204 micros + DB 4,374,377 micros, computed as `spend.check` does), so $3.77 is left.
+
+Approaches offered in chat: (A) probe three listed replacements on the 20 Run 1 prompts, then switch; (B) switch to `gemini-3.8-flash` now and measure only it; (C) A plus a "search before answering" instruction arm. The user chose A on 2026-10-08.
+
+## Section 1 — The probe
+
+A new script, `scripts/engine_probe.py`, follows `scripts/sampling_experiment.py`. It reads the 20 prompts from `eval/run1.json`, makes one shared `genai` client, and builds `GeminiGroundingAdapter(client=shared, model=m)` per candidate.
+
+- Candidates: `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-3.8-flash`. A *call* is one prompt on one model (20 calls per model, 60 in all); a *try* is one attempt within a call (up to 3). Calls are interleaved per prompt in a fixed order, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-3.8-flash` (prompt 1 on all three, then prompt 2, and so on).
+- Environment: the probe runs from the slice worktree's code with the main checkout's `.env` sourced (for the Vertex settings) and `RAW_STORE_DIR=/Users/vineet/Downloads/ADK/bsi-platform/data`, so `spend` reads and writes the canonical ledger. Before the first call it prints `spend.ledger_micros()` and the DB spend and refuses to start if the ledger reads less than 6,858,204 micros, the canonical ledger's total on 2026-10-08 (a lower value means it is reading another ledger).
+- Spend guard. The probe's own spend is the sum of the ledger entries whose kind starts with `engine_probe:` (read at start) plus what this run records, so a re-run shares one budget. Before each try the probe reserves r = max(100,000 micros, the largest single `engine_probe:` ledger entry so far, earlier runs included) and stops, writing partial results, if probe spend + r would exceed 3,500,000 micros. The try goes through `spend.check(r)` and then `spend.record("engine_probe:<model>", cost, release=r)`, with up to 3 tries per call as in `sampling_experiment.ask` (each try's cost recorded). The $15 project cap still applies through `spend.check`; with $3.77 left it is not reached before the $3.50 stop unless other spend lands first, in which case `SpendCapReached` stops the run: the probe writes partial results and re-raises. Under a late stop the fixed order cuts `gemini-3.8-flash` short first.
+- The bound, stated honestly: total probe spend is at most $3.50 plus one try's excess over its reservation, plus any billed try that recorded no cost (a timeout or an unparseable payload records 0, because the platform never sees its usage). Expected total from list prices: about $0.7–0.9 if both flash-lite models search as rarely as 3.8 did, about $2.8 if they search like 2.5 did (4 queries per answer), so the $3.50 stop is expected to let all 60 calls complete (user decision after the re-review: the stop was $3.00, which a late stop could turn into no pick).
+- Per call it records: the final try's raw response, to `/Users/vineet/Downloads/ADK/bsi-platform/data/experiments/engine/<model>/p<i>.json` (the canonical, git-ignored `data/`, not the worktree's); success or failure; searched (`web_search_queries` non-empty); the number of queries; `cost_micros` from the adapter's own `cost()`; input and output tokens; latency; and brands found by the deterministic matcher (`bsi_core.matching.find_mentions` over entities built from `eval/run1.json`: the brand with its aliases and the competitors). No judge call.
+- Results go to `eval/results/engine_probe_v0.json`. Per model: calls, completed, failed, searched share as `metrics.rate(searched, calls)` (95% Wilson; a failed call counts as not searched), mean queries per completed answer, mean `cost_micros` per completed observation (the final try's cost; earlier billed tries count only in the ledger-based total probe spend), and mean brands found. Overall: total probe spend and the pick.
+- Decision rule, fixed before the run as the pure function `pick(results)`:
+  1. a model is eligible only with 20 calls (a model cut short by the stop is not picked; tries do not count);
+  2. the candidate set is the eligible models whose searched share is at least 0.80; if it is empty, `pick` returns `None`;
+  3. the leader is the candidate with the highest searched share, ties broken by lower mean cost (subsumed by step 4: tied shares on 20 calls give identical intervals, which overlap);
+  4. the leader and every other candidate whose Wilson interval overlaps the leader's (inclusive: touching intervals overlap) compete on mean cost, and the lowest mean cost wins;
+  5. an exact tie on mean cost goes to the later retirement date (`gemini-3.5-flash-lite` July 21, 2027; `gemini-3.1-flash-lite` May 7, 2027; `gemini-3.8-flash` none announced, treated as earliest), then to the alphabetically first model id.
+  If `pick` returns `None`, the numbers go to the user and Task 2 waits for a decision.
+- The script spends money. It runs only after the user says so, and its numbers go to the ledger.
+
+## Section 2 — The switch
+
+- `packages/core/bsi_core/providers/gemini.py` `PRICES` gains, from the pricing page read 2026-10-08 (global, standard rates):
+  - `"gemini-3.5-flash-lite": Price(0.30, 2.50, 0, 14_000)`
+  - `"gemini-3.1-flash-lite": Price(0.25, 1.50, 0, 14_000)`
+  The `gemini-3.8-flash` row stays at its standard rate. The `gemini-2.5-flash` row stays, so stored observations remain priced. These rows land before the probe runs, because the adapter fails any model with no price row.
+- After the probe: `config.py` `engine_model` becomes the picked model, with its comment updated to the probe's measured searched share and cost; `.env.example` follows. The dev `.env` is changed only after asking the user.
+- `config.py` `obs_cost_estimate_micros` becomes max(50,000, the smallest multiple of 10,000 strictly above (the picked model's mean engine cost per completed observation + 2,000 micros for extraction)). It can only stay or rise.
+- Comparability guard (option (i′), chosen and then re-confirmed after two fact corrections in chat). A new helper `window_models(s, brand_id, f) -> list[str]` in `packages/core/bsi_core/metrics.py`, beside `window_versions`, returns the distinct non-NULL `observation.model` values of the done observations in a window (same `_where` filter). Both comparability rules call it directly; `brand_metrics`' output does not change, so no API schema changes.
+  - `metrics.brand_deltas`: windows are comparable only when the union of both windows' pipeline versions has at most one value and the union of both windows' models has at most one value. Consumers: the deltas API, reports, the `mention_drop` alert, and task impact (`impact.measure`), which returns `not_comparable` with the reason.
+  - `competitors._comparable`: the same model check. Consumers: `entity_deltas`, `visibility_changes`, and through it the `competitor_shift` alert.
+  - When models differ, the reason is `windows use different engine models [<sorted models>]`. When both the pipeline versions and the models differ, the pipeline-version reason is kept (it names a fix: re-extract).
+- Effects after the switch at time S (each delta compares [to − 2·days, to − days) with [to − days, to)):
+  - brand deltas (API default 7 days), the `mention_drop` alert (7-day windows) and competitor deltas (API default 7 days): no comparison for about 14 days;
+  - `/competitors/changes` and the `competitor_shift` alert (14-day windows): about 28 days;
+  - task impact (14-day windows by default): tasks done between S − 14 days and S + 14 days get `not_comparable`. `close_window` stores the label once, so it is permanent, and the model reason names no fix.
+  - Not changed by the guard: the `new_source` alert flags domains first cited in the last 7 days; a new engine will likely cite new domains, so spurious `new_source` alerts are likely for about a week.
+  Rows with a NULL model are ignored by the check; dev has none (110 done rows on `gemini-2.5-flash`, 15 on `gemini-3.8-flash`, read 2026-10-08).
+
+## Section 3 — Sequencing and tests
+
+One branch and one PR, merged before 2026-10-20:
+
+1. Task 1 (independent of the pick): the two `PRICES` rows; `scripts/engine_probe.py` with `pick()` and the stop check importable as pure functions; `window_models` and the guard in both rules; tests.
+2. The probe run, on the user's go, under the $3.50 stop; the results file is committed and every number is ledgered.
+3. Task 2 (the switch): the `engine_model` default and comment, `.env.example`, `obs_cost_estimate_micros`, the rewritten default-engine test, and `tests/integration/test_full_flow.py`'s `CannedGemini` pinned to `model="gemini-2.5-flash"` (it asserts the 2.5 price, 35,303 micros, on the default model today). If `pick` returned `None`, Task 2 waits.
+
+Tests:
+- `pick()`: the highest share wins; a share tie goes to the lower mean cost; an overlapping cheaper candidate wins (step 4); a cheaper overlapping model below 0.80 does not win; an exact cost tie goes to the later retirement date; no pick when every share is below 0.80; failures count as not searched; a model with fewer than 20 calls is not picked.
+- Stop check: the reservation is max(100,000, the largest `engine_probe:` entry so far); with fake costs that would cross 3,500,000 micros the probe stops before the crossing try and writes partial results; earlier `engine_probe:` ledger entries count toward the 3,500,000.
+- Prices: one cost test per new row; a fixture with 3 queries costs its token cost plus 42,000 micros.
+- Guard: one window of `gemini-2.5-flash` rows and one of another model's give `brand_deltas` `comparable: false` with the model reason, `entity_deltas` the same, and `impact.measure` `not_comparable`; when both pipeline versions and models differ the pipeline reason is returned; NULL-model rows do not make windows incomparable. Existing same-model tests stay green.
+- The default-engine test (`test_default_engine_is_gemini_2_5_flash_priced_per_grounded_prompt`, tests/unit/test_gemini_adapter.py) becomes: `Settings.model_fields["engine_model"].default` is the picked model and has a `PRICES` row (it does not read `get_settings()`, which follows `.env`).
+
+Proof: red on main, green when patched, and a mutation table, each mutant caught by a named test: either rule without the model check; the pipeline reason not kept first; NULL models counted; `pick` without step 4 (step 3's tie-break is subsumed by step 4, so no separate mutant); `pick` without the 0.80 bar; `pick` judging failures as missing instead of not searched; the reservation fixed at 100,000; a new price row without the per-query fee.
+
+## Section 4 — Process, live check, docs
+
+Spec → Opus review → scoped re-review → user review → "Approve, write plan" → writing-plans from a scratchpad proof → plan review → execution choice → Opus 5.5 implementers per task with task reviews → the probe run on the user's go → Task 2 → final review → controller gates → finishing menu → PR → docs (controller-written under the user's standing rule).
+
+Live check: the probe itself, under the $3.50 stop, with the bound and expected cost in Section 1, counted against the $15 cap. The dev DB is untouched by the probe (it calls the adapter directly, not the API). The dev `.env` changes only after asking.
+
+Out of scope: a "search before answering" instruction (approach C); modelling the free grounding allowances; re-running stored observations on the new model; a model filter on `/metrics`; the `engine` table's seeded `default_model` (`'gemini-2.5-flash'`, migration 0002), which is not read by the code and stays stale.
+
+## Rulings
+
+Every `Ruling:` line in the ledger, verbatim (later ones are appended by the docs commits):
+
+> Ruling: R1. Decided: the spec review's other findings are fixed in the spec: the probe runs with the main checkout's .env sourced and RAW_STORE_DIR pointing at /Users/vineet/Downloads/ADK/bsi-platform/data, and refuses to start unless spend.ledger_micros() reads the canonical ledger (6,858,204 micros at 2026-10-08 plus any later entries the user knows of) (I1); the probe's own spend is the sum of ledger entries whose kind starts with 'engine_probe:' read at start plus this run's, so a re-run shares the $3.00 (I4 gap); Task 2 pins tests/integration/test_full_flow.py's CannedGemini to model 'gemini-2.5-flash' and the default-engine test reads Settings.model_fields['engine_model'].default, not get_settings() (I5); 'brands found' counts the brand and its aliases plus the competitors from eval/run1.json (M2); on SpendCapReached the probe writes partial results and then re-raises (M3); tests are added for the pipeline-reason precedence and for NULL models being ignored (M4) and for pick() refusing a cheaper overlapping model below 0.80 and breaking a share tie by cost (M5); the mutation table names step 2 and step 3 tie-breaks separately (M5); engine.default_model in the engine table stays stale and is out of scope (M7); window_models is called in brand_deltas and _comparable, not added to brand_metrics output, so no API schema change (M8); 3.5-flash-lite is named as extract_model (M9). Found by: the spec reviewer (Opus 5.5), 2026-10-08. Why: an unsafe run procedure, tests that would break or depend on .env, and loose statements of mine. Cost if wrong: none to behaviour; a wrong ledger path would make the probe's spend invisible to the cap, which the pre-run check stops. How named: quoted in chat. (2026-10-08 09:01 UTC)
+
+> Correction to R1 (2026-10-08 09:05 UTC, from the spec re-review): R1 says the probe refuses to start unless the ledger reads 6,858,204 micros 'plus any later entries the user knows of'; the spec's check is a fixed floor (refuse below 6,858,204 micros), which is what is implemented.
+
+> Correction to R1 (2026-10-08 09:05 UTC, from the spec re-review): R1 says the mutation table names 'step 2 and step 3 tie-breaks'; after the steps were renumbered the table named step 3's cost tie-break and step 4, and R2 drops the step 3 mutant.
+
+> Ruling: R2. Decided: the spec re-review's other findings are fixed in the spec: step 3's share-tie break stays but is stated as subsumed by step 4 (tied shares on equal attempts give identical intervals), and its mutant is dropped from the Proof list as uncatchable (N1); the raw responses go to the canonical /Users/vineet/Downloads/ADK/bsi-platform/data/experiments/engine/<model>/p<i>.json, keeping the final try of each call (N3); 'call' now means one prompt on one model (20 per model) and 'try' a retry within a call, and step 1 counts calls (attempts) only; the leader takes part in step 4's cost comparison; the reservation's 'largest single call cost' includes earlier engine_probe: ledger entries; the low expected total reads about $0.7-0.9. Found by: the spec re-reviewer (Opus 5.5), 2026-10-08. Why: an uncatchable mutant, a lost-output path, and ambiguous terms of mine. Cost if wrong: none to behaviour. How named: quoted in chat. (2026-10-08 09:05 UTC)
+
+> Correction to R1 (2026-10-08 09:07 UTC, from the third spec review): R1 says 'a re-run shares the $3.00'; after the user's N2 decision the probe stop is $3.50, so a re-run shares the $3.50.
+
+> Correction to R1 (2026-10-08 09:07 UTC, from the third spec review): the first Correction to R1 says the fixed floor 'is what is implemented'; nothing is implemented yet; the fixed floor is what the spec states.
+
+> Ruling: R3. Decided: the third spec review's four Minors are fixed in the spec without a further review: the nested code span on the reservation line is rewritten as one span; the cap sentence says the $15 cap is not reached before the $3.50 stop unless other spend lands first, in which case SpendCapReached writes partial results and re-raises; the stale '$3.00' in R1 and the 'implemented' wording are corrected by two Correction to R1 lines quoted in the spec; R2's leftover word 'attempts', the per-model mean cost leaving out earlier billed tries, and 3.8-flash being cut short first under a late stop are stated in the spec. Found by: the third spec re-reviewer (Opus 5.5), 2026-10-08, verdict 'Spec ready? Yes'. Why: wording and rendering faults of mine. Cost if wrong: none to behaviour; the fix commit is unreviewed and disclosed to the user before their spec review. How named: quoted in chat. (2026-10-08 09:07 UTC)
+
+R2 says 'attempts' where the spec now says calls: "on equal attempts" means on 20 calls, and "counts calls (attempts) only" means counts calls, not tries.
+
+## Deferred
+
+- The 5,000 free Gemini 3 search queries a month are not modelled, so recorded costs are list prices.
+- `n = 20` per model separates about 100% from 30% searched share, not finer differences.

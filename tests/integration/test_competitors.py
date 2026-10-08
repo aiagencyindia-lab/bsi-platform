@@ -463,6 +463,41 @@ def test_direction_down_and_filters(owner, feed):
     )
 
 
+def test_mixed_engine_models_are_not_comparable(owner, feed):
+    org, bid, ids = feed
+    with owner() as s, s.begin():
+        for side, model in (
+            ("before", "gemini-2.5-flash"),
+            ("after", "gemini-3.5-flash-lite"),
+        ):
+            s.execute(
+                update(m.Observation)
+                .where(
+                    m.Observation.id.in_(
+                        [o for p in ids["prompts"] for o in ids[side][p]]
+                    )
+                )
+                .values(model=model)
+            )
+    reason = (
+        "windows use different engine models "
+        "['gemini-2.5-flash', 'gemini-3.5-flash-lite']"
+    )
+    got = changes(org, bid)
+    assert (got["comparable"], got["reason"], got["changes"]) == (
+        False,
+        reason,
+        [],
+    )
+    with tenant_session(org.id) as s:
+        d = entity_deltas(s, bid, Filters(), 14, NOW)
+    assert (d["comparable"], d["reason"], d["deltas"]) == (
+        False,
+        reason,
+        None,
+    )
+
+
 def test_mixed_pipeline_versions_are_not_comparable(owner, feed):
     org, bid, ids = feed
     first_before = ids["prompts"][0]

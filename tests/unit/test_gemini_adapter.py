@@ -3,7 +3,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from bsi_core.providers.gemini import GeminiGroundingAdapter
+from bsi_core.config import Settings
+from bsi_core.providers.gemini import PRICES, GeminiGroundingAdapter
 from google.genai import errors
 
 RAW = json.loads(Path("tests/fixtures/gemini_min.json").read_text())
@@ -37,9 +38,11 @@ def test_cost_counts_tokens_and_the_grounded_prompt():
     assert adapter.cost(ungrounded) == 303
 
 
-def test_default_engine_is_gemini_2_5_flash_priced_per_grounded_prompt():
-    # 2.5 searched in every answer; 3.8 in about 1 in 4 (findings-slice5).
-    assert GeminiGroundingAdapter(client=object()).cost(RAW) == 35_303
+def test_default_engine_is_the_slice_56_pick_and_has_a_price():
+    # The declared default, not get_settings(), which follows .env.
+    default = Settings.model_fields["engine_model"].default
+    assert default == "gemini-3.5-flash-lite"
+    assert default in PRICES
 
 
 def test_gemini_3_8_flash_is_priced_per_search_query():
@@ -47,6 +50,30 @@ def test_gemini_3_8_flash_is_priced_per_search_query():
     # min fixture: 10 in, 100 out + 20 thinking, 1 search query.
     # 10 * 1.50 + 120 * 7.50 = 915 for tokens, plus 14_000 per query.
     assert adapter.cost(RAW) == 14_915
+
+
+def test_gemini_3_5_flash_lite_is_priced_per_search_query():
+    adapter = GeminiGroundingAdapter(
+        client=object(), model="gemini-3.5-flash-lite"
+    )
+    # min fixture: 10 * 0.30 + 120 * 2.50 = 303 for tokens, 1 query.
+    assert adapter.cost(RAW) == 14_303
+    raw = {**RAW, "candidates": [_three_queries()]}
+    assert adapter.cost(raw) == 303 + 42_000
+
+
+def test_gemini_3_1_flash_lite_is_priced_per_search_query():
+    adapter = GeminiGroundingAdapter(
+        client=object(), model="gemini-3.1-flash-lite"
+    )
+    # 10 * 0.25 + 120 * 1.50 = 182.5, rounded to 182, plus 14_000.
+    assert adapter.cost(RAW) == 14_182
+    raw = {**RAW, "candidates": [_three_queries()]}
+    assert adapter.cost(raw) == 182 + 42_000
+
+
+def _three_queries():
+    return {"grounding_metadata": {"web_search_queries": ["a", "b", "c"]}}
 
 
 def test_per_query_cost_scales_with_query_count():
