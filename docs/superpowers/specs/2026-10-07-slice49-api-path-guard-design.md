@@ -943,21 +943,21 @@ Each change below fails tests (counts from the two files, 22 tests):
 
 | Mutant | Change | Result | Failing |
 |---|---|---|---|
-| M1 | no guard in `api()` | `8 failed | 14 passed (22)` | the 8 guard refusal cases |
-| M2 | no guard in `publicApi()` | `1 failed | 21 passed (22)` | `publicApi refuses a dot segment` |
-| M3 | the query string left out of the guard's comparison | `1 failed | 21 passed (22)` | `api sends a path with a query string as written` |
-| M4 | `api()`'s guard moved after `fetch` | `8 failed | 14 passed (22)` | the 8 guard refusal cases (`fetch` was called) |
-| M5 | no guard log line | `8 failed | 14 passed (22)` | the 8 guard refusal cases |
-| M6 | `seg()` accepts `/` | `1 failed | 21 passed (22)` | `seg refuses "a/b"` |
-| M7 | no `seg()` log line | `7 failed | 15 passed (22)` | the 7 `seg` refusal cases |
-| M8 | `addDomain`'s path left unwrapped | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
-| M9 | `q` missing from the scan's allowlist | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
-| M10 | the scan's path regex finds nothing | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
-| M11 | `addDomain`'s path built in a variable | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
-| M12 | `addDomain`'s value written `${seg(id) + host}` | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
-| M13 | the guard ignores the query but refuses a bare `?` | `1 failed | 21 passed (22)` | `api refuses /brands/x?a=b'c without calling the API` |
-| M14 | `addDomain`'s path written `"/brands/" + id + "/domains"` | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
-| M15 | `addDomain`'s path written as a template joined with `+` | `1 failed | 21 passed (22)` | `every value in an API path goes through seg()` |
+| M1 | no guard in `api()` | `8 failed \| 14 passed (22)` | the 8 guard refusal cases |
+| M2 | no guard in `publicApi()` | `1 failed \| 21 passed (22)` | `publicApi refuses a dot segment` |
+| M3 | the query string left out of the guard's comparison | `1 failed \| 21 passed (22)` | `api sends a path with a query string as written` |
+| M4 | `api()`'s guard moved after `fetch` | `8 failed \| 14 passed (22)` | the 8 guard refusal cases (`fetch` was called) |
+| M5 | no guard log line | `8 failed \| 14 passed (22)` | the 8 guard refusal cases |
+| M6 | `seg()` accepts `/` | `1 failed \| 21 passed (22)` | `seg refuses "a/b"` |
+| M7 | no `seg()` log line | `7 failed \| 15 passed (22)` | the 7 `seg` refusal cases |
+| M8 | `addDomain`'s path left unwrapped | `1 failed \| 21 passed (22)` | `every value in an API path goes through seg()` |
+| M9 | `q` missing from the scan's allowlist | `1 failed \| 21 passed (22)` | `every value in an API path goes through seg()` |
+| M10 | the scan's path regex finds nothing | `1 failed \| 21 passed (22)` | `every value in an API path goes through seg()` |
+| M11 | `addDomain`'s path built in a variable | `1 failed \| 21 passed (22)` | `every value in an API path goes through seg()` |
+| M12 | `addDomain`'s value written `${seg(id) + host}` | `1 failed \| 21 passed (22)` | `every value in an API path goes through seg()` |
+| M13 | the guard ignores the query but refuses a bare `?` | `1 failed \| 21 passed (22)` | `api refuses /brands/x?a=b'c without calling the API` |
+| M14 | `addDomain`'s path written `"/brands/" + id + "/domains"` | `1 failed \| 21 passed (22)` | `every value in an API path goes through seg()` |
+| M15 | `addDomain`'s path written as a template joined with `+` | `1 failed \| 21 passed (22)` | `every value in an API path goes through seg()` |
 
 ## Rulings
 
