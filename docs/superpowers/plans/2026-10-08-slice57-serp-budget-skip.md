@@ -585,4 +585,7 @@ Ruling: R13. Decided: the departures list says the spec's R7 docs notes have no 
 
 ## Changes made during execution
 
-(filled in by the docs PR)
+- Task 2 ran at the same time as Task 1 (R14, the user's instruction): in a second worktree, bsi-wt/slice57-web, on a temporary branch from a62b051, it did Steps 1-3, Step 4's vitest run and Step 5, and committed (aea40f6) without Step 4's typecheck, Step 6's gate or Step 7. After Task 1 was reviewed clean, the controller cherry-picked the commit onto the slice branch as 2ce5478 (same patch, checked by diff), and the Task 2 implementer then ran Step 4's typecheck, Step 6's `npm run gate` and Step 7 there.
+- Step 0: the controller had already created the slice worktree when Task 1 was dispatched; the implementer ran `uv sync` and `npm ci`. Task 2's phase 1 ran `npm ci` in its own worktree; phase 2 found `.venv` and `node_modules` already in the slice worktree.
+- The final whole-branch review led to one fix commit after the tasks, 2b70b15 (R15: the `serp_budget_fits` docstring says "the Brand SERP page's budget note"), with a scoped re-review.
+- Every Expected line was met. Task 1's report says "no deviation"; Task 2's phase 1 report recorded only the `Tests` line for each killed web mutant, not the failing test's name (a deferred minor).

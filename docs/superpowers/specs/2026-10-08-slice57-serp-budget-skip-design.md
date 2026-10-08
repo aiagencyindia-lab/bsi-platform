@@ -373,9 +373,20 @@ Ruling: R9. Decided: the reason for leaving the line out while the brand's own a
 
 Ruling: R10. Decided: decision 4 names option 2's content first, then the options it was chosen over. Found by: the spec re-reviewer (new minor 2). Why: the old order read as if the content described option 3. Cost if wrong: none; wording. How named: this spec and chat.
 
+Rulings made during execution (added by the docs PR, verbatim from the ledger):
+
+Ruling: R14. Decided: Task 2 runs now in a second worktree /Users/vineet/Downloads/ADK/bsi-wt/slice57-web on a temporary branch slice57-web from a62b051; there it does Steps 1-3, Step 4 with vitest only, Step 5 (vitest) and commits with the plan's commit command, skipping typecheck, the web gate and Step 7; after Task 1 is committed and its review is clean, the controller cherry-picks the Task 2 commit onto slice57-serp-budget-skip and the Task 2 implementer runs Step 4's typecheck, Step 6's gate and Step 7 in the slice worktree; each task keeps its own review. Found by: the user's instruction to run the tasks simultaneously. Why: one worktree's index cannot serve two agents' staging and git checkout restores; Task 2's typecheck and gate need Task 1's generated schema.d.ts; and two pytest runs on bsi_test deadlock. Cost if wrong: one cherry-pick and a second dispatch; if the cherry-pick conflicted, Task 2 would be re-applied from its blocks on the slice branch. How named: ledger and chat.
+
+Ruling: R15. Decided: serp_budget_fits' docstring (scheduling.py:148-149) says "the Brand SERP page's budget note" instead of "the Brand SERP page's reason when the sweep skips a brand"; one fix dispatch, then a scoped re-review. Found by: the final reviewer (minor 1). Why: the page shows the note whether or not the brand is due (spec decision 4, R4); the sentence came from the first proof and overstates what the page says. Cost if wrong: one docstring line and one review round. How named: ledger and chat.
+
+Ruling: R16. Decided: the docs PR also adds a dated note to the docs/README.md findings-slice55 row ("budget room still not shown"), alongside R7's two findings notes. Found by: the final reviewer (minor 2). Why: that row goes stale with this slice, the same as the two lines R7 names. Cost if wrong: one README row. How named: ledger and chat.
+
+Ruling: R17. Decided: the test-settings minor above is deferred, not fixed. Found by: the final reviewer (minor 3). Why: no environment that runs the gate sets a budget under $0.04, and pinning the org budget in that test would widen a one-line fix wave into test changes. Cost if wrong: a red test on a developer machine with a tiny DAILY_BUDGET_USD, fixed by one line in the test. How named: ledger and chat.
+
 ## Docs follow-ups
 
 - findings-slice47.md and findings-slice55.md: a dated note under each line that says the budget case is not shown (R7).
+- docs/README.md: a dated note on the findings-slice55 row, which says budget room is still not shown (R16).
 
 ## Out of scope
 
@@ -387,3 +398,4 @@ Ruling: R10. Decided: decision 4 names option 2's content first, then the option
 
 - minor (deferred): no test renders the Brand SERP page, so passing a constant for `budget_room` (M9) or leaving out `job?.status` (M13) passes the gate (R3).
 - minor (deferred): the note shows for a brand that is not due (audited this week) whenever the org's budget is full; it is true there but says nothing about that brand (decision 4).
+- minor (deferred): test_get_is_empty_before_any_audit's budget_room True assertion reads scheduling.get_settings() (the .env default $2.00 budget); a local .env with DAILY_BUDGET_USD under 0.04 would turn it red; the worktree has no .env and CI uses defaults (same shape as slice 55's serp_configured case). (R17; added by the docs PR)
