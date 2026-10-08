@@ -461,6 +461,12 @@ class SerpJobOut(BaseModel):
 class SerpAuditsOut(BaseModel):
     job: SerpJobOut | None
     audits: list[SerpAuditOut]
+    # The API process's DataForSEO credentials: the sweep queues nothing
+    # without them (queue_due_serp_audits).
+    serp_configured: bool
+    # Failed audit_serp jobs in the last 7 days; due_serp_audits()
+    # (migration 0024) stops at 3. The web holds the threshold.
+    failed_7d: int
 
 
 class PageOptimizeIn(BaseModel):

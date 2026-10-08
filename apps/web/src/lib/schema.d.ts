@@ -2591,7 +2591,11 @@ export interface components {
         SerpAuditsOut: {
             /** Audits */
             audits: components["schemas"]["SerpAuditOut"][];
+            /** Failed 7D */
+            failed_7d: number;
             job: components["schemas"]["SerpJobOut"] | null;
+            /** Serp Configured */
+            serp_configured: boolean;
         };
         /** SerpJobOut */
         SerpJobOut: {

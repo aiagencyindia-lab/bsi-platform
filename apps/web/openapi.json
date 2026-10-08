@@ -4138,6 +4138,10 @@
             "title": "Audits",
             "type": "array"
           },
+          "failed_7d": {
+            "title": "Failed 7D",
+            "type": "integer"
+          },
           "job": {
             "anyOf": [
               {
@@ -4147,11 +4151,17 @@
                 "type": "null"
               }
             ]
+          },
+          "serp_configured": {
+            "title": "Serp Configured",
+            "type": "boolean"
           }
         },
         "required": [
           "job",
-          "audits"
+          "audits",
+          "serp_configured",
+          "failed_7d"
         ],
         "title": "SerpAuditsOut",
         "type": "object"

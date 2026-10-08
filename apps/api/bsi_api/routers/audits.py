@@ -2,11 +2,13 @@
 first pages (the Brand SERP audit)."""
 
 import uuid
+from datetime import timedelta
 from typing import Any
 
 from bsi_core import models as m
+from bsi_core.config import get_settings
 from fastapi import APIRouter
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ..deps import TENANT, Ctx, brand_or_404
 from ..schemas import QueuedOut, SerpAuditsOut, SiteAuditOut
@@ -81,4 +83,25 @@ def latest_serp(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
         .order_by(m.Job.created_at.desc(), m.Job.id.desc())
         .limit(1)
     ).first()
-    return {"job": job, "audits": audits}
+    # The last predicate of due_serp_audits() (migration 0024), on the
+    # DB clock: failed audit_serp jobs created in the last 7 days.
+    failed = c.s.scalar(
+        select(func.count())
+        .select_from(m.Job)
+        .where(
+            m.Job.brand_id == brand_id,
+            m.Job.kind == "audit_serp",
+            m.Job.status == "failed",
+            m.Job.created_at > func.now() - timedelta(days=7),
+        )
+    )
+    settings = get_settings()
+    return {
+        "job": job,
+        "audits": audits,
+        "serp_configured": bool(
+            settings.dataforseo_login
+            and settings.dataforseo_password.get_secret_value()
+        ),
+        "failed_7d": failed or 0,
+    }
