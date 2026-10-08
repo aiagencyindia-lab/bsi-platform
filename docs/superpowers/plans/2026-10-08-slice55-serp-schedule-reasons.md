@@ -529,4 +529,6 @@ EOF
 
 ## Changes made during execution
 
-(filled by the post-merge docs commit)
+- Task 1 and Task 2, Step 5 (R4): restoring a mutated file with `git checkout -- <file>` restores HEAD and would wipe the task's uncommitted implementation. The Task 1 implementer staged the implemented file before the mutants, so the restore came from the index; Task 2's dispatch carried the same instruction. Code unchanged.
+- Task 1, Step 6: `npm run gen` changed `openapi.json` by +11/−1 (the plan said +11 or +12) and `schema.d.ts` by +4.
+- No other departure: both task reviewers applied the plan's blocks by script to the task's base and found the committed files byte-identical.
