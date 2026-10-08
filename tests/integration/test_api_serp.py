@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
+from bsi_api.routers import audits
 from bsi_core import models as m
+from bsi_core.config import Settings
 from sqlalchemy import update
 
 from tests.integration.test_worker import _job
@@ -44,6 +46,28 @@ def _audit(owner, org, bid, kind, minutes_ago, results=(), error=None):
         )
 
 
+def _configured(monkeypatch, login="me", password="pw"):
+    """The API's DataForSEO settings, patched where audits.py reads them
+    (the lambda bypasses get_settings' lru_cache; explicit kwargs win
+    over .env)."""
+    monkeypatch.setattr(
+        audits,
+        "get_settings",
+        lambda: Settings(dataforseo_login=login, dataforseo_password=password),
+    )
+
+
+def _aged(owner, job_id, ago):
+    """Set a job's created_at (_job sets scheduled_slot only; created_at
+    is the server default) to now() - ago."""
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Job)
+            .where(m.Job.id == job_id)
+            .values(created_at=datetime.now(UTC) - ago)
+        )
+
+
 def test_post_queues_a_serp_audit_job(client, owner, make_org, make_brand):
     org = make_org()
     bid = make_brand(org)
@@ -70,12 +94,20 @@ def test_post_on_an_archived_brand_is_409(client, owner, make_org, make_brand):
     assert r.status_code == 409
 
 
-def test_get_is_empty_before_any_audit(client, make_org, make_brand):
+def test_get_is_empty_before_any_audit(
+    client, make_org, make_brand, monkeypatch
+):
+    _configured(monkeypatch)
     org = make_org()
     bid = make_brand(org)
     r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
     assert r.status_code == 200, r.text
-    assert r.json() == {"job": None, "audits": []}
+    assert r.json() == {
+        "job": None,
+        "audits": [],
+        "serp_configured": True,
+        "failed_7d": 0,
+    }
 
 
 def test_get_returns_the_latest_row_per_query_with_ownership(
@@ -131,3 +163,72 @@ def test_get_reports_the_latest_audit_serp_job(
         "status": "failed",
         "error": "serp_not_configured",
     }
+
+
+def test_get_reports_serp_configured(client, make_org, make_brand, monkeypatch):
+    org = make_org()
+    bid = make_brand(org)
+    for login, password, expected in (
+        ("me", "pw", True),
+        ("me", "", False),
+        ("", "pw", False),
+    ):
+        _configured(monkeypatch, login, password)
+        r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
+        assert r.status_code == 200, r.text
+        assert r.json()["serp_configured"] is expected, (login, password)
+
+
+def test_get_counts_failed_audit_serp_jobs_in_7_days(
+    client, owner, make_org, make_brand, monkeypatch
+):
+    _configured(monkeypatch)
+    org = make_org()
+    bid = make_brand(org)
+    # Counted: three failed audit_serp jobs inside the window. Each
+    # audit_serp job on a brand needs its own scheduled_slot (minutes).
+    for i, days in enumerate((1, 3, 6)):
+        job = _job(owner, org, bid, "audit_serp", "failed", minutes=-i)
+        _aged(owner, job, timedelta(days=days))
+    # Not counted: outside the window; not failed; another kind.
+    _aged(
+        owner,
+        _job(owner, org, bid, "audit_serp", "failed", minutes=-10),
+        timedelta(days=8),
+    )
+    _aged(
+        owner,
+        _job(owner, org, bid, "audit_serp", "done", minutes=-20),
+        timedelta(days=2),
+    )
+    _aged(
+        owner,
+        _job(owner, org, bid, "audit_crawl", "failed", minutes=-30),
+        timedelta(days=2),
+    )
+    # Not counted: another brand of the same org (RLS would hide another
+    # org's rows whether or not the query filters on brand).
+    other = make_brand(org, name="Other")
+    for i, days in enumerate((2, 4)):
+        job = _job(owner, org, other, "audit_serp", "failed", minutes=-i)
+        _aged(owner, job, timedelta(days=days))
+    r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["failed_7d"] == 3
+
+
+def test_failed_7d_window_boundary(
+    client, owner, make_org, make_brand, monkeypatch
+):
+    """A one-minute margin against DB now(): proves the window is 7
+    days, not whether its edge is > or >=."""
+    _configured(monkeypatch)
+    org = make_org()
+    bid = make_brand(org)
+    inside = _job(owner, org, bid, "audit_serp", "failed", minutes=-1)
+    outside = _job(owner, org, bid, "audit_serp", "failed", minutes=-2)
+    _aged(owner, inside, timedelta(days=7) - timedelta(minutes=1))
+    _aged(owner, outside, timedelta(days=7) + timedelta(minutes=1))
+    r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["failed_7d"] == 1

@@ -277,10 +277,20 @@ test("serpSchedule says whether the weekly sweep audits the brand", () => {
   const noDomain =
     "Not audited automatically: the brand has no declared domain.";
   const archived = "Not audited automatically: the brand is archived.";
-  expect(serpSchedule("active", 1)).toBe(weekly);
-  expect(serpSchedule("active", 0)).toBe(noDomain);
-  expect(serpSchedule("archived", 0)).toBe(archived);
-  expect(serpSchedule("archived", 2)).toBe(archived);
+  const unconfigured =
+    "Not audited automatically: the SERP provider is not configured.";
+  const failed = (n: number) =>
+    `Not audited automatically: ${n} audits failed in the last 7 days; the sweep tries again once fewer than 3 remain in that window.`;
+  expect(serpSchedule("active", 1, true, 1)).toBe(weekly);
+  expect(serpSchedule("active", 1, true, 2)).toBe(weekly);
+  expect(serpSchedule("active", 1, true, 3)).toBe(failed(3));
+  expect(serpSchedule("active", 1, true, 5)).toBe(failed(5));
+  expect(serpSchedule("active", 1, false, 0)).toBe(unconfigured);
+  // Not configured outranks the failure pause.
+  expect(serpSchedule("active", 1, false, 3)).toBe(unconfigured);
+  expect(serpSchedule("active", 0, false, 3)).toBe(noDomain);
+  expect(serpSchedule("archived", 1, false, 3)).toBe(archived);
+  expect(serpSchedule("archived", 0, true, 0)).toBe(archived);
 });
 
 test("ownershipText gives the count and a whole percentage", () => {

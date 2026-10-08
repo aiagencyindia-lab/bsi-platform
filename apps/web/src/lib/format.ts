@@ -197,16 +197,30 @@ export const serpStatus = (
         ? `Last audit failed: ${serpError(job.error)}`
         : null;
 
+/** failed audit_serp jobs in 7 days that stop the sweep (migration 0024). */
+const SERP_MAX_FAILURES = 3;
+
 /**
  * The Brand SERP page's schedule line. due_serp_audits() (migration 0024)
- * only considers active brands with at least one declared domain.
+ * only considers active brands with at least one declared domain, and
+ * stops after SERP_MAX_FAILURES failed jobs in 7 days; the sweep itself
+ * queues nothing without DataForSEO credentials.
  */
-export const serpSchedule = (status: string, domains: number) =>
+export const serpSchedule = (
+  status: string,
+  domains: number,
+  configured: boolean,
+  failed7d: number,
+) =>
   status !== "active"
     ? "Not audited automatically: the brand is archived."
     : domains === 0
       ? "Not audited automatically: the brand has no declared domain."
-      : "Audited automatically once a week.";
+      : !configured
+        ? "Not audited automatically: the SERP provider is not configured."
+        : failed7d >= SERP_MAX_FAILURES
+          ? `Not audited automatically: ${failed7d} audits failed in the last 7 days; the sweep tries again once fewer than ${SERP_MAX_FAILURES} remain in that window.`
+          : "Audited automatically once a week.";
 
 /** "3 of 10 (30%)"; no percentage when the page has no organic results. */
 export const ownershipText = (owned: number, organic: number) =>
