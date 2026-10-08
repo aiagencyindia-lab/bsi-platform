@@ -14,7 +14,7 @@ The new file below is the proof's file verbatim, and every replace block was gen
 
 ## Global Constraints
 
-- Every shell command starts with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58 && …` (the cwd resets after each command).
+- Every shell command starts with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58 && …` or `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58/apps/web && …` (the cwd resets after each command); `pgrep -fl pytest` and the controller's worktree command in Step 0 are the exceptions.
 - Added copy must not contain any word in `FORBIDDEN` of tests/unit/test_recommend_copy.py. Banned-word grep (must block the commit): `! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; }` — it gates every commit and must print nothing.
 - Web only: no file outside apps/web changes; no production code (`src/**` other than `*.test.ts`/`*.test.tsx`) changes; nothing is installed; `package.json` and `package-lock.json` are untouched.
 - The expected markup strings are exactly the ones in the new test file; do not adjust a test to pass.
@@ -38,7 +38,7 @@ The new file below is the proof's file verbatim, and every replace block was gen
 
 - [ ] **Step 0: The worktree and its dependencies**
 
-The controller creates the worktree before dispatch, on the branch this plan is committed on: `git -C /Users/vineet/Downloads/ADK/bsi-platform worktree add /Users/vineet/Downloads/ADK/bsi-wt/slice58 slice58-serp-page-render-test`; commit on that branch. It is a fresh checkout: no `apps/web/node_modules` and no `.venv`. Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58/apps/web && npm ci` and `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58 && uv sync` (the backend gate in Step 7 needs it). Expected: both finish without error; `git status --short` shows nothing.
+The controller creates the worktree before dispatch, on the branch this plan is committed on, after switching the main checkout back to main (a branch checked out there cannot be added as a worktree): `git -C /Users/vineet/Downloads/ADK/bsi-platform checkout main && git -C /Users/vineet/Downloads/ADK/bsi-platform worktree add /Users/vineet/Downloads/ADK/bsi-wt/slice58 slice58-serp-page-render-test`; commit on that branch. It is a fresh checkout: no `apps/web/node_modules` and no `.venv`. Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58/apps/web && npm ci` and `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58 && uv sync` (the backend gate in Step 7 needs it). Expected: both finish without error; `git status --short` shows nothing.
 
 - [ ] **Step 1: Create the page test**
 
@@ -285,7 +285,7 @@ Expected (proof run): `Tests  80 passed (80)` (main has 76; the four page cases 
 
 - [ ] **Step 4: Mutation table**
 
-First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58 && git add "apps/web/src/app/(app)/b/[id]/serp/page.test.tsx" apps/web/src/lib/format.test.ts apps/web/src/lib/api.test.ts`. Then apply each mutant alone to the file named (production code, which this task does not otherwise touch), run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58/apps/web && npx vitest run`, paste the `Tests` line and the failing test names, restore with `git checkout -- <file>`, and confirm `git diff --stat` (unstaged) is empty. Proof results in the last column. In `page.tsx` the argument lines are inside the `serpSchedule(...)` call; in `api.ts` the log line is in `sendAsWritten`.
+First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58 && git add "apps/web/src/app/(app)/b/[id]/serp/page.test.tsx" apps/web/src/lib/format.test.ts apps/web/src/lib/api.test.ts`. Then apply each mutant alone to the file named (production code, which this task does not otherwise touch), run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58/apps/web && npx vitest run`, paste the `Tests` line and the failing test names, restore with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58 && git checkout -- "apps/web/src/app/(app)/b/[id]/serp/page.tsx"` (quoted: zsh globs the parentheses and brackets) or `cd /Users/vineet/Downloads/ADK/bsi-wt/slice58 && git checkout -- apps/web/src/lib/api.ts`, and confirm `git diff --stat` (unstaged) is empty. Proof results in the last column. In `page.tsx` the argument lines are inside the `serpSchedule(...)` call; in `api.ts` the log line is in `sendAsWritten`.
 
 | Mutant | File | Change | Proof: failing tests |
 |---|---|---|---|
@@ -323,11 +323,12 @@ Expected: `184 files already formatted`, `All checks passed!`, `Success: no issu
 
 1. The spec lists the test-only minors by findings line (57:155, 54:72, 52:64, 49:103, 49:104); the plan carries them as six replace blocks in two files, generated from the same proof. The edits are identical.
 2. The spec's mutation table names each mutant in prose; the plan gives the exact edit text and the file, and says M7 proves nothing new (spec R3), so an implementer running it reports the same `1 failed` without reading more into it.
-3. Step 0 (the worktree, `npm ci`, `uv sync`), the "stage before mutating" constraint and Step 7 (the backend gate, unchanged) are process, not in the spec.
+3. Step 0 (the worktree, `npm ci`, `uv sync`) and the "stage before mutating" constraint are process, not in the spec. The spec names the backend gate; Step 7 gives its command and expected lines.
+4. The spec's Docs follow-ups (dated notes in findings-slice47/48/54/57 and the slice 58 README rows) have no task here; the docs PR after the merge does them.
 
 ## Rulings made while planning
 
-(none)
+Ruling: R5. Decided: the plan review's five minors are fixed in a second plan commit: Step 0 switches the main checkout to main before `worktree add`; Step 4's restore commands are written out with the page path quoted; the cwd constraint allows `apps/web`, `pgrep` and the controller's worktree command; departure 3 no longer calls Step 7 a departure; departure 4 says the docs follow-ups go to the docs PR. Found by: the plan reviewer (Opus 5.5), 2026-10-09. Why: a step that would stop, a restore that zsh would refuse (letting the next mutant start on a mutated file), a constraint the steps did not meet, and two untrue or missing departure lines, all mine. Cost if wrong: none to behaviour. How named: this plan and chat.
 
 ## Changes made during execution
 
