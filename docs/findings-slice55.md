@@ -15,6 +15,7 @@ The web app regenerated `openapi.json` and `schema.d.ts`. `serpSchedule(status, 
 The threshold `SERP_MAX_FAILURES = 3` lives in format.ts only. The Brand SERP page passes the two values from the `/audits/serp` response it already fetched.
 
 This fixes two of the three cases the slice 47 spec left out of scope (the page still said "weekly" when credentials were missing or after three failures in 7 days). The third, an org budget with no room, is still not shown, and the flag describes the API process's settings, not the worker's when the two differ (both spec, Out of scope). No migration, no new route; the dev DB is not touched.
+  - Note (2026-10-08, after slice 57, PR #114): the third case is now noted: with no budget room, the line adds that a due audit waits until there is room, except while the brand's own audit is queued or running (docs/findings-slice57.md §1). The settings limit stands.
 
 Spec: docs/superpowers/specs/2026-10-08-slice55-serp-schedule-reasons-design.md (R1 entered in `a790162`, the version the user approved; R2–R7 added by these docs commits). Plan: docs/superpowers/plans/2026-10-08-slice55-serp-schedule-reasons.md (Tasks 1 and 2; R3 applied in `3dd90ff`). Merged via PR #110 (https://github.com/aiagencyindia-lab/bsi-platform/pull/110), main `08f8da5`.
 
