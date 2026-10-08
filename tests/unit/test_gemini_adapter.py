@@ -49,6 +49,30 @@ def test_gemini_3_8_flash_is_priced_per_search_query():
     assert adapter.cost(RAW) == 14_915
 
 
+def test_gemini_3_5_flash_lite_is_priced_per_search_query():
+    adapter = GeminiGroundingAdapter(
+        client=object(), model="gemini-3.5-flash-lite"
+    )
+    # min fixture: 10 * 0.30 + 120 * 2.50 = 303 for tokens, 1 query.
+    assert adapter.cost(RAW) == 14_303
+    raw = {**RAW, "candidates": [_three_queries()]}
+    assert adapter.cost(raw) == 303 + 42_000
+
+
+def test_gemini_3_1_flash_lite_is_priced_per_search_query():
+    adapter = GeminiGroundingAdapter(
+        client=object(), model="gemini-3.1-flash-lite"
+    )
+    # 10 * 0.25 + 120 * 1.50 = 182.5, rounded to 182, plus 14_000.
+    assert adapter.cost(RAW) == 14_182
+    raw = {**RAW, "candidates": [_three_queries()]}
+    assert adapter.cost(raw) == 182 + 42_000
+
+
+def _three_queries():
+    return {"grounding_metadata": {"web_search_queries": ["a", "b", "c"]}}
+
+
 def test_per_query_cost_scales_with_query_count():
     adapter = GeminiGroundingAdapter(client=object(), model="gemini-3.8-flash")
     raw = {

@@ -4,6 +4,7 @@ import pytest
 from bsi_core import models as m
 from bsi_core.db import tenant_session
 from bsi_core.impact import close_window, measure
+from sqlalchemy import update
 
 NOW = datetime.now(UTC)
 # A 14-day window around DONE: before is [-29d, -15d), after [-15d, -1d).
@@ -114,6 +115,29 @@ def test_measure_refuses_mixed_pipeline_versions(owner, base):
     got, payload = measured(org, make_task(owner, org, bid, [pid]))
     assert got == "not_comparable"
     assert payload["delta"] is None and "pipeline" in payload["reason"]
+
+
+def test_measure_refuses_mixed_engine_models(owner, base):
+    org, bid, pid, first = base
+    seed(owner, org, first, BEFORE, 10, 20, start=100)
+    seed(owner, org, first, AFTER, 10, 20, start=200)
+    with owner() as s, s.begin():
+        for when, model in (
+            (BEFORE, "gemini-2.5-flash"),
+            (AFTER, "gemini-3.5-flash-lite"),
+        ):
+            s.execute(
+                update(m.Observation)
+                .where(
+                    m.Observation.brand_id == bid,
+                    m.Observation.requested_at == when,
+                )
+                .values(model=model)
+            )
+    got, payload = measured(org, make_task(owner, org, bid, [pid]))
+    assert got == "not_comparable"
+    assert payload["delta"] is None
+    assert "engine models" in payload["reason"]
 
 
 def test_measure_counts_only_the_tasks_prompts(owner, base, make_observation):

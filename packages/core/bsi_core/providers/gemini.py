@@ -24,12 +24,16 @@ class Price(NamedTuple):
 # List prices read 2026-09-19. Sources: docs/findings-slice1.md (2.5) and
 # the slice-2 spec §2 (3.8). 3.8 is recorded at its standard rate from
 # 2027-01-01; it is cheaper until then, but planning should not rely on it.
+# The two flash-lite rows were read from the pricing page on 2026-10-08
+# (slice-56 spec); 2.5 stays priced for the observations it produced.
 # ponytail: marginal price at scale; the free grounding allowance (1,500
 # prompts/day on 2.5, 5,000 queries/month on 3) is not modelled.
 # A model missing here fails its observations rather than being mispriced.
 PRICES = {
     "gemini-2.5-flash": Price(0.30, 2.50, 35_000, 0),
     "gemini-3.8-flash": Price(1.50, 7.50, 0, 14_000),
+    "gemini-3.5-flash-lite": Price(0.30, 2.50, 0, 14_000),
+    "gemini-3.1-flash-lite": Price(0.25, 1.50, 0, 14_000),
 }
 
 

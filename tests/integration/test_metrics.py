@@ -238,6 +238,50 @@ def test_brand_deltas_refuses_mixed_versions(windows):
     assert got["before"]["pipeline_versions"] == ["1"]
 
 
+def set_models(owner, bid, before, after):
+    """The windows fixture's older observations get model `before`, the
+    newer ones `after` (None leaves the column NULL)."""
+    cut = func.now() - timedelta(hours=12)
+    with owner() as s, s.begin():
+        for model, older in ((before, True), (after, False)):
+            s.execute(
+                update(m.Observation)
+                .where(
+                    m.Observation.brand_id == bid,
+                    m.Observation.requested_at < cut
+                    if older
+                    else m.Observation.requested_at >= cut,
+                )
+                .values(model=model)
+            )
+
+
+def test_brand_deltas_refuses_mixed_engine_models(owner, windows):
+    org, bid = windows("2")
+    set_models(owner, bid, "gemini-2.5-flash", "gemini-3.5-flash-lite")
+    got = deltas(org, bid)
+    assert got["comparable"] is False
+    assert got["deltas"] is None
+    assert got["reason"] == (
+        "windows use different engine models "
+        "['gemini-2.5-flash', 'gemini-3.5-flash-lite']"
+    )
+
+
+def test_brand_deltas_names_the_pipeline_first(owner, windows):
+    org, bid = windows("1")
+    set_models(owner, bid, "gemini-2.5-flash", "gemini-3.5-flash-lite")
+    got = deltas(org, bid)
+    assert got["comparable"] is False
+    assert got["reason"].startswith("windows use different pipeline versions")
+
+
+def test_brand_deltas_ignores_null_models(owner, windows):
+    org, bid = windows("2")
+    set_models(owner, bid, None, "gemini-3.5-flash-lite")
+    assert deltas(org, bid)["comparable"] is True
+
+
 def test_suggested_competitor_is_not_measured(owner, scene):
     """A guess with a mention row must not move the customer's numbers."""
     org, bid, _ = scene

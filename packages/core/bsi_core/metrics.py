@@ -307,6 +307,37 @@ def window_versions(s: Session, brand_id: uuid.UUID, f: Filters) -> list[str]:
     )
 
 
+def window_models(s: Session, brand_id: uuid.UUID, f: Filters) -> list[str]:
+    """Distinct engine models of the done observations in a window; a
+    NULL model is unknown and does not count."""
+    where, params = _where(brand_id, f)
+    return list(
+        s.scalars(
+            text(
+                "SELECT DISTINCT o.model FROM observation o "
+                f"WHERE {where} AND o.status = 'done' "
+                "AND o.model IS NOT NULL ORDER BY 1"
+            ),
+            params,
+        ).all()
+    )
+
+
+def comparability(
+    versions: set[str], models: set[str]
+) -> tuple[bool, str | None]:
+    """Two windows compare only on one pipeline version and one engine
+    model; the pipeline reason comes first because it names a fix."""
+    if len(versions) > 1:
+        return False, (
+            "windows use different pipeline versions "
+            f"{sorted(versions)}; re-extract the older window"
+        )
+    if len(models) > 1:
+        return False, f"windows use different engine models {sorted(models)}"
+    return True, None
+
+
 def delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
     """95% Newcombe (method 10) interval for after - before, and a label.
 
@@ -355,24 +386,22 @@ def brand_deltas(
     and to define both windows.
     """
     mid, start = to - timedelta(days=days), to - timedelta(days=2 * days)
-    before = brand_metrics(
-        s, brand_id, replace(f, date_from=start, date_to=mid)
-    )
-    after = brand_metrics(s, brand_id, replace(f, date_from=mid, date_to=to))
+    fb = replace(f, date_from=start, date_to=mid)
+    fa = replace(f, date_from=mid, date_to=to)
+    before = brand_metrics(s, brand_id, fb)
+    after = brand_metrics(s, brand_id, fa)
     versions = set(before["pipeline_versions"]) | set(
         after["pipeline_versions"]
     )
-    comparable = len(versions) <= 1
+    models = set(window_models(s, brand_id, fb)) | set(
+        window_models(s, brand_id, fa)
+    )
+    comparable, reason = comparability(versions, models)
     return {
         "before": {"from": start, "to": mid, **before},
         "after": {"from": mid, "to": to, **after},
         "comparable": comparable,
-        "reason": None
-        if comparable
-        else (
-            "windows use different pipeline versions "
-            f"{sorted(versions)}; re-extract the older window"
-        ),
+        "reason": reason,
         "deltas": {k: delta(before[k], after[k]) for k in DELTA_METRICS}
         if comparable
         else None,

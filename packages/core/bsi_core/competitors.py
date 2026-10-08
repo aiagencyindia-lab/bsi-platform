@@ -17,8 +17,10 @@ from .metrics import (
     Filters,
     _entities,
     _where,
+    comparability,
     delta,
     rate,
+    window_models,
     window_versions,
 )
 from .rivals import feed_evidence
@@ -223,12 +225,10 @@ def _comparable(
     versions = set(window_versions(s, brand_id, before)) | set(
         window_versions(s, brand_id, after)
     )
-    if len(versions) <= 1:
-        return True, None
-    return False, (
-        "windows use different pipeline versions "
-        f"{sorted(versions)}; re-extract the older window"
+    models = set(window_models(s, brand_id, before)) | set(
+        window_models(s, brand_id, after)
     )
+    return comparability(versions, models)
 
 
 def entity_deltas(
