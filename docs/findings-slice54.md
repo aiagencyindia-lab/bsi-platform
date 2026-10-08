@@ -6,7 +6,7 @@ The add-domain form on the Brand SERP page (slice 48) posts to `POST /v1/brands/
 
 **This reverses a slice 48 user decision.** Slice 48 chose the browser `pattern` over catch-and-note, and its findings §1 says a refused host or duplicate shows the error page. The user approved the reversal in the slice 54 design, in chat on 2026-10-08, after the approaches were written out. The slice 48 findings file is history and is not edited beyond the dated note under the fixed minor.
 
-**Still reaching the error page:** two submits of the same host at the same moment give a 500 from the unique constraint (findings-slice48 R2) and are rethrown; the domain is added anyway. A 422 from any cause gets the `refused` note: an IP, a host without a dot, a whitespace-only entry (`required` passes, the trim leaves `""`, `min_length=3` refuses it), a host over 200 characters. The copy names IPs specifically and is still correct advice for the rest.
+**Still reaching the error page:** two submits of the same host at the same moment give a 500 from the unique constraint (findings-slice48 R2) and are rethrown; the domain is added anyway. A 422 from any cause gets the `refused` note: an IP, a host without a dot, or an entry that trims to fewer than 3 characters (`DomainIn.host` has `min_length=3`; the browser `pattern` already stops a whitespace-only entry unless it holds a dot, such as `" . "`). The API has no upper length cap on a host (the final-review minor quoted in §3 says over 200 characters; that is wrong, see the note there). The copy names IPs specifically and is still correct advice for the rest.
 
 Bounded path: no spec or plan file. The design was approved in chat on 2026-10-08 and lives in the Claude plan file `/Users/vineet/.claude/plans/let-s-do-item-1-2-3-playful-duckling.md`, outside the repo. Merged via PR #108 (https://github.com/aiagencyindia-lab/bsi-platform/pull/108), merge commit `0c1ad47`, which is main after the three slice PRs.
 
@@ -26,7 +26,7 @@ Bounded path: no spec or plan file. The design was approved in chat on 2026-10-0
 - "Pushed and opened PR #108 2026-10-08 02:54 UTC (body passed the banned-word grep)."
 - "PR #108 merged 2026-10-08 02:55 UTC, merge commit 0c1ad47; main now 0c1ad47."
 
-CI was not checked by the controller before the merge; the user said "go ahead" to the merge question without asking for it.
+CI was not checked by the controller before the merge; the ledger records the user's answer to the merge question as "merge" and holds no CI line.
 
 **Mutation table** (from the implementer's report; the two test files run after each mutant, then reverted):
 
@@ -50,13 +50,17 @@ CI was not checked by the controller before the merge; the user said "go ahead" 
 
 ## 2. Live check
 
-None. One was offered in the plan (ports 8100 and 3100, `www.walkaroo` on a no-domain brand) and not asked for; it would write `api_key.last_used_at`. Dev is not touched.
+None. The plan file offered one (ports 8100 and 3100, `www.walkaroo` on a no-domain brand), to run only if the user asked; the user did not ask, and no ledger line records an offer made in chat. It would write `api_key.last_used_at`. Dev is not touched.
 
 ## 3. Rulings and deferred minors
 
 Every `Ruling:` line in the ledger, verbatim:
 
 > Ruling: R2. Decided: one docs PR covers slices 52, 53 and 54 (three findings files, README rows, dated notes under the fixed minors in findings-slice51 and findings-slice48), with one review round instead of three separate docs PRs. Found by: controller, after the three merges. Why: the three slices were planned, built and merged together; one PR keeps one review loop and one merge. Cost if wrong: a problem in one findings file holds up all three; the PR can be split if the review asks. How named: quoted in chat. (2026-10-08 02:55 UTC)
+
+> Ruling: R3. Decided: the docs commit for slices 52-54 carries the trailer Co-Authored-By: Claude Fable 5.1, not Opus 5.5, because the controller wrote those docs on this Fable 5.1 session under the user's decision; the standing Opus 5.5 trailer rule covers work done on Opus. Found by: controller, right after the first commit (a9fecfd, trailer Opus 5.5) and before any push; amended to d2ca0a6. Why: an Opus trailer on Fable-written text would overstate who wrote it. Cost if wrong: an attribution line; no behaviour. How named: quoted in chat. (2026-10-08 03:00 UTC)
+
+> Ruling: R4. Decided: the docs review's findings are fixed in a second docs commit: slice 54 findings 1 no longer says a host over 200 characters gets a 422 (DomainIn.host has only min_length=3; the final-review minor that said so is quoted verbatim in findings 3 with a note that the cap does not exist) (Important 1); the whitespace-only case says the browser pattern already stops it unless the entry holds a dot (Minor 1); slice 53 says the bare pipe cut the Result cell and dropped the Failing text, not that it added a column (Minor 2); the three findings say the ledger records the merge decision as 'merge', without quoting chat words (Minor 3); slice 53 drops 'with awk' and says the rendering fault was raised in the chat handoff, not in a repo file (Minor 4); slice 52 says M2 was run against the old test and M1 was not (Minor 5); slice 54 says the live check was offered in the plan file and the user did not ask for one (Minor 6). Found by: the docs reviewer (Opus 5.5), 2026-10-08. Why: a false claim and overstatements of mine. Cost if wrong: none to behaviour. How named: quoted in chat. (2026-10-08 03:04 UTC)
 
 The slice 54 ledger has no R1: the R1 of slices 52 and 53 (no separate final review for a one-commit branch) was not applied here, because slice 54 changes source and got a final whole-branch review.
 
@@ -69,3 +73,4 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Final review: minor (deferred): two simultaneous submits of the same host still give a 500 from the unique constraint and reach the error page (findings-slice48 R2); the domain is added anyway. The slice 54 findings must say so."
 - "Final review: minor (deferred): this reverses the slice 48 user decision (browser pattern over catch-and-note, findings-slice48 lines 13 and 77, and line 5 says a refused host shows the error page); the slice 54 findings must name the reversal and the user decision that authorised it (the chat approval of the slice 54 design on 2026-10-08). The historical doc is not edited."
 - "Final review: minor (deferred): one note text covers every 422 cause (IP, no dot, whitespace-only after trim, over 200 characters); the copy names IPs specifically but is still correct advice for the rest."
+  - Note (2026-10-08, docs review): "over 200 characters" is wrong; `DomainIn.host` (apps/api/bsi_api/routers/brands.py) has `min_length=3` and no upper cap, so a long host with a dot is accepted. The other causes stand.
