@@ -908,9 +908,154 @@ It prints the ledger and DB spend first and stops if the ledger reads below 6,85
 
 ---
 
-### Task 2: the switch (addendum after the probe)
+### Task 2: the switch (addendum, 2026-10-08, after the probe)
 
-Ruling R4: Task 2's blocks depend on the probe's pick, its measured searched share and mean cost, and the estimate the spec's formula gives from them, so they are added to this plan as a dated addendum after the probe run, generated from a scratchpad proof against the real values, and reviewed before dispatch. Its content is fixed by the spec (Section 2 and Section 3 item 3): the `engine_model` default, with its comment stating the probe's measured searched share and mean cost; `.env.example`; `obs_cost_estimate_micros = max(50_000, the smallest multiple of 10,000 strictly above mean + 2,000)`; the default-engine test (`test_default_engine_is_gemini_2_5_flash_priced_per_grounded_prompt`) renamed and rewritten to assert that `Settings.model_fields["engine_model"].default` is the picked model and has a `PRICES` row; and `CannedGemini` in tests/integration/test_full_flow.py pinned to `model="gemini-2.5-flash"`. The dev `.env`'s `ENGINE_MODEL` changes only after asking the user. If `pick` returns `None`, no addendum is written until the user decides.
+The probe ran on 2026-10-08 from `6b3caf8` and is committed at `85fce17` (`eval/results/engine_probe_v0.json`). It completed all 60 calls (one 429 retried) for $2.063363 of recorded spend. `pick` returned `gemini-3.5-flash-lite`: it searched 20 of 20 answers, as did `gemini-3.1-flash-lite`, so their intervals were identical and the cheaper won, at a mean 30,039.5 micros per observation ($0.0300) against 53,652.5. `gemini-3.8-flash` searched 6 of 20. An independent recount from the raw files gave the same searched and query counts. The estimate formula gives max(50,000, the smallest multiple of 10,000 strictly above 30,039.5 + 2,000) = max(50,000, 40,000) = 50,000, so `obs_cost_estimate_micros` keeps its value and gains a comment.
+
+Every block below was applied by script to a fresh copy of `85fce17` and verified on a second fresh copy (byte-identical; each block once, with and without its trailing newline, ending on a whole line).
+
+**Files:**
+- Modify: `packages/core/bsi_core/config.py` (`engine_model` and its comment; a comment on `obs_cost_estimate_micros`)
+- Modify: `.env.example` (`ENGINE_MODEL`)
+- Test: `tests/unit/test_gemini_adapter.py` (imports; the default-engine test renamed and rewritten), `tests/integration/test_full_flow.py` (`CannedGemini` pinned)
+
+**Interfaces:**
+- Consumes: `PRICES["gemini-3.5-flash-lite"]` from Task 1.
+- Produces: `Settings.model_fields["engine_model"].default == "gemini-3.5-flash-lite"`.
+
+- [ ] **Step 0: Dependencies.** Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice56 && uv sync`. Expected: no tracked file changes.
+
+- [ ] **Step 1: Write the failing tests**
+
+In `tests/unit/test_gemini_adapter.py` (the imports), replace this block (it occurs exactly once and ends on a whole line):
+
+````python
+import pytest
+from bsi_core.providers.gemini import GeminiGroundingAdapter
+````
+
+with:
+
+````python
+import pytest
+from bsi_core.config import Settings
+from bsi_core.providers.gemini import PRICES, GeminiGroundingAdapter
+````
+
+In `tests/unit/test_gemini_adapter.py` (the default-engine test), replace this block (it occurs exactly once and ends on a whole line):
+
+````python
+def test_default_engine_is_gemini_2_5_flash_priced_per_grounded_prompt():
+    # 2.5 searched in every answer; 3.8 in about 1 in 4 (findings-slice5).
+    assert GeminiGroundingAdapter(client=object()).cost(RAW) == 35_303
+````
+
+with:
+
+````python
+def test_default_engine_is_the_slice_56_pick_and_has_a_price():
+    # The declared default, not get_settings(), which follows .env.
+    default = Settings.model_fields["engine_model"].default
+    assert default == "gemini-3.5-flash-lite"
+    assert default in PRICES
+````
+
+In `tests/integration/test_full_flow.py` (`CannedGemini.__init__`), replace this block (it occurs exactly once and ends on a whole line):
+
+````python
+    def __init__(self):
+        super().__init__(client=object())
+````
+
+with:
+
+````python
+    def __init__(self):
+        # Pinned: the cost asserted below is gemini-2.5-flash's price.
+        super().__init__(client=object(), model="gemini-2.5-flash")
+````
+
+- [ ] **Step 2: Run them to verify the new test fails**
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice56 && uv run pytest -q -p no:cacheprovider tests/unit/test_gemini_adapter.py tests/integration/test_full_flow.py`
+Expected (proof): `1 failed, 21 passed` — `test_default_engine_is_the_slice_56_pick_and_has_a_price`.
+
+- [ ] **Step 3: Implement**
+
+In `packages/core/bsi_core/config.py` (the engine model), replace this block (it occurs exactly once and ends on a whole line):
+
+````python
+    # 2.5 searched in 80 of 80 answers; 3.8 in about 1 in 4, so most of its
+    # answers had no citations (findings-slice2 §7, findings-slice5 §1).
+    engine_model: str = "gemini-2.5-flash"
+````
+
+with:
+
+````python
+    # gemini-2.5-flash retires 2026-10-20. Slice 56's probe on the 20 Run 1
+    # prompts (2026-10-08): 3.5-flash-lite searched 20 of 20 at a mean
+    # $0.0300 per observation; 3.1-flash-lite 20 of 20 at $0.0537;
+    # 3.8-flash 6 of 20 (findings-slice56).
+    engine_model: str = "gemini-3.5-flash-lite"
+````
+
+In `packages/core/bsi_core/config.py` (the estimate's comment), replace this block (it occurs exactly once and ends on a whole line):
+
+````python
+    daily_budget_usd: float = 2.0
+    obs_cost_estimate_micros: int = 50_000
+````
+
+with:
+
+````python
+    daily_budget_usd: float = 2.0
+    # Slice 56: max(50,000, the next multiple of 10,000 above the engine's
+    # measured mean plus 2,000 for extraction) = max(50,000, 40,000).
+    obs_cost_estimate_micros: int = 50_000
+````
+
+In `.env.example`, replace this block (it occurs exactly once and ends on a whole line):
+
+````
+ENGINE_MODEL=gemini-2.5-flash
+````
+
+with:
+
+````
+ENGINE_MODEL=gemini-3.5-flash-lite
+````
+
+The dev `.env` is not touched: the controller asks the user before changing its `ENGINE_MODEL`.
+
+- [ ] **Step 4: Run the full backend suite**
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice56 && uv run ruff format --check . && uv run ruff check . && uv run mypy && uv run pytest -q -p no:cacheprovider --cov=bsi_core.metrics --cov-fail-under=100`
+Expected (proof, a copy with no `.env`, so the new default applies): `184 files already formatted`, `All checks passed!`, `Success: no issues found in 31 source files`, `1776 passed, 2 deselected`, coverage 100%.
+
+- [ ] **Step 5: Mutation table** (stage first: `git add -A packages tests .env.example`; restore each with `git checkout -- <file>`, confirm an empty `git diff -- <file>`)
+
+| Mutant | Change | Tests | Proof |
+|---|---|---|---|
+| M15 | `engine_model` default left at `"gemini-2.5-flash"` | test_gemini_adapter | 1 failed (`test_default_engine_is_the_slice_56_pick_and_has_a_price`) |
+| M16 | the `gemini-3.5-flash-lite` `PRICES` row deleted | test_gemini_adapter | 2 failed (the default-engine test and the 3.5-flash-lite price test) |
+| M17 | `CannedGemini` unpinned (`super().__init__(client=object())`) | test_full_flow | 1 failed (`test_prompt_to_metric`) in a tree with no `.env` |
+
+- [ ] **Step 6: Commit**
+
+```bash
+cd /Users/vineet/Downloads/ADK/bsi-wt/slice56 && git add packages/core/bsi_core/config.py .env.example tests/unit/test_gemini_adapter.py tests/integration/test_full_flow.py && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -F - <<'EOF' # Banned-word grep (must block the commit)
+feat: the default engine becomes gemini-3.5-flash-lite (slice 56 probe)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+EOF
+```
+
+Addendum departures from the spec:
+- 11. `obs_cost_estimate_micros` keeps 50,000 (the formula's result) and gains a comment showing the computation; the spec says it "becomes" the formula's value, which here is the current value.
+- 12. M17 is caught only where `ENGINE_MODEL` is not set to `gemini-2.5-flash` (a worktree or CI with no `.env`); in the main checkout, whose dev `.env` still names 2.5-flash, the unpinned class would still pass.
 
 ---
 
