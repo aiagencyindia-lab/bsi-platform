@@ -7,7 +7,7 @@ Classification: architectural, said first in chat on 2026-10-09: "fix every item
 The open deferred minors from slices 47–58 were grouped in chat on 2026-10-09: behaviour (web and API), test hardening, the slice 56 probe script, docs, and three that cannot be fixed (chat approvals cannot be verified from the repo). This slice fixes the behaviour group:
 
 - 54:73: two simultaneous submits of the same domain give a 500 (both pass the duplicate SELECT; the second INSERT hits the `(brand_id, host)` unique constraint and nothing catches the IntegrityError).
-- 48:79: a missing `brand_id` becomes `"null"` (`String(form.get("brand_id"))`), passes `seg()`, and reaches the API as `/brands/null/…`; the explorer found the pattern in about 20 server actions in 11 files.
+- 48:79: a missing `brand_id` becomes `"null"` (`String(form.get("brand_id"))`), passes `seg()`, and reaches the API as `/brands/null/…`; the explorer found the pattern in 22 server actions in 10 files.
 - 54:75: one note covers every 422; and `DomainIn.host` has no length cap, unlike the `Host` type (200) used elsewhere.
 - 47:80: `serpSchedule` calls any non-active status "archived".
 - 57:152: the budget note shows for a brand that is not due (decision 4 of slice 57, reversed here).
@@ -35,23 +35,23 @@ User decisions (2026-10-09), with the approaches text shown in chat before each:
 ## Section 2 — The SERP schedule facts
 
 - `budget_fits(..., *, lock=True)` takes the org's advisory lock only when asked; `serp_budget_fits(..., *, lock=True)` passes it through. Every existing caller keeps the default; only `latest_serp` passes `lock=False`, since the page writes nothing.
-- `serp_due(s, brand_id)` in `bsi_core/scheduling.py` mirrors `due_serp_audits()`'s five predicates for one brand in its tenant session, on the DB clock, with the 0024 constants named (`SERP_AUDIT_DAYS`, `SERP_RETRY_DAYS`, `SERP_KINDS`, `SERP_MAX_FAILURES`). The sweep still calls `due_serp_audits()`.
+- `serp_due(s, brand_id)` in `bsi_core/scheduling.py` mirrors `due_serp_audits()`'s five predicates for one brand in its tenant session, on the DB clock, with the 0024 constants named (`SERP_AUDIT_DAYS`, `SERP_RETRY_DAYS`, `SERP_KIND_COUNT = len(m.SERP_KINDS)`, `SERP_MAX_FAILURES`; R8). The sweep still calls `due_serp_audits()`.
 - `latest_serp` returns `serp_due`; `SerpAuditsOut` gains it; the docstring names every field; `failed or 0` becomes `failed`.
 
 ## Section 3 — The web
 
-- `formSeg(form, name)` in `lib/api.ts`: a string field goes through `seg()`; a missing or non-text field logs `"API form value missing"` with the quoted name and calls `notFound()`. Every form value used in a path goes through it (R3): `brand_id` in 11 action files, plus `task_id`, `rec_id`, `run_id`, `type`, `observation_id` and `entity_id`. API templates keep `${seg(…)}`, which the existing path scan requires.
-- `api-paths.test.ts` gains a scan: no `String(form.get("…_id"))`, `String(form.get("type"))` or `seg(String(` under `src/app`.
+- `formSeg(form, name)` in `lib/api.ts`: a string field goes through `seg()`; a missing or non-text field logs `"API form value missing"` with the quoted name and calls `notFound()`. Every form value used in a path goes through it (R3): `brand_id` in 10 action files, plus `task_id`, `rec_id`, `run_id`, `type`, `observation_id` and `entity_id`. API templates keep `${seg(…)}`, which the existing path scan requires.
+- `api-paths.test.ts` gains a scan: no `String(form.get("…_id"))`, `String(form.get("type"))`, `String(form.get(k))` (a field named by a variable, as label read its ids) or `seg(String(` under `src/app` (R8).
 - `addDomain` maps `409 Domain already exists` to `?domain=exists` and `409 Brand is archived` to `?domain=archived` ("Not added: the brand is archived."); any other 409 is rethrown.
 - `serpSchedule(status, domains, configured, failed7d, budgetRoom, due)`: archived; any other non-active status ("Not audited automatically: the brand is not active."); no domain; not configured; the failure pause; `due && !budgetRoom` gives the budget note; otherwise weekly. `due` replaces `jobStatus`, because `serp_due` is already false while the brand's own audit is queued or running. The page passes `serp_due`.
 
 ## Section 4 — Testing and evidence
 
-Backend (1777 → 1792):
+Backend (1777 → 1796):
 - `test_api_crud.py`: an archived brand gets the 409 and no row; a 200-character host passes and a 201-character one gets a 422; a simultaneous duplicate is a 409, not a 500, with one row (R1).
-- `test_api_serp.py`: `serp_due` for nine cases (nothing recent, archived, no domain, one kind this week, both kinds this week, a job today, a queued job, two failures, three failures), each also asserting that `due_serp_audits()` agrees (R6); the GET returns while another transaction holds the org's lock; the empty response expects `serp_due: false`.
+- `test_api_serp.py`: `serp_due` for thirteen cases (nothing recent, archived, no domain, one kind this week, both kinds this week, one kind twice this week, both kinds with one an error, both kinds 8 days ago, a job today, a queued job, two failures, three failures, three failures 8 days ago), each also asserting that `due_serp_audits()` agrees (R6); the GET returns while another transaction holds the org's lock; the empty response expects `serp_due: false`.
 - `test_budget.py`: `lock=False` gives the same verdict and still fails closed; the default waits for the org's lock (R5).
-- `test_api_recommendations.py`: the shared `_wait_until_blocked` helper clears the activity snapshot before each poll (R2).
+- `test_api_recommendations.py`: the shared `_wait_until_blocked` helper clears the activity snapshot before each poll (R2) and counts only this database's backends (R8).
 
 Web (80 → 88): `formSeg` (three tests), the source scan, `addDomain` (archived note, other 409 rethrown, missing `brand_id` for both serp actions), the `domainNote` archived line, the reworked `serpSchedule` cases, and the page fixture's `serp_due`.
 
@@ -594,15 +594,17 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
      body: JSON.stringify(body),
 --- a/apps/web/src/lib/api-paths.test.ts
 +++ b/apps/web/src/lib/api-paths.test.ts
-@@ -48,3 +48,18 @@
+@@ -48,3 +48,20 @@
    expect(templates).toBeGreaterThanOrEqual(40);
    expect(bad).toEqual([]);
  });
 +
 +test("server actions read path values with formSeg()", () => {
 +  // String(form.get(...)) turns a missing field into "null", which seg()
-+  // passes; formSeg() refuses it.
-+  const RAW = /String\(form\.get\("(?:[a-z_]*_id|type)"\)\)|seg\(String\(/g;
++  // passes; formSeg() refuses it. A field named by a variable
++  // (String(form.get(k))) is caught too: label's actions read ids that way.
++  const RAW =
++    /String\(form\.get\("(?:[a-z_]*_id|type)"\)\)|String\(form\.get\(\w+\)\)|seg\(String\(/g;
 +  const files = readdirSync(APP, { recursive: true, encoding: "utf8" }).filter(
 +    (f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f),
 +  );
@@ -799,7 +801,7 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
 +# due_serp_audits()'s constants (migration 0024), which serp_due mirrors.
 +SERP_AUDIT_DAYS = 7
 +SERP_RETRY_DAYS = 1
-+SERP_KINDS = 2
++SERP_KIND_COUNT = len(m.SERP_KINDS)
 +SERP_MAX_FAILURES = 3
  
  
@@ -880,7 +882,7 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
 +    """True if the weekly sweep would queue a Brand SERP audit for the brand
 +    now: due_serp_audits()'s predicates (migration 0024) for one brand, on
 +    the DB clock. The brand is active and has a domain; fewer than
-+    SERP_KINDS kinds have an error-free page fetched in SERP_AUDIT_DAYS; no
++    SERP_KIND_COUNT kinds have an error-free page fetched in SERP_AUDIT_DAYS; no
 +    audit_serp job was created in SERP_RETRY_DAYS or is queued or running;
 +    fewer than SERP_MAX_FAILURES failed in SERP_AUDIT_DAYS.
 +
@@ -920,7 +922,7 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
 +            m.Brand.id == brand_id,
 +            m.Brand.status == "active",
 +            domain,
-+            kinds < SERP_KINDS,
++            kinds < SERP_KIND_COUNT,
 +            ~recent,
 +            failed < SERP_MAX_FAILURES,
 +        )
@@ -933,9 +935,8 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
  ) -> tuple[int, int] | None:
 --- a/tests/integration/test_api_crud.py
 +++ b/tests/integration/test_api_crud.py
-@@ -1,6 +1,13 @@
+@@ -1,6 +1,12 @@
 +import threading
-+import uuid
 +
  import pytest
 +from bsi_core import models as m
@@ -947,7 +948,7 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
  def test_health_needs_no_key(client):
      assert client.get("/healthz").json() == {"status": "ok"}
  
-@@ -190,3 +197,75 @@
+@@ -190,3 +196,75 @@
      )
      assert r.status_code == 200
      assert r.json()["category"] is None
@@ -1020,19 +1021,20 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
 +        rows = s.scalar(
 +            select(func.count())
 +            .select_from(m.Domain)
-+            .where(m.Domain.brand_id == uuid.UUID(str(bid)))
++            .where(m.Domain.brand_id == bid)
 +        )
 +    assert rows == 1
 --- a/tests/integration/test_api_recommendations.py
 +++ b/tests/integration/test_api_recommendations.py
-@@ -195,10 +195,15 @@
+@@ -195,14 +195,21 @@
      (wait_event='transactionid'); the query text it shows alongside a
      blocked backend is not reliable (it can lag behind the statement
      actually stuck), so filter on the wait state, not the query text.
 +
 +    Postgres caches the activity statistics for the rest of a transaction,
 +    so each poll clears that snapshot first; otherwise a request that
-+    connects after the first poll is never seen.
++    connects after the first poll is never seen. Only this database's
++    backends count, so another database's lock wait cannot pass it.
      """
      my_pid = holder.execute(text("SELECT pg_backend_pid()")).scalar()
      end = time.monotonic() + deadline
@@ -1041,6 +1043,12 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
          waiting = holder.execute(
              text(
                  "SELECT count(*) FROM pg_stat_activity "
+-                "WHERE wait_event_type = 'Lock' AND pid != :pid"
++                "WHERE wait_event_type = 'Lock' AND pid != :pid "
++                "AND datname = current_database()"
+             ),
+             {"pid": my_pid},
+         ).scalar()
 --- a/tests/integration/test_api_serp.py
 +++ b/tests/integration/test_api_serp.py
 @@ -1,10 +1,13 @@
@@ -1066,7 +1074,7 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
      }
  
  
-@@ -262,3 +266,98 @@
+@@ -262,3 +266,116 @@
      r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
      assert r.status_code == 200, r.text
      assert r.json()["failed_7d"] == 1
@@ -1090,10 +1098,23 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
 +                .where(m.Brand.id == bid)
 +                .values(status="archived")
 +            )
-+    if case in ("one kind this week", "both kinds this week"):
++    week_ago = 8 * 24 * 60  # minutes: just outside the 7-day window
++    if case in (
++        "one kind this week",
++        "both kinds this week",
++        "one kind twice this week",
++        "both kinds, one an error",
++    ):
 +        _audit(owner, org, bid, "brand", 60)
 +    if case == "both kinds this week":
 +        _audit(owner, org, bid, "reviews", 60)
++    if case == "one kind twice this week":
++        _audit(owner, org, bid, "brand", 120)
++    if case == "both kinds, one an error":
++        _audit(owner, org, bid, "reviews", 60, error="timeout")
++    if case == "both kinds 8 days ago":
++        _audit(owner, org, bid, "brand", week_ago)
++        _audit(owner, org, bid, "reviews", week_ago)
 +    if case == "a job today":
 +        _job(owner, org, bid, "audit_serp", "done")
 +    if case == "a queued job":
@@ -1102,11 +1123,12 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
 +            _job(owner, org, bid, "audit_serp", "queued"),
 +            timedelta(days=2),
 +        )
-+    if case in ("two failures", "three failures"):
-+        n = 3 if case == "three failures" else 2
++    if case in ("two failures", "three failures", "three failures 8 days ago"):
++        n = 2 if case == "two failures" else 3
++        days = 8 if case == "three failures 8 days ago" else 2
 +        for i in range(n):
 +            job = _job(owner, org, bid, "audit_serp", "failed", minutes=-i)
-+            _aged(owner, job, timedelta(days=2))
++            _aged(owner, job, timedelta(days=days))
 +
 +
 +@pytest.mark.parametrize(
@@ -1117,10 +1139,14 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
 +        ("no domain", False),
 +        ("one kind this week", True),
 +        ("both kinds this week", False),
++        ("one kind twice this week", True),
++        ("both kinds, one an error", True),
++        ("both kinds 8 days ago", True),
 +        ("a job today", False),
 +        ("a queued job", False),
 +        ("two failures", True),
 +        ("three failures", False),
++        ("three failures 8 days ago", True),
 +    ],
 +)
 +def test_serp_due_agrees_with_due_serp_audits(
@@ -1235,8 +1261,8 @@ Generated from the proof (a scratchpad copy of main d7e97d3 with the change appl
 
 Proof directory: a fresh scratchpad copy of main d7e97d3 (`proof59-1791531885`), written only by the controller.
 
-- Red, main's code with the new tests: backend 15 failed, 36 passed in the three changed test files (the race test fails with `500 Internal error`); web 10 failed, 78 passed.
-- Green, patched: `ruff format --check` (184 files), `ruff check`, `mypy` (31 source files) clean; the full backend suite 1792 passed, 2 deselected, metrics coverage 100.00%; vitest 88 passed; typecheck and eslint clean; the build compiled. `gen:check` runs at execution.
+- Red, main's code with the new tests: backend 19 failed, 37 passed in the three files with new tests (the race test fails with `500 Internal error`); web 10 failed, 78 passed.
+- Green, patched: `ruff format --check` (184 files), `ruff check`, `mypy` (31 source files) clean; the full backend suite 1796 passed, 2 deselected, metrics coverage 100.00%; vitest 88 passed; typecheck and eslint clean; the build compiled. `gen:check` runs at execution.
 - While proving the race test, the red run first showed the POST stuck yet unseen by `_wait_until_blocked`: Postgres caches activity statistics for a transaction, so a poll that starts before the request connects never sees it. That is R2.
 - A process slip during the proof: one of the controller's scripts wrote an empty file at /tmp/x; it was removed at once.
 
@@ -1244,23 +1270,28 @@ Mutations, each applied alone to the patched copy and reverted (backend: test_ap
 
 | # | Mutation | Result |
 |---|---|---|
-| M1 | no archived check | killed: test_an_archived_brand_accepts_no_new_domain (1 failed, 50 passed, 2 warnings) |
-| M2 | no ON CONFLICT | killed: test_a_simultaneous_duplicate_domain_is_409_not_500; test_competitors_and_domains (2 failed, 49 passed, 2 warnings) |
-| M3 | no host cap | killed: test_a_host_is_capped_at_200_characters (1 failed, 50 passed, 2 warnings) |
-| M4 | serp_due ignores status | killed: test_serp_due_agrees_with_due_serp_audits[archived-False] (1 failed, 50 passed, 2 warnings) |
-| M5 | serp_due ignores the domain | killed: test_get_is_empty_before_any_audit; test_serp_due_agrees_with_due_serp_audits[no (2 failed, 49 passed, 2 warnings) |
-| M6 | serp_due ignores this week's audits | killed: test_serp_due_agrees_with_due_serp_audits[both (1 failed, 50 passed, 2 warnings) |
-| M7 | serp_due ignores recent jobs | killed: test_serp_due_agrees_with_due_serp_audits[a (2 failed, 49 passed, 2 warnings) |
-| M8 | serp_due ignores failures | killed: test_serp_due_agrees_with_due_serp_audits[three (1 failed, 50 passed, 2 warnings) |
-| M9 | the page takes the lock | killed: test_the_page_does_not_wait_on_the_orgs_budget_lock (1 failed, 50 passed, 2 warnings) |
-| M10 | budget_fits always locks | killed: test_the_page_does_not_wait_on_the_orgs_budget_lock (1 failed, 50 passed, 2 warnings) |
+| M1 | no archived check | killed: test_an_archived_brand_accepts_no_new_domain (1 failed, 55 passed, 2 warnings) |
+| M2 | no ON CONFLICT | killed: test_a_simultaneous_duplicate_domain_is_409_not_500; test_competitors_and_domains (2 failed, 54 passed, 2 warnings) |
+| M3 | no host cap | killed: test_a_host_is_capped_at_200_characters (1 failed, 55 passed, 2 warnings) |
+| M4 | serp_due ignores status | killed: test_serp_due_agrees_with_due_serp_audits[archived-False] (1 failed, 55 passed, 2 warnings) |
+| M5 | serp_due ignores the domain | killed: test_get_is_empty_before_any_audit; test_serp_due_agrees_with_due_serp_audits[no domain-False] (2 failed, 54 passed, 2 warnings) |
+| M6 | serp_due ignores this week's audits | killed: test_serp_due_agrees_with_due_serp_audits[both kinds this week-False] (1 failed, 55 passed, 2 warnings) |
+| M7 | serp_due ignores recent jobs | killed: test_serp_due_agrees_with_due_serp_audits[a job today-False]; test_serp_due_agrees_with_due_serp_audits[a queued job-False] (2 failed, 54 passed, 2 warnings) |
+| M8 | serp_due ignores failures | killed: test_serp_due_agrees_with_due_serp_audits[three failures-False] (1 failed, 55 passed, 2 warnings) |
+| M9 | the page takes the lock | killed: test_the_page_does_not_wait_on_the_orgs_budget_lock (1 failed, 55 passed, 2 warnings) |
+| M10 | budget_fits always locks | killed: test_the_page_does_not_wait_on_the_orgs_budget_lock (1 failed, 55 passed, 2 warnings) |
+| M18 | serp_due counts error rows | killed: test_serp_due_agrees_with_due_serp_audits[both kinds, one an error-True] (1 failed, 55 passed, 2 warnings) |
+| M19 | serp_due counts kinds without distinct | killed: test_serp_due_agrees_with_due_serp_audits[one kind twice this week-True] (1 failed, 55 passed, 2 warnings) |
+| M20 | serp_due audits have no window | killed: test_serp_due_agrees_with_due_serp_audits[both kinds 8 days ago-True] (1 failed, 55 passed, 2 warnings) |
+| M21 | serp_due failures have no window | killed: test_serp_due_agrees_with_due_serp_audits[three failures 8 days ago-True] (1 failed, 55 passed, 2 warnings) |
+| M22 | label reads an id by a variable name | killed: server actions read path values with formSeg() (1 failed, 87 passed (88)) |
 | M11 | one action reads the id raw | killed: server actions read path values with formSeg() (1 failed, 87 passed (88)) |
 | M12 | formSeg sends a missing field | killed: addDomain refuses a form with no brand_id without calling the API; formSeg refuses a file field and a value seg() refuses; formSeg refuses a missing field instead of sending "null"; runSerpAudit refuses a form with no brand_id without calling the API (4 failed, 84 passed (88)) |
 | M13 | every 409 means exists | killed: addDomain rethrows a 409 with any other title; addDomain shows a note when the brand is archived (2 failed, 86 passed (88)) |
 | M14 | any non-active status reads archived | killed: serpSchedule says whether the weekly sweep audits the brand (1 failed, 87 passed (88)) |
 | M15 | the budget note ignores due | killed: a queued audit hides the budget note; serpSchedule says whether the weekly sweep audits the brand (2 failed, 86 passed (88)) |
 | M16 | the page passes true for serp_due | killed: a queued audit hides the budget note (1 failed, 87 passed (88)) |
-| M17 | budget_fits never locks | killed by `test_the_default_check_waits_for_the_orgs_lock` (1 failed, 13 passed (test_budget.py)); before that test existed, this mutant survived the whole backend suite (1791 passed) |
+| M17 | budget_fits never locks | killed: test_the_default_check_waits_for_the_orgs_lock (1 failed, 13 passed in test_budget.py); before that test existed, this mutant survived the whole backend suite (1791 passed) |
 
 ## Rulings
 
@@ -1278,6 +1309,8 @@ Ruling: R6. Decided: each `serp_due` case also asserts that `due_serp_audits()` 
 
 Ruling: R7. Decided: actions.test.ts's `notFound` mock throws `NOT_FOUND`, as api.test.ts's does. Found by: the controller, writing the missing-id tests. Why: a `notFound` that returns would let `formSeg` fall through to the fetch. Cost if wrong: none. How named: this spec and chat.
 
+Ruling: R8. Decided: the spec review's findings are fixed in the proof and the spec: the docs follow-ups cite the findings lines as they are at main d7e97d3 (the slice 58 notes had moved every cited minor); the count is 22 server actions in 10 files; the scan also forbids `String(form.get(k))`, which label used; four serp_due cases cover the error filter, the distinct count and both 7-day windows (mutants M18 to M21); the constant is `SERP_KIND_COUNT = len(m.SERP_KINDS)`, not a second `SERP_KINDS`; `_wait_until_blocked` counts only this database's backends; the red counts name the three files with new tests; the mutation table gives full test ids; the race test drops a redundant `uuid.UUID(str(bid))`. Found by: the spec reviewer (Opus 5.5), 2026-10-09. Why: stale citations, wrong counts, a scan narrower than its claim, a test gap behind R6's claim, a shadowed name, and wording, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
+
 ## Out of scope
 
 - Slices 60 (test hardening), 61 (the probe script) and 62 (the docs sweep).
@@ -1286,7 +1319,7 @@ Ruling: R7. Decided: actions.test.ts's `notFound` mock throws `NOT_FOUND`, as ap
 
 ## Docs follow-ups
 
-- Dated notes under 54:73, 48:79, 54:75 and its slice 54 note line 76, 47:80, 57:152 and slice 57's decision 4, 57:154 and slice 57's decision 2 and R6, 55:121 and 55:122.
+- Dated notes under these lines (numbers as of main d7e97d3): findings-slice54.md 77 (the race), 79 (one note for every 422) and its note at 80, findings-slice48.md 81 (the missing brand_id), findings-slice47.md 83 (any non-active status reads archived), findings-slice57.md 155 (the note for a brand that is not due; decision 4) and 157 (the lock with no timeout; decision 2 and R6), findings-slice55.md 121 and 122.
 
 ## Deferred
 
