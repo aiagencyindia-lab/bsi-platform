@@ -11,7 +11,7 @@ A new vitest, `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx`, renders the Br
 
 Five test-only fixes ride along: a `jobStatus = null` case and the `domainNote` import order in `format.test.ts`; in `api.test.ts`, the guard cases pin the `console.error` count, the `publicApi` dot-segment test asserts its log line, and `afterEach` resets the cookie mock. No production code changed and nothing was installed.
 
-This closes the page-render gap recorded as slice 47 R2 in part: the three fetches, `brand.status`, `domains.length` and `job?.status` are pinned; `budget_room` only against a constant `true` (every case that reaches the budget check has it false); `serp_configured` and `failed_7d` not at all, since they are true and 0 in every case (a deferred minor below, as corrected). It also closes 47's line 79, slice 48 R3 (the form's condition and attributes), slice 54 M4 (the domain note's placement) and slice 57 R3 with its correction (M9 and M13), and the deferred minors 57 (`jobStatus = null`), 54:72, 52:64, 49:103 and 49:104. Dated notes now sit under each of those lines. Still not rendered by any test: the per-audit cards (a deferred minor below).
+This closes the page-render gap recorded as slice 47 R2 in part: the three fetches, `brand.status`, `domains.length` and `job?.status` are pinned; `budget_room`, `serp_configured` and `failed_7d` only one way: against a constant `true`, a constant `false`, and a constant of 3 or more, respectively, since every case that reaches those checks has the fixture's values (false, true, 0) (a deferred minor below, as corrected twice). It also closes 47's line 79, slice 48 R3 (the form's condition and attributes), slice 54 M4 (the domain note's placement) and slice 57 R3 with its correction (M9 and M13), and the deferred minors 57 (`jobStatus = null`), 54:72, 52:64, 49:103 and 49:104. Dated notes now sit under each of those lines. Still not rendered by any test: the per-audit cards (a deferred minor below).
 
 Spec: docs/superpowers/specs/2026-10-09-slice58-serp-page-render-test-design.md (rulings R1–R4, as the user approved it at `112de4b`). Plan: docs/superpowers/plans/2026-10-09-slice58-serp-page-render-test.md (Task 1; R5 applied in `f7ec76e`). R6 was made after the final review and is quoted from the ledger below. Merged via PR #116 (https://github.com/aiagencyindia-lab/bsi-platform/pull/116), main `0b6ce94`.
 
@@ -35,6 +35,7 @@ Spec: docs/superpowers/specs/2026-10-09-slice58-serp-page-render-test-design.md 
 - "User decision (2026-10-09): session model switched to Opus 5.5 by the user's /model command (after Task 1's review; the controller was on Fable 5.1 until here)."
 - "User decision (2026-10-09): finishing option 2 (push and create a PR). Pushed slice58-serp-page-render-test at 836d0a3; PR opened against main (body checked: banned-word grep empty; rulings named as the spec R1-R4, the plan R5, the ledger R6)."
 - "User decision (2026-10-09): after two docs review rounds, "Fix, re-review" over "Fix, stop" and "Stop now"."
+- "User decision (2026-10-09): after the third docs round, "Fix, stop" over "Stop now" and "Fix, re-review"."
 
 **Results** (selected ledger lines, quoted; in the ledger only: the header lines — title, spec, branch and base, session model — the dispatch lines and the pre-flight-scan lines):
 - "Task 1: implementer DONE_WITH_CONCERNS (commit 836d0a3; web 80 passed (80); typecheck, eslint clean; npm run gate passed; M1-M7 killed as in the proof (M6 10 failed); concern: Step 7's pytest gave 1 failed, 1110 passed, 666 errors because the bsi_test DB on :5433 closed connections mid-run and docker ps hung; ruff and mypy passed; the implementer touched neither Docker nor the DB; Step 7 needs a rerun)"
@@ -68,7 +69,7 @@ Spec: docs/superpowers/specs/2026-10-09-slice58-serp-page-render-test-design.md 
 - "Review verdict (2026-10-09): final whole-branch review of d6f2703..836d0a3 (Opus 5.5): Ready to merge Yes; 0 critical, 0 important, 4 minor; all 5 deferred minors triaged as not blocking."
 - "Review verdict (2026-10-09): docs review of 6ed57b3 (Opus 5.5): Changes needed (1 important: findings §1 and the README row say slice 47 R2 is closed, but serp_configured and failed_7d are true and 0 in every case, so a constant for either still passes; 3 minors: the 48 R3 note says 'cost paragraph' where only its id is asserted; the Results header omits the header lines; two plan notes worded loosely). All 41 quotes match the ledger byte for byte."
 - "Review verdict (2026-10-09): docs re-review of e217fe7 (Opus 5.5): Findings open (all 4 earlier findings addressed as worded; 1 new important: the partial-closure wording lists budget_room as pinned, but every case that reaches it has budget_room false, so a constant false still passes; 1 nit: nested parentheses in the Results header)."
-- Docs re-review of the R8 fix: see the docs PR.
+- "Review verdict (2026-10-09): docs re-review of e217fe7..695f4fb (Opus 5.5): All findings addressed (both ADDRESSED; every quote matches the ledger; 1 new minor: the docs say serp_configured and failed_7d are not pinned, but cases 2 and 3 reach both checks, so a constant false or a failed_7d of 3 or more fails them; an understatement)."
 
 **Commits** (`git log --oneline --reverse d6f2703..0b6ce94^2`, oldest first):
 
@@ -106,6 +107,10 @@ Every `Ruling:` and `Correction to R` line in the ledger, verbatim (R1–R5 were
 > Correction to R7 (2026-10-09): budget_room is pinned one way only: the page passing a constant true fails case 2, a constant false passes every case (only cases 2 and 3 reach the budget check, and both have budget_room false). Slice 47 R2 is closed for the fetches, brand.status, domains.length and job?.status; budget_room is pinned against true only; serp_configured and failed_7d are not pinned.
 
 > Ruling: R8. Decided: the re-review's findings are fixed in a third docs commit: findings §1 says budget_room is pinned against true only, and quotes the Correction to R7 and the corrected deferred minor in §3, replacing the 'no Correction to R line' sentence; the Results header uses a dash instead of nested parentheses and names the title line too. Found by: the docs re-reviewer (Opus 5.5), 2026-10-09. Why: my R7 wording repeated the overstatement it set out to fix, for one argument. Cost if wrong: none to behaviour. How named: ledger and chat.
+
+> Correction to R7 (2026-10-09, second): serp_configured and failed_7d are pinned one way, like budget_room: a constant false for serp_configured, or a constant failed_7d of 3 or more, fails cases 2 and 3; only constants equal to the fixture's values (true; anything below 3) still pass.
+
+> Ruling: R9. Decided: findings §1 says serp_configured is pinned against a constant false and failed_7d against a constant of 3 or more, and quotes the second Correction to R7 in §3; the README row is unchanged (it already names the correction to R7). No further review, as the user chose "Fix, stop"; the PR body says this commit is unreviewed. Found by: the docs re-reviewer (Opus 5.5), 2026-10-09. Why: my Correction to R7 understated the test for two arguments. Cost if wrong: none to behaviour; the commit is unreviewed. How named: ledger and chat.
 
 Every `minor (deferred)` line in the ledger, verbatim:
 
