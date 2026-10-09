@@ -112,6 +112,8 @@ Every `Ruling:` and `Correction to R` line in the ledger, verbatim (R1–R5 were
 
 > Ruling: R9. Decided: findings §1 says serp_configured is pinned against a constant false and failed_7d against a constant of 3 or more, and quotes the second Correction to R7 in §3; the README row is unchanged (it already names the correction to R7). No further review, as the user chose "Fix, stop"; the PR body says this commit is unreviewed. Found by: the docs re-reviewer (Opus 5.5), 2026-10-09. Why: my Correction to R7 understated the test for two arguments. Cost if wrong: none to behaviour; the commit is unreviewed. How named: ledger and chat.
 
+> Correction to R9 (2026-10-09): the README findings-slice58 row was changed in the same commit (44585f1), to "every ruling (R1–R9), the two corrections to R7 and every deferred minor"; R9's "the README row is unchanged" is wrong. This line is quoted by a further unreviewed commit under the same "Fix, stop" choice.
+
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Spec: minor (deferred): the page test renders only the empty-audits branch; the per-audit cards (ownership, type counts, the results table) are rendered by no test."
