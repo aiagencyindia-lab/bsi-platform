@@ -1254,12 +1254,12 @@ Mutations, each applied alone to the patched copy and reverted (backend: test_ap
 | M8 | serp_due ignores failures | killed: test_serp_due_agrees_with_due_serp_audits[three (1 failed, 50 passed, 2 warnings) |
 | M9 | the page takes the lock | killed: test_the_page_does_not_wait_on_the_orgs_budget_lock (1 failed, 50 passed, 2 warnings) |
 | M10 | budget_fits always locks | killed: test_the_page_does_not_wait_on_the_orgs_budget_lock (1 failed, 50 passed, 2 warnings) |
-| M11 | one action reads the id raw | killed: 87 passed (88) (1 failed) |
-| M12 | formSeg sends a missing field | killed: 84 passed (88) (4 failed) |
-| M13 | every 409 means exists | killed: 86 passed (88) (2 failed) |
-| M14 | any non-active status reads archived | killed: 87 passed (88) (1 failed) |
-| M15 | the budget note ignores due | killed: 86 passed (88) (2 failed) |
-| M16 | the page passes true for serp_due | killed: 87 passed (88) (1 failed) |
+| M11 | one action reads the id raw | killed: server actions read path values with formSeg() (1 failed, 87 passed (88)) |
+| M12 | formSeg sends a missing field | killed: addDomain refuses a form with no brand_id without calling the API; formSeg refuses a file field and a value seg() refuses; formSeg refuses a missing field instead of sending "null"; runSerpAudit refuses a form with no brand_id without calling the API (4 failed, 84 passed (88)) |
+| M13 | every 409 means exists | killed: addDomain rethrows a 409 with any other title; addDomain shows a note when the brand is archived (2 failed, 86 passed (88)) |
+| M14 | any non-active status reads archived | killed: serpSchedule says whether the weekly sweep audits the brand (1 failed, 87 passed (88)) |
+| M15 | the budget note ignores due | killed: a queued audit hides the budget note; serpSchedule says whether the weekly sweep audits the brand (2 failed, 86 passed (88)) |
+| M16 | the page passes true for serp_due | killed: a queued audit hides the budget note (1 failed, 87 passed (88)) |
 | M17 | budget_fits never locks | killed by `test_the_default_check_waits_for_the_orgs_lock` (1 failed, 13 passed (test_budget.py)); before that test existed, this mutant survived the whole backend suite (1791 passed) |
 
 ## Rulings
