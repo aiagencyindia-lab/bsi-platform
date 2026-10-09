@@ -306,13 +306,18 @@ First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add apps/api/
 | M2 | delete the line `.on_conflict_do_nothing(index_elements=["brand_id", "host"])` | test_a_simultaneous_duplicate_domain_is_409_not_500; test_competitors_and_domains (2 failed) |
 | M3 | `host: Annotated[str, AfterValidator(_public_host)] = Field(min_length=3)` in place of `host: Host = Field(min_length=3)` | test_a_host_is_capped_at_200_characters (1 failed) |
 
-- [ ] **Step 6: Lint, type-check and commit**
+- [ ] **Step 6: Regenerate the web types**
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59/apps/web && npm run gen`
+Expected (simulated on a fresh copy with this task's blocks only): `openapi.json` +1 (`"maxLength": 200,` on `DomainIn.host`); `src/lib/schema.d.ts` unchanged; `git diff --stat` shows only `apps/web/openapi.json` changed (the Step 5 files are staged).
+
+- [ ] **Step 7: Lint, type-check and commit**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && uv run ruff format --check . && uv run ruff check . && uv run mypy`
 Expected (proof run): `184 files already formatted`; `All checks passed!`; `Success: no issues found in 31 source files`.
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add apps/api/bsi_api/routers/brands.py tests/integration/test_api_recommendations.py tests/integration/test_api_crud.py && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -F - <<'EOF' # Banned-word grep (must block the commit)
+cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add apps/api/bsi_api/routers/brands.py tests/integration/test_api_recommendations.py tests/integration/test_api_crud.py apps/web/openapi.json && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -F - <<'EOF' # Banned-word grep (must block the commit)
 fix(api): POST /domains refuses archived brands, caps the host, and returns 409 on a concurrent duplicate
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -327,7 +332,7 @@ EOF
 - Modify: `packages/core/bsi_core/scheduling.py` (constants; `budget_fits`; `serp_budget_fits`; new `serp_due`)
 - Modify: `apps/api/bsi_api/routers/audits.py` (import; `latest_serp`)
 - Modify: `apps/api/bsi_api/schemas.py` (`SerpAuditsOut`)
-- Test: `tests/integration/test_api_serp.py`, `tests/integration/test_budget.py`
+- Test: `tests/integration/test_api_serp.py`, `tests/integration/test_budget.py`, `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx` (the fixture only)
 - Generated: `apps/web/openapi.json`, `apps/web/src/lib/schema.d.ts` (via `npm run gen`)
 
 **Interfaces:**
@@ -877,15 +882,65 @@ The bracketed ids are cases of `test_serp_due_agrees_with_due_serp_audits`.
 - [ ] **Step 6: Regenerate the web types**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59/apps/web && npm run gen`
-Expected (proof run): `openapi.json` +8 −2 and `src/lib/schema.d.ts` +9 −3 (the `latest_serp` description and `serp_due: boolean`); `git diff --stat` shows exactly those two generated files changed (the Step 5 files are staged).
+Expected (simulated after Task 1): `openapi.json` +7 −2 and `src/lib/schema.d.ts` +9 −3 (the `latest_serp` description and `serp_due: boolean`); `git diff --stat` shows exactly those two generated files changed (the Step 5 files are staged).
 
-- [ ] **Step 7: Lint, type-check and commit**
+- [ ] **Step 7: Give the page test's fixture `serp_due`**
+
+`serp_due` is now a required field of the generated `SerpAudits`, so the page test's fixture needs it to type-check.
+
+In `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx` (block 1 of 3), replace this block (it occurs exactly once at this point; the block ends on a whole line):
+
+```tsx
+  job: SerpAudits["job"] = null,
+): SerpAudits => ({
+```
+
+with:
+
+```tsx
+  job: SerpAudits["job"] = null,
+  serp_due = true,
+): SerpAudits => ({
+```
+
+In `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx` (block 2 of 3), replace this block (it occurs exactly once at this point; the block ends on a whole line):
+
+```tsx
+  budget_room,
+});
+```
+
+with:
+
+```tsx
+  budget_room,
+  serp_due,
+});
+```
+
+In `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx` (block 3 of 3), replace this block (it occurs exactly once at this point; the block ends on a whole line):
+
+```tsx
+    serp: serp(false, { status: "queued", error: null }),
+```
+
+with:
+
+```tsx
+    // The brand's own queued audit makes it not due (due_serp_audits()).
+    serp: serp(false, { status: "queued", error: null }, false),
+```
+
+Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59/apps/web && npm run typecheck && npx vitest run`
+Expected (simulated after Task 1): typecheck prints no error; `Tests  80 passed (80)`.
+
+- [ ] **Step 8: Lint, type-check and commit**
 
 Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && uv run ruff format --check . && uv run ruff check . && uv run mypy`
 Expected (proof run): `184 files already formatted`; `All checks passed!`; `Success: no issues found in 31 source files`.
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add packages/core/bsi_core/scheduling.py apps/api/bsi_api/routers/audits.py apps/api/bsi_api/schemas.py tests/integration/test_api_serp.py tests/integration/test_budget.py apps/web/openapi.json apps/web/src/lib/schema.d.ts && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -F - <<'EOF' # Banned-word grep (must block the commit)
+cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add packages/core/bsi_core/scheduling.py apps/api/bsi_api/routers/audits.py apps/api/bsi_api/schemas.py tests/integration/test_api_serp.py tests/integration/test_budget.py apps/web/openapi.json apps/web/src/lib/schema.d.ts "apps/web/src/app/(app)/b/[id]/serp/page.test.tsx" && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -F - <<'EOF' # Banned-word grep (must block the commit)
 feat: serp_due on the Brand SERP audits response; the page reads the budget without the org's lock
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -900,10 +955,10 @@ EOF
 - Modify: `apps/web/src/lib/api.ts` (new `formSeg`)
 - Modify: the 10 action files under `apps/web/src/app/(app)/b/[id]/` (alerts, clusters, competitors, label, products, recommendations, reports, serp, site, tasks)
 - Modify: `apps/web/src/lib/format.ts` (`DOMAIN_NOTES`; `serpSchedule`), `apps/web/src/app/(app)/b/[id]/serp/page.tsx`
-- Test: `apps/web/src/lib/api-paths.test.ts`, `apps/web/src/lib/api.test.ts`, `apps/web/src/lib/format.test.ts`, `apps/web/src/app/(app)/b/[id]/serp/actions.test.ts`, `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx`
+- Test: `apps/web/src/lib/api-paths.test.ts`, `apps/web/src/lib/api.test.ts`, `apps/web/src/lib/format.test.ts`, `apps/web/src/app/(app)/b/[id]/serp/actions.test.ts`
 
 **Interfaces:**
-- Consumes: `SerpAudits.serp_due: boolean` (generated in Task 2); the API's 409 titles "Domain already exists" and "Brand is archived" (Task 1).
+- Consumes: `SerpAudits.serp_due: boolean` (generated in Task 2, which also gave the page test's fixture `serp_due`); the API's 409 titles "Domain already exists" and "Brand is archived" (Task 1).
 - Produces: `formSeg(form: FormData, name: string): string` in `@/lib/api`; `serpSchedule(status: string, domains: number, configured: boolean, failed7d: number, budgetRoom: boolean, due: boolean): string`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1183,49 +1238,6 @@ test.each([
   expect(redirect).not.toHaveBeenCalled();
   expect(log).toHaveBeenCalledWith("API form value missing", '"brand_id"');
 });
-```
-
-In `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx` (block 1 of 3), replace this block (it occurs exactly once at this point; the block ends on a whole line):
-
-```tsx
-  job: SerpAudits["job"] = null,
-): SerpAudits => ({
-```
-
-with:
-
-```tsx
-  job: SerpAudits["job"] = null,
-  serp_due = true,
-): SerpAudits => ({
-```
-
-In `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx` (block 2 of 3), replace this block (it occurs exactly once at this point; the block ends on a whole line):
-
-```tsx
-  budget_room,
-});
-```
-
-with:
-
-```tsx
-  budget_room,
-  serp_due,
-});
-```
-
-In `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx` (block 3 of 3), replace this block (it occurs exactly once at this point; the block ends on a whole line):
-
-```tsx
-    serp: serp(false, { status: "queued", error: null }),
-```
-
-with:
-
-```tsx
-    // The brand's own queued audit makes it not due (due_serp_audits()).
-    serp: serp(false, { status: "queued", error: null }, false),
 ```
 
 - [ ] **Step 2: Run them to verify they fail**
@@ -1873,7 +1885,7 @@ Expected: `Tests  88 passed (88)`; typecheck prints no error.
 
 - [ ] **Step 5: Mutation table**
 
-First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add apps/web/src/lib/api.ts "apps/web/src/app/(app)/b/[id]/alerts/actions.ts" "apps/web/src/app/(app)/b/[id]/clusters/actions.ts" "apps/web/src/app/(app)/b/[id]/competitors/actions.ts" "apps/web/src/app/(app)/b/[id]/label/actions.ts" "apps/web/src/app/(app)/b/[id]/products/actions.ts" "apps/web/src/app/(app)/b/[id]/recommendations/actions.ts" "apps/web/src/app/(app)/b/[id]/reports/actions.ts" "apps/web/src/app/(app)/b/[id]/serp/actions.ts" "apps/web/src/app/(app)/b/[id]/site/actions.ts" "apps/web/src/app/(app)/b/[id]/tasks/actions.ts" apps/web/src/lib/format.ts "apps/web/src/app/(app)/b/[id]/serp/page.tsx" apps/web/src/lib/api-paths.test.ts apps/web/src/lib/api.test.ts apps/web/src/lib/format.test.ts "apps/web/src/app/(app)/b/[id]/serp/actions.test.ts" "apps/web/src/app/(app)/b/[id]/serp/page.test.tsx"`. Apply each mutant alone, run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59/apps/web && npx vitest run`, paste the `Tests` line and the failing names, restore with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git checkout -- "<file>"` (quoted), and confirm `git diff --stat` is empty.
+First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add apps/web/src/lib/api.ts "apps/web/src/app/(app)/b/[id]/alerts/actions.ts" "apps/web/src/app/(app)/b/[id]/clusters/actions.ts" "apps/web/src/app/(app)/b/[id]/competitors/actions.ts" "apps/web/src/app/(app)/b/[id]/label/actions.ts" "apps/web/src/app/(app)/b/[id]/products/actions.ts" "apps/web/src/app/(app)/b/[id]/recommendations/actions.ts" "apps/web/src/app/(app)/b/[id]/reports/actions.ts" "apps/web/src/app/(app)/b/[id]/serp/actions.ts" "apps/web/src/app/(app)/b/[id]/site/actions.ts" "apps/web/src/app/(app)/b/[id]/tasks/actions.ts" apps/web/src/lib/format.ts "apps/web/src/app/(app)/b/[id]/serp/page.tsx" apps/web/src/lib/api-paths.test.ts apps/web/src/lib/api.test.ts apps/web/src/lib/format.test.ts "apps/web/src/app/(app)/b/[id]/serp/actions.test.ts"`. Apply each mutant alone, run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59/apps/web && npx vitest run`, paste the `Tests` line and the failing names, restore with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git checkout -- "<file>"` (quoted), and confirm `git diff --stat` is empty.
 
 | Mutant | File | Change | Proof: failing tests |
 |---|---|---|---|
@@ -1891,7 +1903,7 @@ Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice59/apps/web && npm run gate`
 Expected: typecheck and lint clean (no warnings); `Tests  88 passed (88)`; build compiled; `gen:check` no diff (Task 2 committed the generated files). State the numbers you see.
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add apps/web/src/lib/api.ts "apps/web/src/app/(app)/b/[id]/alerts/actions.ts" "apps/web/src/app/(app)/b/[id]/clusters/actions.ts" "apps/web/src/app/(app)/b/[id]/competitors/actions.ts" "apps/web/src/app/(app)/b/[id]/label/actions.ts" "apps/web/src/app/(app)/b/[id]/products/actions.ts" "apps/web/src/app/(app)/b/[id]/recommendations/actions.ts" "apps/web/src/app/(app)/b/[id]/reports/actions.ts" "apps/web/src/app/(app)/b/[id]/serp/actions.ts" "apps/web/src/app/(app)/b/[id]/site/actions.ts" "apps/web/src/app/(app)/b/[id]/tasks/actions.ts" apps/web/src/lib/format.ts "apps/web/src/app/(app)/b/[id]/serp/page.tsx" apps/web/src/lib/api-paths.test.ts apps/web/src/lib/api.test.ts apps/web/src/lib/format.test.ts "apps/web/src/app/(app)/b/[id]/serp/actions.test.ts" "apps/web/src/app/(app)/b/[id]/serp/page.test.tsx" && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -F - <<'EOF' # Banned-word grep (must block the commit)
+cd /Users/vineet/Downloads/ADK/bsi-wt/slice59 && git add apps/web/src/lib/api.ts "apps/web/src/app/(app)/b/[id]/alerts/actions.ts" "apps/web/src/app/(app)/b/[id]/clusters/actions.ts" "apps/web/src/app/(app)/b/[id]/competitors/actions.ts" "apps/web/src/app/(app)/b/[id]/label/actions.ts" "apps/web/src/app/(app)/b/[id]/products/actions.ts" "apps/web/src/app/(app)/b/[id]/recommendations/actions.ts" "apps/web/src/app/(app)/b/[id]/reports/actions.ts" "apps/web/src/app/(app)/b/[id]/serp/actions.ts" "apps/web/src/app/(app)/b/[id]/site/actions.ts" "apps/web/src/app/(app)/b/[id]/tasks/actions.ts" apps/web/src/lib/format.ts "apps/web/src/app/(app)/b/[id]/serp/page.tsx" apps/web/src/lib/api-paths.test.ts apps/web/src/lib/api.test.ts apps/web/src/lib/format.test.ts "apps/web/src/app/(app)/b/[id]/serp/actions.test.ts" && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -F - <<'EOF' # Banned-word grep (must block the commit)
 fix(web): formSeg for form ids, the archived and not-active lines, and the budget note only for a due brand
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
@@ -1908,13 +1920,14 @@ Expected (proof run): `184 files already formatted`, `All checks passed!`, `Succ
 ## Departures from the spec
 
 1. The spec presents one change; the plan splits it into three commits (Task 1 the domain route and the shared test helper, Task 2 the SERP facts and the generated types, Task 3 the web). The code is the same: the blocks and the spec's diff come from the same proof.
-2. The spec's mutation table lists 22 mutants in one table; the plan puts each in the task whose files it mutates, with the exact edit. Each task's mutants run against that task's test files, so a count can differ from the spec's (which ran three backend files for every backend mutant).
-3. Step 0 (the worktree and its dependencies), "stage before mutating" and the quoted restore paths are process, not in the spec. The spec names the full backend gate; Task 3 Step 7 gives its command and expected line.
+2. The spec's mutation table lists 22 mutants in one table; the plan puts each in the task whose files it mutates, with the exact edit. Task 1's mutants run test_api_crud.py only (the spec ran three backend files for every backend mutant), Task 2's run the spec's three backend files, and the web mutants run the whole vitest suite.
+3. Step 0 (the worktree and its dependencies), "stage before mutating" and the quoted restore paths are process, not in the spec. The spec names the full backend gate; Task 3 Step 7 gives its command and expected line. The live check the spec offers at the finishing menu is the controller's, not a task step.
+5. Task 1 regenerates `openapi.json` (its host cap adds `maxLength`), and the page test's fixture change moves from Section 3 (the web) to Task 2, so every task's commit passes `gen:check` and the web typecheck (R9).
 4. The spec's docs follow-ups (dated notes under the findings lines it lists) have no task here; the docs PR after the merge does them.
 
 ## Rulings made while planning
 
-(none)
+Ruling: R9. Decided: the plan review's four minors are fixed in a second plan commit: Task 1 runs `npm run gen` and commits `apps/web/openapi.json` (its host cap adds `"maxLength": 200`); Task 2's Expected reads +7 −2 for openapi.json against Task 1; the page test's fixture blocks move into Task 2 with a typecheck and a vitest run, so no commit leaves the web typecheck red; departure 2 says which test files each task's mutants run; departure 3 names the live-check offer as the controller's. Found by: the plan reviewer (Opus 5.5), 2026-10-09; the first two checked by simulating Task 1 alone and then Task 2 on a fresh copy. Why: a commit that would fail gen:check and one that would fail the web typecheck, and two loose departure lines, all mine. Cost if wrong: none to behaviour. How named: this plan and chat.
 
 ## Changes made during execution
 
