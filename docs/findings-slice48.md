@@ -59,7 +59,7 @@ Every `Ruling:` line in the ledger, verbatim:
 
 > Ruling: R3. Decided: no test covers the page's form condition (brand.status === "active" && domains.length === 0) or its attributes (label, pattern, aria-describedby); the action tests cover addDomain only. Found by: the spec reviewer (Minor 7) and the controller. Why: the repo has no tests for Server Component pages; the condition is the case serpSchedule's test pins for the no-domain line. Cost if wrong: a wiring slip (the form shown for an archived brand, or hidden for a no-domain brand, or a dropped pattern) would ship unnoticed by the gate. How named: in chat, 2026-10-07, after the spec review.
 
-Note (2026-10-09, after slice 58, PR #116): the Brand SERP page now has a render test (docs/findings-slice58.md §1); it checks the form's condition, label, `pattern`, `aria-describedby` and cost paragraph.
+Note (2026-10-09, after slice 58, PR #116): the Brand SERP page now has a render test (docs/findings-slice58.md §1); it checks the form's condition, label, `pattern`, `aria-describedby` and the cost paragraph's id.
 
 > Ruling: R4. Decided: the spec re-review's minors are fixed: the Design names walkaroo. and www.walkaroo as hosts the pattern passes and the API refuses (Minor 1); the error text gives the development message for each cause (422, 409, 500) (Minor 2); the live check keeps the worker's conditions (credentials, budget room) and says an active brand with no domain (Minor 3); the Context records that the revised Section 1 was shown and approved (Minor 4). Found by: the spec re-reviewer (Opus 5.5, a5fdc2e90f6b2c82c), 2026-10-07. Why: incomplete statements of mine. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
 

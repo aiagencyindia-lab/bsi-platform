@@ -278,7 +278,7 @@ In the order they were written:
 | [findings-slice57.md](findings-slice57.md) | Results: the schedule line notes the third skip reason (budget room), the gates, CI and reviews, no live check, and every ruling (R1–R18), correction and deferred minor, quoted from the ledger. |
 | [superpowers/specs/2026-10-09-slice58-serp-page-render-test-design.md](superpowers/specs/2026-10-09-slice58-serp-page-render-test-design.md) | Design spec: a vitest that renders the Brand SERP page through the real api() with fetch stubbed per URL, in four cases, plus five test-only fixes in format.test.ts and api.test.ts; a 7-row mutation table is the evidence, with rulings R1–R4 and the deferred minor. |
 | [superpowers/plans/2026-10-09-slice58-serp-page-render-test.md](superpowers/plans/2026-10-09-slice58-serp-page-render-test.md) | Implementation plan, one web-only task generated from a scratchpad proof, with ruling R5 and the changes made during execution (the Docker outage and the backend-gate rerun). |
-| [findings-slice58.md](findings-slice58.md) | Results: the Brand SERP page render test (closing slice 47 R2, 48 R3, 54 M4 and 57 M9/M13) and five test-only minors, the gates, CI and reviews, no live check, and every ruling (R1–R6) and deferred minor, quoted from the ledger. |
+| [findings-slice58.md](findings-slice58.md) | Results: the Brand SERP page render test (closing 48 R3, 54 M4 and 57 M9/M13, and slice 47 R2 in part) and five test-only minors, the gates, CI and reviews, no live check, and every ruling (R1–R7) and deferred minor, quoted from the ledger. |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
