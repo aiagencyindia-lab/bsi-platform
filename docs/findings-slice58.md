@@ -11,7 +11,7 @@ A new vitest, `apps/web/src/app/(app)/b/[id]/serp/page.test.tsx`, renders the Br
 
 Five test-only fixes ride along: a `jobStatus = null` case and the `domainNote` import order in `format.test.ts`; in `api.test.ts`, the guard cases pin the `console.error` count, the `publicApi` dot-segment test asserts its log line, and `afterEach` resets the cookie mock. No production code changed and nothing was installed.
 
-This closes the page-render gap recorded as slice 47 R2 in part (the three fetches, `brand.status`, `domains.length`, `budget_room` and `job?.status`; `serp_configured` and `failed_7d` are true and 0 in every case, so a constant for either still passes, a new deferred minor below) and its line 79, slice 48 R3 (the form's condition and attributes), slice 54 M4 (the domain note's placement) and slice 57 R3 with its correction (M9 and M13), and the deferred minors 57 (`jobStatus = null`), 54:72, 52:64, 49:103 and 49:104. Dated notes now sit under each of those lines. Still not rendered by any test: the per-audit cards (a deferred minor below).
+This closes the page-render gap recorded as slice 47 R2 in part: the three fetches, `brand.status`, `domains.length` and `job?.status` are pinned; `budget_room` only against a constant `true` (every case that reaches the budget check has it false); `serp_configured` and `failed_7d` not at all, since they are true and 0 in every case (a deferred minor below, as corrected). It also closes 47's line 79, slice 48 R3 (the form's condition and attributes), slice 54 M4 (the domain note's placement) and slice 57 R3 with its correction (M9 and M13), and the deferred minors 57 (`jobStatus = null`), 54:72, 52:64, 49:103 and 49:104. Dated notes now sit under each of those lines. Still not rendered by any test: the per-audit cards (a deferred minor below).
 
 Spec: docs/superpowers/specs/2026-10-09-slice58-serp-page-render-test-design.md (rulings R1–R4, as the user approved it at `112de4b`). Plan: docs/superpowers/plans/2026-10-09-slice58-serp-page-render-test.md (Task 1; R5 applied in `f7ec76e`). R6 was made after the final review and is quoted from the ledger below. Merged via PR #116 (https://github.com/aiagencyindia-lab/bsi-platform/pull/116), main `0b6ce94`.
 
@@ -34,8 +34,9 @@ Spec: docs/superpowers/specs/2026-10-09-slice58-serp-page-render-test-design.md 
 - "User decision (2026-10-09): execution subagent-driven."
 - "User decision (2026-10-09): session model switched to Opus 5.5 by the user's /model command (after Task 1's review; the controller was on Fable 5.1 until here)."
 - "User decision (2026-10-09): finishing option 2 (push and create a PR). Pushed slice58-serp-page-render-test at 836d0a3; PR opened against main (body checked: banned-word grep empty; rulings named as the spec R1-R4, the plan R5, the ledger R6)."
+- "User decision (2026-10-09): after two docs review rounds, "Fix, re-review" over "Fix, stop" and "Stop now"."
 
-**Results** (selected ledger lines, quoted; the header lines (spec, branch and base, session model), the dispatch lines and the pre-flight-scan lines are in the ledger only):
+**Results** (selected ledger lines, quoted; in the ledger only: the header lines — title, spec, branch and base, session model — the dispatch lines and the pre-flight-scan lines):
 - "Task 1: implementer DONE_WITH_CONCERNS (commit 836d0a3; web 80 passed (80); typecheck, eslint clean; npm run gate passed; M1-M7 killed as in the proof (M6 10 failed); concern: Step 7's pytest gave 1 failed, 1110 passed, 666 errors because the bsi_test DB on :5433 closed connections mid-run and docker ps hung; ruff and mypy passed; the implementer touched neither Docker nor the DB; Step 7 needs a rerun)"
 - "Task 1: cannot-verify resolved: the commit trailer is "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" after a blank line (controller ran git log -1 --format=%B 836d0a3); the mutation results stand on the implementer's pasted Tests lines, which match the proof's; Step 7 (backend gate) stays open until the :5433 database is back."
 - "Task 1: blocked on the environment: the Postgres container on :5433 is down (nc: closed; docker ps gives no output in 8 s while Docker Desktop's backend runs); the user was asked to restart Docker Desktop; Step 7 reruns after that, and must name any failing test."
@@ -66,7 +67,8 @@ Spec: docs/superpowers/specs/2026-10-09-slice58-serp-page-render-test-design.md 
 - "Review verdict (2026-10-09): Task 1 task review of f7ec76e..836d0a3 (Opus 5.5): Spec compliant (page.test.tsx byte-identical to the brief; added/removed lines identical to the spec's diff); Task quality Approved; 0 critical, 0 important, 4 minor."
 - "Review verdict (2026-10-09): final whole-branch review of d6f2703..836d0a3 (Opus 5.5): Ready to merge Yes; 0 critical, 0 important, 4 minor; all 5 deferred minors triaged as not blocking."
 - "Review verdict (2026-10-09): docs review of 6ed57b3 (Opus 5.5): Changes needed (1 important: findings §1 and the README row say slice 47 R2 is closed, but serp_configured and failed_7d are true and 0 in every case, so a constant for either still passes; 3 minors: the 48 R3 note says 'cost paragraph' where only its id is asserted; the Results header omits the header lines; two plan notes worded loosely). All 41 quotes match the ledger byte for byte."
-- Docs re-review: see the docs PR.
+- "Review verdict (2026-10-09): docs re-review of e217fe7 (Opus 5.5): Findings open (all 4 earlier findings addressed as worded; 1 new important: the partial-closure wording lists budget_room as pinned, but every case that reaches it has budget_room false, so a constant false still passes; 1 nit: nested parentheses in the Results header)."
+- Docs re-review of the R8 fix: see the docs PR.
 
 **Commits** (`git log --oneline --reverse d6f2703..0b6ce94^2`, oldest first):
 
@@ -101,7 +103,9 @@ Every `Ruling:` and `Correction to R` line in the ledger, verbatim (R1–R5 were
 
 > Ruling: R7. Decided: the docs review's findings are fixed in a second docs commit: findings §1 and the README row say slice 47 R2 is closed in part (the fetches, brand.status, domains.length, budget_room, job?.status) and name the two arguments still unpinned, recorded as a new deferred minor; the 48 R3 note and §1 case 1 say 'the cost paragraph's id'; the Results header names the header lines it leaves out; the plan's Step 0 bullet says 'as planned' and the byte-identical claim names the brief and the spec's diff. Found by: the docs reviewer (Opus 5.5), 2026-10-09. Why: an overstated closure and three loose claims, all mine. Cost if wrong: none to behaviour. How named: ledger and chat.
 
-There is no `Correction to R` line in the ledger.
+> Correction to R7 (2026-10-09): budget_room is pinned one way only: the page passing a constant true fails case 2, a constant false passes every case (only cases 2 and 3 reach the budget check, and both have budget_room false). Slice 47 R2 is closed for the fetches, brand.status, domains.length and job?.status; budget_room is pinned against true only; serp_configured and failed_7d are not pinned.
+
+> Ruling: R8. Decided: the re-review's findings are fixed in a third docs commit: findings §1 says budget_room is pinned against true only, and quotes the Correction to R7 and the corrected deferred minor in §3, replacing the 'no Correction to R line' sentence; the Results header uses a dash instead of nested parentheses and names the title line too. Found by: the docs re-reviewer (Opus 5.5), 2026-10-09. Why: my R7 wording repeated the overstatement it set out to fix, for one argument. Cost if wrong: none to behaviour. How named: ledger and chat.
 
 Every `minor (deferred)` line in the ledger, verbatim:
 
@@ -113,3 +117,4 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Final review: minor (deferred): page.test.tsx's cookieStore.get returns the key for any cookie name, so a wrong cookie name in api() would pass; api.test.ts's signedIn() has the same blind spot."
 - "Final review: minor (deferred): page.test.tsx's BUDGET copies the production string from format.ts, so a copy edit there means updating format.test.ts and this test."
 - "Docs review: minor (deferred): page.test.tsx's serp() fixture sets serp_configured true and failed_7d 0 in every case, so the page passing a constant for either argument still passes; slice 47 R2 is closed only for the fetches, brand.status, domains.length, budget_room and job?.status."
+- "Docs review: minor (deferred): corrected: page.test.tsx's serp() fixture sets serp_configured true and failed_7d 0 in every case, and every case that reaches the budget check has budget_room false, so the page passing a constant for serp_configured or failed_7d, or a constant false for budget_room, still passes (Correction to R7)."
