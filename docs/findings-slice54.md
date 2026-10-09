@@ -37,6 +37,8 @@ CI was not checked by the controller before the merge; the ledger records the us
 | M3 | `domainNote` without `hasOwn` | the `constructor` case fails |
 | M4 | the note moved inside the add-domain form's condition | nothing fails: no test renders the page (deferred) |
 
+Note (2026-10-09, after slice 58, PR #116): the Brand SERP page now has a render test (docs/findings-slice58.md §1); its "with a domain and no room" case now kills M4.
+
 **Reviews**, as the ledger records them:
 - "Task 1: task review 2026-10-08 02:49 UTC: spec compliance pass, quality Approved; 2 Minor, 0 Important, 0 Critical (reviewer checked counts: actions.test.ts 4 tests, format.test.ts 30, two-file run 34, suite 76; an empty 422 body gives '422  (request null)' which still starts with '422 '; NEXT_REDIRECT/NEXT_NOT_FOUND are rethrown). Cannot-verify items resolved by controller: the web gate is re-run by the controller at finishing; gen:check skip allowed by the brief."
 - "Final whole-branch review 2026-10-08 02:50 UTC: mergeable; 0 Critical, 0 Important, 3 Minor; both deferred minors (M4 page-render gap; import order) triaged as stay-deferred. No fix dispatch needed."
@@ -69,7 +71,9 @@ There is no `Correction to R` line in the ledger.
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Task 1: minor (deferred): mutation M4 (the domain note rendered inside the add-domain form condition) is caught by no test because no test renders the SERP page; a 409 note would then be hidden with the form."
+  - Note (2026-10-09, after slice 58, PR #116): fixed by the page render test (docs/findings-slice58.md §1).
 - "Task 1: minor (deferred): format.test.ts:8 imports domainNote between ciText and crawlNote, out of alphabetical order; lint passes, cosmetic."
+  - Note (2026-10-09, after slice 58, PR #116): fixed: `domainNote` now follows `crawlNote` (docs/findings-slice58.md §1).
 - "Final review: minor (deferred): two simultaneous submits of the same host still give a 500 from the unique constraint and reach the error page (findings-slice48 R2); the domain is added anyway. The slice 54 findings must say so."
 - "Final review: minor (deferred): this reverses the slice 48 user decision (browser pattern over catch-and-note, findings-slice48 lines 13 and 77, and line 5 says a refused host shows the error page); the slice 54 findings must name the reversal and the user decision that authorised it (the chat approval of the slice 54 design on 2026-10-08). The historical doc is not edited."
 - "Final review: minor (deferred): one note text covers every 422 cause (IP, no dot, whitespace-only after trim, over 200 characters); the copy names IPs specifically but is still correct advice for the rest."

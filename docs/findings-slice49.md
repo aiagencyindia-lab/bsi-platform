@@ -101,7 +101,9 @@ Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): spec re-review (90ee504) minor 2, a scanned block-comment line holding an unclosed api(` could make the scan's PATH regex run on to the next real template and hide its interpolations; none exists today (R8)."
 - "Task 1: minor (deferred): publicApi refuses a dot segment stubs console.error but does not assert the "API path refused" log line (plan-mandated, stated in the spec)."
+  - Note (2026-10-09, after slice 58, PR #116): fixed: the test asserts the "API path refused" log line and its count (docs/findings-slice58.md §1).
 - "Task 1: minor (deferred): vi.restoreAllMocks() does not clear the cookies mockResolvedValue between tests; harmless, since every test that needs a cookie calls signedIn()."
+  - Note (2026-10-09, after slice 58, PR #116): fixed: `afterEach` calls `vi.mocked(cookies).mockReset()` (docs/findings-slice58.md §1).
 - "Task 2: minor (deferred): the scan's QUERIES allowlist exempts q, dq, wq, feedQuery and apiQuery(sp) by name, so a raw value later stored in one of them would pass (plan-mandated, stated in the spec)."
 - "Task 2: minor (deferred): the scan reads only src/app; no api()/publicApi() caller exists outside it today (plan-mandated, stated in the spec)."
 - "minor (deferred): final review minor 2, the refusal log lines in seg() and sendAsWritten record the raw value or path with no length cap (R11)."

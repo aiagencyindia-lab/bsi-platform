@@ -332,4 +332,7 @@ Ruling: R5. Decided: the plan review's five minors are fixed in a second plan co
 
 ## Changes made during execution
 
-(filled in by the docs PR)
+- Step 7's first run was not a test result: the local Postgres container on :5433 dropped connections mid-run (`1 failed, 1110 passed, 666 errors`, with "server closed the connection unexpectedly") and Docker's daemon stopped answering. The user restarted Docker Desktop, the controller ran `docker compose up -d` and checked that `bsi_test` answered, and the implementer reran Step 7: `1777 passed, 2 deselected, 2 warnings`, as Expected.
+- Step 0: the controller had already created the worktree when the task was dispatched; the implementer ran `npm ci` and `uv sync`.
+- The implementer appended its Step 7 rerun notes to the gitignored report with a heredoc, against the Global Constraints; it reported this itself (a deferred minor).
+- No other departure was reported; the committed files are byte-identical to the plan's blocks and new file (the task reviewer compared them).

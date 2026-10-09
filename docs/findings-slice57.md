@@ -116,6 +116,8 @@ Every `Ruling:` and `Correction to R` line in the ledger, verbatim (R1–R13 and
 
 > Correction to R3 (2026-10-08): the second proof adds M13 (the page not passing `job?.status`), which also survives; it is deferred on the same grounds.
 
+Note (2026-10-09, after slice 58, PR #116): the Brand SERP page now has a render test (docs/findings-slice58.md §1); its cases kill M9 and M13.
+
 > Ruling: R4. Decided: the spec no longer says "the page's verdict is the sweep's"; the field is the sweep's own check, but the sweep applies it only to due brands. Found by: the spec reviewer (finding 1). Why: it overstated what the page shows. Cost if wrong: none; a sentence. How named: this spec and chat.
 
 > Ruling: R5. Decided: the worker's ponytail comment says "(the press takes no lock)" instead of "(the API takes no lock)". Found by: the spec reviewer (finding 2). Why: the GET now takes the org's lock; only the "Run audit now" press does not. Cost if wrong: one comment. How named: this spec and chat.
@@ -149,9 +151,11 @@ Every `Ruling:` and `Correction to R` line in the ledger, verbatim (R1–R13 and
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Spec: minor (deferred): no test renders the Brand SERP page, so passing a constant for `budget_room` (M9) or leaving out `job?.status` (M13) passes the gate (R3)."
+  - Note (2026-10-09, after slice 58, PR #116): fixed by the page render test (docs/findings-slice58.md §1).
 - "Spec: minor (deferred): the note shows for a brand that is not due (audited this week) whenever the org's budget is full; it is true there but says nothing about that brand (decision 4)."
 - "Task 1: minor (deferred): every pytest summary shows "2 warnings" (the known Starlette/anyio warnings, present on main and in the proof runs); not introduced by this slice."
 - "Task 1: minor (deferred): the Brand SERP GET now takes pg_advisory_xact_lock with no timeout for the rest of its transaction; accepted in the spec (decision 2, R6, SET LOCAL lock_timeout as the upgrade)."
 - "Task 2: minor (deferred): no serpSchedule case passes jobStatus = null explicitly (ck_job_status allows NULL; null is neither queued nor running, so the code handles it); the test is as the plan wrote it."
+  - Note (2026-10-09, after slice 58, PR #116): fixed: format.test.ts has the `null` case (docs/findings-slice58.md §1).
 - "Task 2: minor (deferred): the phase 1 report recorded only the Tests line (1 failed, 75 passed (76)) for each killed web mutant, not the failing test's name."
 - "Final review: minor (deferred): test_get_is_empty_before_any_audit's budget_room True assertion reads scheduling.get_settings() (the .env default $2.00 budget); a local .env with DAILY_BUDGET_USD under 0.04 would turn it red; the worktree has no .env and CI uses defaults (same shape as slice 55's serp_configured case)."

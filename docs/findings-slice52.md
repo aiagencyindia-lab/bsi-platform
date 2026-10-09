@@ -62,3 +62,4 @@ There is no `Correction to R` line in the ledger.
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Task 1: minor (deferred): the short-path refusal tests in api.test.ts (the test.each guard cases) do not pin the console.error call count either, so M1 (an extra log line) only fails the long-path test."
+  - Note (2026-10-09, after slice 58, PR #116): fixed: the guard cases assert `toHaveBeenCalledTimes(1)` (docs/findings-slice58.md §1).

@@ -56,6 +56,8 @@ Every `Ruling:` line in the ledger, verbatim:
 
 > Ruling: R2. Decided: no test covers the page's wiring (the three fetches and the arguments passed to serpSchedule); the vitest and the mutation table cover the helper only. Found by: the controller, running the proof. Why: the repo has no tests for Server Component pages, and adding a page-test harness is outside this slice; tsc pins the argument types. Cost if wrong: a wiring slip (for example passing aliases.length) would ship unnoticed by the gate. How named: in chat, 2026-10-07, after the proof run.
 
+Note (2026-10-09, after slice 58, PR #116): the Brand SERP page now has a render test (docs/findings-slice58.md §1); its "no domain" case fails if the page counts aliases instead of domains, and its one-domain cases fail on `audits.length`.
+
 > Ruling: R3. Decided: spec review Minor 1 is fixed by stating in the spec that any status other than active gets the archived line (only 'archived' is ever written), with no added test; Minor 2 is fixed by naming the two other cases where the page still says weekly (three failed audit_serp jobs in 7 days, and an org budget with no room) next to the missing-credentials case; Minor 3 (R2's example is narrow) is left. Found by: the spec reviewer (Opus 5.5), 2026-10-07. Why: Minor 1 and 2 were unstated or incomplete statements; a test pinning "paused" to the archived line would pin a wrong label for a status nobody writes; Minor 3 is accurate as written. Cost if wrong: if another brand status is ever added, its page says "archived" until the helper is changed. How named: in chat, 2026-10-07, after the spec review.
 
 > Ruling: R4. Decided: spec re-review Minor 1 is fixed: the spec's Design paragraph says "the only other value ever written is 'archived'" instead of "only 'archived' is ever written", and R3's same wording is corrected by a Correction to R3 line. Found by: the spec re-reviewer (Opus 5.5), 2026-10-07. Why: 'active' is also written, as the column default, so the old wording was loose. Cost if wrong: none to behaviour. How named: in chat, 2026-10-07, after the re-review.
@@ -77,6 +79,7 @@ The correction, verbatim:
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): spec review minor 3, R2's cost line names aliases.length as the example; passing another array's .length (for example audits.length) would also type-check (R3)."
+  - Note (2026-10-09, after slice 58, PR #116): fixed: the one-domain, no-audit cases fail if the page passes `audits.length` (docs/findings-slice58.md §1).
 - "Task 1: minor (deferred): a brand status other than active or archived would read "the brand is archived"; only 'archived' is written today (R3)."
 - "minor (deferred): final review minor 2, the no-domain line names a fix the web app gives no way to make; domains are declared only through the API (R7)."
   - Note (2026-10-07, after slice 48, PR #98): fixed; an active brand with no domain gets an add-domain form under the line (docs/findings-slice48.md §1).
