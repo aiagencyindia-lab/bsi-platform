@@ -5,8 +5,8 @@ import {
   apiQuery,
   auditNote,
   ciText,
-  domainNote,
   crawlNote,
+  domainNote,
   droppedNote,
   highlight,
   KIND,
@@ -294,6 +294,8 @@ test("serpSchedule says whether the weekly sweep audits the brand", () => {
   expect(serpSchedule("archived", 1, false, 3, true)).toBe(archived);
   expect(serpSchedule("archived", 0, true, 0, true)).toBe(archived);
   expect(serpSchedule("active", 1, true, 2, false)).toBe(noBudget);
+  // A job row with a NULL status is neither queued nor running.
+  expect(serpSchedule("active", 1, true, 0, false, null)).toBe(noBudget);
   expect(serpSchedule("active", 1, true, 0, false, "done")).toBe(noBudget);
   expect(serpSchedule("active", 1, true, 0, false, "failed")).toBe(noBudget);
   // The brand's own waiting job counts against the budget: no note.

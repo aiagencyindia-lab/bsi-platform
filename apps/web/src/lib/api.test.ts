@@ -21,6 +21,9 @@ const stub = (status: number) =>
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  // restoreAllMocks keeps a vi.fn's mockResolvedValue; drop the cookie so
+  // a test that forgets signedIn() cannot inherit the previous one's.
+  vi.mocked(cookies).mockReset();
 });
 
 const signedIn = () =>
@@ -56,6 +59,7 @@ test.each([
   vi.stubGlobal("fetch", fetchMock);
   await expect(api(path)).rejects.toThrow("NOT_FOUND");
   expect(fetchMock).not.toHaveBeenCalled();
+  expect(log).toHaveBeenCalledTimes(1);
   expect(log).toHaveBeenCalledWith(
     "API path refused",
     JSON.stringify(path),
@@ -91,11 +95,13 @@ test("api sends a path with a query string as written", async () => {
 });
 
 test("publicApi refuses a dot segment", async () => {
-  vi.spyOn(console, "error").mockImplementation(() => {});
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
   const fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
   await expect(publicApi("/r/..")).rejects.toThrow("NOT_FOUND");
   expect(fetchMock).not.toHaveBeenCalled();
+  expect(log).toHaveBeenCalledTimes(1);
+  expect(log).toHaveBeenCalledWith("API path refused", '"/r/.."', 5);
 });
 
 test("seg returns a UUID, a report type and a share token unchanged", () => {
