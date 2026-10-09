@@ -4,14 +4,14 @@ Classification: architectural, said first in chat on 2026-10-09: "fix every item
 
 ## Context
 
-The open deferred minors from slices 47–58 were grouped in chat on 2026-10-09: behaviour (web and API), test hardening, the slice 56 probe script, docs, and three that cannot be fixed (chat approvals cannot be verified from the repo). This slice fixes the behaviour group:
+The open deferred minors from slices 47–58 were grouped in chat on 2026-10-09 (the line numbers below are the findings files' lines at main d7e97d3): behaviour (web and API), test hardening, the slice 56 probe script, docs, and three that cannot be fixed (chat approvals cannot be verified from the repo). This slice fixes the behaviour group:
 
-- 54:73: two simultaneous submits of the same domain give a 500 (both pass the duplicate SELECT; the second INSERT hits the `(brand_id, host)` unique constraint and nothing catches the IntegrityError).
-- 48:79: a missing `brand_id` becomes `"null"` (`String(form.get("brand_id"))`), passes `seg()`, and reaches the API as `/brands/null/…`; the explorer found the pattern in 22 server actions in 10 files.
-- 54:75: one note covers every 422; and `DomainIn.host` has no length cap, unlike the `Host` type (200) used elsewhere.
-- 47:80: `serpSchedule` calls any non-active status "archived".
-- 57:152: the budget note shows for a brand that is not due (decision 4 of slice 57, reversed here).
-- 57:154: the SERP page's GET takes the org's advisory lock with no timeout (decision 2 of slice 57, reversed here).
+- 54:77: two simultaneous submits of the same domain give a 500 (both pass the duplicate SELECT; the second INSERT hits the `(brand_id, host)` unique constraint and nothing catches the IntegrityError).
+- 48:81: a missing `brand_id` becomes `"null"` (`String(form.get("brand_id"))`), passes `seg()`, and reaches the API as `/brands/null/…`; the explorer found the pattern in 22 server actions in 10 files.
+- 54:79 (and its note at 80): one note covers every 422; and `DomainIn.host` has no length cap, unlike the `Host` type (200) used elsewhere.
+- 47:83: `serpSchedule` calls any non-active status "archived".
+- 57:155: the budget note shows for a brand that is not due (decision 4 of slice 57, reversed here).
+- 57:157: the SERP page's GET takes the org's advisory lock with no timeout (decision 2 of slice 57, reversed here).
 - 55:121 and 55:122: a redundant `failed or 0` and a `latest_serp` docstring that names only two of its fields.
 - New, found while exploring: an archived brand still accepts new domains (`brand_or_404` does not check status).
 
@@ -1280,11 +1280,6 @@ Mutations, each applied alone to the patched copy and reverted (backend: test_ap
 | M8 | serp_due ignores failures | killed: test_serp_due_agrees_with_due_serp_audits[three failures-False] (1 failed, 55 passed, 2 warnings) |
 | M9 | the page takes the lock | killed: test_the_page_does_not_wait_on_the_orgs_budget_lock (1 failed, 55 passed, 2 warnings) |
 | M10 | budget_fits always locks | killed: test_the_page_does_not_wait_on_the_orgs_budget_lock (1 failed, 55 passed, 2 warnings) |
-| M18 | serp_due counts error rows | killed: test_serp_due_agrees_with_due_serp_audits[both kinds, one an error-True] (1 failed, 55 passed, 2 warnings) |
-| M19 | serp_due counts kinds without distinct | killed: test_serp_due_agrees_with_due_serp_audits[one kind twice this week-True] (1 failed, 55 passed, 2 warnings) |
-| M20 | serp_due audits have no window | killed: test_serp_due_agrees_with_due_serp_audits[both kinds 8 days ago-True] (1 failed, 55 passed, 2 warnings) |
-| M21 | serp_due failures have no window | killed: test_serp_due_agrees_with_due_serp_audits[three failures 8 days ago-True] (1 failed, 55 passed, 2 warnings) |
-| M22 | label reads an id by a variable name | killed: server actions read path values with formSeg() (1 failed, 87 passed (88)) |
 | M11 | one action reads the id raw | killed: server actions read path values with formSeg() (1 failed, 87 passed (88)) |
 | M12 | formSeg sends a missing field | killed: addDomain refuses a form with no brand_id without calling the API; formSeg refuses a file field and a value seg() refuses; formSeg refuses a missing field instead of sending "null"; runSerpAudit refuses a form with no brand_id without calling the API (4 failed, 84 passed (88)) |
 | M13 | every 409 means exists | killed: addDomain rethrows a 409 with any other title; addDomain shows a note when the brand is archived (2 failed, 86 passed (88)) |
@@ -1292,6 +1287,11 @@ Mutations, each applied alone to the patched copy and reverted (backend: test_ap
 | M15 | the budget note ignores due | killed: a queued audit hides the budget note; serpSchedule says whether the weekly sweep audits the brand (2 failed, 86 passed (88)) |
 | M16 | the page passes true for serp_due | killed: a queued audit hides the budget note (1 failed, 87 passed (88)) |
 | M17 | budget_fits never locks | killed: test_the_default_check_waits_for_the_orgs_lock (1 failed, 13 passed in test_budget.py); before that test existed, this mutant survived the whole backend suite (1791 passed) |
+| M18 | serp_due counts error rows | killed: test_serp_due_agrees_with_due_serp_audits[both kinds, one an error-True] (1 failed, 55 passed, 2 warnings) |
+| M19 | serp_due counts kinds without distinct | killed: test_serp_due_agrees_with_due_serp_audits[one kind twice this week-True] (1 failed, 55 passed, 2 warnings) |
+| M20 | serp_due audits have no window | killed: test_serp_due_agrees_with_due_serp_audits[both kinds 8 days ago-True] (1 failed, 55 passed, 2 warnings) |
+| M21 | serp_due failures have no window | killed: test_serp_due_agrees_with_due_serp_audits[three failures 8 days ago-True] (1 failed, 55 passed, 2 warnings) |
+| M22 | label reads an id by a variable name | killed: server actions read path values with formSeg() (1 failed, 87 passed (88)) |
 
 ## Rulings
 
@@ -1310,6 +1310,8 @@ Ruling: R6. Decided: each `serp_due` case also asserts that `due_serp_audits()` 
 Ruling: R7. Decided: actions.test.ts's `notFound` mock throws `NOT_FOUND`, as api.test.ts's does. Found by: the controller, writing the missing-id tests. Why: a `notFound` that returns would let `formSeg` fall through to the fetch. Cost if wrong: none. How named: this spec and chat.
 
 Ruling: R8. Decided: the spec review's findings are fixed in the proof and the spec: the docs follow-ups cite the findings lines as they are at main d7e97d3 (the slice 58 notes had moved every cited minor); the count is 22 server actions in 10 files; the scan also forbids `String(form.get(k))`, which label used; four serp_due cases cover the error filter, the distinct count and both 7-day windows (mutants M18 to M21); the constant is `SERP_KIND_COUNT = len(m.SERP_KINDS)`, not a second `SERP_KINDS`; `_wait_until_blocked` counts only this database's backends; the red counts name the three files with new tests; the mutation table gives full test ids; the race test drops a redundant `uuid.UUID(str(bid))`. Found by: the spec reviewer (Opus 5.5), 2026-10-09. Why: stale citations, wrong counts, a scan narrower than its claim, a test gap behind R6's claim, a shadowed name, and wording, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
+
+Correction to R6 (2026-10-09): the cases catch a predicate dropped or loosened (mutants M4 to M8 and M18 to M21), not every drift: they do not tell a running job from a queued one, a SERP_AUDIT_DAYS between 3 and 7, or a SERP_RETRY_DAYS of 1 or 2; boundary ages and a running-job case belong to slice 60 (test hardening).
 
 ## Out of scope
 
