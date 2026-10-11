@@ -9,6 +9,16 @@ ledger is the canonical one:
 usage: python scripts/engine_probe.py
 Raw answers go to $RAW_STORE_DIR/experiments/engine/ (git-ignored);
 results to eval/results/engine_probe_v0.json. Every try is spend-guarded.
+
+A re-run refuses to start while those outputs exist: move them first.
+probe_spend_micros in the results is the total of every engine_probe
+ledger entry (earlier runs and failed tries included, the number the stop
+uses); run_spend_micros is what this run recorded. An unexpected error
+writes the partial results (stopped: "error") and re-raises. A null
+spend number in any results means the ledger had a line that is not
+valid JSON or lacks micros; the ledger stays the record. A write that
+itself fails replaces the original error, which stays as its __context__.
+Ctrl-C writes nothing.
 """
 
 import json
@@ -53,6 +63,12 @@ def probe_costs(ledger: Path) -> list[int]:
     return [
         int(r["micros"]) for r in rows if r.get("kind", "").startswith(KIND)
     ]
+
+
+def existing_outputs(out: Path, raw_dir: Path, models) -> list[Path]:
+    """The results file and the models' raw directories an earlier run
+    left; a re-run would overwrite them."""
+    return [p for p in (out, *(raw_dir / m for m in models)) if p.exists()]
 
 
 def reservation(costs: list[int]) -> int:
@@ -153,13 +169,18 @@ def call(adapter, model, i, prompt, entities, ledger, raw_dir, sleep):
     return {"ok": False, "error": result.error if result else None}
 
 
-def report(calls, ledger, stopped):
+def report(calls, ledger, stopped, before):
     results = {m: summarize(c) for m, c in calls.items()}
+    try:
+        total = sum(probe_costs(ledger))
+    except (ValueError, KeyError):  # a malformed ledger line
+        total = None
     return {
         "models": list(calls),
         "results": results,
         "calls": calls,
-        "probe_spend_micros": sum(probe_costs(ledger)),
+        "probe_spend_micros": total,
+        "run_spend_micros": None if total is None else total - before,
         "stopped": stopped,
         "pick": pick(results),
     }
@@ -175,8 +196,9 @@ def run(
     write=lambda out: None,
 ):
     """Every model on prompt 0, then prompt 1, ...; partial results are
-    written on either stop."""
+    written on the probe stop, the spend cap and an unexpected error."""
     calls: dict[str, list[dict]] = {m: [] for m in adapters}
+    before = sum(probe_costs(ledger))
     stopped = None
     try:
         for i, prompt in enumerate(prompts):
@@ -196,9 +218,12 @@ def run(
     except Stop:
         stopped = "probe stop"
     except spend.SpendCapReached:
-        write(report(calls, ledger, "spend cap"))
+        write(report(calls, ledger, "spend cap", before))
         raise
-    out = report(calls, ledger, stopped)
+    except Exception:
+        write(report(calls, ledger, "error", before))
+        raise
+    out = report(calls, ledger, stopped, before)
     write(out)
     return out
 
@@ -214,6 +239,14 @@ def main() -> None:
             f"ledger {ledger} reads {ledger_total} micros, below "
             f"{LEDGER_FLOOR}: not the canonical ledger"
         )
+    raw_dir = Path(settings.raw_store_dir) / "experiments" / "engine"
+    left = existing_outputs(OUT, raw_dir, MODELS)
+    if left:
+        raise SystemExit(
+            "earlier probe outputs exist: "
+            + ", ".join(str(p) for p in left)
+            + "; move them first so a re-run does not overwrite them"
+        )
     run1 = json.loads(Path("eval/run1.json").read_text())
     entities = [
         Entity(run1["brand"], "brand", (run1["brand"], *run1["aliases"]))
@@ -223,7 +256,6 @@ def main() -> None:
     ]
     client = genai.Client(http_options=types.HttpOptions(timeout=120_000))
     adapters = {m: GeminiGroundingAdapter(client, model=m) for m in MODELS}
-    raw_dir = Path(settings.raw_store_dir) / "experiments" / "engine"
 
     def write(out: dict) -> None:
         OUT.parent.mkdir(parents=True, exist_ok=True)
