@@ -4160,6 +4160,10 @@
           "serp_configured": {
             "title": "Serp Configured",
             "type": "boolean"
+          },
+          "serp_due": {
+            "title": "Serp Due",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4167,7 +4171,8 @@
           "audits",
           "serp_configured",
           "failed_7d",
-          "budget_room"
+          "budget_room",
+          "serp_due"
         ],
         "title": "SerpAuditsOut",
         "type": "object"
@@ -5491,7 +5496,7 @@
     },
     "/v1/brands/{brand_id}/audits/serp": {
       "get": {
-        "description": "The latest page per (kind, country, language), an error row\nincluded, and the latest audit_serp job so a failure that wrote no\nrows (no credentials, budget, stale) still shows.",
+        "description": "The Brand SERP page's data: the latest page per (kind, country,\nlanguage), an error row included; the latest audit_serp job, so a\nfailure that wrote no rows (no credentials, budget, stale) still\nshows; whether the API process has DataForSEO credentials; the failed\naudit_serp jobs in the last 7 days; whether the org's budget has room\nfor an audit (without the org's lock: this request writes nothing);\nand whether the weekly sweep would queue the brand now (serp_due).",
         "operationId": "latest_serp_v1_brands__brand_id__audits_serp_get",
         "parameters": [
           {

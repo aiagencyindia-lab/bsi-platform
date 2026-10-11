@@ -35,12 +35,14 @@ const DOMAIN: Domain = { id: ID, host: "walkaroo.in", is_primary: true };
 const serp = (
   budget_room: boolean,
   job: SerpAudits["job"] = null,
+  serp_due = true,
 ): SerpAudits => ({
   job,
   audits: [],
   serp_configured: true,
   failed_7d: 0,
   budget_room,
+  serp_due,
 });
 
 afterEach(() => {
@@ -115,7 +117,8 @@ test("with a domain and no room, the budget note and the domain note show withou
 
 test("a queued audit hides the budget note", async () => {
   const { html } = await render({
-    serp: serp(false, { status: "queued", error: null }),
+    // The brand's own queued audit makes it not due (due_serp_audits()).
+    serp: serp(false, { status: "queued", error: null }, false),
     brand: brand("active"),
     domains: [DOMAIN],
   });

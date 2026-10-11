@@ -7,7 +7,7 @@ from typing import Any
 
 from bsi_core import models as m
 from bsi_core.config import get_settings
-from bsi_core.scheduling import serp_budget_fits
+from bsi_core.scheduling import serp_budget_fits, serp_due
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
@@ -58,9 +58,13 @@ def queue_serp(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
 
 @router.get("/serp", response_model=SerpAuditsOut)
 def latest_serp(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
-    """The latest page per (kind, country, language), an error row
-    included, and the latest audit_serp job so a failure that wrote no
-    rows (no credentials, budget, stale) still shows."""
+    """The Brand SERP page's data: the latest page per (kind, country,
+    language), an error row included; the latest audit_serp job, so a
+    failure that wrote no rows (no credentials, budget, stale) still
+    shows; whether the API process has DataForSEO credentials; the failed
+    audit_serp jobs in the last 7 days; whether the org's budget has room
+    for an audit (without the org's lock: this request writes nothing);
+    and whether the weekly sweep would queue the brand now (serp_due)."""
     brand_or_404(c, brand_id)
     audits = list(
         c.s.scalars(
@@ -104,6 +108,7 @@ def latest_serp(brand_id: uuid.UUID, c: Ctx = TENANT) -> dict[str, Any]:
             settings.dataforseo_login
             and settings.dataforseo_password.get_secret_value()
         ),
-        "failed_7d": failed or 0,
-        "budget_room": serp_budget_fits(c.s, c.org_id),
+        "failed_7d": failed,
+        "budget_room": serp_budget_fits(c.s, c.org_id, lock=False),
+        "serp_due": serp_due(c.s, brand_id),
     }

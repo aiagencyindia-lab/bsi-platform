@@ -22,6 +22,11 @@ DEFAULT_LIMIT = PLAN_LIMITS["starter"]  # an unknown plan is Starter
 # A SERP audit is 2 calls at the observed $0.002 (2026-10-05), 4,000
 # micros; 40,000 is kept as a 10x margin, which fails closed.
 SERP_JOB_MICROS = 40_000
+# due_serp_audits()'s constants (migration 0024), which serp_due mirrors.
+SERP_AUDIT_DAYS = 7
+SERP_RETRY_DAYS = 1
+SERP_KIND_COUNT = len(m.SERP_KINDS)
+SERP_MAX_FAILURES = 3
 
 
 def first_run(now: datetime, hour_utc: int) -> datetime:
@@ -110,26 +115,34 @@ def budget_micros(s: Session, org_id: uuid.UUID) -> int:
 
 
 def budget_fits(
-    s: Session, org_id: uuid.UUID, n_obs: int, extra_micros: int = 0
+    s: Session,
+    org_id: uuid.UUID,
+    n_obs: int,
+    extra_micros: int = 0,
+    *,
+    lock: bool = True,
 ) -> bool:
     """True if n_obs more observations fit in the org's budget for today.
 
     extra_micros is spend about to be made outside the observations, such
     as a suggestion job's estimate.
 
-    Call inside the org's tenant transaction. The advisory lock is held to
-    the end of that transaction, so two schedules of one org can't both
-    pass on the same headroom.
+    Call inside the org's tenant transaction. With lock (the default) the
+    org's advisory lock is held to the end of that transaction, so two
+    schedules of one org can't both pass on the same headroom. A caller
+    that writes nothing passes lock=False and never waits; its answer can
+    differ from a writer's only while that writer holds the lock.
     """
     # Fail closed: outside the org's tenant session row-level security
     # hides every row, the sums would be zero and anything would fit.
     tenant = s.scalar(text("SELECT current_setting('app.org_id', true)"))
     if tenant != str(org_id):
         raise RuntimeError("budget_fits must run in the org's tenant session")
-    s.execute(
-        text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
-        {"org": str(org_id)},
-    )
+    if lock:
+        s.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
+            {"org": str(org_id)},
+        )
     # Row-level security scopes this to the org (unlike spend.db_micros).
     spent, pending = spent_and_pending(s, org_id)
     settings = get_settings()
@@ -140,14 +153,16 @@ def budget_fits(
     return bool(spent + extra_micros + (pending + n_obs) * estimate <= cap)
 
 
-def serp_budget_fits(s: Session, org_id: uuid.UUID) -> bool:
+def serp_budget_fits(
+    s: Session, org_id: uuid.UUID, *, lock: bool = True
+) -> bool:
     """True if one more audit_serp job fits in the org's budget for today,
     counting one estimate for each of the org's audit_serp jobs still
     queued or running (those have recorded no cost yet).
 
-    The weekly sweep's check, and the Brand SERP page's budget note. Like
-    budget_fits, which it calls, it takes the org's advisory lock to the end
-    of the transaction.
+    The weekly sweep's check (with the org's advisory lock, as budget_fits
+    takes it) and the Brand SERP page's budget note (lock=False: the page
+    writes nothing).
     """
     # Row-level security scopes the count to the org; budget_fits fails
     # closed outside the org's tenant session.
@@ -158,7 +173,59 @@ def serp_budget_fits(s: Session, org_id: uuid.UUID) -> bool:
         )
     )
     extra = SERP_JOB_MICROS * ((waiting or 0) + 1)
-    return budget_fits(s, org_id, 0, extra_micros=extra)
+    return budget_fits(s, org_id, 0, extra_micros=extra, lock=lock)
+
+
+def serp_due(s: Session, brand_id: uuid.UUID) -> bool:
+    """True if the weekly sweep would queue a Brand SERP audit for the brand
+    now: due_serp_audits()'s predicates (migration 0024) for one brand, on
+    the DB clock. The brand is active and has a domain; fewer than
+    SERP_KIND_COUNT kinds have an error-free page fetched in SERP_AUDIT_DAYS; no
+    audit_serp job was created in SERP_RETRY_DAYS or is queued or running;
+    fewer than SERP_MAX_FAILURES failed in SERP_AUDIT_DAYS.
+
+    Run in the org's tenant session: row-level security hides another
+    org's brand, which then reads as not due. The sweep itself still calls
+    due_serp_audits(); tests compare the two.
+    """
+    week = func.now() - timedelta(days=SERP_AUDIT_DAYS)
+    day = func.now() - timedelta(days=SERP_RETRY_DAYS)
+    jobs = (m.Job.brand_id == brand_id, m.Job.kind == "audit_serp")
+    kinds = (
+        select(func.count(func.distinct(m.SerpAudit.kind)))
+        .where(
+            m.SerpAudit.brand_id == brand_id,
+            m.SerpAudit.error.is_(None),
+            m.SerpAudit.fetched_at > week,
+        )
+        .scalar_subquery()
+    )
+    recent = (
+        select(m.Job.id)
+        .where(
+            *jobs,
+            (m.Job.created_at > day) | m.Job.status.in_(("queued", "running")),
+        )
+        .exists()
+    )
+    failed = (
+        select(func.count())
+        .select_from(m.Job)
+        .where(*jobs, m.Job.status == "failed", m.Job.created_at > week)
+        .scalar_subquery()
+    )
+    domain = select(m.Domain.id).where(m.Domain.brand_id == brand_id).exists()
+    due = s.scalar(
+        select(m.Brand.id).where(
+            m.Brand.id == brand_id,
+            m.Brand.status == "active",
+            domain,
+            kinds < SERP_KIND_COUNT,
+            ~recent,
+            failed < SERP_MAX_FAILURES,
+        )
+    )
+    return due is not None
 
 
 def check_active_limit(
