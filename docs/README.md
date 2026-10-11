@@ -284,7 +284,7 @@ In the order they were written:
 | [findings-slice59.md](findings-slice59.md) | Results: the eight deferred behaviour minors and the archived-brand gap closed, the gates, CI and reviews, no live check, and every ruling (R1–R13), the correction to R6 and every deferred minor, quoted from the ledger. |
 | [superpowers/specs/2026-10-11-slice60-test-hardening-design.md](superpowers/specs/2026-10-11-slice60-test-hardening-design.md) | Design spec: the deferred test-only minors from slices 49, 55, 57, 58 and 59 — a shared thread helper, serp_due edge rows on the DB clock, the missing assertions, a stronger Brand SERP page test, a spelling-independent formSeg scan and the formSeg log text, with eleven mutants and rulings R1–R7 |
 | [superpowers/plans/2026-10-11-slice60-test-hardening.md](superpowers/plans/2026-10-11-slice60-test-hardening.md) | Implementation plan, Tasks 1 (the backend) and 2 (the web), 56 blocks generated from a scratchpad proof, with its R7 (withdrawn), the correction to R7 and R8 |
-| [findings-slice60.md](findings-slice60.md) | Results: the test-only minors closed (and 49:102, 57:153 and 57:160 settled), the gates, CI and reviews, no live check, and every ruling (R1–R9), the corrections to R7 and every deferred minor, quoted from the ledger |
+| [findings-slice60.md](findings-slice60.md) | Results: the test-only minors closed (and 49:102, 57:153 and 57:160 settled), the gates, CI and reviews, no live check, and every ruling (R1–R10), the corrections to R7 and every deferred minor, quoted from the ledger |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
