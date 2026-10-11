@@ -140,11 +140,17 @@ Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): plan re-review N1, M14's proof cell does not say the mutant fails by a JSONDecodeError on the blank line (R6)."
 - "minor (deferred): plan re-review N2, the .get('kind', '') half of departure 10 is untested; a mutant reverting it to r['kind'] survives (R6)."
+  - Note (2026-10-12, after slice 61, PR #122): fixed: `test_probe_costs_reads_only_engine_probe_entries` feeds a row with no `kind`; mutant M1 (`r["kind"]`) fails it with a `KeyError` (docs/findings-slice61.md §1).
 - "Task 1: minor (deferred): the per-call fields call() builds (searched, queries, brands, tokens) are never asserted; FakeAdapter returns no search_queries, so a mutant 'searched': True survives; mitigated for the probe run by an independent recount of searched from the saved raw responses before the pick is accepted."
+  - Note (2026-10-12, after slice 61, PR #122): fixed: two tests call `call()` and assert the whole result (`searched`, `queries`, `cost`, `tokens_in`, `tokens_out` as candidates plus thoughts, `brands` as distinct entities) with and without search queries; mutants M2, M3 and M4 fail them (docs/findings-slice61.md §1).
 - "Task 1: minor (deferred): an exception other than Stop or SpendCapReached (a DB error in spend.check, an OSError writing a raw file, a malformed ledger line) ends the run without partial results; the ledger still holds the spend."
+  - Note (2026-10-12, after slice 61, PR #122): fixed: an unexpected error writes the partial results with `stopped: "error"` and re-raises (M5); on a ledger line that is not valid JSON, or a probe row without `micros`, the spend numbers are `null` and the results are still written (M9). A JSON value that is not an object, or a null `micros`, still loses them, as the module docstring says (slice 61 R2) (docs/findings-slice61.md §1).
 - `"Task 1: minor (deferred): probe_spend_micros is the total of all engine_probe ledger entries (earlier runs and failed tries included) while results cover this run's calls; a re-run overwrites p<i>.json and engine_probe_v0.json."`
+  - Note (2026-10-12, after slice 61, PR #122): fixed: the results keep the cumulative `probe_spend_micros` and gain `run_spend_micros`, this run's recorded tries (M7); a re-run refuses to start while the results file or a model's raw directory exists (M6, M8) (docs/findings-slice61.md §1).
 - "Task 1: minor (deferred): the stop test's monkeypatched record opens the ledger without closing it (a ResourceWarning under -W error); the text is the brief's."
+  - Note (2026-10-12, after slice 61, PR #122): fixed: a shared `_recorder` writes the ledger inside a `with` block, and the test file passes under `-W error` (docs/findings-slice61.md §1).
 - "minor (deferred): addendum review M1, departure 7 still says Task 2 is 'not written now' and the plan no longer carries R4's text (R7)."
 - "minor (deferred): addendum review M2, departures 11 and 12 sit under Task 2, not in the plan's Departures list (R7)."
 - "minor (deferred): addendum review M3, the config.py comment cites findings-slice56, added by the docs PR after the code PR (R7)."
 - "Task 2: minor (deferred): the obs_cost_estimate_micros comment does not repeat the measured mean (30,039.5) it is computed from; the engine_model comment gives it as $0.0300."
+  - Note (2026-10-12, after slice 61, PR #122): fixed: the comment names the measured mean, 30,039.5 micros (gemini-3.5-flash-lite in the probe); the value is unchanged (docs/findings-slice61.md §1).

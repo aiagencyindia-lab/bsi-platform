@@ -663,4 +663,7 @@ Ruling: R3. Decided: the plan review's two minors are fixed in a second plan com
 
 ## Changes made during execution
 
-The controller fills this section after execution; it is empty at plan time.
+- Step 0, as planned: the controller created the worktree before Task 1 (after switching the main checkout back to main); the implementer ran `uv sync` and `npm ci`.
+- No step departed from its blocks or Expected lines: the red run (5 failed, 15 passed), the green runs (20 passed, also under `-W error`), the nine mutants, the lint lines and the full gates (1810 backend, 91 web) all matched the plan's proof numbers. The task review found all 17 blocks present and nothing extra; the final review found the commit byte-identical to the spec's proof diff.
+- Process: the implementer wrote its block-applying helper script (outside the repo) with a shell heredoc, against the Global Constraint; self-reported and recorded as a deferred minor.
+- The final review found nothing to fix (no fix wave). R4 (the final reviewer got the one-commit code range) was made at execution and is in the ledger and findings-slice61.md §3.
