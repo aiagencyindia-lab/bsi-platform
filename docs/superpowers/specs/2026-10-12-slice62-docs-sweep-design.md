@@ -29,23 +29,24 @@ The rule every note follows, as in earlier slices: a historical doc is never edi
 ## Section 1 — The won't-fix closures (10 minors)
 
 - Unverifiable (48:78, 50:72, 51:80): "won't-fix: what this line names (chat approvals, ledger quotes, or a count from an offline run) left no record in the repo to check against; the merged PR's CI run is the record of its gates."
-- Double `seg()` (59:120; 59:141 adds "including `seg(formSeg(...))` in tasks/actions.ts"): "won't-fix, by design: `formSeg()` already calls `seg()`, and the second `seg()` in each API path template is deliberate defence in depth: it is cheap, returns an accepted value unchanged, and keeps the path scan a one-rule check (every `${}` in `api()` is one `seg()` call)."
+- Double `seg()` (59:120; 59:141 adds "including `seg(formSeg(...))` in tasks/actions.ts"): "won't-fix, by design: `formSeg()` already calls `seg()`, and the second `seg()` in each API path template is deliberate defence in depth: it is cheap, returns an accepted value unchanged, and keeps the path scan a one-rule check (every `${}` in an API path is one `seg()` call or a named query string)." (R1)
 - "2 warnings" (57:158, 59:129, 59:136, 60:143; 60:139 adds that its line numbers are as at main a026e65): the note names both upstream deprecations, copied from this session's pytest output: Starlette's "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (from FastAPI's testclient.py) and anyio's "The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead" (from Starlette's testclient.py), and says removing them belongs to a dependency upgrade.
 
 ## Section 2 — The remaining closures (13 minors and 2 corrections)
 
-- 54:79: closed, pointing at the note under findings-slice48 line 80 (2026-10-08, slice 54), which names the reversal and the user's approval of the slice 54 design; the chat approval itself cannot be checked (findings-slice48 line 78).
+- 54:79: closed: findings-slice54 §1 names the reversal ("This reverses a slice 48 user decision") and the user's approval of the slice 54 design in chat on 2026-10-08, and findings-slice48 carries a dated note under the minor about refused hosts; the chat approval itself cannot be checked from the repo (R1).
 - 55:117 and 55:118: won't-fix; the slice 55 spec is historical and is not edited (117: the shorthand names strings spelled out once above; 118: the plan lists those calls and is what was executed).
-- 56:141, 56:152 and 56:153: won't-fix; the slice 56 plan is historical and is not edited (141 records that M14 fails by a `JSONDecodeError` on the blank line; 152 and 153: R7 deferred them to slice 56's post-merge docs commit, and the line with R7 in findings-slice56 §3 is the record).
+- 56:141: won't-fix; the slice 56 plan is historical and is not edited; the note records that M14 fails by a `JSONDecodeError` on the blank line.
+- 56:152 and 56:153: closed: done in docs PR #113 (merge 77da2e7): the slice 56 plan's "Changes made during execution" says departure 7 is out of date and quotes R4 verbatim (152), and that departures 11 and 12 are listed inside the Task 2 addendum, not in the Departures list (153) (R1).
 - 56:154: closed: findings-slice56.md exists since docs PR #113 (merge 77da2e7), so the config.py comment's citation resolves.
-- 55:121, 57:164, 58:125, 58:126 and 61:101: closed as process observations about a git-ignored report; nothing in the repo to change, and that workspace is no longer kept.
+- 55:121, 57:164, 58:125 and 58:126: closed as process observations about a git-ignored report; nothing in the repo to change, and that workspace is no longer kept. 61:101: closed as a process observation about a scratchpad script outside the repo (R1).
 - 59:142: done: findings-slice59.md, its dated notes and its README rows landed in docs PR #119 (merge a026e65).
 - Corrections after findings-slice60 §3's open-list paragraph ("as at main a026e65") and findings-slice61 §3's closing line ("as at main e2b2b8b"), each pointing at findings-slice62.md for the current lines.
 - The seven test minors get no note; findings-slice62.md names them as open.
 
 ## Section 3 — Testing and process
 
-- No code changes, so no red run and no mutants. The proof is scripted: the notes are inserted by anchoring each on its minor's quoted text (each anchor asserted to occur once), and four checks run on the result: (1) a re-run of the inventory gives 77 minors with exactly 7 open, the seven test lines; (2) `diff -rq` against main touches only `docs/findings-slice*.md` (eleven files); (3) 25 lines are added (23 notes, 2 corrections); (4) the banned-word grep over added lines is empty.
+- No code changes, so no red run and no mutants. The proof is scripted: the notes are inserted by anchoring each on its minor's quoted text (each anchor asserted to occur once), and four checks run on the result: (1) a re-run of the inventory gives 77 minors with exactly 7 open, the seven test lines; (2) `diff -rq` against main touches only `docs/findings-slice*.md` (eleven files); (3) 25 non-blank lines are added (23 notes, 2 corrections), 27 with the two blank lines before the corrections; (4) the banned-word grep over added lines is empty, with the project's pattern `guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain` (the digit bound keeps "#113" and "#119" from matching).
 - Two PRs, as usual: the slice PR with this spec, the plan and the 25 inserted lines; then the docs PR with findings-slice62.md, the README rows and the plan's execution notes, so the findings can quote the merge and CI lines.
 - Both gates run before the finishing menu (no code changes, so the counts stay 1810 backend and 91 web); CI runs on each PR.
 
@@ -88,7 +89,7 @@ Generated from the proof (a scratchpad copy of main be24258's docs with the note
  - "Final review: minor (deferred): two simultaneous submits of the same host still give a 500 from the unique constraint and reach the error page (findings-slice48 R2); the domain is added anyway. The slice 54 findings must say so."
    - Note (2026-10-11, after slice 59, PR #118): fixed: a simultaneous duplicate now gets 409, through one INSERT … ON CONFLICT DO NOTHING (docs/findings-slice59.md §1).
  - "Final review: minor (deferred): this reverses the slice 48 user decision (browser pattern over catch-and-note, findings-slice48 lines 13 and 77, and line 5 says a refused host shows the error page); the slice 54 findings must name the reversal and the user decision that authorised it (the chat approval of the slice 54 design on 2026-10-08). The historical doc is not edited."
-+  - Note (2026-10-12, slice 62): closed: the note under findings-slice48 line 80 (2026-10-08, slice 54) names the reversal and the user's approval of the slice 54 design; the chat approval itself cannot be checked from the repo (findings-slice48 line 78).
++  - Note (2026-10-12, slice 62): closed: findings-slice54 §1 names the reversal ("This reverses a slice 48 user decision") and the user's approval of the slice 54 design in chat on 2026-10-08, and findings-slice48 carries a dated note under the minor about refused hosts; the chat approval itself cannot be checked from the repo.
  - "Final review: minor (deferred): one note text covers every 422 cause (IP, no dot, whitespace-only after trim, over 200 characters); the copy names IPs specifically but is still correct advice for the rest."
    - Note (2026-10-08, docs review): "over 200 characters" is wrong; `DomainIn.host` (apps/api/bsi_api/routers/brands.py) has `min_length=3` and no upper cap, so a long host with a dot is accepted. The other causes stand.
    - Note (2026-10-11, after slice 59, PR #118): fixed: `DomainIn.host` is capped at 200 like the other host fields, so the one note covers every 422 the form can cause (docs/findings-slice59.md §1).
@@ -122,9 +123,9 @@ Generated from the proof (a scratchpad copy of main be24258's docs with the note
  - "Task 1: minor (deferred): the stop test's monkeypatched record opens the ledger without closing it (a ResourceWarning under -W error); the text is the brief's."
    - Note (2026-10-12, after slice 61, PR #122): fixed: a shared `_recorder` writes the ledger inside a `with` block, and the test file passes under `-W error` (docs/findings-slice61.md §1).
  - "minor (deferred): addendum review M1, departure 7 still says Task 2 is 'not written now' and the plan no longer carries R4's text (R7)."
-+  - Note (2026-10-12, slice 62): won't-fix: the slice 56 plan is historical and is not edited; R7 deferred this to slice 56's post-merge docs commit, and this line with R7 (findings-slice56 §3) is the record.
++  - Note (2026-10-12, slice 62): closed: done in docs PR #113 (merge 77da2e7): the slice 56 plan's "Changes made during execution" says departure 7 is out of date and quotes R4 verbatim.
  - "minor (deferred): addendum review M2, departures 11 and 12 sit under Task 2, not in the plan's Departures list (R7)."
-+  - Note (2026-10-12, slice 62): won't-fix: the slice 56 plan is historical and is not edited; R7 deferred this to slice 56's post-merge docs commit, and this line with R7 (findings-slice56 §3) is the record.
++  - Note (2026-10-12, slice 62): closed: done in docs PR #113 (merge 77da2e7): the slice 56 plan's "Changes made during execution" says departures 11 and 12 are listed inside the Task 2 addendum, not in the Departures list.
  - "minor (deferred): addendum review M3, the config.py comment cites findings-slice56, added by the docs PR after the code PR (R7)."
 +  - Note (2026-10-12, slice 62): closed: findings-slice56.md exists since docs PR #113 (merge 77da2e7), so the config.py comment's citation resolves.
  - "Task 2: minor (deferred): the obs_cost_estimate_micros comment does not repeat the measured mean (30,039.5) it is computed from; the engine_model comment gives it as $0.0300."
@@ -163,7 +164,7 @@ Generated from the proof (a scratchpad copy of main be24258's docs with the note
  Every `minor (deferred)` line in the ledger, verbatim:
  
  - "Spec: minor (deferred): API templates in the actions keep `${seg(id)}` after `formSeg`, so each value is checked twice; the existing path scan requires `seg()` in every template."
-+  - Note (2026-10-12, slice 62): won't-fix, by design: `formSeg()` already calls `seg()`, and the second `seg()` in each API path template is deliberate defence in depth: it is cheap, returns an accepted value unchanged, and keeps the path scan a one-rule check (every `${}` in `api()` is one `seg()` call).
++  - Note (2026-10-12, slice 62): won't-fix, by design: `formSeg()` already calls `seg()`, and the second `seg()` in each API path template is deliberate defence in depth: it is cheap, returns an accepted value unchanged, and keeps the path scan a one-rule check (every `${}` in an API path is one `seg()` call or a named query string).
  - "Task 1: minor (deferred): the archived-brand test checks the 409 title but not the detail "Archived brands accept no new domains.""
    - Note (2026-10-11, after slice 60, PR #120): fixed: the test asserts the detail (docs/findings-slice60.md §1).
  - "Task 1: minor (deferred): the race test does not assert the thread is still alive after _wait_until_blocked, as test_recommend.py's sibling does."
@@ -185,7 +186,7 @@ Generated from the proof (a scratchpad copy of main be24258's docs with the note
  - "Task 3: minor (deferred): formSeg logs "API form value missing" for a File field, which is present but not text."
    - Note (2026-10-11, after slice 60, PR #120): fixed: the log reads "API form value missing or not text", and the three tests that asserted the old text assert the new one (docs/findings-slice60.md §1).
  - "Task 3: minor (deferred): seg(formSeg(...)) in tasks/actions.ts and seg(id) after formSeg elsewhere check each value twice (the spec's deferred minor; the path scan requires seg() in every template)."
-+  - Note (2026-10-12, slice 62): won't-fix, by design: `formSeg()` already calls `seg()`, and the second `seg()` in each API path template, including `seg(formSeg(...))` in tasks/actions.ts, is deliberate defence in depth: it is cheap, returns an accepted value unchanged, and keeps the path scan a one-rule check (every `${}` in `api()` is one `seg()` call).
++  - Note (2026-10-12, slice 62): won't-fix, by design: `formSeg()` already calls `seg()`, and the second `seg()` in each API path template, including `seg(formSeg(...))` in tasks/actions.ts, is deliberate defence in depth: it is cheap, returns an accepted value unchanged, and keeps the path scan a one-rule check (every `${}` in an API path is one `seg()` call or a named query string).
  - "Final review: minor (deferred): the docs follow-ups (dated notes, findings-slice59.md, README rows) are not on the branch; they belong to the post-merge docs PR."
 +  - Note (2026-10-12, slice 62): done: findings-slice59.md, its dated notes and its README rows landed in docs PR #119 (merge a026e65).
 --- a/docs/findings-slice60.md
@@ -210,7 +211,7 @@ Generated from the proof (a scratchpad copy of main be24258's docs with the note
  Every `minor (deferred)` line in the ledger, verbatim:
  
  - "Task 1: minor (deferred): the implementer wrote its block-applying helper script (a scratchpad apply.py outside the repo) with a shell heredoc, against the Global Constraint allowing a heredoc only for the commit message; self-reported; no tracked file affected."
-+  - Note (2026-10-12, slice 62): closed: a process observation about a git-ignored report; nothing in the repo to change, and that workspace is no longer kept.
++  - Note (2026-10-12, slice 62): closed: a process observation about a scratchpad script outside the repo; nothing in the repo to change.
  - "Task 1: minor (deferred): test_a_rerun_refuses_to_start_while_outputs_exist creates only the results file, so main() is never tested refusing on a raw directory alone; existing_outputs is tested for that case on its own and M6 kills both tests."
  - `Final review: minor (deferred): no test checks the raw_dir wiring in main() (<raw_store_dir>/experiments/engine passed to existing_outputs); a mistyped path would skip the raw directories while the results file still triggers the refusal.`
  
@@ -225,11 +226,12 @@ Proof directory: a fresh scratchpad copy of main be24258's docs/ (`proof62-17917
 
 - Before: 77 minors, 30 open. After: 77 minors, 7 open (49:108, 49:109, 60:141, 60:142, 60:143, 61:103, 61:104 in the patched files' numbering; the last five moved down one line because notes were inserted above them).
 - `diff -rq`: findings-slice48, 50, 51, 54, 55, 56, 57, 58, 59, 60 and 61 differ; nothing else.
-- 25 added lines; the banned-word grep over them prints nothing.
+- 25 non-blank added lines (27 with the two blank separators); the banned-word grep over them, with the pattern in Section 3, prints nothing.
+- Spec review round 1 (Opus 5.5, 2026-10-12): the reviewer found that docs PR #113 had already done 56:152 and 56:153 (the controller confirmed both lines in the slice 56 plan at main); R1 followed and the proof was rebuilt (same counts: 77 minors, 7 open, 25 non-blank added lines).
 
 ## Rulings
 
-None yet.
+Ruling: R1. Decided: the spec review's findings are fixed in a second spec commit, with the proof rebuilt: the 56:152 and 56:153 notes say "closed: done in docs PR #113" and name what the slice 56 plan's "Changes made during execution" says, instead of "won't-fix"; the 54:79 note cites findings-slice54 §1 as the primary record and drops line numbers; 61:101 gets its own note (a scratchpad script, not a report); the double-`seg()` notes say "every `${}` in an API path is one `seg()` call or a named query string"; the counts say 25 non-blank lines (27 with two blank separators) and the evidence names the banned-word pattern. Found by: the spec reviewer (Opus 5.5), 2026-10-12. Why: two notes contradicted what main already held, one pointed at a secondary record, one described the wrong kind of artefact, one overstated the scan, and a count and a check did not reproduce, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 ## Out of scope
 
