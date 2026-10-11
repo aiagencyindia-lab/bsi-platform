@@ -152,6 +152,7 @@ Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Spec: minor (deferred): no test renders the Brand SERP page, so passing a constant for `budget_room` (M9) or leaving out `job?.status` (M13) passes the gate (R3)."
   - Note (2026-10-09, after slice 58, PR #116): fixed by the page render test (docs/findings-slice58.md §1).
+  - Correction (2026-10-11, after slice 60, PR #120): the note above overstates the closure: the page tests passed a constant `false` for `budget_room` until slice 60's audit-cards case (budget room on a due brand) pinned it (mutant M11); findings-slice58.md §1 records `budget_room` as pinned against `true` only (docs/findings-slice60.md §1).
 - "Spec: minor (deferred): the note shows for a brand that is not due (audited this week) whenever the org's budget is full; it is true there but says nothing about that brand (decision 4)."
   - Note (2026-10-11, after slice 59, PR #118): fixed, reversing decision 4: the API returns `serp_due` and the note shows only for a brand the sweep would queue now (docs/findings-slice59.md §1).
 - "Task 1: minor (deferred): every pytest summary shows "2 warnings" (the known Starlette/anyio warnings, present on main and in the proof runs); not introduced by this slice."
@@ -159,5 +160,7 @@ Every `minor (deferred)` line in the ledger, verbatim:
   - Note (2026-10-11, after slice 59, PR #118): fixed, reversing decision 2: the GET reads the budget with `lock=False` and never waits (docs/findings-slice59.md §1).
 - "Task 2: minor (deferred): no serpSchedule case passes jobStatus = null explicitly (ck_job_status allows NULL; null is neither queued nor running, so the code handles it); the test is as the plan wrote it."
   - Note (2026-10-09, after slice 58, PR #116): fixed: format.test.ts has the `null` case (docs/findings-slice58.md §1).
+  - Note (2026-10-11, after slice 60, PR #120): moot: slice 59 (PR #118) replaced `serpSchedule`'s `jobStatus` parameter with `serp_due`, so the `null` case is gone with it and nothing remains to add (docs/findings-slice60.md §1).
 - "Task 2: minor (deferred): the phase 1 report recorded only the Tests line (1 failed, 75 passed (76)) for each killed web mutant, not the failing test's name."
 - "Final review: minor (deferred): test_get_is_empty_before_any_audit's budget_room True assertion reads scheduling.get_settings() (the .env default $2.00 budget); a local .env with DAILY_BUDGET_USD under 0.04 would turn it red; the worktree has no .env and CI uses defaults (same shape as slice 55's serp_configured case)."
+  - Note (2026-10-11, after slice 60, PR #120): fixed: `_configured` in test_api_serp.py builds one `Settings` with `daily_budget_usd=2.0` and patches both `audits.get_settings` and `scheduling.get_settings`; with `DAILY_BUDGET_USD=0.01` in the environment main's test fails and the patched one passes (docs/findings-slice60.md §1).

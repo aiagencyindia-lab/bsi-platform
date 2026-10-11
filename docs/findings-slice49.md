@@ -100,6 +100,7 @@ Every `Correction to R` line, verbatim:
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): spec re-review (90ee504) minor 2, a scanned block-comment line holding an unclosed api(` could make the scan's PATH regex run on to the next real template and hide its interpolations; none exists today (R8)."
+  - Note (2026-10-11, after slice 60, PR #120): already guarded: the first path scan fails on a block comment holding an unclosed api(`, because its literal check needs the whole first argument to be one literal; mutant M10 shows it on main and on the patched scan, so no code changed (docs/findings-slice60.md §1).
 - "Task 1: minor (deferred): publicApi refuses a dot segment stubs console.error but does not assert the "API path refused" log line (plan-mandated, stated in the spec)."
   - Note (2026-10-09, after slice 58, PR #116): fixed: the test asserts the "API path refused" log line and its count (docs/findings-slice58.md §1).
 - "Task 1: minor (deferred): vi.restoreAllMocks() does not clear the cookies mockResolvedValue between tests; harmless, since every test that needs a cookie calls signedIn()."
