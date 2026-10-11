@@ -1,4 +1,3 @@
-import threading
 from types import SimpleNamespace
 
 import pytest
@@ -7,9 +6,9 @@ from bsi_core.db import tenant_session
 from bsi_core.recommend import _rival_content, generate, refresh
 from sqlalchemy import delete, func, select, update
 
-from tests.integration.test_api_recommendations import _wait_until_blocked
 from tests.integration.test_gaps import scene  # noqa: F401
 from tests.integration.test_rival_crawl import _page
+from tests.integration.threads import run_in_thread, wait_until_blocked
 
 
 def _mention(org, oid, etype, eid):
@@ -320,16 +319,14 @@ def test_a_dismiss_racing_refresh_survives(owner, world):
         with tenant_session(world.org.id) as s:
             refresh(s, world.org.id, world.brand)
 
-    t = threading.Thread(target=run)
-    t.start()
+    t = run_in_thread(run)
     try:
-        assert _wait_until_blocked(holder), "refresh never blocked"
+        assert wait_until_blocked(holder), "refresh never blocked"
         assert t.is_alive()
         holder.commit()
-        t.join(timeout=5)
-        assert not t.is_alive()
     finally:
         holder.close()
+        t.result()
     with owner() as s:
         got = s.get(m.Recommendation, rec.id)
         assert got is not None, "the dismissed row was deleted"

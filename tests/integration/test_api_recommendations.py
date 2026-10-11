@@ -1,10 +1,10 @@
-import threading
-import time
 import uuid
 
 import pytest
 from bsi_core import models as m
-from sqlalchemy import select, text
+from sqlalchemy import select
+
+from tests.integration.threads import run_in_thread, wait_until_blocked
 
 
 @pytest.fixture
@@ -188,37 +188,6 @@ def test_task_status_rules(client, scene):
     assert [t["id"] for t in listed.json()] == [task["id"]]
 
 
-def _wait_until_blocked(holder, deadline=5.0):
-    """Poll pg_stat_activity for some *other* backend waiting on a lock,
-    so the test cannot pass just because the request happened to arrive
-    late. Postgres reports a row-lock wait via wait_event_type='Lock'
-    (wait_event='transactionid'); the query text it shows alongside a
-    blocked backend is not reliable (it can lag behind the statement
-    actually stuck), so filter on the wait state, not the query text.
-
-    Postgres caches the activity statistics for the rest of a transaction,
-    so each poll clears that snapshot first; otherwise a request that
-    connects after the first poll is never seen. Only this database's
-    backends count, so another database's lock wait cannot pass it.
-    """
-    my_pid = holder.execute(text("SELECT pg_backend_pid()")).scalar()
-    end = time.monotonic() + deadline
-    while time.monotonic() < end:
-        holder.execute(text("SELECT pg_stat_clear_snapshot()"))
-        waiting = holder.execute(
-            text(
-                "SELECT count(*) FROM pg_stat_activity "
-                "WHERE wait_event_type = 'Lock' AND pid != :pid "
-                "AND datname = current_database()"
-            ),
-            {"pid": my_pid},
-        ).scalar()
-        if waiting:
-            return True
-        time.sleep(0.05)
-    return False
-
-
 def test_concurrent_accept_returns_409_not_500(client, owner, scene):
     """Two overlapping accepts on the same recommendation: the second
     must see 'accepted' and 409, never race a raw IntegrityError into a
@@ -239,15 +208,9 @@ def test_concurrent_accept_returns_409_not_500(client, owner, scene):
         .with_for_update()
     ).scalar_one()
 
-    result: dict[str, object] = {}
-
-    def call_accept() -> None:
-        result["response"] = client.post(url, headers=org.headers)
-
-    t = threading.Thread(target=call_accept)
-    t.start()
+    t = run_in_thread(lambda: client.post(url, headers=org.headers))
     try:
-        assert _wait_until_blocked(holder), (
+        assert wait_until_blocked(holder), (
             "accept request never blocked on the row lock; the test "
             "would pass regardless of whether _open locks the row"
         )
@@ -257,13 +220,10 @@ def test_concurrent_accept_returns_409_not_500(client, owner, scene):
         # releases the lock the second request is waiting on.
         locked.status = "accepted"
         holder.commit()
-
-        t.join(timeout=5)
-        assert not t.is_alive()
     finally:
         holder.close()
+        response = t.result()
 
-    response = result["response"]
     assert response.status_code == 409, response.text
 
 

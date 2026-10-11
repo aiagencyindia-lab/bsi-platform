@@ -4,6 +4,7 @@ import {
   alertNote,
   apiQuery,
   auditNote,
+  BUDGET_NOTE,
   ciText,
   crawlNote,
   domainNote,
@@ -282,8 +283,7 @@ test("serpSchedule says whether the weekly sweep audits the brand", () => {
     "Not audited automatically: the SERP provider is not configured.";
   const failed = (n: number) =>
     `Not audited automatically: ${n} audits failed in the last 7 days; the sweep tries again once fewer than 3 remain in that window.`;
-  const noBudget =
-    "Audited automatically once a week; today the daily budget has no room for a Brand SERP audit, so a due audit waits until there is room. The budget resets at midnight UTC.";
+  const noBudget = BUDGET_NOTE;
   const inactive = "Not audited automatically: the brand is not active.";
   expect(serpSchedule("active", 1, true, 1, true, true)).toBe(weekly);
   expect(serpSchedule("active", 1, true, 2, true, true)).toBe(weekly);

@@ -53,8 +53,12 @@ test("server actions read path values with formSeg()", () => {
   // String(form.get(...)) turns a missing field into "null", which seg()
   // passes; formSeg() refuses it. A field named by a variable
   // (String(form.get(k))) is caught too: label's actions read ids that way.
-  const RAW =
-    /String\(form\.get\("(?:[a-z_]*_id|type)"\)\)|String\(form\.get\(\w+\)\)|seg\(String\(/g;
+  // Any receiver name, either quote style, and the `as string` cast count.
+  const ID = String.raw`(?:"[a-z_]*_id"|'[a-z_]*_id'|"type"|'type')`;
+  const RAW = new RegExp(
+    String.raw`String\(\w+\.get\(${ID}\)\)|String\(\w+\.get\(\w+\)\)|seg\(String\(|\w+\.get\(${ID}\)\s+as\s+string`,
+    "g",
+  );
   const files = readdirSync(APP, { recursive: true, encoding: "utf8" }).filter(
     (f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f),
   );
