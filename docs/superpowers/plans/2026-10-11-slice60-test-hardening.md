@@ -1580,6 +1580,6 @@ Ruling: R8. Decided: the plan review's other minors are fixed in a second plan c
 ## Changes made during execution
 
 - Step 0, as planned: the controller created the worktree before Task 1 (after switching the main checkout back to main); the Task 1 implementer ran `uv sync` and the Task 2 implementer ran `npm ci`.
-- No task departed from its blocks or Expected lines: each task's red, green and mutation results matched the plan's proof numbers (Task 1 M5's summary reads `1 failed, 2 warnings` where the table's result column says `1 failed`; wording only). Both task reviews found the committed diff matching the spec's.
+- No task departed from its blocks or Expected lines: each task's red, green and mutation results matched the plan's proof numbers (Task 1 M5's summary reads `1 failed, 2 warnings` where the table's result column says `1 failed`; wording only). Both task reviews recorded Spec compliant and Task quality Approved; the final review compared every changed line with the spec's diff (529 lines each side, identical once sorted).
 - The final whole-branch review found nothing to fix (no fix wave). R9 (the final reviewer got the two-commit code range, not the merge-base package) was made at execution and is in the ledger and findings-slice60.md §3.
 - Two documents carry an R7 (the spec's and this plan's); both are the same withdrawn ruling, and each has its own dated Correction to R7.

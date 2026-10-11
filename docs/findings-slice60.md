@@ -47,7 +47,7 @@ Spec: docs/superpowers/specs/2026-10-11-slice60-test-hardening-design.md (commit
 - "User decision (2026-10-11, spec decision 7): After the spec review (finding 4): `signedIn()` in api.test.ts gets the same name-checking cookie mock as the page test, over scoping the 58:124 note to page.test.tsx."
 - "User decision (2026-10-11, spec decision 8): After the spec re-review (finding 2): 57:153 counts as closed by this slice's audit-cards case (R3), over leaving it to slice 62; the fact behind decision 1 ("already closed by slice 58") was wrong."
 
-**Results** (selected ledger lines, quoted; in the ledger only: the header lines, the pre-flight scan and the dispatch lines):
+**Results** (selected ledger lines, quoted; in the ledger only: the header lines, the pre-flight scan, and the line recording that the controller wrote these docs):
 - "Task 1: implementer (Opus 5.5, agent af90ca4b2c7d1c826) DONE_WITH_CONCERNS: commit abb57de (BASE 4ad818e). Report: task-1-report.md. Red `1 failed, 2 warnings` (budget_room False != True), green `1 passed`, five files `111 passed, 2 warnings`, ruff 185 files formatted / All checks passed / mypy 31 files clean. Controller checked: one commit, 6 files (+192 -135), trailer Opus 5.5, tree clean apart from .DS_Store."
 - "Task 1: implementer concerns (observations, no action): M5's summary reads `1 failed, 2 warnings` where the brief's column says `1 failed`; for M1-M3 the pytest summary does not show which of the two assertions (API or SQL) failed."
 - "Task 1: complete (commits 4ad818e..abb57de, review clean)"
@@ -66,12 +66,12 @@ Spec: docs/superpowers/specs/2026-10-11-slice60-test-hardening-design.md (commit
 | M3 | `serp_due` drops the queued-or-running clause | killed: a queued job, a running job 8 days ago (2 failed, 28 passed) |
 | M4 | the crud race test's thread runs `1 / 0` | the failure is `ZeroDivisionError: division by zero` at the test's own line, not KeyError 'response' (1 failed) |
 | M5 | the Brand SERP GET passes `lock=True` to `serp_budget_fits` | killed: `AssertionError: the thread did not finish within 5.0 s` (1 failed) |
-| M6 | `api()` reads cookie `bsi_key_x` | killed: all 7 page cases (7 failed); api.test.ts's 26 tests pass, see Section 4 |
+| M6 | `api()` reads cookie `bsi_key_x` | killed: all 7 page cases (7 failed); api.test.ts's 26 tests pass, see the spec's Section 4 |
 | M11 | the page passes a constant `false` for `budget_room` | killed: each audit gets a card (1 failed, 6 passed); before R3 the same mutant passed all 7 |
 | M7 | `serpSchedule` checks the budget before the failure pause | killed: three failed audits outrank the budget note (1 failed, 6 passed) |
 | M8 | `serpSchedule` checks the budget before "not configured" | killed: an unconfigured provider outranks the budget note, three failed audits outrank the budget note (2 failed, 5 passed) |
 | M9 | a server action adds `String(fd.get('brand_id'))` and `form.get("type") as string` | killed: server actions read path values with formSeg() (1 failed, 1 passed); main's scan passes the same plant |
-| M10 | a server action adds `/* see api(\`/brands */` and a template whose `${id}` skips `seg()` | killed by test 1 on this scan and on main's (1 failed, 1 passed each): already guarded, hence decision 5 |
+| M10 | a server action adds `` /* see api(`/brands */ `` and a template whose `${id}` skips `seg()` | killed by test 1 on this scan and on main's (1 failed, 1 passed each): already guarded, hence decision 5 |
 
 **Reviews**, as the ledger records them:
 - "Review verdict: spec review round 1 (Opus 5.5): Request changes; one Important (budget_room constant false survived the page tests), five minors. Fixed in 5361684."
@@ -137,4 +137,4 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 2: minor (deferred): `audit()` in page.test.tsx defaults to owned 1 / organic 1 with `results: []`, so a future case using the default unchanged would render "Ownership: 1 of 1" with no rows."
 - "Task 2: minor (deferred): the backend gate prints "2 warnings" (the known Starlette/anyio warnings; slice 62 per the spec's Out of scope)."
 
-Not in the ledger as slice 60 deferred minors, and still open: the "2 warnings" (also at 57:157, 59:125 and 59:129), 57:155 and 57:158 (behaviour and lock design), 59:120 and 59:132 (`${seg(id)}` after `formSeg`): all out of scope here, all slice 62.
+Not slice 60 deferred minors, and still open: the "2 warnings" (also at 57:157, 59:125 and 59:129), and 59:120 and 59:132 (`${seg(id)}` after `formSeg`): out of scope here, slice 62. The spec's Out of scope list also names 57:155 and 57:158, which slice 59 had already closed (the notes under those lines in findings-slice57.md say so); the spec carries a dated correction.

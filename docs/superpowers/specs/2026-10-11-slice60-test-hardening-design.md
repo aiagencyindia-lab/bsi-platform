@@ -1056,7 +1056,7 @@ Mutations, each applied alone to the patched copy and reverted (the named test f
 | M7 | `serpSchedule` checks the budget before the failure pause | killed: three failed audits outrank the budget note (1 failed, 6 passed) |
 | M8 | `serpSchedule` checks the budget before "not configured" | killed: an unconfigured provider outranks the budget note, three failed audits outrank the budget note (2 failed, 5 passed) |
 | M9 | a server action adds `String(fd.get('brand_id'))` and `form.get("type") as string` | killed: server actions read path values with formSeg() (1 failed, 1 passed); main's scan passes the same plant |
-| M10 | a server action adds `/* see api(\`/brands */` and a template whose `${id}` skips `seg()` | killed by test 1 on this scan and on main's (1 failed, 1 passed each): already guarded, hence decision 5 |
+| M10 | a server action adds `` /* see api(`/brands */ `` and a template whose `${id}` skips `seg()` | killed by test 1 on this scan and on main's (1 failed, 1 passed each): already guarded, hence decision 5 |
 
 ## Rulings
 
@@ -1079,6 +1079,7 @@ Correction to R7 (2026-10-11): withdrawn. The plan re-review found that the proo
 ## Out of scope (slice 62 unless said otherwise)
 
 - The "2 warnings" report items (57:157, 59:125, 59:129), 57:155 and 57:158 (behaviour and lock design), 59:120 and 59:132 (`${seg(id)}` after `formSeg` checks each value twice, a design choice), and the docs items.
+  - Correction (2026-10-11, after slice 60, PR #120): 57:155 and 57:158 were already closed by slice 59 (the notes under those lines in findings-slice57.md say so); they are not open items for slice 62. The docs review of the findings caught it.
 - A shared render helper for a second page.
 
 ## Docs follow-ups
