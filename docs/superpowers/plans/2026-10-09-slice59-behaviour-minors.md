@@ -1934,4 +1934,4 @@ Ruling: R9. Decided: the plan review's four minors are fixed in a second plan co
 - Step 0, as planned: the controller created the worktree before Task 1; the Task 1 implementer ran `uv sync` and `npm ci`, and Tasks 2 and 3 found them in place.
 - No task departed from its blocks or Expected lines: each task's red, green and mutation results matched the plan's proof numbers, and each task reviewer found the committed diff matching the spec's.
 - The final whole-branch review led to one fix commit after the tasks, 0cf8b9b (R10: `budget_fits`' docstring calls the lock-free answer a best-effort snapshot; the page test "a queued audit hides the budget note" is renamed "a brand that is not due shows no budget note"), with a scoped re-review.
-- Two pytest processes of another project (invoice-processing) were running during the controller's gate run; they used their own database, and the run passed.
+- Two pytest processes of another project (invoice-processing) were running during the controller's first gate run; the run passed.
