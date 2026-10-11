@@ -20,13 +20,14 @@ The items, by the file they touch (findings line numbers are as at main a026e65)
 Also closed here: 57:153 (a page passing a constant for `budget_room` passed the gate); slice 58's page test did not pin `budget_room` true on an active brand, and this slice's audit-cards case does (R3). Already closed before this slice, so no change: 49:105 (fixed in slice 58, noted at 49:106). Moot: 57:160 asked for a `serpSchedule` case with `jobStatus = null`; slice 59 (PR #118) replaced that parameter with `serp_due`, so there is nothing to add (a dated note closes it).
 
 User decisions (2026-10-11), with the approaches text shown in chat before each:
-1. Scope as listed above, including 57:160 and excluding 49:105/106 and 57:153. (The 57:160 moot finding came after this approval and was reported in Section 5 before its approval.)
+1. Scope as listed above, including 57:160 and excluding 49:105/106 and 57:153. (The 57:160 moot finding came after this approval and was reported in Section 5 before its approval. 57:153 moved into scope by decision 8, after the spec review showed it was not already closed.)
 2. Item H included in slice 60, over pushing it to slice 62 or won't-fix.
 3. Approach 2 (shared helpers for the two repeated shapes, then one edit per item), over patching each item in place and over a `locked_holder` fixture.
 4. Sections 1 to 6 each approved with "yes" after their text was shown in chat.
 5. After mutant M10: 49:102 dropped and closed as already guarded, over keeping a block-comment strip no mutant distinguishes.
 6. After the proof: the budget lock test keeps the proof's shape without the `done` Event (R2), over restoring the Event as Section 1 had said.
 7. After the spec review (finding 4): `signedIn()` in api.test.ts gets the same name-checking cookie mock as the page test, over scoping the 58:124 note to page.test.tsx.
+8. After the spec re-review (finding 2): 57:153 counts as closed by this slice's audit-cards case (R3), over leaving it to slice 62; the fact behind decision 1 ("already closed by slice 58") was wrong.
 
 ## Section 1 — The thread helpers (B, C)
 
@@ -1061,7 +1062,7 @@ Mutations, each applied alone to the patched copy and reverted (the named test f
 
 Ruling: R1. Decided: `_job`'s `minutes` argument stays as it is; only `_audit` and `_aged` move to the DB clock. Found by: the controller, writing the proof. Why: Section 2's text said the `_job(minutes=...)` offsets would become timedeltas, but `minutes` sets `scheduled_slot`, which `serp_due` and `due_serp_audits()` never read; the offsets only keep the rows distinct. Cost if wrong: none to behaviour. How named: this spec and chat.
 
-Ruling: R2. Decided: test_budget.py's lock test drops the `done` Event: `assert t.is_alive()` while blocked and `assert t.result() is True` after release. Found by: the controller, writing the proof; confirmed by the user (decision 6). Why: the Event duplicated `is_alive()`, and `result()` pins the verdict the old test never checked. Cost if wrong: none to behaviour. How named: this spec and chat.
+Ruling: R2. Decided: test_budget.py's lock test drops the `done` Event: `assert t.is_alive()` while blocked and, after release, the verdict from `t.result()` asserted True (the join moved into `finally` by R4). Found by: the controller, writing the proof; confirmed by the user (decision 6). Why: the Event duplicated `is_alive()`, and `result()` pins the verdict the old test never checked. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 Ruling: R3. Decided: the audit-cards case also asserts the plain weekly line, that the budget note is absent, the mapped `timeout` text and that the failed card has no "Ownership: 0 of 0" line; 57:153 moves from "already closed" to closed by this slice. Found by: the spec reviewer (Opus 5.5), 2026-10-11, findings 1 and 5. Why: the spec claimed 58:127 closed and 57:153 already closed, but no case pinned `budget_room` true on a brand that reaches the budget check, so a constant `false` passed all 7 page cases (reproduced); and Section 4 said the error branch was pinned when only "Failed: " was. Cost if wrong: none to behaviour. How named: this spec and chat.
 
