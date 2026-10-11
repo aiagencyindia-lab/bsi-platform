@@ -17,7 +17,7 @@ The items, by the file they touch (findings line numbers are as at main a026e65)
 - G. Path scans: 59:130 (the formSeg scan is pinned to a parameter named `form`, double quotes and `String(...)`), 49:102 (a block comment holding an unclosed backtick).
 - H. 59:131 (`formSeg` logs "missing" for a File field): a one-line log text, included at the user's choice.
 
-Already closed before this slice, so no change: 49:105 (fixed in slice 58, noted at 49:106) and 57:153 (the page test exists since slice 58). Moot: 57:160 asked for a `serpSchedule` case with `jobStatus = null`; slice 59 (PR #118) replaced that parameter with `serp_due`, so there is nothing to add (a dated note closes it).
+Also closed here: 57:153 (a page passing a constant for `budget_room` passed the gate); slice 58's page test did not pin `budget_room` true on an active brand, and this slice's audit-cards case does (R3). Already closed before this slice, so no change: 49:105 (fixed in slice 58, noted at 49:106). Moot: 57:160 asked for a `serpSchedule` case with `jobStatus = null`; slice 59 (PR #118) replaced that parameter with `serp_due`, so there is nothing to add (a dated note closes it).
 
 User decisions (2026-10-11), with the approaches text shown in chat before each:
 1. Scope as listed above, including 57:160 and excluding 49:105/106 and 57:153. (The 57:160 moot finding came after this approval and was reported in Section 5 before its approval.)
@@ -26,6 +26,7 @@ User decisions (2026-10-11), with the approaches text shown in chat before each:
 4. Sections 1 to 6 each approved with "yes" after their text was shown in chat.
 5. After mutant M10: 49:102 dropped and closed as already guarded, over keeping a block-comment strip no mutant distinguishes.
 6. After the proof: the budget lock test keeps the proof's shape without the `done` Event (R2), over restoring the Event as Section 1 had said.
+7. After the spec review (finding 4): `signedIn()` in api.test.ts gets the same name-checking cookie mock as the page test, over scoping the 58:124 note to page.test.tsx.
 
 ## Section 1 — The thread helpers (B, C)
 
@@ -38,10 +39,10 @@ The five thread tests take one shape: `t = run_in_thread(...)`; `assert wait_unt
 
 - test_api_crud.py `test_a_simultaneous_duplicate_domain_is_409_not_500` gains the `is_alive` assert and the finally-join.
 - test_api_recommendations.py `test_concurrent_accept_returns_409_not_500` and test_recommend.py `test_a_dismiss_racing_refresh_survives` switch to the helpers.
-- test_api_serp.py `test_the_page_does_not_wait_on_the_orgs_budget_lock` calls `t.result()` while the holder still holds the lock, with no `wait_until_blocked` (nothing should block); a GET that took the lock fails on `result()`'s timeout (mutant M5).
-- test_budget.py `test_the_default_check_waits_for_the_orgs_lock` uses the helpers; `assert t.is_alive()` replaces the `done` Event, and `assert t.result() is True` pins the verdict after release (R2).
+- test_api_serp.py `test_the_page_does_not_wait_on_the_orgs_budget_lock` calls `t.result()` while the holder still holds the lock, with no `wait_until_blocked` (nothing should block); a GET that took the lock fails on `result()`'s timeout (mutant M5). Its `finally` calls `t.result()` again after the rollback, so a GET that did wait is joined once the lock is gone (R4).
+- test_budget.py `test_the_default_check_waits_for_the_orgs_lock` uses the helpers; `assert t.is_alive()` replaces the `done` Event, the `finally` joins with `verdict = t.result()`, and `assert verdict is True` pins the verdict after release (R2, R4).
 
-The join timeout stays 5 seconds: CI runs the suite under load.
+The join timeout stays 5 seconds: CI runs the suite under load. When an assert inside the `try` fails and `result()` in the `finally` then raises too (a timeout, or the thread's own error), Python reports the thread's error and keeps the assert's message as its `__context__`; that is accepted (R6).
 
 ## Section 2 — serp_due edges on the DB clock (A, E)
 
@@ -70,11 +71,11 @@ One minute each side is the margin `test_failed_7d_window_boundary` already uses
 apps/web/src/app/(app)/b/[id]/serp/page.test.tsx:
 
 - 58:120: `BASE` is built from `API_URL` imported from `@/lib/api`.
-- 58:124: the cookie store's `get(name)` returns the key only for `COOKIE` (from `@/lib/cookie`), so a wrong cookie name in `api()` sends no Bearer header.
+- 58:124: the cookie store's `get(name)` returns the key only for `COOKIE` (from `@/lib/cookie`), so a wrong cookie name in `api()` sends no Bearer header. `signedIn()` in apps/web/src/lib/api.test.ts gets the same `get(name)` (decision 7). That file asserts no Authorization header today and its `redirect` mock does not throw, so the change pins nothing there yet (mutant M6 passes its 26 tests with the wrong name); it removes the blind spot for a future header assertion.
 - 58:121: `render()` asserts the three URLs and `Bearer bsi_key_1` on every call before returning the markup, so every case checks them.
 - 58:125: apps/web/src/lib/format.ts exports the budget sentence as `BUDGET_NOTE` and `serpSchedule` uses it; page.test.tsx and format.test.ts import it. A production export with no behaviour change.
-- 58:126/127: `serp(over)` takes a partial override on defaults that put the brand at the budget check with no room (`budget_room: false`, `serp_due: true`, `serp_configured: true`, `failed_7d: 0`, `job: null`, `audits: []`). Two new cases pin the other side: `serp_configured: false` shows the "not configured" line and not the budget note; `failed_7d: 3` shows the failed line and not the budget note.
-- 58:119: one new case with two audits: a successful one with an owned organic result (https URL) and a knowledge panel (no URL), and a failed one. It asserts the query, "IN/en · desktop · 2026-10-11 09:30 UTC", "Ownership: 1 of 1 (100%)", "knowledge_panel 1 · official 1", "Knowledge Panel: yes · AI Overview: no", the result tag, the link's href, the host cell, the plain-text title for the result with no URL, the second card's query and its "Failed: " line, and that "No audit yet" is absent.
+- 58:126/127: `serp(over)` takes a partial override on defaults that put the brand at the budget check with no room (`budget_room: false`, `serp_due: true`, `serp_configured: true`, `failed_7d: 0`, `job: null`, `audits: []`). Two new cases pin the other side: `serp_configured: false` shows the "not configured" line and not the budget note; `failed_7d: 3` shows the failed line and not the budget note. `budget_room: true` on an active, due, configured brand is pinned by the audit-cards case below (R3).
+- 58:119: one new case with two audits: a successful one with an owned organic result (https URL) and a knowledge panel (no URL), and a failed one. It asserts the query, "IN/en · desktop · 2026-10-11 09:30 UTC", "Ownership: 1 of 1 (100%)", "knowledge_panel 1 · official 1", "Knowledge Panel: yes · AI Overview: no", the result tag, the link's href, the host cell, the plain-text title for the result with no URL, the second card's query and its "Failed: the SERP provider took too long to answer" line (the mapped `timeout` text), that the failed card has no "Ownership: 0 of 0" line, that "No audit yet" is absent, and, since the case has budget room, the plain weekly line and not the budget note (R3; mutants M11 and M6).
 
 The harness and its ponytail note stay.
 
@@ -98,7 +99,7 @@ Generated from the proof (a scratchpad copy of main a026e65 with the change appl
 ```diff
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_crud.py b/tests/integration/test_api_crud.py
 --- a/tests/integration/test_api_crud.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_api_crud.py	2026-10-11 18:53:28
++++ b/tests/integration/test_api_crud.py	2026-10-11 19:06:21
 @@ -1,10 +1,8 @@
 -import threading
 -
@@ -171,7 +172,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_crud.py b
      with owner() as s:
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_recommendations.py b/tests/integration/test_api_recommendations.py
 --- a/tests/integration/test_api_recommendations.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_api_recommendations.py	2026-10-11 18:53:28
++++ b/tests/integration/test_api_recommendations.py	2026-10-11 19:05:23
 @@ -1,12 +1,12 @@
 -import threading
 -import time
@@ -261,7 +262,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_recommend
  
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_serp.py b/tests/integration/test_api_serp.py
 --- a/tests/integration/test_api_serp.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_api_serp.py	2026-10-11 18:53:28
++++ b/tests/integration/test_api_serp.py	2026-10-11 19:05:23
 @@ -1,15 +1,16 @@
 -import threading
  from datetime import UTC, datetime, timedelta
@@ -465,7 +466,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_serp.py b
      ],
  )
  def test_serp_due_agrees_with_due_serp_audits(
-@@ -362,20 +398,14 @@
+@@ -362,20 +398,15 @@
          text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
          {"org": str(org.id)},
      )
@@ -492,10 +493,11 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_serp.py b
          holder.close()
 -        t.join()
 -    assert result["response"].status_code == 200
++        t.result()  # a GET that waited finishes now; join it either way
 +    assert response.status_code == 200, response.text
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_budget.py b/tests/integration/test_budget.py
 --- a/tests/integration/test_budget.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_budget.py	2026-10-11 18:53:28
++++ b/tests/integration/test_budget.py	2026-10-11 19:05:23
 @@ -1,4 +1,3 @@
 -import threading
  from datetime import UTC, datetime, timedelta
@@ -510,7 +512,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_budget.py b/t
  
  
  @pytest.fixture(autouse=True)
-@@ -222,19 +221,11 @@
+@@ -222,19 +221,12 @@
          text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
          {"org": str(org.id)},
      )
@@ -530,13 +532,15 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_budget.py b/t
 +        assert t.is_alive()  # still waiting on the lock
      finally:
          holder.rollback()
-         holder.close()
+-        holder.close()
 -    t.join(timeout=5)
 -    assert done.is_set()
-+    assert t.result() is True
++        holder.close()  # releases the lock even if an assert above failed
++        verdict = t.result()
++    assert verdict is True
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_recommend.py b/tests/integration/test_recommend.py
 --- a/tests/integration/test_recommend.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_recommend.py	2026-10-11 18:53:28
++++ b/tests/integration/test_recommend.py	2026-10-11 19:05:23
 @@ -1,4 +1,3 @@
 -import threading
  from types import SimpleNamespace
@@ -655,7 +659,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/threads.py b/tests
 +    return ThreadHandle(fn)
 diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts b/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts
 --- a/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts	2026-10-11 18:53:28
++++ b/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts	2026-10-11 19:05:23
 @@ -115,5 +115,8 @@
    await expect(action(f)).rejects.toThrow("NOT_FOUND");
    expect(fetchMock).not.toHaveBeenCalled();
@@ -668,7 +672,7 @@ diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts b/apps/web/src/ap
  });
 diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx b/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx
 --- a/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx	2026-10-11 18:14:42
-+++ b/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx	2026-10-11 18:53:28
++++ b/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx	2026-10-11 19:05:23
 @@ -1,10 +1,15 @@
  import { renderToStaticMarkup } from "react-dom/server";
  import { afterEach, expect, test, vi } from "vitest";
@@ -796,7 +800,7 @@ diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx b/apps/web/src/app/
    expect(html).toContain(
      "Not added: that domain is already declared for this brand.",
    );
-@@ -118,18 +137,97 @@
+@@ -118,18 +137,104 @@
  test("a brand that is not due shows no budget note", async () => {
    const { html } = await render({
      // The brand's own queued audit makes it not due (due_serp_audits()).
@@ -887,7 +891,14 @@ diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx b/apps/web/src/app/
 +  // A result with no http(s) URL gets its title as text, not a link.
 +  expect(html).toContain("<td>Walkaroo (panel)</td>");
 +  expect(html).toContain("<strong>walkaroo reviews</strong>");
-+  expect(html).toContain('<p class="down">Failed: ');
++  expect(html).toContain(
++    '<p class="down">Failed: the SERP provider took too long to answer</p>',
++  );
++  // The failed card renders the error in place of the results.
++  expect(html).not.toContain("Ownership: 0 of 0");
++  // Room in the budget: the plain weekly line, not the budget note.
++  expect(html).toContain("Audited automatically once a week.");
++  expect(html).not.toContain(BUDGET_NOTE);
 +});
 +
  test("an archived brand gets no form", async () => {
@@ -899,7 +910,7 @@ diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx b/apps/web/src/app/
    });
 diff -ruN a/apps/web/src/lib/api-paths.test.ts b/apps/web/src/lib/api-paths.test.ts
 --- a/apps/web/src/lib/api-paths.test.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/api-paths.test.ts	2026-10-11 18:53:28
++++ b/apps/web/src/lib/api-paths.test.ts	2026-10-11 19:05:23
 @@ -53,8 +53,12 @@
    // String(form.get(...)) turns a missing field into "null", which seg()
    // passes; formSeg() refuses it. A field named by a variable
@@ -917,8 +928,30 @@ diff -ruN a/apps/web/src/lib/api-paths.test.ts b/apps/web/src/lib/api-paths.test
    );
 diff -ruN a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
 --- a/apps/web/src/lib/api.test.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/api.test.ts	2026-10-11 18:53:28
-@@ -152,7 +152,10 @@
++++ b/apps/web/src/lib/api.test.ts	2026-10-11 19:05:23
+@@ -9,7 +9,7 @@
+   redirect: vi.fn(),
+ }));
+ 
+-const { api, formSeg, publicApi, seg } = await import("./api");
++const { api, COOKIE, formSeg, publicApi, seg } = await import("./api");
+ const { cookies } = await import("next/headers");
+ 
+ const stub = (status: number) =>
+@@ -26,9 +26,11 @@
+   vi.mocked(cookies).mockReset();
+ });
+ 
++// Only the cookie api() reads carries the key, so a wrong name sends none.
+ const signedIn = () =>
+   vi.mocked(cookies).mockResolvedValue({
+-    get: () => ({ value: "bsi_key_1" }),
++    get: (name: string) =>
++      name === COOKIE ? { value: "bsi_key_1" } : undefined,
+   } as never);
+ 
+ test.each([404, 422])("publicApi maps %i to notFound", async (status) => {
+@@ -152,7 +154,10 @@
    const log = vi.spyOn(console, "error").mockImplementation(() => {});
    expect(() => formSeg(new FormData(), "brand_id")).toThrow("NOT_FOUND");
    expect(log).toHaveBeenCalledTimes(1);
@@ -930,7 +963,7 @@ diff -ruN a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
  });
  
  test("formSeg refuses a file field and a value seg() refuses", () => {
-@@ -162,6 +165,9 @@
+@@ -162,6 +167,9 @@
    f.set("brand_id", "a/b");
    expect(() => formSeg(f, "csv")).toThrow("NOT_FOUND");
    expect(() => formSeg(f, "brand_id")).toThrow("NOT_FOUND");
@@ -943,7 +976,7 @@ diff -ruN a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
  });
 diff -ruN a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
 --- a/apps/web/src/lib/api.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/api.ts	2026-10-11 18:53:28
++++ b/apps/web/src/lib/api.ts	2026-10-11 19:06:30
 @@ -27,7 +27,7 @@
  export function formSeg(form: FormData, name: string): string {
    const value = form.get(name);
@@ -955,7 +988,7 @@ diff -ruN a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
  
 diff -ruN a/apps/web/src/lib/format.test.ts b/apps/web/src/lib/format.test.ts
 --- a/apps/web/src/lib/format.test.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/format.test.ts	2026-10-11 18:53:28
++++ b/apps/web/src/lib/format.test.ts	2026-10-11 19:05:23
 @@ -4,6 +4,7 @@
    alertNote,
    apiQuery,
@@ -976,7 +1009,7 @@ diff -ruN a/apps/web/src/lib/format.test.ts b/apps/web/src/lib/format.test.ts
    expect(serpSchedule("active", 1, true, 2, true, true)).toBe(weekly);
 diff -ruN a/apps/web/src/lib/format.ts b/apps/web/src/lib/format.ts
 --- a/apps/web/src/lib/format.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/format.ts	2026-10-11 18:53:28
++++ b/apps/web/src/lib/format.ts	2026-10-11 19:05:23
 @@ -201,6 +201,10 @@
  /** failed audit_serp jobs in 7 days that stop the sweep (migration 0024). */
  const SERP_MAX_FAILURES = 3;
@@ -1003,9 +1036,10 @@ diff -ruN a/apps/web/src/lib/format.ts b/apps/web/src/lib/format.ts
 
 Proof directory: a fresh scratchpad copy of main a026e65 (`proof60-1791724431`), written only by the controller through an edit script with assert-counted replacements.
 
-- Green, patched: the five changed backend files 111 passed (main collects 104 in them); the whole backend suite 1803 passed, 2 deselected, 2 warnings (the known Starlette/anyio warnings) with metrics coverage 100%; `npx vitest run` 91 passed (91); `tsc --noEmit` clean; `eslint .` clean; `ruff format --check` and `ruff check` clean on tests/.
+- Green, patched (after the review-round edits): the five changed backend files 111 passed (main collects 104 in them); the whole backend suite 1803 passed, 2 deselected, 2 warnings (the known Starlette/anyio warnings) with metrics coverage 100%; `npx vitest run` 91 passed (91); `tsc --noEmit` clean; `eslint .` clean; `ruff format --check` and `ruff check` clean on tests/.
 - Red on main for 57:163: `DAILY_BUDGET_USD=0.01 uv run pytest tests/integration/test_api_serp.py::test_get_is_empty_before_any_audit` → 1 failed on main, 1 passed on the proof.
-- The spec's first draft of the api-paths change included a block-comment strip; M10 showed main's scan already fails on that plant, so decision 5 dropped it and the diff above is what the proof ran afterwards (vitest 91, tsc, eslint and M9/M10 re-run clean).
+- The spec's first draft of the api-paths change included a block-comment strip; M10 showed main's scan already fails on that plant, so decision 5 dropped it.
+- Spec review round 1 (Opus 5.5, 2026-10-11): the reviewer showed that a constant `false` for `budget_room` survived the page tests (7 passed), which the controller reproduced; R3 to R6 and decision 7 followed. The diff above is the proof after those edits: vitest 91 passed (91), tsc and eslint clean, the five backend files 111 passed, ruff clean; M4, M5, M6 and M11 re-run on it. The whole-suite count of 1803 is from the run before the round-1 edits, which changed no backend test count.
 
 Mutations, each applied alone to the patched copy and reverted (the named test file run whole unless a single test is named):
 
@@ -1016,7 +1050,8 @@ Mutations, each applied alone to the patched copy and reverted (the named test f
 | M3 | `serp_due` drops the queued-or-running clause | killed: a queued job, a running job 8 days ago (2 failed, 28 passed) |
 | M4 | the crud race test's thread runs `1 / 0` | the failure is `ZeroDivisionError: division by zero` at the test's own line, not KeyError 'response' (1 failed) |
 | M5 | the Brand SERP GET passes `lock=True` to `serp_budget_fits` | killed: `AssertionError: the thread did not finish within 5.0 s` (1 failed) |
-| M6 | `api()` reads cookie `bsi_key_x` | killed: all 7 page cases (7 failed) |
+| M6 | `api()` reads cookie `bsi_key_x` | killed: all 7 page cases (7 failed); api.test.ts's 26 tests pass, see Section 4 |
+| M11 | the page passes a constant `false` for `budget_room` | killed: each audit gets a card (1 failed, 6 passed); before R3 the same mutant passed all 7 |
 | M7 | `serpSchedule` checks the budget before the failure pause | killed: three failed audits outrank the budget note (1 failed, 6 passed) |
 | M8 | `serpSchedule` checks the budget before "not configured" | killed: an unconfigured provider outranks the budget note, three failed audits outrank the budget note (2 failed, 5 passed) |
 | M9 | a server action adds `String(fd.get('brand_id'))` and `form.get("type") as string` | killed: server actions read path values with formSeg() (1 failed, 1 passed); main's scan passes the same plant |
@@ -1028,6 +1063,14 @@ Ruling: R1. Decided: `_job`'s `minutes` argument stays as it is; only `_audit` a
 
 Ruling: R2. Decided: test_budget.py's lock test drops the `done` Event: `assert t.is_alive()` while blocked and `assert t.result() is True` after release. Found by: the controller, writing the proof; confirmed by the user (decision 6). Why: the Event duplicated `is_alive()`, and `result()` pins the verdict the old test never checked. Cost if wrong: none to behaviour. How named: this spec and chat.
 
+Ruling: R3. Decided: the audit-cards case also asserts the plain weekly line, that the budget note is absent, the mapped `timeout` text and that the failed card has no "Ownership: 0 of 0" line; 57:153 moves from "already closed" to closed by this slice. Found by: the spec reviewer (Opus 5.5), 2026-10-11, findings 1 and 5. Why: the spec claimed 58:127 closed and 57:153 already closed, but no case pinned `budget_room` true on a brand that reaches the budget check, so a constant `false` passed all 7 page cases (reproduced); and Section 4 said the error branch was pinned when only "Failed: " was. Cost if wrong: none to behaviour. How named: this spec and chat.
+
+Ruling: R4. Decided: the budget lock test and the no-wait test join in their `finally` blocks (`verdict = t.result()`; a second `t.result()` after the rollback). Found by: the spec reviewer, finding 2. Why: Section 1 said no thread outlives a test even when an assert fails, and those two tests did not do that. Cost if wrong: none to behaviour. How named: this spec and chat.
+
+Ruling: R5. Decided: the dated note under 59:127 says the KeyError half is fixed and the 5-second judgement is kept by decision (Section 1), not fixed. Found by: the spec reviewer, finding 3. Why: the closure list claimed the whole item. Cost if wrong: none. How named: this spec and chat.
+
+Ruling: R6. Decided: the `result()`-in-`finally` shape stays, with Section 1 saying what is reported when both the assert and `result()` raise. Found by: the spec reviewer, finding 6. Why: the shape trades a clearer first message for a join that always happens; stating the trade is enough. Cost if wrong: a less direct failure message. How named: this spec and chat.
+
 ## Out of scope (slice 62 unless said otherwise)
 
 - The "2 warnings" report items (57:157, 59:125, 59:129), 57:155 and 57:158 (behaviour and lock design), 59:120 and 59:132 (`${seg(id)}` after `formSeg` checks each value twice, a design choice), and the docs items.
@@ -1035,5 +1078,5 @@ Ruling: R2. Decided: test_budget.py's lock test drops the `done` Event: `assert 
 
 ## Docs follow-ups
 
-- Dated notes under every closed minor: findings-slice49.md line 102; findings-slice55.md line 119; findings-slice57.md lines 153, 160 and 163; findings-slice58.md lines 119, 120, 121, 124, 125, 126 and 127; findings-slice59.md lines 121 to 124, 126 to 128, 130 and 131.
+- Dated notes under every closed minor: findings-slice49.md line 102; findings-slice55.md line 119; findings-slice57.md lines 153 (closed by R3's assertions, not by slice 58), 160 and 163; findings-slice58.md lines 119, 120, 121, 124, 125, 126 and 127; findings-slice59.md lines 121 to 124, 126 to 128 (127's note: the KeyError half fixed, the 5-second judgement kept by decision, R5), 130 and 131.
 - README rows for the slice 60 spec, plan and findings.
