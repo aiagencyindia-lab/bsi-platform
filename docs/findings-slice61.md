@@ -90,6 +90,8 @@ Every `Ruling:` line in the ledger, verbatim (R1 and R2 were copied into the led
 
 > Ruling: R5. Decided: the docs review's six findings are fixed in a second docs commit: §1 says five tests fail red, four new and the modified stop test; the 143 note and §1 say one test asserts the whole result with search queries and another asserts `searched` and `queries` without them; the 144 note credits M9 for the invalid-JSON case only, says the micros-less row is handled but untested, and attributes the remaining limit to the spec (R2), not the docstring; the 145 note points at the two deferred refusal minors in findings-slice61 §3; 'six script-side' becomes 'five script-side minors and one config comment' in §1 and the README spec row; the findings quote this verdict and ruling. Found by: the docs reviewer (Opus 5.5), 2026-10-12. Why: three false statements and three loose ones, all mine. Cost if wrong: none to behaviour. How named: ledger and chat.
 
+> Correction to R5 (2026-10-12): R5's fixes landed in two commits, not one: 1f07c0f holds the findings, notes and spec-row edits, and 25a7a76 the README findings row's R1–R5, because the controller's edit script stopped when its range pattern matched an earlier slice's row too and the commit ran without that edit. The second fix was anchored on the slice 61 row's link prefix.
+
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Task 1: minor (deferred): the implementer wrote its block-applying helper script (a scratchpad apply.py outside the repo) with a shell heredoc, against the Global Constraint allowing a heredoc only for the commit message; self-reported; no tracked file affected."
