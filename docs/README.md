@@ -287,7 +287,7 @@ In the order they were written:
 | [findings-slice60.md](findings-slice60.md) | Results: the test-only minors closed (and 49:102, 57:153 and 57:160 settled), the gates, CI and reviews, no live check, and every ruling (R1–R10), the corrections to R7 and every deferred minor, quoted from the ledger |
 | [superpowers/specs/2026-10-11-slice61-engine-probe-hardening-design.md](superpowers/specs/2026-10-11-slice61-engine-probe-hardening-design.md) | Design spec: six deferred minors of the slice 56 engine probe (five in the script and its tests, one config comment) — a re-run refuses over earlier outputs, `run_spend_micros`, partial results on any error (a malformed ledger line included), tests for `probe_costs` and the per-call fields, a closed ledger in the stop test, the config comment — with nine mutants, decisions 1–4 and rulings R1–R2 |
 | [superpowers/plans/2026-10-11-slice61-engine-probe-hardening.md](superpowers/plans/2026-10-11-slice61-engine-probe-hardening.md) | Implementation plan, one task with 17 blocks generated from a scratchpad proof, with R3 and the changes made during execution |
-| [findings-slice61.md](findings-slice61.md) | Results: findings-slice56 lines 142–146 and 150 closed, the gates, CI and reviews, no live check, and every ruling (R1–R4) and deferred minor, quoted from the ledger |
+| [findings-slice61.md](findings-slice61.md) | Results: findings-slice56 lines 142–146 and 150 closed, the gates, CI and reviews, no live check, and every ruling (R1–R5) and deferred minor, quoted from the ledger |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
