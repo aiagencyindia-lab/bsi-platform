@@ -1,4 +1,3 @@
-import threading
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -9,7 +8,7 @@ from bsi_core import scheduling
 from bsi_core.db import system_session, tenant_session
 from sqlalchemy import func, text, update
 
-from tests.integration.test_api_recommendations import _wait_until_blocked
+from tests.integration.threads import run_in_thread, wait_until_blocked
 
 
 @pytest.fixture(autouse=True)
@@ -222,19 +221,12 @@ def test_the_default_check_waits_for_the_orgs_lock(owner, make_org):
         text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
         {"org": str(org.id)},
     )
-    done = threading.Event()
-
-    def check() -> None:
-        fits(org, 1)
-        done.set()
-
-    t = threading.Thread(target=check)
-    t.start()
+    t = run_in_thread(lambda: fits(org, 1))
     try:
-        assert _wait_until_blocked(holder), "budget_fits did not wait"
-        assert not done.is_set()
+        assert wait_until_blocked(holder), "budget_fits did not wait"
+        assert t.is_alive()  # still waiting on the lock
     finally:
         holder.rollback()
-        holder.close()
-    t.join(timeout=5)
-    assert done.is_set()
+        holder.close()  # releases the lock even if an assert above failed
+        verdict = t.result()
+    assert verdict is True

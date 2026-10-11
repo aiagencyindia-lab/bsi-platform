@@ -1,15 +1,16 @@
-import threading
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 from bsi_api.routers import audits
 from bsi_core import models as m
+from bsi_core import scheduling
 from bsi_core.config import Settings
 from bsi_core.db import system_session
-from sqlalchemy import text, update
+from sqlalchemy import func, text, update
 
 from tests.integration.test_worker import _job
+from tests.integration.threads import run_in_thread
 
 OFFICIAL = {
     "position": 1,
@@ -32,7 +33,9 @@ PANEL = {
 }
 
 
-def _audit(owner, org, bid, kind, minutes_ago, results=(), error=None):
+def _audit(owner, org, bid, kind, ago, results=(), error=None):
+    """An audit row fetched `ago` before the DB's now(), the clock
+    serp_due and due_serp_audits() compare against."""
     with owner() as s, s.begin():
         s.add(
             m.SerpAudit(
@@ -43,7 +46,7 @@ def _audit(owner, org, bid, kind, minutes_ago, results=(), error=None):
                 country="IN",
                 language="en",
                 results=list(results),
-                fetched_at=datetime.now(UTC) - timedelta(minutes=minutes_ago),
+                fetched_at=func.now() - ago,
                 cost_micros=4_000,
                 error=error,
             )
@@ -51,24 +54,32 @@ def _audit(owner, org, bid, kind, minutes_ago, results=(), error=None):
 
 
 def _configured(monkeypatch, login="me", password="pw"):
-    """The API's DataForSEO settings, patched where audits.py reads them
-    (the lambda bypasses get_settings' lru_cache; explicit kwargs win
-    over .env)."""
-    monkeypatch.setattr(
-        audits,
-        "get_settings",
-        lambda: Settings(dataforseo_login=login, dataforseo_password=password),
+    """The API's DataForSEO settings and a fixed $2.00 budget, patched
+    where audits.py and scheduling.py read them (the lambda bypasses
+    get_settings' lru_cache; explicit kwargs win over .env, so a local
+    DAILY_BUDGET_USD cannot change budget_room)."""
+    settings = Settings(
+        dataforseo_login=login,
+        dataforseo_password=password,
+        daily_budget_usd=2.0,
     )
+    monkeypatch.setattr(audits, "get_settings", lambda: settings)
+    monkeypatch.setattr(scheduling, "get_settings", lambda: settings)
+
+
+MINUTE = timedelta(minutes=1)
+DAY = timedelta(days=1)
+WEEK = timedelta(days=7)
 
 
 def _aged(owner, job_id, ago):
     """Set a job's created_at (_job sets scheduled_slot only; created_at
-    is the server default) to now() - ago."""
+    is the server default) to the DB's now() - ago."""
     with owner() as s, s.begin():
         s.execute(
             update(m.Job)
             .where(m.Job.id == job_id)
-            .values(created_at=datetime.now(UTC) - ago)
+            .values(created_at=func.now() - ago)
         )
 
 
@@ -121,11 +132,11 @@ def test_get_returns_the_latest_row_per_query_with_ownership(
 ):
     org = make_org()
     bid = make_brand(org)
-    _audit(owner, org, bid, "brand", 60, [OTHER])
-    _audit(owner, org, bid, "brand", 5, [OFFICIAL, OTHER, PANEL])
-    _audit(owner, org, bid, "reviews", 60, [OFFICIAL])
+    _audit(owner, org, bid, "brand", timedelta(hours=1), [OTHER])
+    _audit(owner, org, bid, "brand", MINUTE * 5, [OFFICIAL, OTHER, PANEL])
+    _audit(owner, org, bid, "reviews", timedelta(hours=1), [OFFICIAL])
     # The latest reviews row is an error: it is shown, not the older one.
-    _audit(owner, org, bid, "reviews", 5, error="rate")
+    _audit(owner, org, bid, "reviews", MINUTE * 5, error="rate")
     r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
     assert r.status_code == 200, r.text
     brand, reviews = r.json()["audits"]
@@ -261,8 +272,8 @@ def test_failed_7d_window_boundary(
     bid = make_brand(org)
     inside = _job(owner, org, bid, "audit_serp", "failed", minutes=-1)
     outside = _job(owner, org, bid, "audit_serp", "failed", minutes=-2)
-    _aged(owner, inside, timedelta(days=7) - timedelta(minutes=1))
-    _aged(owner, outside, timedelta(days=7) + timedelta(minutes=1))
+    _aged(owner, inside, WEEK - MINUTE)
+    _aged(owner, outside, WEEK + MINUTE)
     r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
     assert r.status_code == 200, r.text
     assert r.json()["failed_7d"] == 1
@@ -286,37 +297,55 @@ def _arrange(owner, org, bid, case):
                 .where(m.Brand.id == bid)
                 .values(status="archived")
             )
-    week_ago = 8 * 24 * 60  # minutes: just outside the 7-day window
+    hour = timedelta(hours=1)
     if case in (
         "one kind this week",
         "both kinds this week",
         "one kind twice this week",
         "both kinds, one an error",
     ):
-        _audit(owner, org, bid, "brand", 60)
+        _audit(owner, org, bid, "brand", hour)
     if case == "both kinds this week":
-        _audit(owner, org, bid, "reviews", 60)
+        _audit(owner, org, bid, "reviews", hour)
     if case == "one kind twice this week":
-        _audit(owner, org, bid, "brand", 120)
+        _audit(owner, org, bid, "brand", hour * 2)
     if case == "both kinds, one an error":
-        _audit(owner, org, bid, "reviews", 60, error="timeout")
-    if case == "both kinds 8 days ago":
-        _audit(owner, org, bid, "brand", week_ago)
-        _audit(owner, org, bid, "reviews", week_ago)
-    if case == "a job today":
-        _job(owner, org, bid, "audit_serp", "done")
-    if case == "a queued job":
-        _aged(
-            owner,
-            _job(owner, org, bid, "audit_serp", "queued"),
-            timedelta(days=2),
-        )
-    if case in ("two failures", "three failures", "three failures 8 days ago"):
-        n = 2 if case == "two failures" else 3
-        days = 8 if case == "three failures 8 days ago" else 2
+        _audit(owner, org, bid, "reviews", hour, error="timeout")
+    # The 7-day window's edges: a minute inside keeps the brand covered, a
+    # minute outside does not (one minute proves the length, not > vs >=).
+    both_kinds = {
+        "both kinds 8 days ago": DAY * 8,
+        "both kinds a minute inside the week": WEEK - MINUTE,
+        "both kinds a minute outside the week": WEEK + MINUTE,
+    }
+    if case in both_kinds:
+        _audit(owner, org, bid, "brand", both_kinds[case])
+        _audit(owner, org, bid, "reviews", both_kinds[case])
+    # A job: done ones count for a day; queued or running ones at any age.
+    jobs = {
+        "a job today": ("done", None),
+        "a done job a minute inside the day": ("done", DAY - MINUTE),
+        "a done job a minute outside the day": ("done", DAY + MINUTE),
+        "a queued job": ("queued", DAY * 2),
+        "a running job 8 days ago": ("running", DAY * 8),
+    }
+    if case in jobs:
+        status, ago = jobs[case]
+        job = _job(owner, org, bid, "audit_serp", status)
+        if ago is not None:
+            _aged(owner, job, ago)
+    failures = {
+        "two failures": (2, DAY * 2),
+        "three failures": (3, DAY * 2),
+        "three failures 8 days ago": (3, DAY * 8),
+        "three failures a minute inside the week": (3, WEEK - MINUTE),
+        "three failures a minute outside the week": (3, WEEK + MINUTE),
+    }
+    if case in failures:
+        n, ago = failures[case]
         for i in range(n):
             job = _job(owner, org, bid, "audit_serp", "failed", minutes=-i)
-            _aged(owner, job, timedelta(days=days))
+            _aged(owner, job, ago)
 
 
 @pytest.mark.parametrize(
@@ -330,11 +359,18 @@ def _arrange(owner, org, bid, case):
         ("one kind twice this week", True),
         ("both kinds, one an error", True),
         ("both kinds 8 days ago", True),
+        ("both kinds a minute inside the week", False),
+        ("both kinds a minute outside the week", True),
         ("a job today", False),
+        ("a done job a minute inside the day", False),
+        ("a done job a minute outside the day", True),
         ("a queued job", False),
+        ("a running job 8 days ago", False),
         ("two failures", True),
         ("three failures", False),
         ("three failures 8 days ago", True),
+        ("three failures a minute inside the week", False),
+        ("three failures a minute outside the week", True),
     ],
 )
 def test_serp_due_agrees_with_due_serp_audits(
@@ -362,20 +398,15 @@ def test_the_page_does_not_wait_on_the_orgs_budget_lock(
         text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
         {"org": str(org.id)},
     )
-    result: dict[str, object] = {}
-
-    def get() -> None:
-        result["response"] = client.get(
-            f"/v1/brands/{bid}/audits/serp", headers=org.headers
-        )
-
-    t = threading.Thread(target=get)
-    t.start()
-    t.join(timeout=5)
+    t = run_in_thread(
+        lambda: client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
+    )
     try:
-        assert not t.is_alive(), "the GET waited on the org's advisory lock"
+        # The lock is still held: a GET that took it would not finish, and
+        # result() fails after its timeout.
+        response = t.result()
     finally:
         holder.rollback()
         holder.close()
-        t.join()
-    assert result["response"].status_code == 200
+        t.result()  # a GET that waited finishes now; join it either way
+    assert response.status_code == 200, response.text

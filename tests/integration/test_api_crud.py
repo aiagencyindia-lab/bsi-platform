@@ -1,10 +1,8 @@
-import threading
-
 import pytest
 from bsi_core import models as m
 from sqlalchemy import func, select, update
 
-from tests.integration.test_api_recommendations import _wait_until_blocked
+from tests.integration.threads import run_in_thread, wait_until_blocked
 
 
 def test_health_needs_no_key(client):
@@ -211,6 +209,7 @@ def test_an_archived_brand_accepts_no_new_domain(
     r = client.post(base, headers=org.headers, json={"host": "acme.com"})
     assert r.status_code == 409, r.text
     assert r.json()["title"] == "Brand is archived"
+    assert r.json()["detail"] == "Archived brands accept no new domains."
     assert client.get(base, headers=org.headers).json() == []
 
 
@@ -221,6 +220,13 @@ def test_a_host_is_capped_at_200_characters(client, make_org, make_brand):
     r = client.post(base, headers=org.headers, json={"host": at_cap})
     assert r.status_code == 201, r.text
     r = client.post(base, headers=org.headers, json={"host": "a" + at_cap})
+    assert r.status_code == 422, r.text
+    assert r.json()["errors"][0]["loc"][-1] == "host"
+    # The cap is on the input as sent, before normalization strips the
+    # scheme and "www.", as for every other Host field.
+    scheme = "https://www." + "a" * 192 + ".com"
+    assert len(scheme) == 208
+    r = client.post(base, headers=org.headers, json={"host": scheme})
     assert r.status_code == 422, r.text
     assert r.json()["errors"][0]["loc"][-1] == "host"
 
@@ -237,28 +243,23 @@ def test_a_simultaneous_duplicate_domain_is_409_not_500(
     holder.begin()
     holder.add(m.Domain(org_id=org.id, brand_id=bid, host="acme.com"))
     holder.flush()
-    result: dict[str, object] = {}
-
-    def post() -> None:
-        result["response"] = client.post(
+    t = run_in_thread(
+        lambda: client.post(
             f"/v1/brands/{bid}/domains",
             headers=org.headers,
             json={"host": "acme.com"},
         )
-
-    t = threading.Thread(target=post)
-    t.start()
+    )
     try:
-        assert _wait_until_blocked(holder), (
+        assert wait_until_blocked(holder), (
             "the POST never waited on the uncommitted row; the test would "
             "pass whether or not the insert handles the conflict"
         )
+        assert t.is_alive()  # still waiting, not raced ahead
         holder.commit()
-        t.join(timeout=5)
-        assert not t.is_alive()
     finally:
-        holder.close()
-    response = result["response"]
+        holder.close()  # releases the row even if an assert above failed
+        response = t.result()
     assert response.status_code == 409, response.text
     assert response.json()["title"] == "Domain already exists"
     with owner() as s:
