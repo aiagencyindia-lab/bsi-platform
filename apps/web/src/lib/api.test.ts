@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
 }));
 
-const { api, formSeg, publicApi, seg } = await import("./api");
+const { api, COOKIE, formSeg, publicApi, seg } = await import("./api");
 const { cookies } = await import("next/headers");
 
 const stub = (status: number) =>
@@ -26,9 +26,11 @@ afterEach(() => {
   vi.mocked(cookies).mockReset();
 });
 
+// Only the cookie api() reads carries the key, so a wrong name sends none.
 const signedIn = () =>
   vi.mocked(cookies).mockResolvedValue({
-    get: () => ({ value: "bsi_key_1" }),
+    get: (name: string) =>
+      name === COOKIE ? { value: "bsi_key_1" } : undefined,
   } as never);
 
 test.each([404, 422])("publicApi maps %i to notFound", async (status) => {
@@ -152,7 +154,10 @@ test("formSeg refuses a missing field instead of sending \"null\"", () => {
   const log = vi.spyOn(console, "error").mockImplementation(() => {});
   expect(() => formSeg(new FormData(), "brand_id")).toThrow("NOT_FOUND");
   expect(log).toHaveBeenCalledTimes(1);
-  expect(log).toHaveBeenCalledWith("API form value missing", '"brand_id"');
+  expect(log).toHaveBeenCalledWith(
+    "API form value missing or not text",
+    '"brand_id"',
+  );
 });
 
 test("formSeg refuses a file field and a value seg() refuses", () => {
@@ -162,6 +167,9 @@ test("formSeg refuses a file field and a value seg() refuses", () => {
   f.set("brand_id", "a/b");
   expect(() => formSeg(f, "csv")).toThrow("NOT_FOUND");
   expect(() => formSeg(f, "brand_id")).toThrow("NOT_FOUND");
-  expect(log).toHaveBeenCalledWith("API form value missing", '"csv"');
+  expect(log).toHaveBeenCalledWith(
+    "API form value missing or not text",
+    '"csv"',
+  );
   expect(log).toHaveBeenCalledWith("API path value refused", '"a/b"', 3);
 });

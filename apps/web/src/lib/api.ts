@@ -27,7 +27,7 @@ function sendAsWritten(path: string) {
 export function formSeg(form: FormData, name: string): string {
   const value = form.get(name);
   if (typeof value === "string") return seg(value);
-  console.error("API form value missing", shown(name));
+  console.error("API form value missing or not text", shown(name));
   notFound();
 }
 

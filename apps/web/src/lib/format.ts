@@ -201,6 +201,10 @@ export const serpStatus = (
 /** failed audit_serp jobs in 7 days that stop the sweep (migration 0024). */
 const SERP_MAX_FAILURES = 3;
 
+/** The schedule line while the org's budget has no room for a due audit. */
+export const BUDGET_NOTE =
+  "Audited automatically once a week; today the daily budget has no room for a Brand SERP audit, so a due audit waits until there is room. The budget resets at midnight UTC.";
+
 /**
  * The Brand SERP page's schedule line. due_serp_audits() (migration 0024)
  * only considers active brands with at least one declared domain, and
@@ -229,7 +233,7 @@ export const serpSchedule = (
           : failed7d >= SERP_MAX_FAILURES
             ? `Not audited automatically: ${failed7d} audits failed in the last 7 days; the sweep tries again once fewer than ${SERP_MAX_FAILURES} remain in that window.`
             : due && !budgetRoom
-              ? "Audited automatically once a week; today the daily budget has no room for a Brand SERP audit, so a due audit waits until there is room. The budget resets at midnight UTC."
+              ? BUDGET_NOTE
               : "Audited automatically once a week.";
 
 /** "3 of 10 (30%)"; no percentage when the page has no organic results. */

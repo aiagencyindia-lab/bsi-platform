@@ -115,5 +115,8 @@ test.each([
   await expect(action(f)).rejects.toThrow("NOT_FOUND");
   expect(fetchMock).not.toHaveBeenCalled();
   expect(redirect).not.toHaveBeenCalled();
-  expect(log).toHaveBeenCalledWith("API form value missing", '"brand_id"');
+  expect(log).toHaveBeenCalledWith(
+    "API form value missing or not text",
+    '"brand_id"',
+  );
 });
