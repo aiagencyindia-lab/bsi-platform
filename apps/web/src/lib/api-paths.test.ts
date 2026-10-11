@@ -48,3 +48,20 @@ test("every value in an API path goes through seg()", () => {
   expect(templates).toBeGreaterThanOrEqual(40);
   expect(bad).toEqual([]);
 });
+
+test("server actions read path values with formSeg()", () => {
+  // String(form.get(...)) turns a missing field into "null", which seg()
+  // passes; formSeg() refuses it. A field named by a variable
+  // (String(form.get(k))) is caught too: label's actions read ids that way.
+  const RAW =
+    /String\(form\.get\("(?:[a-z_]*_id|type)"\)\)|String\(form\.get\(\w+\)\)|seg\(String\(/g;
+  const files = readdirSync(APP, { recursive: true, encoding: "utf8" }).filter(
+    (f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f),
+  );
+  const bad = files.flatMap((f) =>
+    [...readFileSync(join(APP, f), "utf8").matchAll(RAW)].map(
+      (m) => `${f}: ${m[0]}`,
+    ),
+  );
+  expect(bad).toEqual([]);
+});

@@ -8,6 +8,7 @@ from bsi_core.matching import is_public_hostname, normalize_domain
 from fastapi import APIRouter, Response
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from ..deps import TENANT, Ctx, brand_or_404, child_or_404
 from ..problems import Problem
@@ -131,7 +132,7 @@ class ClusterOut(BaseModel):
 
 
 class DomainIn(BaseModel):
-    host: Annotated[str, AfterValidator(_public_host)] = Field(min_length=3)
+    host: Host = Field(min_length=3)
     is_primary: bool = False
 
 
@@ -253,20 +254,27 @@ def list_domains(brand_id: uuid.UUID, c: Ctx = TENANT) -> list[m.Domain]:
 def create_domain(
     brand_id: uuid.UUID, body: DomainIn, c: Ctx = TENANT
 ) -> m.Domain:
-    brand_or_404(c, brand_id)
-    q = select(m.Domain).where(
-        m.Domain.brand_id == brand_id, m.Domain.host == body.host
+    if brand_or_404(c, brand_id).status == "archived":
+        raise Problem(
+            409, "Brand is archived", "Archived brands accept no new domains."
+        )
+    # One statement, so two simultaneous submits of the same host give one
+    # 201 and one 409: the second waits on the (brand_id, host) unique
+    # index and then inserts nothing, where a SELECT first would let both
+    # through to a unique violation (a 500).
+    row = c.s.scalar(
+        pg_insert(m.Domain)
+        .values(
+            org_id=c.org_id,
+            brand_id=brand_id,
+            host=body.host,
+            is_primary=body.is_primary,
+        )
+        .on_conflict_do_nothing(index_elements=["brand_id", "host"])
+        .returning(m.Domain)
     )
-    if c.s.scalars(q).first():
+    if row is None:
         raise Problem(409, "Domain already exists", body.host)
-    row = m.Domain(
-        org_id=c.org_id,
-        brand_id=brand_id,
-        host=body.host,
-        is_primary=body.is_primary,
-    )
-    c.s.add(row)
-    c.s.flush()
     reflag_citations(c.s, brand_id)
     return row
 

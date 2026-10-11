@@ -1,4 +1,10 @@
+import threading
+
 import pytest
+from bsi_core import models as m
+from sqlalchemy import func, select, update
+
+from tests.integration.test_api_recommendations import _wait_until_blocked
 
 
 def test_health_needs_no_key(client):
@@ -190,3 +196,75 @@ def test_category_can_be_cleared(client, make_org, make_brand):
     )
     assert r.status_code == 200
     assert r.json()["category"] is None
+
+
+def test_an_archived_brand_accepts_no_new_domain(
+    client, owner, make_org, make_brand
+):
+    org = make_org()
+    bid = make_brand(org)
+    with owner() as s, s.begin():
+        s.execute(
+            update(m.Brand).where(m.Brand.id == bid).values(status="archived")
+        )
+    base = f"/v1/brands/{bid}/domains"
+    r = client.post(base, headers=org.headers, json={"host": "acme.com"})
+    assert r.status_code == 409, r.text
+    assert r.json()["title"] == "Brand is archived"
+    assert client.get(base, headers=org.headers).json() == []
+
+
+def test_a_host_is_capped_at_200_characters(client, make_org, make_brand):
+    org = make_org()
+    base = f"/v1/brands/{make_brand(org)}/domains"
+    at_cap = "a" * 196 + ".com"
+    r = client.post(base, headers=org.headers, json={"host": at_cap})
+    assert r.status_code == 201, r.text
+    r = client.post(base, headers=org.headers, json={"host": "a" + at_cap})
+    assert r.status_code == 422, r.text
+    assert r.json()["errors"][0]["loc"][-1] == "host"
+
+
+def test_a_simultaneous_duplicate_domain_is_409_not_500(
+    client, owner, make_org, make_brand
+):
+    """A first submit that has inserted the host and not yet committed: the
+    second must wait on the unique index, then see the row and get 409,
+    never a raw unique violation as a 500 (and never two rows)."""
+    org = make_org()
+    bid = make_brand(org)
+    holder = owner()
+    holder.begin()
+    holder.add(m.Domain(org_id=org.id, brand_id=bid, host="acme.com"))
+    holder.flush()
+    result: dict[str, object] = {}
+
+    def post() -> None:
+        result["response"] = client.post(
+            f"/v1/brands/{bid}/domains",
+            headers=org.headers,
+            json={"host": "acme.com"},
+        )
+
+    t = threading.Thread(target=post)
+    t.start()
+    try:
+        assert _wait_until_blocked(holder), (
+            "the POST never waited on the uncommitted row; the test would "
+            "pass whether or not the insert handles the conflict"
+        )
+        holder.commit()
+        t.join(timeout=5)
+        assert not t.is_alive()
+    finally:
+        holder.close()
+    response = result["response"]
+    assert response.status_code == 409, response.text
+    assert response.json()["title"] == "Domain already exists"
+    with owner() as s:
+        rows = s.scalar(
+            select(func.count())
+            .select_from(m.Domain)
+            .where(m.Domain.brand_id == bid)
+        )
+    assert rows == 1

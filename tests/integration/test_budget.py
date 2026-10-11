@@ -1,3 +1,4 @@
+import threading
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
@@ -6,7 +7,9 @@ import pytest
 from bsi_core import models as m
 from bsi_core import scheduling
 from bsi_core.db import system_session, tenant_session
-from sqlalchemy import func, update
+from sqlalchemy import func, text, update
+
+from tests.integration.test_api_recommendations import _wait_until_blocked
 
 
 @pytest.fixture(autouse=True)
@@ -195,3 +198,43 @@ def test_extra_micros_shifts_the_boundary(make_org):
     org = make_org()
     assert fits(org, 3, extra_micros=50_000)
     assert not fits(org, 3, extra_micros=50_001)
+
+
+def test_lock_false_gives_the_same_verdict_and_still_fails_closed(make_org):
+    a, b = make_org("A"), make_org("B")
+    for n, expected in ((4, True), (5, False)):
+        with tenant_session(a.id) as s:
+            assert scheduling.budget_fits(s, a.id, n, lock=False) is expected
+        assert fits(a, n) is expected
+    with system_session() as s, pytest.raises(RuntimeError, match="tenant"):
+        scheduling.budget_fits(s, a.id, 1, lock=False)
+    with tenant_session(a.id) as s, pytest.raises(RuntimeError, match="tenant"):
+        scheduling.budget_fits(s, b.id, 1, lock=False)
+
+
+def test_the_default_check_waits_for_the_orgs_lock(owner, make_org):
+    """Writers keep serializing: budget_fits takes the org's advisory lock
+    unless told not to, so it waits while another transaction holds it."""
+    org = make_org()
+    holder = owner()
+    holder.begin()
+    holder.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
+        {"org": str(org.id)},
+    )
+    done = threading.Event()
+
+    def check() -> None:
+        fits(org, 1)
+        done.set()
+
+    t = threading.Thread(target=check)
+    t.start()
+    try:
+        assert _wait_until_blocked(holder), "budget_fits did not wait"
+        assert not done.is_set()
+    finally:
+        holder.rollback()
+        holder.close()
+    t.join(timeout=5)
+    assert done.is_set()

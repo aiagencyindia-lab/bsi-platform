@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn(),
 }));
 
-const { api, publicApi, seg } = await import("./api");
+const { api, formSeg, publicApi, seg } = await import("./api");
 const { cookies } = await import("next/headers");
 
 const stub = (status: number) =>
@@ -140,4 +140,28 @@ test("seg logs a long value quoted, capped and with its length", () => {
   expect(logged).toHaveLength(200);
   expect(logged.startsWith('"a\\n')).toBe(true);
   expect(logged).not.toContain("\n");
+});
+
+test("formSeg returns a form field that seg() accepts", () => {
+  const f = new FormData();
+  f.set("brand_id", "1eb6c00a-4b18-4512-b515-dd1d8039511f");
+  expect(formSeg(f, "brand_id")).toBe("1eb6c00a-4b18-4512-b515-dd1d8039511f");
+});
+
+test("formSeg refuses a missing field instead of sending \"null\"", () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  expect(() => formSeg(new FormData(), "brand_id")).toThrow("NOT_FOUND");
+  expect(log).toHaveBeenCalledTimes(1);
+  expect(log).toHaveBeenCalledWith("API form value missing", '"brand_id"');
+});
+
+test("formSeg refuses a file field and a value seg() refuses", () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  const f = new FormData();
+  f.set("csv", new Blob(["x"]));
+  f.set("brand_id", "a/b");
+  expect(() => formSeg(f, "csv")).toThrow("NOT_FOUND");
+  expect(() => formSeg(f, "brand_id")).toThrow("NOT_FOUND");
+  expect(log).toHaveBeenCalledWith("API form value missing", '"csv"');
+  expect(log).toHaveBeenCalledWith("API path value refused", '"a/b"', 3);
 });

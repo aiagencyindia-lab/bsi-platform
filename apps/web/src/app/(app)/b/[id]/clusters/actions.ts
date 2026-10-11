@@ -1,11 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { api, seg } from "@/lib/api";
+import { api, formSeg, seg } from "@/lib/api";
 import type { Queued } from "@/lib/types";
 
 export async function labelPrompts(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   const job = await api<Queued>(`/brands/${seg(id)}/prompts/label`, {
     method: "POST",
   });
@@ -14,7 +14,7 @@ export async function labelPrompts(form: FormData) {
 }
 
 export async function optimizeUrl(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   const job = await api<Queued>(`/brands/${seg(id)}/pages/optimize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

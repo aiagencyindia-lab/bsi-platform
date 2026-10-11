@@ -100,6 +100,7 @@ test("domainNote says why a domain was not added", () => {
   expect(domainNote("exists")).toBe(
     "Not added: that domain is already declared for this brand.",
   );
+  expect(domainNote("archived")).toBe("Not added: the brand is archived.");
   expect(domainNote(undefined)).toBeNull();
   expect(domainNote("constructor")).toBeNull();
 });
@@ -283,29 +284,30 @@ test("serpSchedule says whether the weekly sweep audits the brand", () => {
     `Not audited automatically: ${n} audits failed in the last 7 days; the sweep tries again once fewer than 3 remain in that window.`;
   const noBudget =
     "Audited automatically once a week; today the daily budget has no room for a Brand SERP audit, so a due audit waits until there is room. The budget resets at midnight UTC.";
-  expect(serpSchedule("active", 1, true, 1, true)).toBe(weekly);
-  expect(serpSchedule("active", 1, true, 2, true)).toBe(weekly);
-  expect(serpSchedule("active", 1, true, 3, true)).toBe(failed(3));
-  expect(serpSchedule("active", 1, true, 5, true)).toBe(failed(5));
-  expect(serpSchedule("active", 1, false, 0, true)).toBe(unconfigured);
+  const inactive = "Not audited automatically: the brand is not active.";
+  expect(serpSchedule("active", 1, true, 1, true, true)).toBe(weekly);
+  expect(serpSchedule("active", 1, true, 2, true, true)).toBe(weekly);
+  expect(serpSchedule("active", 1, true, 3, true, false)).toBe(failed(3));
+  expect(serpSchedule("active", 1, true, 5, true, false)).toBe(failed(5));
+  expect(serpSchedule("active", 1, false, 0, true, true)).toBe(unconfigured);
   // Not configured outranks the failure pause.
-  expect(serpSchedule("active", 1, false, 3, true)).toBe(unconfigured);
-  expect(serpSchedule("active", 0, false, 3, true)).toBe(noDomain);
-  expect(serpSchedule("archived", 1, false, 3, true)).toBe(archived);
-  expect(serpSchedule("archived", 0, true, 0, true)).toBe(archived);
-  expect(serpSchedule("active", 1, true, 2, false)).toBe(noBudget);
-  // A job row with a NULL status is neither queued nor running.
-  expect(serpSchedule("active", 1, true, 0, false, null)).toBe(noBudget);
-  expect(serpSchedule("active", 1, true, 0, false, "done")).toBe(noBudget);
-  expect(serpSchedule("active", 1, true, 0, false, "failed")).toBe(noBudget);
-  // The brand's own waiting job counts against the budget: no note.
-  expect(serpSchedule("active", 1, true, 0, false, "queued")).toBe(weekly);
-  expect(serpSchedule("active", 1, true, 0, false, "running")).toBe(weekly);
+  expect(serpSchedule("active", 1, false, 3, true, false)).toBe(unconfigured);
+  expect(serpSchedule("active", 0, false, 3, true, false)).toBe(noDomain);
+  expect(serpSchedule("archived", 1, false, 3, true, false)).toBe(archived);
+  expect(serpSchedule("archived", 0, true, 0, true, false)).toBe(archived);
+  // A status other than active or archived is not called archived.
+  expect(serpSchedule("paused", 1, true, 0, true, false)).toBe(inactive);
+  expect(serpSchedule("", 1, true, 0, false, false)).toBe(inactive);
+  // The budget note needs a due brand and no room.
+  expect(serpSchedule("active", 1, true, 2, false, true)).toBe(noBudget);
+  expect(serpSchedule("active", 1, true, 0, false, false)).toBe(weekly);
+  expect(serpSchedule("active", 1, true, 0, true, true)).toBe(weekly);
   // Every other reason outranks the budget.
-  expect(serpSchedule("active", 1, true, 3, false)).toBe(failed(3));
-  expect(serpSchedule("active", 1, false, 0, false)).toBe(unconfigured);
-  expect(serpSchedule("active", 0, true, 0, false)).toBe(noDomain);
-  expect(serpSchedule("archived", 1, true, 0, false)).toBe(archived);
+  expect(serpSchedule("active", 1, true, 3, false, true)).toBe(failed(3));
+  expect(serpSchedule("active", 1, false, 0, false, true)).toBe(unconfigured);
+  expect(serpSchedule("active", 0, true, 0, false, true)).toBe(noDomain);
+  expect(serpSchedule("archived", 1, true, 0, false, true)).toBe(archived);
+  expect(serpSchedule("paused", 1, true, 0, false, true)).toBe(inactive);
 });
 
 test("ownershipText gives the count and a whole percentage", () => {

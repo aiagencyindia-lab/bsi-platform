@@ -1,10 +1,13 @@
+import threading
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+import pytest
 from bsi_api.routers import audits
 from bsi_core import models as m
 from bsi_core.config import Settings
-from sqlalchemy import update
+from bsi_core.db import system_session
+from sqlalchemy import text, update
 
 from tests.integration.test_worker import _job
 
@@ -109,6 +112,7 @@ def test_get_is_empty_before_any_audit(
         "serp_configured": True,
         "failed_7d": 0,
         "budget_room": True,
+        "serp_due": False,  # no declared domain
     }
 
 
@@ -262,3 +266,116 @@ def test_failed_7d_window_boundary(
     r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
     assert r.status_code == 200, r.text
     assert r.json()["failed_7d"] == 1
+
+
+def _due_in_sql(bid):
+    """Whether due_serp_audits() (the sweep's own query) returns the brand."""
+    with system_session() as s:
+        due = s.execute(text("SELECT brand_id FROM due_serp_audits()"))
+        return bid in {row[0] for row in due}
+
+
+def _arrange(owner, org, bid, case):
+    if case != "no domain":
+        with owner() as s, s.begin():
+            s.add(m.Domain(org_id=org.id, brand_id=bid, host="walkaroo.in"))
+    if case == "archived":
+        with owner() as s, s.begin():
+            s.execute(
+                update(m.Brand)
+                .where(m.Brand.id == bid)
+                .values(status="archived")
+            )
+    week_ago = 8 * 24 * 60  # minutes: just outside the 7-day window
+    if case in (
+        "one kind this week",
+        "both kinds this week",
+        "one kind twice this week",
+        "both kinds, one an error",
+    ):
+        _audit(owner, org, bid, "brand", 60)
+    if case == "both kinds this week":
+        _audit(owner, org, bid, "reviews", 60)
+    if case == "one kind twice this week":
+        _audit(owner, org, bid, "brand", 120)
+    if case == "both kinds, one an error":
+        _audit(owner, org, bid, "reviews", 60, error="timeout")
+    if case == "both kinds 8 days ago":
+        _audit(owner, org, bid, "brand", week_ago)
+        _audit(owner, org, bid, "reviews", week_ago)
+    if case == "a job today":
+        _job(owner, org, bid, "audit_serp", "done")
+    if case == "a queued job":
+        _aged(
+            owner,
+            _job(owner, org, bid, "audit_serp", "queued"),
+            timedelta(days=2),
+        )
+    if case in ("two failures", "three failures", "three failures 8 days ago"):
+        n = 2 if case == "two failures" else 3
+        days = 8 if case == "three failures 8 days ago" else 2
+        for i in range(n):
+            job = _job(owner, org, bid, "audit_serp", "failed", minutes=-i)
+            _aged(owner, job, timedelta(days=days))
+
+
+@pytest.mark.parametrize(
+    ("case", "expected"),
+    [
+        ("nothing recent", True),
+        ("archived", False),
+        ("no domain", False),
+        ("one kind this week", True),
+        ("both kinds this week", False),
+        ("one kind twice this week", True),
+        ("both kinds, one an error", True),
+        ("both kinds 8 days ago", True),
+        ("a job today", False),
+        ("a queued job", False),
+        ("two failures", True),
+        ("three failures", False),
+        ("three failures 8 days ago", True),
+    ],
+)
+def test_serp_due_agrees_with_due_serp_audits(
+    client, owner, make_org, make_brand, monkeypatch, case, expected
+):
+    _configured(monkeypatch)
+    org = make_org()
+    bid = make_brand(org)
+    _arrange(owner, org, bid, case)
+    r = client.get(f"/v1/brands/{bid}/audits/serp", headers=org.headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["serp_due"] is expected
+    assert _due_in_sql(bid) is expected
+
+
+def test_the_page_does_not_wait_on_the_orgs_budget_lock(
+    client, owner, make_org, make_brand, monkeypatch
+):
+    _configured(monkeypatch)
+    org = make_org()
+    bid = make_brand(org)
+    holder = owner()
+    holder.begin()
+    holder.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:org))"),
+        {"org": str(org.id)},
+    )
+    result: dict[str, object] = {}
+
+    def get() -> None:
+        result["response"] = client.get(
+            f"/v1/brands/{bid}/audits/serp", headers=org.headers
+        )
+
+    t = threading.Thread(target=get)
+    t.start()
+    t.join(timeout=5)
+    try:
+        assert not t.is_alive(), "the GET waited on the org's advisory lock"
+    finally:
+        holder.rollback()
+        holder.close()
+        t.join()
+    assert result["response"].status_code == 200

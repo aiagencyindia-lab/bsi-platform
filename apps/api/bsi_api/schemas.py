@@ -471,6 +471,9 @@ class SerpAuditsOut(BaseModel):
     # spend: while it is False the sweep skips the brand, if it is due,
     # with no job. The brand's own waiting audit_serp job counts too.
     budget_room: bool
+    # Whether the weekly sweep would queue the brand now (serp_due, which
+    # mirrors due_serp_audits()); the page's budget note needs it true.
+    serp_due: bool
 
 
 class PageOptimizeIn(BaseModel):

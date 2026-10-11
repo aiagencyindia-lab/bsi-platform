@@ -195,14 +195,21 @@ def _wait_until_blocked(holder, deadline=5.0):
     (wait_event='transactionid'); the query text it shows alongside a
     blocked backend is not reliable (it can lag behind the statement
     actually stuck), so filter on the wait state, not the query text.
+
+    Postgres caches the activity statistics for the rest of a transaction,
+    so each poll clears that snapshot first; otherwise a request that
+    connects after the first poll is never seen. Only this database's
+    backends count, so another database's lock wait cannot pass it.
     """
     my_pid = holder.execute(text("SELECT pg_backend_pid()")).scalar()
     end = time.monotonic() + deadline
     while time.monotonic() < end:
+        holder.execute(text("SELECT pg_stat_clear_snapshot()"))
         waiting = holder.execute(
             text(
                 "SELECT count(*) FROM pg_stat_activity "
-                "WHERE wait_event_type = 'Lock' AND pid != :pid"
+                "WHERE wait_event_type = 'Lock' AND pid != :pid "
+                "AND datname = current_database()"
             ),
             {"pid": my_pid},
         ).scalar()

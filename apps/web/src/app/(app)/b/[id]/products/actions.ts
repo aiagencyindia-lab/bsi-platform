@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { api, seg } from "@/lib/api";
+import { api, formSeg, seg } from "@/lib/api";
 import type { ImportResult, Queued } from "@/lib/types";
 
 const back = (id: string, status: string, extra = "") =>
@@ -13,7 +13,7 @@ const back = (id: string, status: string, extra = "") =>
 const is422 = (e: unknown) => e instanceof Error && e.message.startsWith("422 ");
 
 export async function importCsv(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   const file = form.get("csv");
   if (!(file instanceof File) || file.size === 0) return back(id, "nofile");
   let r: ImportResult;
@@ -31,7 +31,7 @@ export async function importCsv(form: FormData) {
 }
 
 export async function importFeed(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   const url = String(form.get("url") ?? "").trim();
   const job = await api<Queued>(`/brands/${seg(id)}/products/import/feed`, {
     method: "POST",
@@ -42,7 +42,7 @@ export async function importFeed(form: FormData) {
 }
 
 export async function runProducts(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   let job: Queued;
   try {
     job = await api<Queued>(`/brands/${seg(id)}/products/run`, { method: "POST" });
@@ -54,7 +54,7 @@ export async function runProducts(form: FormData) {
 }
 
 export async function clearProducts(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   await api(`/brands/${seg(id)}/products`, { method: "DELETE" });
   back(id, "cleared");
 }

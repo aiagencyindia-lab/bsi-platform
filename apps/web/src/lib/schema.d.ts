@@ -129,9 +129,13 @@ export interface paths {
         };
         /**
          * Latest Serp
-         * @description The latest page per (kind, country, language), an error row
-         *     included, and the latest audit_serp job so a failure that wrote no
-         *     rows (no credentials, budget, stale) still shows.
+         * @description The Brand SERP page's data: the latest page per (kind, country,
+         *     language), an error row included; the latest audit_serp job, so a
+         *     failure that wrote no rows (no credentials, budget, stale) still
+         *     shows; whether the API process has DataForSEO credentials; the failed
+         *     audit_serp jobs in the last 7 days; whether the org's budget has room
+         *     for an audit (without the org's lock: this request writes nothing);
+         *     and whether the weekly sweep would queue the brand now (serp_due).
          */
         get: operations["latest_serp_v1_brands__brand_id__audits_serp_get"];
         put?: never;
@@ -2598,6 +2602,8 @@ export interface components {
             job: components["schemas"]["SerpJobOut"] | null;
             /** Serp Configured */
             serp_configured: boolean;
+            /** Serp Due */
+            serp_due: boolean;
         };
         /** SerpJobOut */
         SerpJobOut: {

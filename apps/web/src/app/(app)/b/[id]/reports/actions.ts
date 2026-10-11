@@ -1,14 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { api, seg } from "@/lib/api";
+import { api, formSeg, seg } from "@/lib/api";
 
 const back = (id: string, status: string) =>
   redirect(`/b/${id}/reports?queued=${status}`);
 
 export async function setCadence(form: FormData) {
-  const id = String(form.get("brand_id"));
-  const type = String(form.get("type"));
+  const id = formSeg(form, "brand_id");
+  const type = formSeg(form, "type");
   await api(`/brands/${seg(id)}/reports/${seg(type)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -18,15 +18,15 @@ export async function setCadence(form: FormData) {
 }
 
 export async function generateNow(form: FormData) {
-  const id = String(form.get("brand_id"));
-  const type = String(form.get("type"));
+  const id = formSeg(form, "brand_id");
+  const type = formSeg(form, "type");
   await api(`/brands/${seg(id)}/reports/${seg(type)}/runs`, { method: "POST" });
   back(id, "generated");
 }
 
 export async function share(form: FormData) {
-  const id = String(form.get("brand_id"));
-  const run = String(form.get("run_id"));
+  const id = formSeg(form, "brand_id");
+  const run = formSeg(form, "run_id");
   await api(`/brands/${seg(id)}/reports/runs/${seg(run)}/share`, {
     method: "POST",
   });
@@ -34,8 +34,8 @@ export async function share(form: FormData) {
 }
 
 export async function revoke(form: FormData) {
-  const id = String(form.get("brand_id"));
-  const run = String(form.get("run_id"));
+  const id = formSeg(form, "brand_id");
+  const run = formSeg(form, "run_id");
   await api(`/brands/${seg(id)}/reports/runs/${seg(run)}/share`, {
     method: "DELETE",
   });
@@ -43,7 +43,7 @@ export async function revoke(form: FormData) {
 }
 
 export async function setBranding(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   const field = (k: string) => {
     const v = String(form.get(k) ?? "").trim();
     return v === "" ? null : v;

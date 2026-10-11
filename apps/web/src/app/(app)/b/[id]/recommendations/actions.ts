@@ -1,10 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { api, seg } from "@/lib/api";
+import { api, formSeg, seg } from "@/lib/api";
 
-const brand = (form: FormData) => String(form.get("brand_id"));
-const rec = (form: FormData) => String(form.get("rec_id"));
+const brand = (form: FormData) => formSeg(form, "brand_id");
+const rec = (form: FormData) => formSeg(form, "rec_id");
 
 export async function generate(form: FormData) {
   await api(`/brands/${seg(brand(form))}/recommendations/generate`, {
