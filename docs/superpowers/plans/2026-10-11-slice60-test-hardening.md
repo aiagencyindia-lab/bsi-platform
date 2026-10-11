@@ -322,8 +322,6 @@ In `tests/integration/test_api_crud.py` (block 4 of 7), replace this block (it o
 ```python
     r = client.post(base, headers=org.headers, json={"host": "a" + at_cap})
     assert r.status_code == 422, r.text
-    assert r.json()["errors"][0]["loc"][-1] == "host"
-
 ```
 
 with:
@@ -338,9 +336,6 @@ with:
     assert len(scheme) == 208
     r = client.post(base, headers=org.headers, json={"host": scheme})
     assert r.status_code == 422, r.text
-    assert r.json()["errors"][0]["loc"][-1] == "host"
-    assert r.json()["errors"][0]["loc"][-1] == "host"
-
 ```
 
 In `tests/integration/test_api_crud.py` (block 5 of 7), replace this block (it occurs exactly once at this point; the block ends on a whole line):
@@ -1577,6 +1572,8 @@ Expected (proof run): `185 files already formatted`, `All checks passed!`, `Succ
 ## Rulings made while planning
 
 Ruling: R7. Decided: the host-cap test's scheme post also asserts `errors[0]["loc"][-1] == "host"`, as the spec's Section 3 says; the proof, the spec's diff and Task 1's blocks were regenerated with it. Found by: the plan reviewer (Opus 5.5), 2026-10-11, finding 4. Why: the spec prose promised the `loc` assertion and the proof's diff had it only on the 201-character post. Cost if wrong: none to behaviour. How named: the spec, this plan and chat.
+
+Correction to R7 (2026-10-11): withdrawn. The plan re-review found that main already asserts `loc` after the 201-character post and the proof's block 4 inserted the scheme post before that line, so the scheme post was asserting `loc` all along; R7 added the same assertion a second time. The proof, the spec's diff and Task 1's blocks are back to their d44e39a form (one `loc` assertion after each 422). The reviewer's finding 4 was wrong, and the controller repeated it without checking the proof first.
 
 Ruling: R8. Decided: the plan review's other minors are fixed in a second plan commit: the M4 row names the real frames (the `wait_until_blocked` assertion first, then the ZeroDivisionError raised from `t.result()` in the `finally`, pointing at the mutated lambda line) and the `1 failed, 2 warnings` summary; M7 and M10 are given as fenced blocks with plain backticks; the Global Constraints line on generated files says `gen:check` runs inside the gate and must report no diff; Task 2 Step 2 gains the command that counts the 28 `formSeg(` sites. Found by: the plan reviewer (Opus 5.5), 2026-10-11, findings 1, 2, 3 and 5; finding 1 reproduced by the controller. Why: a wrong Expected line, two mutant edits an implementer could mistype, a constraint that contradicted a step, and a number no step produced, all mine. Cost if wrong: none to behaviour. How named: this plan and chat.
 
