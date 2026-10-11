@@ -3,7 +3,10 @@
 import importlib.util
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
+from bsi_core.matching import Entity
 from bsi_core.metrics import rate
 from bsi_core.providers.base import EngineResult
 
@@ -97,28 +100,101 @@ def test_the_stop_counts_the_largest_entry_not_a_fixed_floor():
 
 
 class FakeAdapter:
-    def __init__(self, cost):
+    def __init__(self, cost, search_queries=None):
         self.cost = cost
+        self.search_queries = search_queries
 
     def query(self, prompt, country, language, grounded=True):
         raw = {
             "candidates": [
                 {
-                    "content": {"parts": [{"text": "Bata and Campus"}]},
+                    "content": {"parts": [{"text": "Bata, Bata and Campus"}]},
                     "grounding_metadata": {"web_search_queries": ["q"]},
                 }
             ],
             "usage_metadata": {
                 "prompt_token_count": 10,
                 "candidates_token_count": 20,
+                "thoughts_token_count": 5,
             },
         }
-        return EngineResult("ok", raw=raw, cost_micros=self.cost)
+        return EngineResult(
+            "ok",
+            raw=raw,
+            cost_micros=self.cost,
+            search_queries=self.search_queries,
+        )
 
     def parse(self, raw):
         from bsi_core.providers.gemini import GeminiGroundingAdapter
 
         return GeminiGroundingAdapter(client=object()).parse(raw)
+
+
+def _recorder(ledger):
+    """A spend.record stand-in that appends to the ledger and closes it."""
+
+    def record(kind, micros, release=0):
+        with ledger.open("a") as f:
+            f.write(json.dumps({"kind": kind, "micros": micros}) + "\n")
+
+    return record
+
+
+ENTITIES = [
+    Entity("Bata", "brand", ("Bata",)),
+    Entity("Campus", "competitor", ("Campus",)),
+]
+
+
+def _call(tmp_path, monkeypatch, search_queries):
+    monkeypatch.setattr(engine_probe.spend, "check", lambda r: 0)
+    ledger = tmp_path / "ledger.jsonl"
+    monkeypatch.setattr(engine_probe.spend, "record", _recorder(ledger))
+    return engine_probe.call(
+        FakeAdapter(7_000, search_queries),
+        LITE,
+        3,
+        "p",
+        ENTITIES,
+        ledger,
+        tmp_path / "raw",
+        lambda s: None,
+    )
+
+
+def test_probe_costs_reads_only_engine_probe_entries(tmp_path):
+    ledger = tmp_path / "ledger.jsonl"
+    ledger.write_text(
+        json.dumps({"kind": "engine_probe:x", "micros": 100_000})
+        + "\n  \n"
+        + json.dumps({"micros": 5})  # no kind
+        + "\n"
+        + json.dumps({"kind": "sampling:A", "micros": 9_000_000})
+        + "\n"
+    )
+    assert engine_probe.probe_costs(ledger) == [100_000]
+
+
+def test_a_call_records_what_was_searched_and_counted(tmp_path, monkeypatch):
+    got = _call(tmp_path, monkeypatch, 2)
+    latency = got.pop("latency")
+    assert isinstance(latency, float) and latency >= 0
+    assert got == {
+        "ok": True,
+        "searched": True,
+        "queries": 2,
+        "cost": 7_000,
+        "tokens_in": 10,
+        "tokens_out": 25,  # candidates 20 + thoughts 5
+        "brands": 2,  # Bata twice and Campus once: two distinct entities
+    }
+    assert (tmp_path / "raw" / LITE / "p3.json").exists()
+
+
+def test_a_call_with_no_search_queries_is_not_searched(tmp_path, monkeypatch):
+    got = _call(tmp_path, monkeypatch, None)
+    assert (got["searched"], got["queries"]) == (False, 0)
 
 
 def test_the_probe_stops_before_the_crossing_try(tmp_path, monkeypatch):
@@ -132,13 +208,7 @@ def test_the_probe_stops_before_the_crossing_try(tmp_path, monkeypatch):
         + (json.dumps({"kind": "engine_probe:x", "micros": 100_000}) + "\n")
         * 30
     )
-    monkeypatch.setattr(
-        engine_probe.spend,
-        "record",
-        lambda kind, micros, release=0: ledger.open("a").write(
-            json.dumps({"kind": kind, "micros": micros}) + "\n"
-        ),
-    )
+    monkeypatch.setattr(engine_probe.spend, "record", _recorder(ledger))
     adapters = {m: FakeAdapter(120_000) for m in engine_probe.MODELS}
     written = []
     out = engine_probe.run(
@@ -160,6 +230,7 @@ def test_the_probe_stops_before_the_crossing_try(tmp_path, monkeypatch):
         1,
     ]
     assert out["probe_spend_micros"] == 3_480_000
+    assert out["run_spend_micros"] == 480_000  # this run's four tries
     assert (tmp_path / "raw" / LITE / "p1.json").exists()
     assert engine_probe.pick(out["results"]) is None
 
@@ -187,3 +258,116 @@ def test_the_probe_writes_partial_results_when_the_cap_is_reached(
     else:
         raise AssertionError("SpendCapReached was swallowed")
     assert [w["stopped"] for w in written] == ["spend cap"]
+
+
+def test_the_probe_writes_partial_results_on_an_unexpected_error(
+    tmp_path, monkeypatch
+):
+    seen = []
+
+    def check(r):
+        seen.append(r)
+        if len(seen) == 2:
+            raise OSError("disk")
+        return 0
+
+    monkeypatch.setattr(engine_probe.spend, "check", check)
+    ledger = tmp_path / "ledger.jsonl"
+    monkeypatch.setattr(engine_probe.spend, "record", _recorder(ledger))
+    written = []
+    adapters = {m: FakeAdapter(1, 1) for m in engine_probe.MODELS}
+    with pytest.raises(OSError, match="disk"):
+        engine_probe.run(
+            adapters,
+            ["p0"],
+            [],
+            ledger,
+            tmp_path / "raw",
+            sleep=lambda s: None,
+            write=written.append,
+        )
+    assert [w["stopped"] for w in written] == ["error"]
+    # The first model's call finished before the second try failed.
+    assert [written[0]["results"][m]["calls"] for m in engine_probe.MODELS] == [
+        1,
+        0,
+        0,
+    ]
+
+
+def test_partial_results_survive_a_malformed_ledger_line(tmp_path, monkeypatch):
+    ledger = tmp_path / "ledger.jsonl"
+    monkeypatch.setattr(engine_probe.spend, "check", lambda r: 0)
+    first = _recorder(ledger)
+
+    def record(kind, micros, release=0):
+        first(kind, micros, release)
+        with ledger.open("a") as f:
+            f.write("{broken\n")
+
+    monkeypatch.setattr(engine_probe.spend, "record", record)
+    written = []
+    adapters = {m: FakeAdapter(1, 1) for m in engine_probe.MODELS}
+    with pytest.raises(ValueError):
+        engine_probe.run(
+            adapters,
+            ["p0"],
+            [],
+            ledger,
+            tmp_path / "raw",
+            sleep=lambda s: None,
+            write=written.append,
+        )
+    assert [w["stopped"] for w in written] == ["error"]
+    assert written[0]["probe_spend_micros"] is None
+    assert written[0]["run_spend_micros"] is None
+    assert [written[0]["results"][m]["calls"] for m in engine_probe.MODELS] == [
+        1,
+        0,
+        0,
+    ]
+
+
+def test_existing_outputs_names_what_a_rerun_would_overwrite(tmp_path):
+    out = tmp_path / "results.json"
+    raw = tmp_path / "raw"
+    assert engine_probe.existing_outputs(out, raw, engine_probe.MODELS) == []
+    out.write_text("{}")
+    (raw / LITE).mkdir(parents=True)
+    assert engine_probe.existing_outputs(out, raw, engine_probe.MODELS) == [
+        out,
+        raw / LITE,
+    ]
+
+
+def test_a_rerun_refuses_to_start_while_outputs_exist(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    results = tmp_path / "eval" / "results"
+    results.mkdir(parents=True)
+    (results / "engine_probe_v0.json").write_text("{}")
+    # Present, so a missing refusal reaches the client guard below.
+    (tmp_path / "eval" / "run1.json").write_text(
+        json.dumps(
+            {"brand": "Bata", "aliases": [], "competitors": [], "prompts": []}
+        )
+    )
+    monkeypatch.setattr(
+        engine_probe,
+        "get_settings",
+        lambda: SimpleNamespace(
+            raw_store_dir=str(tmp_path / "data"), spend_since=None
+        ),
+    )
+    monkeypatch.setattr(
+        engine_probe.spend, "ledger_micros", lambda ledger: 6_858_204
+    )
+    monkeypatch.setattr(engine_probe.spend, "db_micros", lambda since: 0)
+
+    def no_client(*args, **kwargs):
+        raise AssertionError("a client was built before the refusal")
+
+    monkeypatch.setattr(engine_probe.genai, "Client", no_client)
+    with pytest.raises(SystemExit) as refused:
+        engine_probe.main()
+    assert "engine_probe_v0.json" in str(refused.value)
+    assert "move them first" in str(refused.value)
