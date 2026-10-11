@@ -153,8 +153,10 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Spec: minor (deferred): no test renders the Brand SERP page, so passing a constant for `budget_room` (M9) or leaving out `job?.status` (M13) passes the gate (R3)."
   - Note (2026-10-09, after slice 58, PR #116): fixed by the page render test (docs/findings-slice58.md §1).
 - "Spec: minor (deferred): the note shows for a brand that is not due (audited this week) whenever the org's budget is full; it is true there but says nothing about that brand (decision 4)."
+  - Note (2026-10-11, after slice 59, PR #118): fixed, reversing decision 4: the API returns `serp_due` and the note shows only for a brand the sweep would queue now (docs/findings-slice59.md §1).
 - "Task 1: minor (deferred): every pytest summary shows "2 warnings" (the known Starlette/anyio warnings, present on main and in the proof runs); not introduced by this slice."
 - "Task 1: minor (deferred): the Brand SERP GET now takes pg_advisory_xact_lock with no timeout for the rest of its transaction; accepted in the spec (decision 2, R6, SET LOCAL lock_timeout as the upgrade)."
+  - Note (2026-10-11, after slice 59, PR #118): fixed, reversing decision 2: the GET reads the budget with `lock=False` and never waits (docs/findings-slice59.md §1).
 - "Task 2: minor (deferred): no serpSchedule case passes jobStatus = null explicitly (ck_job_status allows NULL; null is neither queued nor running, so the code handles it); the test is as the plan wrote it."
   - Note (2026-10-09, after slice 58, PR #116): fixed: format.test.ts has the `null` case (docs/findings-slice58.md §1).
 - "Task 2: minor (deferred): the phase 1 report recorded only the Tests line (1 failed, 75 passed (76)) for each killed web mutant, not the failing test's name."

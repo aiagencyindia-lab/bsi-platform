@@ -119,4 +119,6 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "minor (deferred): spec re-review note, the window boundary test sets created_at from Python's datetime.now(UTC) and compares against DB now(); deterministic while clock skew is under a minute (R2)."
 - "Task 1: minor (deferred): the Task 1 report describes Step 0's npm ci output ('its tail was the npm audit notice') instead of pasting it; every other summary line is pasted."
 - "Task 1: minor (deferred): `failed or 0` in routers/audits.py is redundant, since count() never returns NULL; harmless, and it is the plan's text (plan departure 2)."
+  - Note (2026-10-11, after slice 59, PR #118): fixed: the line is now `failed` (docs/findings-slice59.md §1).
 - "Final review: minor (deferred): the latest_serp docstring (apps/api/bsi_api/routers/audits.py) still describes only job and audits; the two new fields are explained in schemas.py comments (R5)."
+  - Note (2026-10-11, after slice 59, PR #118): fixed: the docstring names every field of the response (docs/findings-slice59.md §1).

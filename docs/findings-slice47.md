@@ -81,5 +81,6 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "minor (deferred): spec review minor 3, R2's cost line names aliases.length as the example; passing another array's .length (for example audits.length) would also type-check (R3)."
   - Note (2026-10-09, after slice 58, PR #116): fixed: the one-domain, no-audit cases fail if the page passes `audits.length` (docs/findings-slice58.md §1).
 - "Task 1: minor (deferred): a brand status other than active or archived would read "the brand is archived"; only 'archived' is written today (R3)."
+  - Note (2026-10-11, after slice 59, PR #118): fixed: any other non-active status reads "Not audited automatically: the brand is not active." (docs/findings-slice59.md §1).
 - "minor (deferred): final review minor 2, the no-domain line names a fix the web app gives no way to make; domains are declared only through the API (R7)."
   - Note (2026-10-07, after slice 48, PR #98): fixed; an active brand with no domain gets an add-domain form under the line (docs/findings-slice48.md §1).

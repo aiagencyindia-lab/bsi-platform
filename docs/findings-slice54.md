@@ -75,6 +75,8 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 1: minor (deferred): format.test.ts:8 imports domainNote between ciText and crawlNote, out of alphabetical order; lint passes, cosmetic."
   - Note (2026-10-09, after slice 58, PR #116): fixed: `domainNote` now follows `crawlNote` (docs/findings-slice58.md §1).
 - "Final review: minor (deferred): two simultaneous submits of the same host still give a 500 from the unique constraint and reach the error page (findings-slice48 R2); the domain is added anyway. The slice 54 findings must say so."
+  - Note (2026-10-11, after slice 59, PR #118): fixed: a simultaneous duplicate now gets 409, through one INSERT … ON CONFLICT DO NOTHING (docs/findings-slice59.md §1).
 - "Final review: minor (deferred): this reverses the slice 48 user decision (browser pattern over catch-and-note, findings-slice48 lines 13 and 77, and line 5 says a refused host shows the error page); the slice 54 findings must name the reversal and the user decision that authorised it (the chat approval of the slice 54 design on 2026-10-08). The historical doc is not edited."
 - "Final review: minor (deferred): one note text covers every 422 cause (IP, no dot, whitespace-only after trim, over 200 characters); the copy names IPs specifically but is still correct advice for the rest."
   - Note (2026-10-08, docs review): "over 200 characters" is wrong; `DomainIn.host` (apps/api/bsi_api/routers/brands.py) has `min_length=3` and no upper cap, so a long host with a dot is accepted. The other causes stand.
+  - Note (2026-10-11, after slice 59, PR #118): fixed: `DomainIn.host` is capped at 200 like the other host fields, so the one note covers every 422 the form can cause (docs/findings-slice59.md §1).
