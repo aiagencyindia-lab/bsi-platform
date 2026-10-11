@@ -11,9 +11,9 @@ The first of four slices from "fix every item" (2026-10-09): the behaviour bugs 
 
 No migration; the dev database is not touched. Backend 1777 → 1796; web 80 → 88.
 
-This closes the deferred minors at (line numbers as at main f1a8ad4, before these notes) findings-slice54.md lines 77 and 79 (and its note at 80), findings-slice48.md 81, findings-slice47.md 83, findings-slice57.md 155 (slice 57's decision 4, reversed here) and 157 (slice 57's decision 2, reversed here), and findings-slice55.md 121 and 122; a dated note now sits under each (one note, under the existing note at 80, covers 54:79). Still open, and assigned to later slices: the test-hardening items (slice 60), the slice 56 probe script (61) and the docs-only items (62).
+This closes the deferred minors (line numbers as at main f1a8ad4, before these notes) at findings-slice54.md lines 77 and 79 (and its note at 80), findings-slice48.md 81, findings-slice47.md 83, findings-slice57.md 155 (slice 57's decision 4, reversed here) and 157 (slice 57's decision 2, reversed here), and findings-slice55.md 121 and 122; a dated note now sits under each (one note, under the existing note at 80, covers 54:79). Still open, and assigned to later slices: the test-hardening items (slice 60), the slice 56 probe script (61) and the docs-only items (62).
 
-Spec: docs/superpowers/specs/2026-10-09-slice59-behaviour-minors-design.md (rulings R1–R8 and a correction to R6, as the user approved it at `5b35d10`). Plan: docs/superpowers/plans/2026-10-09-slice59-behaviour-minors.md (Tasks 1–3; R9 applied in `7635a6c`). R10 and R11 were made after the final review and are quoted from the ledger below. Merged via PR #118 (https://github.com/aiagencyindia-lab/bsi-platform/pull/118), main `f1a8ad4`.
+Spec: docs/superpowers/specs/2026-10-09-slice59-behaviour-minors-design.md (rulings R1–R8 and a correction to R6, as the user approved it at `5b35d10`). Plan: docs/superpowers/plans/2026-10-09-slice59-behaviour-minors.md (Tasks 1–3; R9 applied in `7635a6c`). R10 and R11 were made after the final review and R12 and R13 after the docs review; all four are quoted from the ledger below. Merged via PR #118 (https://github.com/aiagencyindia-lab/bsi-platform/pull/118), main `f1a8ad4`.
 
 **User decisions**, as the ledger records them:
 - "User decision (2026-10-09): "fix every item" (after the slice 58 summary listed the behaviour minors and the deferred list)."
@@ -30,6 +30,7 @@ Spec: docs/superpowers/specs/2026-10-09-slice59-behaviour-minors-design.md (ruli
 - "User decision (2026-10-11): execution subagent-driven."
 - "User decision (2026-10-11): finishing option 2 (push and create a PR). Pushed slice59-behaviour-minors at 0cf8b9b; PR opened against main (body checked: banned-word grep empty; rulings named as the spec R1-R8 + correction to R6, the plan R9, the ledger R10-R11)."
 - "User decision (2026-10-11): "check ci then merge". PR #118 merged (merge commit in the next line's check); remote branch deleted (by the controller if gh left it); local branch kept (used by the bsi-wt/slice59 worktree)."
+- "User decision (2026-10-11): after two docs review rounds, "Fix, re-review" over "Fix, stop" and "Stop now"."
 
 **Results** (selected ledger lines, quoted; in the ledger only: the header lines — title, spec, branch and base, session model — the section headings, the dispatch lines, the pre-flight-scan lines and the workspace-kept line):
 - "Task 1: implementer DONE (commit 4c96793; RED 3 failed, 16 passed; GREEN crud 19, recommendations 12, recommend 36, isolation 74 passed; M1-M3 killed as in the plan; openapi.json +1; ruff, mypy clean; no concerns)"
@@ -60,7 +61,8 @@ Spec: docs/superpowers/specs/2026-10-09-slice59-behaviour-minors-design.md (ruli
 - "Review verdict (2026-10-11): final whole-branch review of d7e97d3..a5a0b1b (Opus 5.5): Ready to merge Yes; 0 critical, 0 important, 4 minor; every deferred minor triaged as not blocking."
 - "Review verdict (2026-10-11): scoped re-review of the final fix wave a5a0b1b..0cf8b9b (Opus 5.5): All findings addressed (both ADDRESSED; no new breakage); out-of-scope note: page.test.tsx has lines over 80 columns, which is not a rule for TSX (ruff's limit is Python's; eslint passes; Prettier is not in the gate), so no action."
 - "Review verdict (2026-10-11): docs review of 926fb71 (Opus 5.5): Approved with minors (all 63 quotes match the ledger; code claims true at f1a8ad4; 5 minors and a nit: the Results header omits the workspace-kept line and section headings; the README says nine minors closed where it is eight plus the archived-brand gap; the 48:81 note and §1 overstate formSeg and the scan (path values only); two unbacked claims (the other project's database, the live check 'not taken'); line numbers lack a reference point; the spec's M15/M16 rows name the test before R10's rename)."
-- Docs re-review: see the docs PR.
+- "Review verdict (2026-10-11): docs re-review of 383afeb (Opus 5.5): All findings addressed (all 6 ADDRESSED; both new quotes exact; R1-R12 range true; 2 nits: §1 names R10 and R11 as made after the final review but not R12; the line-number note sits mid-sentence)."
+- Docs re-review of the R13 fix: see the docs PR.
 
 **Commits** (`git log --oneline --reverse d7e97d3..f1a8ad4^2`, oldest first):
 
@@ -110,6 +112,8 @@ Every `Ruling:` and `Correction to R` line in the ledger, verbatim (R1–R9 and 
 > Ruling: R11. Decided: final-review minor 3 (the 200-character cap refuses pasted URLs over 200 characters that used to normalize to a host, and host names of 201-253 characters) is accepted, not changed. Found by: the final reviewer (Opus 5.5), 2026-10-11. Why: the user chose the cap (decision 4); stored rows are unaffected, the refused note's advice still fits, and every other Host field already caps the same way. Cost if wrong: a user pasting a very long URL sees the refused note and must paste the bare domain. How named: ledger and chat.
 
 > Ruling: R12. Decided: the docs review's findings are fixed in a second docs commit: the Results header also names the workspace-kept line and the section headings; the README row says the eight deferred behaviour minors and the archived-brand gap; the 48:81 note and §1 say every form value used in an API path goes through formSeg and the scan forbids the old pattern for path values; the database clause about the other project's pytest runs is cut; §2 says no live check was run and the finishing menu's option 2 was chosen; §1 gives its line numbers as at main f1a8ad4, before these notes; the mutation paragraph notes R10's rename of the test the spec's M15 and M16 rows name. Found by: the docs reviewer (Opus 5.5), 2026-10-11. Why: an omission, a miscount, three overstatements and two unbacked claims, all mine. Cost if wrong: none to behaviour. How named: ledger and chat.
+
+> Ruling: R13. Decided: the docs re-review's two nits are fixed in a third docs commit: §1 says R10 and R11 were made after the final review and R12 and R13 after the docs review, all quoted from the ledger; the line-number note moves to read "the deferred minors (line numbers as at main f1a8ad4, before these notes) at findings-slice54.md lines 77 …"; the README range becomes R1–R13. Found by: the docs re-reviewer (Opus 5.5), 2026-10-11. Why: an incomplete sentence and an awkward insertion, both mine. Cost if wrong: none to behaviour. How named: ledger and chat.
 
 Every `minor (deferred)` line in the ledger, verbatim:
 
