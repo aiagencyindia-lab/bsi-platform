@@ -100,7 +100,7 @@ Generated from the proof (a scratchpad copy of main a026e65 with the change appl
 ```diff
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_crud.py b/tests/integration/test_api_crud.py
 --- a/tests/integration/test_api_crud.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_api_crud.py	2026-10-11 19:06:21
++++ b/tests/integration/test_api_crud.py	2026-10-11 22:28:48
 @@ -1,10 +1,8 @@
 -import threading
 -
@@ -121,7 +121,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_crud.py b
      assert client.get(base, headers=org.headers).json() == []
  
  
-@@ -223,6 +222,13 @@
+@@ -223,6 +222,14 @@
      r = client.post(base, headers=org.headers, json={"host": "a" + at_cap})
      assert r.status_code == 422, r.text
      assert r.json()["errors"][0]["loc"][-1] == "host"
@@ -132,10 +132,11 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_crud.py b
 +    r = client.post(base, headers=org.headers, json={"host": scheme})
 +    assert r.status_code == 422, r.text
 +    assert r.json()["errors"][0]["loc"][-1] == "host"
++    assert r.json()["errors"][0]["loc"][-1] == "host"
  
  
  def test_a_simultaneous_duplicate_domain_is_409_not_500(
-@@ -237,28 +243,23 @@
+@@ -237,28 +244,23 @@
      holder.begin()
      holder.add(m.Domain(org_id=org.id, brand_id=bid, host="acme.com"))
      holder.flush()
@@ -173,7 +174,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_crud.py b
      with owner() as s:
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_recommendations.py b/tests/integration/test_api_recommendations.py
 --- a/tests/integration/test_api_recommendations.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_api_recommendations.py	2026-10-11 19:05:23
++++ b/tests/integration/test_api_recommendations.py	2026-10-11 22:28:48
 @@ -1,12 +1,12 @@
 -import threading
 -import time
@@ -263,7 +264,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_recommend
  
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_serp.py b/tests/integration/test_api_serp.py
 --- a/tests/integration/test_api_serp.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_api_serp.py	2026-10-11 19:05:23
++++ b/tests/integration/test_api_serp.py	2026-10-11 22:28:48
 @@ -1,15 +1,16 @@
 -import threading
  from datetime import UTC, datetime, timedelta
@@ -498,7 +499,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_api_serp.py b
 +    assert response.status_code == 200, response.text
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_budget.py b/tests/integration/test_budget.py
 --- a/tests/integration/test_budget.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_budget.py	2026-10-11 19:05:23
++++ b/tests/integration/test_budget.py	2026-10-11 22:28:48
 @@ -1,4 +1,3 @@
 -import threading
  from datetime import UTC, datetime, timedelta
@@ -541,7 +542,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_budget.py b/t
 +    assert verdict is True
 diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/test_recommend.py b/tests/integration/test_recommend.py
 --- a/tests/integration/test_recommend.py	2026-10-11 18:14:42
-+++ b/tests/integration/test_recommend.py	2026-10-11 19:05:23
++++ b/tests/integration/test_recommend.py	2026-10-11 22:28:48
 @@ -1,4 +1,3 @@
 -import threading
  from types import SimpleNamespace
@@ -660,7 +661,7 @@ diff -ruN -x __pycache__ -x .pytest_cache a/tests/integration/threads.py b/tests
 +    return ThreadHandle(fn)
 diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts b/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts
 --- a/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts	2026-10-11 19:05:23
++++ b/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts	2026-10-11 22:28:48
 @@ -115,5 +115,8 @@
    await expect(action(f)).rejects.toThrow("NOT_FOUND");
    expect(fetchMock).not.toHaveBeenCalled();
@@ -673,7 +674,7 @@ diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/actions.test.ts b/apps/web/src/ap
  });
 diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx b/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx
 --- a/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx	2026-10-11 18:14:42
-+++ b/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx	2026-10-11 19:05:23
++++ b/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx	2026-10-11 22:28:48
 @@ -1,10 +1,15 @@
  import { renderToStaticMarkup } from "react-dom/server";
  import { afterEach, expect, test, vi } from "vitest";
@@ -911,7 +912,7 @@ diff -ruN a/apps/web/src/app/(app)/b/[id]/serp/page.test.tsx b/apps/web/src/app/
    });
 diff -ruN a/apps/web/src/lib/api-paths.test.ts b/apps/web/src/lib/api-paths.test.ts
 --- a/apps/web/src/lib/api-paths.test.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/api-paths.test.ts	2026-10-11 19:05:23
++++ b/apps/web/src/lib/api-paths.test.ts	2026-10-11 22:28:48
 @@ -53,8 +53,12 @@
    // String(form.get(...)) turns a missing field into "null", which seg()
    // passes; formSeg() refuses it. A field named by a variable
@@ -929,7 +930,7 @@ diff -ruN a/apps/web/src/lib/api-paths.test.ts b/apps/web/src/lib/api-paths.test
    );
 diff -ruN a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
 --- a/apps/web/src/lib/api.test.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/api.test.ts	2026-10-11 19:05:23
++++ b/apps/web/src/lib/api.test.ts	2026-10-11 22:28:48
 @@ -9,7 +9,7 @@
    redirect: vi.fn(),
  }));
@@ -977,7 +978,7 @@ diff -ruN a/apps/web/src/lib/api.test.ts b/apps/web/src/lib/api.test.ts
  });
 diff -ruN a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
 --- a/apps/web/src/lib/api.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/api.ts	2026-10-11 19:06:30
++++ b/apps/web/src/lib/api.ts	2026-10-11 22:28:48
 @@ -27,7 +27,7 @@
  export function formSeg(form: FormData, name: string): string {
    const value = form.get(name);
@@ -989,7 +990,7 @@ diff -ruN a/apps/web/src/lib/api.ts b/apps/web/src/lib/api.ts
  
 diff -ruN a/apps/web/src/lib/format.test.ts b/apps/web/src/lib/format.test.ts
 --- a/apps/web/src/lib/format.test.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/format.test.ts	2026-10-11 19:05:23
++++ b/apps/web/src/lib/format.test.ts	2026-10-11 22:28:48
 @@ -4,6 +4,7 @@
    alertNote,
    apiQuery,
@@ -1010,7 +1011,7 @@ diff -ruN a/apps/web/src/lib/format.test.ts b/apps/web/src/lib/format.test.ts
    expect(serpSchedule("active", 1, true, 2, true, true)).toBe(weekly);
 diff -ruN a/apps/web/src/lib/format.ts b/apps/web/src/lib/format.ts
 --- a/apps/web/src/lib/format.ts	2026-10-11 18:14:42
-+++ b/apps/web/src/lib/format.ts	2026-10-11 19:05:23
++++ b/apps/web/src/lib/format.ts	2026-10-11 22:28:48
 @@ -201,6 +201,10 @@
  /** failed audit_serp jobs in 7 days that stop the sweep (migration 0024). */
  const SERP_MAX_FAILURES = 3;
@@ -1071,6 +1072,8 @@ Ruling: R4. Decided: the budget lock test and the no-wait test join in their `fi
 Ruling: R5. Decided: the dated note under 59:127 says the KeyError half is fixed and the 5-second judgement is kept by decision (Section 1), not fixed. Found by: the spec reviewer, finding 3. Why: the closure list claimed the whole item. Cost if wrong: none. How named: this spec and chat.
 
 Ruling: R6. Decided: the `result()`-in-`finally` shape stays, with Section 1 saying what is reported when both the assert and `result()` raise. Found by: the spec reviewer, finding 6. Why: the shape trades a clearer first message for a join that always happens; stating the trade is enough. Cost if wrong: a less direct failure message. How named: this spec and chat.
+
+Ruling: R7. Decided: the host-cap test's scheme post also asserts `errors[0]["loc"][-1] == "host"`, as Section 3 says; the diff above is regenerated from the proof with it (test_api_crud.py still 19 passed). Found by: the plan reviewer (Opus 5.5), 2026-10-11, finding 4. Why: Section 3 promised the `loc` assertion and the proof's diff had it only on the 201-character post. Cost if wrong: none to behaviour. How named: this spec, the plan and chat.
 
 ## Out of scope (slice 62 unless said otherwise)
 
