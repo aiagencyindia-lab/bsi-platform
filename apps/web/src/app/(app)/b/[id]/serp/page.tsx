@@ -23,7 +23,7 @@ export default async function Serp({
   const { id } = await params;
   const sp = await searchParams;
   const [
-    { job, audits, serp_configured, failed_7d, budget_room },
+    { job, audits, serp_configured, failed_7d, budget_room, serp_due },
     brand,
     domains,
   ] =
@@ -49,7 +49,7 @@ export default async function Serp({
           serp_configured,
           failed_7d,
           budget_room,
-          job?.status,
+          serp_due,
         )}
       </p>
       {domainNote(sp.domain) && (

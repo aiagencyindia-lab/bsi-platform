@@ -1,10 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { api, seg } from "@/lib/api";
+import { api, formSeg, seg } from "@/lib/api";
 
 export async function setWebhook(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   const value = String(form.get("webhook_url") ?? "").trim();
   const clear = form.get("clear") === "1" || value === "";
   // Not trimmed: the API rejects surrounding whitespace, and a trimmed
@@ -24,7 +24,7 @@ export async function setWebhook(form: FormData) {
 }
 
 export async function scanNow(form: FormData) {
-  const id = String(form.get("brand_id"));
+  const id = formSeg(form, "brand_id");
   const r = await api<{ created: number }>(`/brands/${seg(id)}/alerts/scan`, {
     method: "POST",
   });

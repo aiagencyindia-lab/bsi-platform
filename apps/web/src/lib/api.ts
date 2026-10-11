@@ -21,6 +21,16 @@ function sendAsWritten(path: string) {
   notFound();
 }
 
+/** A path segment from a server action's form field. A missing or
+ * non-text field is refused (String(null) would send "null"), and the
+ * value then goes through seg(). */
+export function formSeg(form: FormData, name: string): string {
+  const value = form.get(name);
+  if (typeof value === "string") return seg(value);
+  console.error("API form value missing", shown(name));
+  notFound();
+}
+
 /** One path segment from a route param, form field or API value. */
 export function seg(value: string): string {
   if (/^[A-Za-z0-9_-]+$/.test(value)) return value;
