@@ -566,7 +566,7 @@ Expected (proof run): `20 passed` twice (the second run turns any warning, such 
 
 - [ ] **Step 5: Mutation table**
 
-First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice61 && git add scripts/engine_probe.py tests/unit/test_engine_probe.py packages/core/bsi_core/config.py`. Apply each mutant alone to `scripts/engine_probe.py`, run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice61 && uv run pytest -q -rf tests/unit/test_engine_probe.py`, paste the summary line and the FAILED test ids, restore with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice61 && git checkout -- scripts/engine_probe.py`, and confirm `git diff --stat` (unstaged) is empty. The multi-line edits are given as fenced blocks under the table.
+First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice61 && git add scripts/engine_probe.py tests/unit/test_engine_probe.py packages/core/bsi_core/config.py`. Apply each mutant alone to `scripts/engine_probe.py`, run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice61 && uv run pytest -q -rf tests/unit/test_engine_probe.py`, paste the summary line and the FAILED test ids, restore with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice61 && git checkout -- scripts/engine_probe.py`, and confirm `cd /Users/vineet/Downloads/ADK/bsi-wt/slice61 && git diff --stat` (unstaged) prints nothing. The multi-line edits are given as fenced blocks under the table.
 
 | Mutant | Change | Proof: failing tests |
 |---|---|---|
@@ -575,7 +575,7 @@ First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice61 && git add scripts/e
 | M3 | the two `tokens_out` lines become one, dropping the thoughts tokens (block M3 below) | test_a_call_records_what_was_searched_and_counted (1 failed, 19 passed) |
 | M4 | the three `brands` lines become `"brands": len(find_mentions(text, entities)),` (block M4 below) | test_a_call_records_what_was_searched_and_counted (1 failed, 19 passed) |
 | M5 | delete the three lines of the `except Exception:` branch in `run()` (block M5 below) | the unexpected-error test and the malformed-ledger test (2 failed, 18 passed) |
-| M6 | the body of `existing_outputs` becomes `return []` | test_existing_outputs_names_what_a_rerun_would_overwrite, test_a_rerun_refuses_to_start_while_outputs_exist (2 failed, 18 passed) |
+| M6 | the `return` line of `existing_outputs` becomes `return []` (the docstring stays) | test_existing_outputs_names_what_a_rerun_would_overwrite, test_a_rerun_refuses_to_start_while_outputs_exist (2 failed, 18 passed) |
 | M7 | `"run_spend_micros": None if total is None else total,` in place of `... else total - before,` | test_the_probe_stops_before_the_crossing_try (1 failed, 19 passed) |
 | M8 | `if False:` in place of `if left:` in `main()` | test_a_rerun_refuses_to_start_while_outputs_exist (1 failed, 19 passed), failing with `AssertionError: a client was built before the refusal` |
 | M9 | `report()`'s four-line `try`/`except` becomes the single line `total = sum(probe_costs(ledger))` (block M9 below) | test_partial_results_survive_a_malformed_ledger_line (1 failed, 19 passed) |
@@ -659,7 +659,7 @@ Expected (proof run for the backend): `1810 passed, 2 deselected, 2 warnings` (t
 
 ## Rulings made while planning
 
-None.
+Ruling: R3. Decided: the plan review's two minors are fixed in a second plan commit: Step 5's `git diff --stat` check carries the worktree `cd` prefix, and M6 says the `return` line becomes `return []` with the docstring kept. Found by: the plan reviewer (Opus 5.5), 2026-10-12, verdict Approve with minors (all 17 blocks byte-identical to the spec's diff; the red run, green runs and nine mutants reproduced). Why: a command that would run in the wrong directory under the plan's own cwd rule, and a mutant edit with two readings, both mine. Cost if wrong: none to behaviour. How named: this plan and chat.
 
 ## Changes made during execution
 
