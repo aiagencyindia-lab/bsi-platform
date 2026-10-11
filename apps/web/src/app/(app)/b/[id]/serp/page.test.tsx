@@ -115,7 +115,7 @@ test("with a domain and no room, the budget note and the domain note show withou
   expect(html).not.toContain('id="host"');
 });
 
-test("a queued audit hides the budget note", async () => {
+test("a brand that is not due shows no budget note", async () => {
   const { html } = await render({
     // The brand's own queued audit makes it not due (due_serp_audits()).
     serp: serp(false, { status: "queued", error: null }, false),

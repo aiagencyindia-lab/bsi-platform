@@ -130,8 +130,9 @@ def budget_fits(
     Call inside the org's tenant transaction. With lock (the default) the
     org's advisory lock is held to the end of that transaction, so two
     schedules of one org can't both pass on the same headroom. A caller
-    that writes nothing passes lock=False and never waits; its answer can
-    differ from a writer's only while that writer holds the lock.
+    that writes nothing passes lock=False and never waits; its answer is a
+    best-effort snapshot (a job that finishes between its statements can
+    be counted twice).
     """
     # Fail closed: outside the org's tenant session row-level security
     # hides every row, the sums would be zero and anything would fit.
