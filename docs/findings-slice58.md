@@ -123,7 +123,9 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 1: minor (deferred): the URL and Authorization assertions run in case 1 only; the other three cases would also get a 500 on a wrong URL but check no headers."
   - Note (2026-10-11, after slice 60, PR #120): fixed: `render()` asserts the three URLs and the Bearer header on every call (docs/findings-slice60.md §1).
 - "Task 1: minor (deferred): the report describes rather than pastes two Step 3 results (typecheck 'printed no error', eslint 'printed nothing') and the npm ci tail."
+  - Note (2026-10-12, slice 62): closed: a process observation about a git-ignored report; nothing in the repo to change, and that workspace is no longer kept.
 - "Task 1: minor (deferred): the implementer appended the Step 7 rerun section to its gitignored report with a cat >> heredoc, against the Global Constraint allowing a heredoc only for the commit message; self-reported; no code or tracked file affected."
+  - Note (2026-10-12, slice 62): closed: a process observation about a git-ignored report; nothing in the repo to change, and that workspace is no longer kept.
 - "Final review: minor (deferred): page.test.tsx's cookieStore.get returns the key for any cookie name, so a wrong cookie name in api() would pass; api.test.ts's signedIn() has the same blind spot."
   - Note (2026-10-11, after slice 60, PR #120): fixed for page.test.tsx: its cookie store returns the key only for `COOKIE` (mutant M6 fails all 7 page cases). `signedIn()` in api.test.ts got the same name check, but that file asserts no Authorization header, so the change pins nothing there yet (M6 passes its 26 tests) (docs/findings-slice60.md §1).
 - "Final review: minor (deferred): page.test.tsx's BUDGET copies the production string from format.ts, so a copy edit there means updating format.test.ts and this test."

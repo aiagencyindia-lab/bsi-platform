@@ -76,6 +76,7 @@ There is no `Correction to R` line in the ledger.
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): spec review minor 6, the classification line, the chat approvals and the ledger quotes cannot be checked from the repo (R2)."
+  - Note (2026-10-12, slice 62): won't-fix: what this line names (chat approvals, ledger quotes, or a count from an offline run) left no record in the repo to check against; the merged PR's CI run is the record of its gates.
 - "Task 1: minor (deferred): a host the pattern passes but the API refuses (an IP address, walkaroo., www.walkaroo) lands on the error page, not an inline message; the user chose this (browser pattern over catch-and-note)."
   - Note (2026-10-08, after slice 54, PR #108): fixed; a 422 or 409 from the add-domain post now redirects to the Brand SERP page with a note, reversing the browser-pattern decision above with the user's approval of the slice 54 design (docs/findings-slice54.md §1). Two simultaneous submits still reach the error page through the unique-constraint 500 (R2 above).
 - "Task 1: minor (deferred): a missing brand_id becomes the string "null" and posts to /brands/null/domains; the hidden field always sets it, and runSerpAudit has the same pattern."

@@ -118,6 +118,7 @@ Every `Ruling:` and `Correction to R` line in the ledger, verbatim (R1–R9 and 
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Spec: minor (deferred): API templates in the actions keep `${seg(id)}` after `formSeg`, so each value is checked twice; the existing path scan requires `seg()` in every template."
+  - Note (2026-10-12, slice 62): won't-fix, by design: `formSeg()` already calls `seg()`, and the second `seg()` in each API path template is deliberate defence in depth: it is cheap, returns an accepted value unchanged, and keeps the path scan a one-rule check (every `${}` in an API path is one `seg()` call or a named query string).
 - "Task 1: minor (deferred): the archived-brand test checks the 409 title but not the detail "Archived brands accept no new domains.""
   - Note (2026-10-11, after slice 60, PR #120): fixed: the test asserts the detail (docs/findings-slice60.md §1).
 - "Task 1: minor (deferred): the race test does not assert the thread is still alive after _wait_until_blocked, as test_recommend.py's sibling does."
@@ -127,6 +128,7 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 1: minor (deferred): Host's max_length=200 applies to the raw input before _public_host normalizes it, as for every other Host field."
   - Note (2026-10-11, after slice 60, PR #120): fixed: `test_a_host_is_capped_at_200_characters` posts a 208-character scheme host (196 after normalization) and expects 422 on `host`, naming the cap as on the input as sent (docs/findings-slice60.md §1).
 - "Task 2: minor (deferred): every pytest summary shows "2 warnings", the known Starlette/anyio warnings present on main; the report does not name them."
+  - Note (2026-10-12, slice 62): won't-fix: the two warnings are upstream deprecations raised when the test client is imported: Starlette's "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (from FastAPI's testclient.py) and anyio's "The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead" (from Starlette's testclient.py). Neither comes from this project's code; removing them belongs to a dependency upgrade.
 - "Task 2: minor (deferred): no serp_due case sits just inside or just outside the 1-day or 7-day windows, so a boundary slip on both the Python and SQL sides together would pass (slice 60 test hardening)."
   - Note (2026-10-11, after slice 60, PR #120): fixed: seven rows one minute inside and outside the 1-day and 7-day windows plus a running job 8 days old, on the DB clock (mutants M1, M2 and M3). A one-minute margin proves each window's length, not whether its edge is `>` or `>=` (docs/findings-slice60.md §1).
 - "Task 2: minor (deferred): test_the_page_does_not_wait_on_the_orgs_budget_lock judges the no-wait with a 5-second join, and a GET that raises in the thread fails with KeyError 'response'."
@@ -134,9 +136,12 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 2: minor (deferred): test_budget.py imports the private _wait_until_blocked from test_api_recommendations (the plan's choice; matches the existing _job import from test_worker)."
   - Note (2026-10-11, after slice 60, PR #120): fixed: `wait_until_blocked` lives in tests/integration/threads.py and its four importers use it (docs/findings-slice60.md §1).
 - "Task 3: minor (deferred): the backend gate's "2 warnings" are not named in the report (the known Starlette/anyio warnings present on main)."
+  - Note (2026-10-12, slice 62): won't-fix: the two warnings are upstream deprecations raised when the test client is imported: Starlette's "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead" (from FastAPI's testclient.py) and anyio's "The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead" (from Starlette's testclient.py). Neither comes from this project's code; removing them belongs to a dependency upgrade.
 - "Task 3: minor (deferred): the source scan is pinned to a parameter named form and double-quoted field names; fd.get(...), single quotes or `as string` would pass it."
   - Note (2026-10-11, after slice 60, PR #120): fixed for the three spellings it names: the scan accepts any receiver name, either quote style and the `as string` cast (mutant M9); other shapes (a call-expression receiver, a member-expression receiver such as `this.form`, a template-literal key, a trailing `!`) are a deferred minor in findings-slice60.md §3 (docs/findings-slice60.md §1).
 - "Task 3: minor (deferred): formSeg logs "API form value missing" for a File field, which is present but not text."
   - Note (2026-10-11, after slice 60, PR #120): fixed: the log reads "API form value missing or not text", and the three tests that asserted the old text assert the new one (docs/findings-slice60.md §1).
 - "Task 3: minor (deferred): seg(formSeg(...)) in tasks/actions.ts and seg(id) after formSeg elsewhere check each value twice (the spec's deferred minor; the path scan requires seg() in every template)."
+  - Note (2026-10-12, slice 62): won't-fix, by design: `formSeg()` already calls `seg()`, and the second `seg()` in each API path template, including `seg(formSeg(...))` in tasks/actions.ts, is deliberate defence in depth: it is cheap, returns an accepted value unchanged, and keeps the path scan a one-rule check (every `${}` in an API path is one `seg()` call or a named query string).
 - "Final review: minor (deferred): the docs follow-ups (dated notes, findings-slice59.md, README rows) are not on the branch; they belong to the post-merge docs PR."
+  - Note (2026-10-12, slice 62): done: findings-slice59.md, its dated notes and its README rows landed in docs PR #119 (merge a026e65).
