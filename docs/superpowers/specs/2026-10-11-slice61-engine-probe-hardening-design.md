@@ -28,7 +28,7 @@ All of it in scripts/engine_probe.py.
 - A new `existing_outputs(out, raw_dir, models)` returns the paths among the results file and `raw_dir/<model>` for each model that already exist. `main()` calls it right after the ledger-floor check, before it reads `eval/run1.json`, builds the client or makes any call, and exits with `SystemExit` naming the paths and saying to move them first.
 - `run()` reads `sum(probe_costs(ledger))` once at the start and passes it to `report()`. The report keeps `probe_spend_micros` (the cumulative total, the number the stop uses) and gains `run_spend_micros`, the cumulative total minus the start value.
 - `run()` gains `except Exception:` after the `Stop` and `SpendCapReached` branches (`SpendCapReached` is a `RuntimeError`, so the order matters): it writes `report(..., "error", before)` and re-raises. A Ctrl-C is not an `Exception`, so it writes nothing; the docstring says so.
-- `report()` reads the ledger inside `try: ... except (ValueError, KeyError)`; on a malformed ledger line `probe_spend_micros` and `run_spend_micros` are `None` and the rest of the report is unchanged. Without it the handler's own `report()` raised the same `JSONDecodeError` and nothing was written (reproduced in the spec review). `before` is read once at the start of `run()` outside any `try`: nothing has been spent then.
+- `report()` reads the ledger inside `try: ... except (ValueError, KeyError)`; on a line that is not valid JSON, or a probe row without `micros`, `probe_spend_micros` and `run_spend_micros` are `None` and the rest of the report is unchanged. Other shapes (a JSON value that is not an object, a null `micros`) still raise there and lose the partial results; `spend.record` only ever writes dict rows with an integer `micros`. A null spend number in any results, including a run that finished without an error because the last `record` left a bad line, means the ledger could not be read; the module docstring says so (R2). Without it the handler's own `report()` raised the same `JSONDecodeError` and nothing was written (reproduced in the spec review). `before` is read once at the start of `run()` outside any `try`: nothing has been spent then.
 - Both docstrings are updated: `run()`'s names the three write paths (the probe stop, the spend cap, an unexpected error) and the module docstring adds the null spend numbers and that a write that itself fails replaces the original error, which stays as its `__context__` (R1).
 - `OUT` is tracked in git, so in the canonical checkout a re-run needs the slice 56 record moved or deleted first; that is the point of the refusal (R1).
 - The pick rule, the stop, the pricing, the models and the constants do not change. The module docstring gains a paragraph on the re-run refusal, the two spend numbers and the exception behaviour.
@@ -63,7 +63,7 @@ Generated from the proof (a scratchpad copy of main e2b2b8b with the change appl
 ```diff
 --- a/scripts/engine_probe.py
 +++ b/scripts/engine_probe.py
-@@ -9,6 +9,15 @@
+@@ -9,6 +9,16 @@
  usage: python scripts/engine_probe.py
  Raw answers go to $RAW_STORE_DIR/experiments/engine/ (git-ignored);
  results to eval/results/engine_probe_v0.json. Every try is spend-guarded.
@@ -72,14 +72,15 @@ Generated from the proof (a scratchpad copy of main e2b2b8b with the change appl
 +probe_spend_micros in the results is the total of every engine_probe
 +ledger entry (earlier runs and failed tries included, the number the stop
 +uses); run_spend_micros is what this run recorded. An unexpected error
-+writes the partial results (stopped: "error") and re-raises; if the
-+ledger cannot be read then, both spend numbers are null and the ledger
-+stays the record. A write that itself fails replaces the original error,
-+which stays as its __context__. Ctrl-C writes nothing.
++writes the partial results (stopped: "error") and re-raises. A null
++spend number in any results means the ledger had a line that is not
++valid JSON or lacks micros; the ledger stays the record. A write that
++itself fails replaces the original error, which stays as its __context__.
++Ctrl-C writes nothing.
  """
  
  import json
-@@ -55,6 +64,12 @@
+@@ -55,6 +65,12 @@
      ]
  
  
@@ -92,7 +93,7 @@ Generated from the proof (a scratchpad copy of main e2b2b8b with the change appl
  def reservation(costs: list[int]) -> int:
      return max([FLOOR_MICROS, *costs])
  
-@@ -153,13 +168,18 @@
+@@ -153,13 +169,18 @@
      return {"ok": False, "error": result.error if result else None}
  
  
@@ -113,7 +114,7 @@ Generated from the proof (a scratchpad copy of main e2b2b8b with the change appl
          "stopped": stopped,
          "pick": pick(results),
      }
-@@ -175,8 +195,9 @@
+@@ -175,8 +196,9 @@
      write=lambda out: None,
  ):
      """Every model on prompt 0, then prompt 1, ...; partial results are
@@ -124,7 +125,7 @@ Generated from the proof (a scratchpad copy of main e2b2b8b with the change appl
      stopped = None
      try:
          for i, prompt in enumerate(prompts):
-@@ -196,9 +217,12 @@
+@@ -196,9 +218,12 @@
      except Stop:
          stopped = "probe stop"
      except spend.SpendCapReached:
@@ -139,7 +140,7 @@ Generated from the proof (a scratchpad copy of main e2b2b8b with the change appl
      write(out)
      return out
  
-@@ -214,6 +238,14 @@
+@@ -214,6 +239,14 @@
              f"ledger {ledger} reads {ledger_total} micros, below "
              f"{LEDGER_FLOOR}: not the canonical ledger"
          )
@@ -154,7 +155,7 @@ Generated from the proof (a scratchpad copy of main e2b2b8b with the change appl
      run1 = json.loads(Path("eval/run1.json").read_text())
      entities = [
          Entity(run1["brand"], "brand", (run1["brand"], *run1["aliases"]))
-@@ -223,7 +255,6 @@
+@@ -223,7 +256,6 @@
      ]
      client = genai.Client(http_options=types.HttpOptions(timeout=120_000))
      adapters = {m: GeminiGroundingAdapter(client, model=m) for m in MODELS}
@@ -442,7 +443,7 @@ Proof directory: a fresh scratchpad copy of main e2b2b8b (`proof61-1791742833`),
 
 - Green, patched (after the spec review's edits): tests/unit/test_engine_probe.py 20 passed; `ruff format` reformatted one file (the proof's own edit), `ruff check` is clean and `mypy` is clean over packages/core/bsi_core; the whole backend 1810 passed, 2 deselected, 2 warnings with metrics coverage 100.00%.
 - Red on main's script: 5 failed, 15 passed, as Section 4 says.
-- Spec review round 1 (Opus 5.5, 2026-10-12): the reviewer reproduced a malformed ledger line losing the partial results (0 written, `JSONDecodeError`), which the controller reproduced too; decision 4 and R1 followed, and M5 and M9 below were re-run on the revised script.
+- Spec review round 1 (Opus 5.5, 2026-10-12): the reviewer reproduced a malformed ledger line losing the partial results (0 written, `JSONDecodeError`), which the controller reproduced too; decision 4 and R1 followed, and all nine mutants below were re-run on the revised script.
 
 Mutations, each applied alone to the patched scripts/engine_probe.py and reverted, the whole test file run:
 
@@ -461,6 +462,8 @@ Mutations, each applied alone to the patched scripts/engine_probe.py and reverte
 ## Rulings
 
 Ruling: R1. Decided: the spec review's findings 2 to 6 are applied as wording and test fixes in a second spec commit: `run()`'s docstring names the three write paths; the module docstring says a failing write replaces the original error (kept as `__context__`) and that the spend numbers are `null` on an unreadable ledger; the refusal test writes a minimal `eval/run1.json` so the client guard is reachable; the mypy claim says what it covers; Section 1 says a re-run in the canonical checkout means moving the tracked slice 56 record. Found by: the spec reviewer (Opus 5.5), 2026-10-12. Why: a docstring that named two paths of three, a guard that could not be reached, a gate claim wider than its coverage, and two behaviours that were true but undocumented, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
+
+Ruling: R2. Decided: the re-review's three minors are applied as documentation, not as a wider catch: the spec and the module docstring say what the tolerance covers (a line that is not valid JSON, or a probe row without `micros`) and that a null spend number in any results means the ledger could not be read, including on a run that finished without an error; the Evidence sentence says all nine mutants were re-run. Found by: the spec re-reviewer (Opus 5.5), 2026-10-12. Why: a catch of `(ValueError, KeyError)` leaves a non-object JSON line or a null `micros` to raise again, and `spend.record` never writes either; widening it or re-raising on the normal path would change the behaviour the user chose in decision 4. Cost if wrong: for those two shapes the partial results are still lost, as documented. How named: this spec and chat.
 
 ## Out of scope
 
