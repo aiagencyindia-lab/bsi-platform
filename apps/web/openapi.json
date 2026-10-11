@@ -1342,6 +1342,7 @@
       "DomainIn": {
         "properties": {
           "host": {
+            "maxLength": 200,
             "minLength": 3,
             "title": "Host",
             "type": "string"
