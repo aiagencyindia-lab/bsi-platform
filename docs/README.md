@@ -290,7 +290,7 @@ In the order they were written:
 | [findings-slice61.md](findings-slice61.md) | Results: findings-slice56 lines 142–146 and 150 closed, the gates, CI and reviews, no live check, and every ruling (R1–R5) and deferred minor, quoted from the ledger |
 | [superpowers/specs/2026-10-12-slice62-docs-sweep-design.md](superpowers/specs/2026-10-12-slice62-docs-sweep-design.md) | Design spec: the docs sweep — 23 dated notes and 2 corrections closing the open deferred minors of slices 48–61 (won't-fix for the unverifiable items, the double `seg()` and the two warnings), seven test minors left open, decisions 1–4 and rulings R1–R2 |
 | [superpowers/plans/2026-10-12-slice62-docs-sweep.md](superpowers/plans/2026-10-12-slice62-docs-sweep.md) | Implementation plan, one docs task with 19 blocks generated from a scratchpad proof, with R3 and the changes made during execution |
-| [findings-slice62.md](findings-slice62.md) | Results: the 23 closures and the seven open test minors with their current lines, the gates, CI and reviews, no live check, and every ruling (R1–R4) and deferred minor, quoted from the ledger |
+| [findings-slice62.md](findings-slice62.md) | Results: the 23 closures and the seven open test minors with their current lines, the gates, CI and reviews, no live check, and every ruling (R1–R5) and deferred minor, quoted from the ledger |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
