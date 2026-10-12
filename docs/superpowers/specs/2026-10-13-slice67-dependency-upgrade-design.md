@@ -86,7 +86,7 @@ The dev array is reflowed to one entry per line because the added entry pushes i
 
 ## 5. Proof
 
-Proof worktree: a detached copy of main 555d90d under the session scratchpad. Every saved output starts with a UTC header. The pytest runs (`01`-`05`, `07`) record the pre-check result in that header and end with `gate exit N`; `01`, `03` and `07` also name the two unrelated pytests that were running (cwd `…/invoice-processing`, which do not block), while `02`, `04` and `05` record only "no pytest of this repo running". The lock-only outputs (`06`, `08`) have no pre-check and end with `lock exit N`. The observation is the gate's own: pytest's warnings summary, plus a grep for each warning text.
+Proof worktree: a detached copy of main 555d90d under the session scratchpad. Every saved output starts with a UTC header. The pytest runs (`01`-`05`, `07`) record the pre-check result in that header and end with `gate exit N`; `01` and `03` also name the two unrelated pytests that were running (cwd `…/invoice-processing`, which do not block), while `02`, `04`, `05` and `07` record only "no pytest of this repo running". The lock-only outputs (`06`, `08`) have no pre-check and end with `lock exit N`. The observation is the gate's own: pytest's warnings summary, plus a grep for each warning text.
 
 Command for the short runs: `uv run pytest -q tests/integration/test_transactions.py -p no:cacheprovider`.
 
@@ -102,11 +102,11 @@ Mutation table. Each row names both outcomes.
 |---|---|---|
 | httpx2 removed from the dev group, re-locked and synced; starlette 1.7.0 kept | green patched: `2 passed`, hits 0/0 (`02`) | red patched: `2 passed, 1 warning`; text 1 hits 1, text 2 hits 0 (`04-mutation1-no-httpx2.txt`) |
 | `starlette>=1.7` dropped from `apps/api/pyproject.toml`, lock pinned to 1.6.0 (`uv lock --upgrade-package starlette==1.6.0`), synced; httpx2 kept | green patched: `2 passed`, hits 0/0 (`02`) | red patched: `2 passed, 1 warning`; text 1 hits 0, text 2 hits 1 (`05-mutation2-starlette16.txt`) |
-| the whole patch (main unchanged) | red on main: `2 passed, 2 warnings`, hits 1/1 (`01`) | green patched: `2 passed`, hits 0/0 (`02`) |
+| the whole patch removed (main unchanged) | green patched: `2 passed`, hits 0/0 (`02`) | red on main: `2 passed, 2 warnings`, hits 1/1 (`01`) |
 
 Each mutant removes exactly one warning's fix and that warning alone returns, so the two halves of the change are independent and both needed.
 
-Floor check (`06-floor-relocks.txt`): with the lock at 1.6.0 and the `starlette>=1.7` floor restored, a plain `uv lock` prints `Updated starlette v1.6.0 -> v1.7.0`. Re-applying the full patch afterwards produced a `git diff` byte-identical to the first lock (`cmp` on the two saved diffs).
+Floor check (`06-floor-relocks.txt`): with the lock at 1.6.0 and the `starlette>=1.7` floor restored, a plain `uv lock` prints `Updated starlette v1.6.0 -> v1.7.0`. Re-applying the full patch afterwards produced a `git diff` (saved as `patch-final.diff`) byte-identical to the one saved before the mutations (`patch.diff`); `cmp patch.diff patch-final.diff` reports no difference.
 
 Warning-class evidence (`07-warning-classes-on-main.txt`, run in the main checkout at 555d90d, starlette 1.6.0; its second header line records the command `uv run pytest -q tests/integration/test_transactions.py -W error::DeprecationWarning -p no:cacheprovider`): collection errors on text 2 (`E   DeprecationWarning: The anyio…`) and text 1 still appears in the warnings summary as `StarletteDeprecationWarning`, exit 2. `StarletteDeprecationWarning` subclasses `UserWarning` (`starlette/exceptions.py:36`). An earlier run of the same command, `00-warning-classes-on-main.txt`, is kept but its header does not record the command, so `07` is the cited file.
 
