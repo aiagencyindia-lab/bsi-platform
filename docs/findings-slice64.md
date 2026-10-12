@@ -100,6 +100,10 @@ Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Task 1: minor (deferred): the implementer's mistyped redirect wrote a stray /tmp/null outside the repo (self-reported; deleted by the controller after checking its contents); no tracked file affected."
 - "Task 1: minor (deferred): the RAW variable-key branch allows `!` or `as string` but not both, so `String(x.get(k)! as string)` is not matched (the brief's regex; the spec lists `!` with `as string` as not caught)."
+  - Note (2026-10-12, after slice 65, PR #130): fixed: the suffix is `!?(?:\s+as\s+string)?`, so `String(form.get(k)! as string)` fails the scan (M1 green on main, red patched; docs/findings-slice65.md §1).
 - "Task 1: minor (deferred): in the results case the expected text is the bare file name `engine_probe_v0.json`, so the assert passes whatever directory the refusal names (unchanged by this slice; the brief's block; M7 still fails [results])."
+  - Note (2026-10-12, after slice 65, PR #130): fixed: the results case expects `str(engine_probe.OUT)` and both cases assert `exist: <path>;`, so a prefixed, renamed or dropped directory fails (M10 green on main, red patched; docs/findings-slice65.md §1).
 
 Still open: the four minors of findings-slice63 are closed. Of the three above, the `/tmp/null` one is closed (the controller deleted the file after checking it); the other two stay open.
+
+Note (2026-10-12, after slice 65, PR #130): the two open minors are closed by slice 65 (docs/findings-slice65.md).

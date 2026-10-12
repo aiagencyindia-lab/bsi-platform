@@ -280,4 +280,7 @@ Ruling: R3. Decided: the plan review's one nit is fixed in a second plan commit:
 
 ## Changes made during execution
 
-Filled in by the docs PR after the merge.
+- Step 0, as planned: the implementer ran `uv sync` and `npm ci` in the existing worktree and pasted the last lines.
+- No step departed from its blocks or Expected lines: 2 and 21 tests, all ten mutants, ruff, mypy, typecheck, lint and the full gates (backend 1811, web 93) matched the plan's proof numbers. Process departures the implementer reported: test output filtered with grep/sed (the pasted lines verbatim), typecheck and lint re-run with output to /dev/null to get their exit codes, and the blocks and mutants read from the brief by script.
+- The task review approved with no findings; the final review found nothing to fix (no fix wave) and no deferred minor was recorded.
+- The controller ran both gates on the branch head during the final review, which asked for no change.
