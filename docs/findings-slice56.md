@@ -139,6 +139,7 @@ Every `Correction to R` line in the ledger, verbatim:
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): plan re-review N1, M14's proof cell does not say the mutant fails by a JSONDecodeError on the blank line (R6)."
+  - Note (2026-10-12, slice 62): won't-fix: the slice 56 plan is historical and is not edited; this line records what M14's cell leaves out (the mutant fails by a `JSONDecodeError` on the blank line).
 - "minor (deferred): plan re-review N2, the .get('kind', '') half of departure 10 is untested; a mutant reverting it to r['kind'] survives (R6)."
   - Note (2026-10-12, after slice 61, PR #122): fixed: `test_probe_costs_reads_only_engine_probe_entries` feeds a row with no `kind`; mutant M1 (`r["kind"]`) fails it with a `KeyError` (docs/findings-slice61.md §1).
 - "Task 1: minor (deferred): the per-call fields call() builds (searched, queries, brands, tokens) are never asserted; FakeAdapter returns no search_queries, so a mutant 'searched': True survives; mitigated for the probe run by an independent recount of searched from the saved raw responses before the pick is accepted."
@@ -150,7 +151,10 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 1: minor (deferred): the stop test's monkeypatched record opens the ledger without closing it (a ResourceWarning under -W error); the text is the brief's."
   - Note (2026-10-12, after slice 61, PR #122): fixed: a shared `_recorder` writes the ledger inside a `with` block, and the test file passes under `-W error` (docs/findings-slice61.md §1).
 - "minor (deferred): addendum review M1, departure 7 still says Task 2 is 'not written now' and the plan no longer carries R4's text (R7)."
+  - Note (2026-10-12, slice 62): closed: done in docs PR #113 (merge 77da2e7): the slice 56 plan's "Changes made during execution" says departure 7 is out of date and quotes R4 verbatim.
 - "minor (deferred): addendum review M2, departures 11 and 12 sit under Task 2, not in the plan's Departures list (R7)."
+  - Note (2026-10-12, slice 62): closed: done in docs PR #113 (merge 77da2e7): the slice 56 plan's "Changes made during execution" says departures 11 and 12 are listed inside the Task 2 addendum, not in the Departures list.
 - "minor (deferred): addendum review M3, the config.py comment cites findings-slice56, added by the docs PR after the code PR (R7)."
+  - Note (2026-10-12, slice 62): closed: findings-slice56.md exists since docs PR #113 (merge 77da2e7), so the config.py comment's citation resolves.
 - "Task 2: minor (deferred): the obs_cost_estimate_micros comment does not repeat the measured mean (30,039.5) it is computed from; the engine_model comment gives it as $0.0300."
   - Note (2026-10-12, after slice 61, PR #122): fixed: the comment names the measured mean, 30,039.5 micros (gemini-3.5-flash-lite in the probe); the value is unchanged (docs/findings-slice61.md §1).

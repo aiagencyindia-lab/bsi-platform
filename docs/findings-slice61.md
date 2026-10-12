@@ -99,7 +99,10 @@ Every `Ruling:` line in the ledger, verbatim (R1 and R2 were copied into the led
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Task 1: minor (deferred): the implementer wrote its block-applying helper script (a scratchpad apply.py outside the repo) with a shell heredoc, against the Global Constraint allowing a heredoc only for the commit message; self-reported; no tracked file affected."
+  - Note (2026-10-12, slice 62): closed: a process observation about a scratchpad script outside the repo; nothing in the repo to change.
 - "Task 1: minor (deferred): test_a_rerun_refuses_to_start_while_outputs_exist creates only the results file, so main() is never tested refusing on a raw directory alone; existing_outputs is tested for that case on its own and M6 kills both tests."
 - `Final review: minor (deferred): no test checks the raw_dir wiring in main() (<raw_store_dir>/experiments/engine passed to existing_outputs); a mistyped path would skip the raw directories while the results file still triggers the refusal.`
 
 Still open from findings-slice56 and not in this slice: lines 141, 147, 148 and 149 (docs wording; line 149 is true now that findings-slice56.md exists), all slice 62.
+
+Correction (2026-10-12, slice 62): the line numbers in the line above are as at main e2b2b8b; later dated notes moved them, and findings-slice62.md lists the current lines.

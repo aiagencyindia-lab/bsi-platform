@@ -115,10 +115,13 @@ There is no `Correction to R` line in the ledger.
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): spec re-review nit 1, the Section 3 web list says 'asserting the exact strings' but uses shorthand for lines whose string appears once above (R2)."
+  - Note (2026-10-12, slice 62): won't-fix: the slice 55 spec is historical and is not edited; the shorthand names strings spelled out once above in the same list, as the line says.
 - "minor (deferred): spec re-review nit 2, Section 3 does not say that the existing format.test.ts calls at lines 281-283, including ('archived', 2), gain the two new arguments; the plan lists them (R2)."
+  - Note (2026-10-12, slice 62): won't-fix: the slice 55 spec is historical and is not edited; as the line says, the plan lists those calls, and the plan is what was executed.
 - "minor (deferred): spec re-review note, the window boundary test sets created_at from Python's datetime.now(UTC) and compares against DB now(); deterministic while clock skew is under a minute (R2)."
   - Note (2026-10-11, after slice 60, PR #120): fixed: `_audit` and `_aged` in test_api_serp.py write `func.now() - ago`, so this test and every serp_due test use the DB clock (docs/findings-slice60.md §1).
 - "Task 1: minor (deferred): the Task 1 report describes Step 0's npm ci output ('its tail was the npm audit notice') instead of pasting it; every other summary line is pasted."
+  - Note (2026-10-12, slice 62): closed: a process observation about a git-ignored report; nothing in the repo to change, and that workspace is no longer kept.
 - "Task 1: minor (deferred): `failed or 0` in routers/audits.py is redundant, since count() never returns NULL; harmless, and it is the plan's text (plan departure 2)."
   - Note (2026-10-11, after slice 59, PR #118): fixed: the line is now `failed` (docs/findings-slice59.md §1).
 - "Final review: minor (deferred): the latest_serp docstring (apps/api/bsi_api/routers/audits.py) still describes only job and audits; the two new fields are explained in schemas.py comments (R5)."
