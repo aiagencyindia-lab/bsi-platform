@@ -300,6 +300,9 @@ In the order they were written:
 | [superpowers/specs/2026-10-12-slice65-test-minors-design.md](superpowers/specs/2026-10-12-slice65-test-minors-design.md) | Design spec: the two open deferred minors of slice 64 — the formSeg scan catches `! as string`, the probe refusal test pins the named path with an anchored assert — with 10 mutants, decisions 1–5 and rulings R1–R2 |
 | [superpowers/plans/2026-10-12-slice65-test-minors.md](superpowers/plans/2026-10-12-slice65-test-minors.md) | Implementation plan, one task with 3 blocks generated from a scratchpad proof, with R3 and the changes made during execution |
 | [findings-slice65.md](findings-slice65.md) | Results: findings-slice64 lines 102–103 closed, the gates, CI and reviews, no live check, no deferred minor, and every ruling (R1–R4), quoted from the ledger |
+| [superpowers/specs/2026-10-13-slice66-docs-minors-design.md](superpowers/specs/2026-10-13-slice66-docs-minors-design.md) | Design spec: the three open deferred minors of slice 62 — per-line notes for the shared won't-fix sentence, a Correction for the warning texts' final period, a closed note for the "current lines" pointer — with decisions 1–9, rulings R1–R4 and a Correction to R2 |
+| [superpowers/plans/2026-10-13-slice66-docs-minors.md](superpowers/plans/2026-10-13-slice66-docs-minors.md) | Implementation plan, one docs task with 4 blocks generated from a scratchpad proof, executed by the controller, with its R1 and the changes made during execution |
+| [findings-slice66.md](findings-slice66.md) | Results: findings-slice62 lines 115–117 closed, the 41-line re-map of findings-slice62's lists, the gates, CI and reviews, no live check, no deferred minor, and every ruling (R1–R6, plan R1) and correction, quoted from the ledger |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.

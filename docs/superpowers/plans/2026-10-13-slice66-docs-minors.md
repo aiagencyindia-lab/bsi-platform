@@ -149,4 +149,7 @@ Ruling: R1. Decided: the plan review's important finding and four minors are fix
 
 ## Changes made during execution
 
-Filled in by the docs PR after the merge.
+- The session switched from Fable 5.1 to Opus 5.5 (the user's `/model`) between the plan and execution. Step 3's commit and this docs PR carry the Opus 5.5 trailer, not the Fable 5.1 trailer the Global Constraints and Step 3 name (R5).
+- Step 2 item 4 expected findings-slice62 line 9 to start `- findings-slice60 §3`. Line 9 is the mapping's heading and lines 10 and 11 its bullets, so the first check run printed one FAIL. The check script was corrected and the plan left as written (R6). After that, all 34 checks were ok, and note 6's "lines 9 to 11" was right.
+- Steps 0, 1, 3 and 4 ran as written. Step 4's pre-check, run as its own command, listed only invoice-processing's pytests. The gates matched the plan's expected lines, and both warning texts were found once each.
+- Step 5: the Opus 5.5 docs review approved the branch with no findings, so there was no fix commit and no re-review.
