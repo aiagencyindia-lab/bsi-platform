@@ -340,11 +340,20 @@ def test_existing_outputs_names_what_a_rerun_would_overwrite(tmp_path):
     ]
 
 
-def test_a_rerun_refuses_to_start_while_outputs_exist(tmp_path, monkeypatch):
+@pytest.mark.parametrize("left", ["results", "raw"])
+def test_a_rerun_refuses_to_start_while_outputs_exist(
+    tmp_path, monkeypatch, left
+):
     monkeypatch.chdir(tmp_path)
     results = tmp_path / "eval" / "results"
     results.mkdir(parents=True)
-    (results / "engine_probe_v0.json").write_text("{}")
+    # The raw case uses the last model, so main() must pass every model and
+    # <raw_store_dir>/experiments/engine to existing_outputs().
+    raw = tmp_path / "data" / "experiments" / "engine" / FLASH
+    if left == "results":
+        (results / "engine_probe_v0.json").write_text("{}")
+    else:
+        raw.mkdir(parents=True)
     # Present, so a missing refusal reaches the client guard below.
     (tmp_path / "eval" / "run1.json").write_text(
         json.dumps(
@@ -369,5 +378,6 @@ def test_a_rerun_refuses_to_start_while_outputs_exist(tmp_path, monkeypatch):
     monkeypatch.setattr(engine_probe.genai, "Client", no_client)
     with pytest.raises(SystemExit) as refused:
         engine_probe.main()
-    assert "engine_probe_v0.json" in str(refused.value)
+    named = "engine_probe_v0.json" if left == "results" else str(raw)
+    assert named in str(refused.value)
     assert "move them first" in str(refused.value)
