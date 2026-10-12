@@ -31,6 +31,7 @@ Spec: docs/superpowers/specs/2026-10-12-slice64-test-minors-design.md (commits e
 - "User decision (2026-10-12): finishing menu answered "2 PR", after the controller ran both gates on 4eaa534 (backend 1811 passed, 2 deselected, 2 warnings, coverage 100%; web gate exit 0, 93 tests)."
 - "User decision (2026-10-12): "check ci then merge" after PR 128 was opened."
 - "User decision (2026-10-12): "yes, start the docs PR"."
+- "User decision (2026-10-12): after two docs review rounds, "Fix, re-review" over "Fix, stop" and "Stop now" (the user's chosen option, from the three the controller offered)."
 
 **Results** (selected ledger lines, quoted; in the ledger only: the header and Context line, the section headings, the pre-flight scan, the ⚠️ resolution line and the "Docs:" lines):
 
@@ -61,6 +62,7 @@ Spec: docs/superpowers/specs/2026-10-12-slice64-test-minors-design.md (commits e
 - "Review verdict (2026-10-12): Task 1 task review (Opus 5.5) of 6b59e46..4eaa534: spec ✅, task quality Approved; no critical or important; two minors; one ⚠️ item (the mutant and gate results are the report's claims; the report does not name the backend gate's 2 warnings)."
 - "Review verdict (2026-10-12): final whole-branch review (Opus 5.5) of ac26289..4eaa534: ready to merge (Yes); no critical, important or new minor; the code commit's blob hashes match the spec's diff; the three deferred minors triaged all as not blocking the merge."
 - "Review verdict (2026-10-12): docs review (Opus 5.5) of 7d4a958: Changes needed; one important (findings §1 called M1 "the one red-on-main row" though M1 is the only row green on main, reversing the table) and one minor (the Results header's "in the ledger only" list omits the Context line and the section headings); an observation that the ledger's "21 ledger lines quoted" counts only the required kinds (26 quotes in all); CI facts unverifiable by the reviewer (gh 404), supported by the merge commit's subject and parents; all 26 quotes, the notes (63:140 and 63:141 byte-identical to the spec's drafts but for the PR number), the line positions, the code claims, the tables and the README rows verified."
+- "Review verdict (2026-10-12): docs re-review (Opus 5.5) of 7d4a958..87cd226: both findings addressed; quote check both ways passes (23 required lines, 28 quotes); README range R1–R4 matches the ledger; one new minor: R4's text does not name the README row change, which only the ledger's Docs line discloses, so a reader of the findings never sees it."
 
 **Commits** (`git log --oneline --reverse ac26289..d5402d2^2`, oldest first):
 
@@ -81,7 +83,7 @@ None: the slice changes tests and docs only; nothing was called and nothing was 
 
 ## 3. Rulings and deferred minors
 
-Every `Ruling:` line in the ledger, verbatim (R1 and R2 were copied into the ledger from the spec, R3 from the plan, when it was created):
+Every `Ruling:` line in the ledger, verbatim, with the Correction to R4 quoted after R4 (R1 and R2 were copied into the ledger from the spec, R3 from the plan, when it was created):
 
 > Ruling: R1. Decided: the spec review's five findings are applied in a second spec commit, without a design change: the 63:141 draft note says Task 1's steps showed the npm dependencies working and Task 2's pytest the uv ones; the 63:140 draft note says the scan names the interpolated expression (not the matched name), skips whole-line comments, and is cleared by renaming the local query variable with its QUERIES entry or the unrelated one; the backend gate's output is saved as `gate64-backend.txt` and Section 3 names both saved outputs; the raw-case comment starts "Uses the last model"; `\s+` is kept and its newline crossing is stated as a fail-safe ceiling, with the cast shapes still not caught listed. Found by: the spec reviewer (Opus 5.5), 2026-10-12. Why: two overstated notes, an unsaved output, a fragment comment and an unstated ceiling, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
@@ -90,6 +92,8 @@ Every `Ruling:` line in the ledger, verbatim (R1 and R2 were copied into the led
 > Ruling: R3. Decided: the plan review's three items are fixed in a second plan commit: Step 3 says the mutant texts are fragments replaced as text, spells out both restore commands in full, and limits the `apps/web/src/` path note to M1 to M3 (M4 to M7 name `scripts/engine_probe.py`); Step 4's commit subject is shortened. Found by: the plan reviewer (Opus 5.5), 2026-10-12, verdict Approve with minors (all three blocks reproduce the spec's diff, index hashes included; all seven mutants' Expected lines reproduced). Why: a path note that read as covering every mutant, a placeholder restore path, an unstated fragment rule and a long subject, all mine. Cost if wrong: none to behaviour. How named: this plan and chat.
 
 > Ruling: R4. Decided: the docs review's two findings are fixed in a second docs commit: §1 says M1 is the one row green on main and red patched, and M2 to M7 fail on main and patched alike; the Results header's "in the ledger only" list names the header and Context line, the section headings, the pre-flight scan, the ⚠️ resolution line and the "Docs:" lines; the findings quote this verdict and ruling; the ledger's next Docs line states the quote counts as required lines and all quotes. Found by: the docs reviewer (Opus 5.5), 2026-10-12. Why: a sentence that reversed the table's meaning and an incomplete list, both mine. Cost if wrong: none to behaviour. How named: ledger and chat.
+
+> Correction to R4 (2026-10-12): R4's commit 87cd226 also changed the README findings-slice64 row from "every ruling (R1–R3)" to "every ruling (R1–R4)"; R4's text did not name that change. A third docs commit quotes this line in findings-slice64.md §3, with the re-review verdict and the user's decision.
 
 Every `minor (deferred)` line in the ledger, verbatim:
 
