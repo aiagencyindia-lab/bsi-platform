@@ -753,4 +753,7 @@ Ruling: R3. Decided: the plan review's three minors are fixed in a second plan c
 
 ## Changes made during execution
 
-Filled in by the docs PR after the merge.
+- Step 0, as planned: the worktree existed from the spec stage; the Task 1 implementer ran `uv sync` and `npm ci` (its report paraphrases their output, recorded as a deferred minor).
+- No step departed from its blocks or Expected lines: Task 1's 37 tests, all 23 web mutants (M20 surviving by design), typecheck and lint; Task 2's 21 tests, M17 to M19, ruff and mypy, and the full gates (backend 1811, web 93) all matched the plan's proof numbers. Process departures the Task 1 implementer reported: the mutants ran in one bash loop, and typecheck and lint ran as two commands.
+- Both task reviews approved with minors; R4 (the redirect-reset minor closed without a change) was made at execution and is in the ledger and findings-slice63.md §3.
+- The final review found nothing to fix (no fix wave) and added one deferred minor (a variable key with `as string`).
