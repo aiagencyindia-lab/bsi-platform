@@ -127,6 +127,8 @@ Every `Ruling:` line in the ledger, verbatim (R1 and R2 were copied into the led
 
 > Ruling: R5. Decided: the docs review's four minors are fixed in a second docs commit: the merge line (remote branch deleted) is quoted under Results; the closing sentence says none of findings 47 to 61 stays open, slice 63 adds five deferred minors and R4 closes one, so four stay open; §1 says the dated notes moved lines (findings-slice62's 60:144 "2 warnings" is now 60:147, and the seven minors now sit at 49:108, 49:110, 60:141, 60:143, 60:145, 61:103, 61:105, checked by grep); the 49:108 note's parenthesis names the `fq` and `FEED_DAYS` statements; the findings quote this verdict and ruling. Found by: the docs reviewer (Opus 5.5), 2026-10-12; the moved lines checked by the controller. Why: an incomplete list, an ambiguous sentence, an unstated line shift and a misleading parenthesis, all mine. Cost if wrong: none to behaviour. How named: ledger and chat.
 
+> Correction to R5 (2026-10-12): R5's commit 98945d4 left the README findings row at "every ruling (R1–R4)"; a third docs commit makes it R1–R5, anchored on the slice 63 row's link prefix, and quotes this line in findings-slice63.md §3.
+
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Task 1: minor (deferred): api.test.ts's afterEach does not reset the `redirect` mock, so `toHaveBeenCalledWith("/login")` could pass on an earlier test's call and an unused `mockImplementationOnce` could leak to the next test (reviewer: under vitest ^3 `restoreAllMocks` leaves vi.fn call history alone)."
