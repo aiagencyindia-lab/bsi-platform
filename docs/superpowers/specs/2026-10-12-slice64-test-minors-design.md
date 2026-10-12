@@ -38,7 +38,7 @@ The docs PR also adds findings-slice64.md (quoting every ledger line), the plan'
 
 - 63:143, red on main: M1 (`String(form.get(k) as string)` with `const k = "brand_id"`, in place of the first `formSeg(form, "brand_id")` in serp/actions.ts) passes main's scan and fails the patched one. M2 (`String(form.get(k)!)`) and M3 (`String(form.get(k))`) are regression rows, red on both.
 - 63:142 is a refactor of a passing test, so it has no red-on-main row. The four probe mutants are run on main's test and the patched test: a wrong raw path (M4), `MODELS[:1]` (M5) and a substituted raw directory (M6) each fail only `[raw]`; a substituted results path (M7) fails only `[results]`. Same outcome on both, which is what a refactor must keep.
-- Green, patched (outputs saved beside the proof: `gate64.txt` for the web gate, `gate64-backend.txt` for the backend gate, run again after the spec review's comment fix): web `npm run gate` exits 0 with 93 vitest (unchanged); backend 1811 passed, 2 deselected, 2 warnings (unchanged), metrics coverage 100.00%, `ruff format --check` (185 files already formatted), `ruff check` and `mypy` clean.
+- Green, patched (outputs saved beside the proof: `gate64-backend.txt`, the backend gate run again after the spec review's comment fix; `gate64.txt`, the web gate from before that fix, which touched only the Python test): web `npm run gate` exits 0 with 93 vitest (unchanged); backend 1811 passed, 2 deselected, 2 warnings (unchanged), metrics coverage 100.00%, `ruff format --check` (185 files already formatted), `ruff check` and `mypy` clean.
 - No live check: nothing is called and no server is started.
 
 ## The change
@@ -121,6 +121,8 @@ Proof directory: a fresh scratchpad detached worktree of main ac26289 (`proof64`
 ## Rulings
 
 Ruling: R1. Decided: the spec review's five findings are applied in a second spec commit, without a design change: the 63:141 draft note says Task 1's steps showed the npm dependencies working and Task 2's pytest the uv ones; the 63:140 draft note says the scan names the interpolated expression (not the matched name), skips whole-line comments, and is cleared by renaming the local query variable with its QUERIES entry or the unrelated one; the backend gate's output is saved as `gate64-backend.txt` and Section 3 names both saved outputs; the raw-case comment starts "Uses the last model"; `\s+` is kept and its newline crossing is stated as a fail-safe ceiling, with the cast shapes still not caught listed. Found by: the spec reviewer (Opus 5.5), 2026-10-12. Why: two overstated notes, an unsaved output, a fragment comment and an unstated ceiling, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
+
+Ruling: R2. Decided: the spec re-review's one minor is applied as wording in a third spec commit, without a further review: Section 3 says only `gate64-backend.txt` was run again after the comment fix, and `gate64.txt` is the web gate from before it (the fix touched only tests/unit/test_engine_probe.py, which the web gate does not read). Found by: the spec re-reviewer (Opus 5.5), 2026-10-12, verdict all five first-review findings resolved, diff and evidence identity holds. Why: a re-run claim wider than what was run, mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 ## Out of scope
 
