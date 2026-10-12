@@ -138,8 +138,14 @@ Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Task 1: minor (deferred): api.test.ts's afterEach does not reset the `redirect` mock, so `toHaveBeenCalledWith("/login")` could pass on an earlier test's call and an unused `mockImplementationOnce` could leak to the next test (reviewer: under vitest ^3 `restoreAllMocks` leaves vi.fn call history alone)."
 - `` Task 1: minor (deferred): `encoded()` matches `\b<name>\b` over the whole file, so in a file that interpolates `${q}` any other `q` (a `"q"` string, `sp.q`, an object key) fails the scan; intended strictness that errs only toward false failures (the comment states the rule). ``
+  - Note (2026-10-12, after slice 64, PR #128): won't-fix: the file-wide match is the scan's safety margin; another appearance of an exempt name outside a whole-line comment fails the scan, naming the file and the interpolated expression; renaming the local query variable (with its QUERIES entry) or the unrelated one clears it; nothing hits it today (docs/findings-slice64.md).
 - "Task 1: minor (deferred): Step 0's `uv sync` and `npm ci` results are paraphrased, not pasted as the Global Constraints ask; the dependencies are shown working by Step 2's vitest run and Step 4's typecheck and lint."
+  - Note (2026-10-12, after slice 64, PR #128): closed: a process observation about how Task 1's report recorded Step 0; nothing in the repo to change; Task 1 Step 2's vitest run and Step 4's typecheck and lint showed the npm dependencies working, and Task 2's pytest runs the uv ones.
 - "Task 2: minor (deferred): test_engine_probe.py builds `raw` in the results case too, where it is unused (the brief's block; harmless, keeps the branches symmetric)."
+  - Note (2026-10-12, after slice 64, PR #128): fixed: each case builds its output and expected text inside its own branch; M4 to M7 fail the same case as before (docs/findings-slice64.md §1).
 - "Final review: minor (deferred): the formSeg RAW pattern does not catch a variable key with a cast, `String(form.get(k) as string)` (only `!` is allowed after `.get(\w+)`); not a regression (main did not catch it) and not named by 60:141."
+  - Note (2026-10-12, after slice 64, PR #128): fixed: the variable-key branch also allows `as string` after `.get(\w+)`; the `as string` mutant passes main's scan and fails the patched one (M1, docs/findings-slice64.md §1).
 
 Still open from findings 47 to 61: none. Slice 63 adds the five deferred minors above; R4 closes the redirect one, so four stay open.
+
+Note (2026-10-12, after slice 64, PR #128): the four open minors are closed by slice 64 (docs/findings-slice64.md).
