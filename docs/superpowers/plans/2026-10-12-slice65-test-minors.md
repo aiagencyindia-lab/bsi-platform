@@ -176,7 +176,7 @@ with:
 ", ".join(p.name for p in left)
 ```
 
-Expected (proof run): `2 failed, 19 passed`; FAILED test_a_rerun_refuses_to_start_while_outputs_exist[raw], test_a_rerun_refuses_to_start_while_outputs_exist[results].
+Expected (proof run): `2 failed, 19 passed`; FAILED test_a_rerun_refuses_to_start_while_outputs_exist[results], test_a_rerun_refuses_to_start_while_outputs_exist[raw] (pytest lists them in parametrize order).
 
 **M6** (64:103), `scripts/engine_probe.py`, replace:
 
@@ -276,7 +276,7 @@ Expected (proof run): backend `1811 passed, 2 deselected, 2 warnings` (the known
 
 ## Rulings made while planning
 
-None yet.
+Ruling: R3. Decided: the plan review's one nit is fixed in a second plan commit: M5's Expected line lists `[results]` before `[raw]`, the order pytest's `-rf` prints them in (the parametrize order), so a pasted line matches word for word. Found by: the plan reviewer (Opus 5.5), 2026-10-12, verdict Approve with minors (all three blocks reproduce the spec's diff, index hashes included; all ten mutants' Expected lines reproduced on the patched tests, and the main's-tests column too). Why: a failure list in the wrong order, mine. Cost if wrong: none to behaviour. How named: this plan and chat.
 
 ## Changes made during execution
 
