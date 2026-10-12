@@ -97,7 +97,7 @@ Proof directory: a fresh scratchpad detached worktree of main a456260 (`proof65`
 | M9 | 64:103 | `existing_outputs(Path("nowhere"), raw_dir, MODELS)` | red: [results] | red: [results] |
 | M10 | 64:103 | `main()` joins `str(Path("data") / p)` (a prefix directory; review probe X2) | green | red: [results] |
 
-Saved gate outputs: `gate65-backend.txt` (run 2026-10-12T08:17:39Z, after decision 5's edit) and `gate65.txt` (run 2026-10-12T08:09:59Z, before it; valid as Section 2 explains), both on the patched proof copy. The table is the run after decision 5's edit; M1 to M9 kept their first-run outcomes.
+Saved gate outputs: `gate65-backend.txt` (run 2026-10-12T08:17:39Z, after decision 5's edit) and `gate65.txt` (run 2026-10-12T08:09:59Z, before it; valid as Section 2 explains), both on the patched proof copy. The table is the run after decision 5's edit; `mutate65.out` holds only that run, and its M1 to M9 rows equal the first run's as recorded in spec commit 7ebedb3.
 
 ## Departures from the section text shown in chat
 
@@ -107,6 +107,8 @@ Saved gate outputs: `gate65-backend.txt` (run 2026-10-12T08:17:39Z, after decisi
 ## Rulings
 
 Ruling: R1. Decided: the spec review's findings 2 and 3 are applied in the second spec commit alongside decision 5 (finding 1): M10, the prefix-directory mutant, is added as the whole-test green-to-red proof for 64:103; `String(form.get(k)!as string)` (no space after `!`, which Prettier normalises away) is listed as not caught under Out of scope; Section 1 drops the overstated "requires the path main() names" for the anchored assert's exact effect. Found by: the spec reviewer (Opus 5.5), 2026-10-12; finding 1 reproduced by the controller in the proof. Why: a substring claim wider than what it pinned, a proof that showed only a per-case change, and an unlisted miss, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
+
+Ruling: R2. Decided: the spec re-review's one nit is applied as wording in a third spec commit, without a further review: the Evidence paragraph says `mutate65.out` holds only the second run and that its M1 to M9 rows equal the first run's as recorded in spec commit 7ebedb3, in place of "kept their first-run outcomes", which the saved files alone could not show. Found by: the spec re-reviewer (Opus 5.5), 2026-10-12, verdict all three findings resolved and verified by probes. Why: a claim resting on a run the saved output no longer holds, mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 ## Out of scope
 
