@@ -60,8 +60,8 @@ const audit = (over: Partial<Audit> = {}): Audit => ({
   fetched_at: "2026-10-11T09:30:00Z",
   cost_micros: 4000,
   error: null,
-  owned: 1,
-  organic: 1,
+  owned: 0,
+  organic: 0,
   results: [],
   ...over,
 });
@@ -176,6 +176,8 @@ test("each audit gets a card: ownership, panels, the results, or the error", asy
       budget_room: true,
       audits: [
         audit({
+          owned: 1,
+          organic: 1,
           results: [
             {
               position: 1,
