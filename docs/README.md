@@ -302,7 +302,7 @@ In the order they were written:
 | [findings-slice65.md](findings-slice65.md) | Results: findings-slice64 lines 102–103 closed, the gates, CI and reviews, no live check, no deferred minor, and every ruling (R1–R4), quoted from the ledger |
 | [superpowers/specs/2026-10-13-slice66-docs-minors-design.md](superpowers/specs/2026-10-13-slice66-docs-minors-design.md) | Design spec: the three open deferred minors of slice 62 — per-line notes for the shared won't-fix sentence, a Correction for the warning texts' final period, a closed note for the "current lines" pointer — with decisions 1–9, rulings R1–R4 and a Correction to R2 |
 | [superpowers/plans/2026-10-13-slice66-docs-minors.md](superpowers/plans/2026-10-13-slice66-docs-minors.md) | Implementation plan, one docs task with 4 blocks generated from a scratchpad proof, executed by the controller, with its R1 and the changes made during execution |
-| [findings-slice66.md](findings-slice66.md) | Results: findings-slice62 lines 115–117 closed, the 41-line re-map of findings-slice62's lists, the gates, CI and reviews, no live check, no deferred minor, and every ruling (R1–R7, plan R1) and correction, quoted from the ledger |
+| [findings-slice66.md](findings-slice66.md) | Results: findings-slice62 lines 115–117 (as at main 752a234) closed, the 41-line re-map of findings-slice62's lists, the gates, CI and reviews, no live check, no deferred minor, and every ruling (R1–R8, plan R1) and correction, quoted from the ledger |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
