@@ -22,6 +22,7 @@ User decisions (2026-10-12), with the approaches text shown in chat before each 
 3. 60:143, first ask: a zero default (A), over one matching result row (B).
 4. 60:143, asked again after the proof showed a fact behind decision 3 was wrong (see Correction 1): zero default with the first audit card passing `owned: 1, organic: 1` explicitly (A′), over the one-row default (B).
 5. Sections 1 to 4 each approved after their text was shown in chat ("Yes, Section N approved").
+6. After the spec review (findings 1 and 2, reproduced by the controller as probes A to D): tighten the declaration match and ban every other use of an exempt name (option 1), over resolving each name with the TypeScript compiler API (option 2) and documenting the gaps only (option 3).
 
 Correction 1 (2026-10-12, during the proof): the decision 3 approaches text and the approved Section 2 said both cases that use `audit()` override `owned` and `organic`. Only the failed "reviews" card does; the first card in "each audit gets a card…" passes only `results` and relied on the default 1/1 for "Ownership: 1 of 1 (100%)", which the zero default turned red. The choice was asked again (decision 4) and Section 2 below carries the answer.
 
@@ -30,8 +31,8 @@ Correction 1 (2026-10-12, during the proof): the decision 3 approaches text and 
 File: apps/web/src/lib/api-paths.test.ts.
 
 - 49:109, scope: both scans read every non-test `.ts`/`.tsx` file under `src/` (one shared `SOURCES` list), not only `src/app`. That adds `src/lib/*` (api.ts, format.ts, cookie.ts, types.ts, schema.d.ts), `src/middleware.ts` and `src/components/*`. The call and path patterns gain a `(?<!function )` lookbehind so api.ts's own `function api<T>(path` and `function publicApi<T>(path` are not read as calls; the comment lines that mention `api()` are already skipped by the existing comment filter. The `templates >= 40` floor stays. Widening the formSeg scan is a side effect of the shared list, not a new minor; server actions live only in `src/app` today, so it changes nothing now.
-- 49:108, declaration check: `QUERIES` becomes a `Map` from each exempt name to the declarations it needs. A `${name}` in an API path passes only when that file assigns each needed name exactly once, and that once is `const <name> = <from>`: `q`, `dq` and `wq` from `apiQuery(`; `feedQuery` from `` `${fq}`` `` and `fq` from `apiQuery(`. A `let`/`var` declaration, a reassignment or a compound assignment anywhere in the file counts against it. Inline `${apiQuery(sp)}` stays exempt as the encoder call itself. A failure reads `<file>: <name> is not assigned once from apiQuery()`. Ceiling: it is a regex scan; a destructuring assignment (`({ q } = x)`) is not counted, and an unrelated `q=` in the same file (a `"?q=..."` literal) fails safe.
-- 60:141, receiver-agnostic formSeg scan: the pattern no longer depends on the receiver. It flags any `.get(<key>)` whose key is an `_id` or `type` name in `"…"`, `'…'` or `` `…` `` quotes (with or without a trailing `!` or `as string`, which this subsumes), a variable key inside `String(…)` on one line (`String(` … `.get(\w+)` with an optional `!`, then `)`), and `seg(String(`. `String` and `seg` get a leading `\b` so `toString(` in format.ts is not read as `String(`. Today's code has no `.get(` with an id or type key, and its variable-key reads all go through `?? ""` (body values, not path values), so the scan is green on main.
+- 49:108, declaration check (decision 6): `QUERIES` becomes a `Map` from each exempt name to the statements it needs, each anchored as a whole: `q`, `dq` and `wq` need `const <name> = apiQuery(<no nested parentheses>);`; `feedQuery` needs its exact current line `` const feedQuery = `${fq}${fq ? "&" : "?"}days=${FEED_DAYS}`; ``, plus `const fq = apiQuery(<no nested parentheses>);` and `const FEED_DAYS = <digits>;`. A `${name}` in an API path passes only when its file has each needed statement exactly once and, with those statements removed, every needed name appears only as `${name}` on its own: any other appearance (a second binding, a parameter, a loop binding, destructuring, an assignment of any kind, or a plain use) fails. Inline `${apiQuery(sp)}` stays exempt as the encoder call itself. A failure reads `<file>: <name> is not built only by apiQuery()`. Ceiling: a regex scan over text, so it fails safe on a false positive (the name inside a string literal or as a property, `sp.q`, outside those statements), and `apiQuery(...)`'s own arguments are not inspected (they reach `URLSearchParams`, which encodes them).
+- 60:141, receiver-agnostic formSeg scan: the pattern no longer depends on the receiver. It flags any `.get(<key>)` whose key is an `_id` or `type` name in `"…"`, `'…'` or `` `…` `` quotes (with or without a trailing `!` or `as string`, which this subsumes), a variable key inside `String(…)` on one line (`String(` … `.get(\w+)` with an optional `!`, then `)`), and `seg(String(`. The `.get(<key>)` ban applies to any receiver anywhere in `src/` (FormData, URLSearchParams, Headers or Map, in components and middleware too), so the test is renamed "path values are read with formSeg()". The leading `\b` on `String` and `seg` is a precaution: it keeps a future `x.toString(… .get(k))` line from matching; no line today needs it. Today's code has no `.get(` with an id or type key, and every `String(<x>.get(<variable>))` read goes through `?? ""` (body values, not path values), so the scan is green on main.
 
 ## Section 2 — `api()` auth and the audit fixture (60:142, 60:143)
 
@@ -52,7 +53,7 @@ Case 2 closes 61:103 and pins 61:104: a wrong raw path in `main()` finds nothing
 
 ## Section 4 — Testing
 
-- Red on main: each mutant is run against main's versions of the four test files and against the patched ones. 16 of the 19 code mutants pass main's tests and fail the patched ones; M12 (the original `String(form.get("brand_id"))` shape) and M13/M15 (see Section 2) were already red on main and stay red. M20 is test-side and survives, as Section 2 says.
+- Red on main: each mutant is run against main's versions of the four test files and against the patched ones. 22 of the 25 code mutants pass main's tests and fail the patched ones; M12 (the original `String(form.get("brand_id"))` shape) and M13/M15 (see Section 2) were already red on main and stay red. M20 is test-side and survives, as Section 2 says.
 - Green, patched: web `npm run gate` exits 0 with 93 vitest (91 + the two api.test.ts tests); backend 1811 passed (1810 + the parametrized case), 2 deselected, 2 warnings, metrics coverage 100.00%, `ruff format --check` (185 files already formatted), `ruff check` and `mypy` clean.
 - No live check: nothing is called and no server is started.
 
@@ -86,10 +87,10 @@ index a6fe003..32b083c 100644
              {
                position: 1,
 diff --git a/apps/web/src/lib/api-paths.test.ts b/apps/web/src/lib/api-paths.test.ts
-index 1ba73b0..2bdb2fc 100644
+index 1ba73b0..b3d07c5 100644
 --- a/apps/web/src/lib/api-paths.test.ts
 +++ b/apps/web/src/lib/api-paths.test.ts
-@@ -2,13 +2,31 @@ import { readdirSync, readFileSync } from "node:fs";
+@@ -2,13 +2,41 @@ import { readdirSync, readFileSync } from "node:fs";
  import { join } from "node:path";
  import { expect, test } from "vitest";
  
@@ -98,18 +99,28 @@ index 1ba73b0..2bdb2fc 100644
 -const APP = join(__dirname, "..", "app");
 -const CALL = /\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*/g;
 +// Query strings built by apiQuery(), which encodes them with URLSearchParams.
-+// A name passes only where its file assigns it once, as `const <name> =
-+// <from>` (feedQuery from fq, which comes from apiQuery()); apiQuery(sp)
++// An exempt name passes only where its file has each statement it needs
++// exactly once, and outside those statements the name appears only as
++// `${name}`: no other binding, parameter, assignment or use. apiQuery(sp)
 +// inline is the encoder itself.
-+const QUERIES = new Map<string, [string, string][]>([
-+  ["q", [["q", "apiQuery("]]],
-+  ["dq", [["dq", "apiQuery("]]],
-+  ["wq", [["wq", "apiQuery("]]],
++type Need = readonly [name: string, statement: RegExp];
++const fromApiQuery = (name: string): Need => [
++  name,
++  new RegExp(String.raw`const ${name} = apiQuery\([^()]*\);`, "g"),
++];
++const QUERIES = new Map<string, Need[]>([
++  ["q", [fromApiQuery("q")]],
++  ["dq", [fromApiQuery("dq")]],
++  ["wq", [fromApiQuery("wq")]],
 +  [
 +    "feedQuery",
 +    [
-+      ["feedQuery", "`${fq}"],
-+      ["fq", "apiQuery("],
++      [
++        "feedQuery",
++        /const feedQuery = `\$\{fq\}\$\{fq \? "&" : "\?"\}days=\$\{FEED_DAYS\}`;/g,
++      ],
++      fromApiQuery("fq"),
++      ["FEED_DAYS", /const FEED_DAYS = \d+;/g],
 +    ],
 +  ],
 +]);
@@ -126,25 +137,28 @@ index 1ba73b0..2bdb2fc 100644
  
  /** True for exactly one seg(...) call: its "(" closes at the last character. */
  const isSeg = (expr: string) => {
-@@ -22,14 +40,25 @@ const isSeg = (expr: string) => {
+@@ -22,14 +50,28 @@ const isSeg = (expr: string) => {
    return false;
  };
  
 -test("every value in an API path goes through seg()", () => {
 -  const files = readdirSync(APP, { recursive: true, encoding: "utf8" }).filter(
 -    (f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f),
-+/** True when code assigns name exactly once, and that once is
-+ * `const <name> = <from>`: a let/var, a reassignment or a compound
-+ * assignment anywhere in the file counts against it. */
-+const assignedOnce = (code: string, name: string, from: string) => {
-+  const writes = new RegExp(
-+    String.raw`\b(?:let|var)\s+${name}\b|\b${name}\s*(?:[-+*/%&|^]|\?\?|&&|\|\|)?=(?![=>])`,
-+    "g",
++/** True when code has each needed statement once and, outside them, each
++ * needed name only inside `${...}` on its own. */
++const encoded = (code: string, needs: Need[]) => {
++  let rest = code;
++  for (const [, statement] of needs) {
++    if ([...code.matchAll(statement)].length !== 1) return false;
++    rest = rest.replace(statement, "");
++  }
++  return needs.every(([name]) =>
++    [...rest.matchAll(new RegExp(String.raw`\b${name}\b`, "g"))].every(
++      (m) =>
++        rest.slice(m.index - 2, m.index) === "${" &&
++        rest[m.index + name.length] === "}",
++    ),
    );
-+  return (
-+    [...code.matchAll(writes)].length === 1 &&
-+    code.split(`const ${name} = ${from}`).length === 2
-+  );
 +};
 +
 +test("every value in an API path goes through seg()", () => {
@@ -157,7 +171,7 @@ index 1ba73b0..2bdb2fc 100644
        .split("\n")
        .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
        .join("\n");
-@@ -41,7 +70,12 @@ test("every value in an API path goes through seg()", () => {
+@@ -41,7 +83,12 @@ test("every value in an API path goes through seg()", () => {
      for (const [, path] of code.matchAll(PATH)) {
        templates += 1;
        for (const [, expr] of path.matchAll(/\$\{([^}]*)\}/g)) {
@@ -165,25 +179,30 @@ index 1ba73b0..2bdb2fc 100644
 +        if (isSeg(expr) || expr === "apiQuery(sp)") continue;
 +        const needs = QUERIES.get(expr);
 +        if (!needs) bad.push(`${f}: \${${expr}}`);
-+        else if (!needs.every(([n, from]) => assignedOnce(code, n, from))) {
-+          bad.push(`${f}: ${expr} is not assigned once from apiQuery()`);
++        else if (!encoded(code, needs)) {
++          bad.push(`${f}: ${expr} is not built only by apiQuery()`);
 +        }
        }
      }
    }
-@@ -51,19 +85,18 @@ test("every value in an API path goes through seg()", () => {
+@@ -49,21 +96,22 @@ test("every value in an API path goes through seg()", () => {
+   expect(bad).toEqual([]);
+ });
  
- test("server actions read path values with formSeg()", () => {
+-test("server actions read path values with formSeg()", () => {
++test("path values are read with formSeg()", () => {
    // String(form.get(...)) turns a missing field into "null", which seg()
 -  // passes; formSeg() refuses it. A field named by a variable
 -  // (String(form.get(k))) is caught too: label's actions read ids that way.
 -  // Any receiver name, either quote style, and the `as string` cast count.
 -  const ID = String.raw`(?:"[a-z_]*_id"|'[a-z_]*_id'|"type"|'type')`;
-+  // passes; formSeg() refuses it. No code reads an id or type field with
-+  // .get() at all, whatever the receiver ((await req.formData()).get,
++  // passes; formSeg() refuses it. So no code under src/ reads an id or type
++  // field with .get() at all (FormData, URLSearchParams, Headers or Map
++  // alike), whatever the receiver ((await req.formData()).get,
 +  // this.form.get), the quote style (template literals too) or a trailing
-+  // `!` or `as string`. A field named by a variable inside String(...) is
-+  // caught too: label's actions read ids that way.
++  // `!` or `as string`; nor String(<x>.get(<variable>)). The leading \b on
++  // String and seg is a precaution: it keeps a future toString(...) line
++  // from matching.
 +  const ID = String.raw`(?:"[a-z_]*_id"|'[a-z_]*_id'|\x60[a-z_]*_id\x60|"type"|'type'|\x60type\x60)`;
    const RAW = new RegExp(
 -    String.raw`String\(\w+\.get\(${ID}\)\)|String\(\w+\.get\(\w+\)\)|seg\(String\(|\w+\.get\(${ID}\)\s+as\s+string`,
@@ -287,9 +306,9 @@ index fe583e9..17c1abc 100644
 
 ## Evidence
 
-Proof directory: a fresh scratchpad detached worktree of main 7682ffd (`proof63`), written only by the controller through assert-counted replacements (`api-paths.test.ts` written whole). Mutation script `mutate63.py` beside it: for each mutant it applies one replacement, runs the three web test files (or the probe test file) with the test files at main's version and then as patched, records the failing test names and restores the file.
+Proof directory: a fresh scratchpad detached worktree of main 7682ffd (`proof63`), written only by the controller through assert-counted replacements (`api-paths.test.ts` written whole, then revised after the spec review by assert-counted replacements). Mutation script `mutate63.py` beside it: for each mutant it applies one replacement, runs the three web test files (or the probe test file) with the test files at main's version and then as patched, records the failing test names and restores the file.
 
-Baselines: web main and patched green; probe tests main and patched green (21 patched).
+Baselines: web main and patched green; probe tests main and patched green (21 patched). The table below is the run after the spec review's fixes; every mutant was re-run on the revised scan. The formSeg test is named "server actions read path values with formSeg()" on main and "path values are read with formSeg()" patched.
 
 | # | Minor | Mutation | main's tests | patched tests |
 |---|---|---|---|---|
@@ -313,13 +332,25 @@ Baselines: web main and patched green; probe tests main and patched green (21 pa
 | M18 | 61:103/104 | `existing_outputs(OUT, raw_dir, MODELS[:1])` | green | red: same, [raw] |
 | M19 | 61:103/104 | `existing_outputs(OUT, Path("nowhere"), MODELS)` | green | red: same, [raw] |
 | M20 | 60:143 | the patched page test's default back to owned 1 / organic 1 | not run | green (expected: not a pin) |
+| M21 | 49:108 | competitors `const q = apiQuery(sp) + String(sp.raw ?? "")` (review probe A) | green | red: every value in an API path goes through seg() |
+| M22 | 49:108 | feedQuery's `days=${FEED_DAYS}` becomes `days=${String(sp.days)}` (probe B) | green | red: same test |
+| M23 | 49:108 | competitors gains ``(q: string) => api(`/brands/x${q}`)`` (probe C) | green | red: same test |
+| M24 | 49:108 | competitors gains ``for (const wq of xs) await api(`/brands/x${wq}`)`` (probe D) | green | red: same test |
+| M25 | 49:108 | `const FEED_DAYS = String(process.env.FEED_DAYS)` | green | red: same test |
+| M26 | 49:108 | overview gains `q **= n` (review finding 3) | green | red: same test |
 
 ## Departures from the section text shown in chat
 
-- Section 1: the leading `\b` on `String(` and `seg(` was not in the chat text; it keeps `toString(` from being read as `String(` now that the scan reads format.ts.
+- Section 1: the leading `\b` on `String(` and `seg(` was not in the chat text; a precaution against a future `toString(` line (R1).
+- Section 1 and decision 6: the option 1 text named a list of banned shapes (other bindings, loop bindings, parameters, destructuring, assignments); the scan instead allows no appearance of the name other than `${name}` outside the needed statements, which covers that list and plain uses too. It also pins `const FEED_DAYS = <digits>;`, which the option text did not name, because `FEED_DAYS` reaches `feedQuery`.
+- Section 1: the formSeg test is renamed (R1).
 - Section 1: the scan's file list is hoisted to one module-level `SOURCES` constant shared by both tests (the chat text said "one file list" without naming where it lives).
 - Section 2: test 1 asserts the whole `init.headers` object equals `{ Authorization: "Bearer bsi_key_1" }`, stricter than the chat text's "Authorization equals".
 - Section 2: the 60:143 change follows decision 4 (Correction 1), not the approved text's "their assertions stay as they are".
+
+## Rulings
+
+Ruling: R1. Decided: the spec review's findings 3 to 6 are applied as wording and comment fixes in the second spec commit: the compound-assignment overstatement (finding 3) goes with the assignment regex it described, replaced under decision 6; the `\b` on `String`/`seg` is called a precaution (finding 4); the formSeg comment drops the stale "label's actions read ids that way" clause and the spec says every `String(<x>.get(<variable>))` read goes through `?? ""` (finding 5); Section 1 says the `.get(<id/type key>)` ban covers any receiver anywhere in `src/` and the test is renamed "path values are read with formSeg()" (finding 6). Found by: the spec reviewer (Opus 5.5), 2026-10-12. Why: an overstated claim, a necessity that was only a precaution, a stale comment clause, an imprecise code claim, and a ban wider than the test's name, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 ## Out of scope
 
