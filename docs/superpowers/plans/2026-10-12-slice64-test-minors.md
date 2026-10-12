@@ -253,4 +253,7 @@ Ruling: R3. Decided: the plan review's three items are fixed in a second plan co
 
 ## Changes made during execution
 
-Filled in by the docs PR after the merge.
+- Step 0, as planned: the implementer ran `uv sync` and `npm ci` in the existing worktree.
+- No step departed from its blocks or Expected lines: 21 and 2 tests, all seven mutants, ruff, mypy, typecheck, lint and the full gates (backend 1811, web 93) matched the plan's proof numbers.
+- Outside the repo, a mistyped redirect wrote a stray /tmp/null (self-reported); the controller checked its contents and deleted it. Recorded as a deferred minor.
+- The task review approved with two minors; the final review found nothing to fix (no fix wave).
