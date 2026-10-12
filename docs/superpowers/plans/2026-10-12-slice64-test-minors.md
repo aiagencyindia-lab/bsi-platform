@@ -118,7 +118,7 @@ Expected (proof run): `21 passed`; `Tests  2 passed (2)`. A refactor and a widen
 
 - [ ] **Step 3: Mutation table**
 
-First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && git add tests/unit/test_engine_probe.py apps/web/src/lib/api-paths.test.ts`. Apply each mutant alone (replace the first occurrence of the old text with the new text). Web mutants (M1 to M3): run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64/apps/web && npx vitest run src/lib/api-paths.test.ts` and paste the `Tests` line and the `FAIL` lines. Probe mutants (M4 to M7): run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && uv run pytest -q -rf tests/unit/test_engine_probe.py` and paste the summary line and the FAILED ids. Restore with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && git checkout -- '<file>'` and confirm `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && git diff --stat` (unstaged) prints nothing. M1 to M3: the old line occurs twice in serp/actions.ts, in `runSerpAudit` and `addDomain`; replace the first. Paths are under `apps/web/src/`; `(app)/b/[id]` is shortened to `B`.
+First stage: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && git add tests/unit/test_engine_probe.py apps/web/src/lib/api-paths.test.ts`. Apply each mutant alone: the mutant texts are fragments, so replace the first occurrence of the old text with the new text as text, not as whole lines. Web mutants (M1 to M3): run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64/apps/web && npx vitest run src/lib/api-paths.test.ts` and paste the `Tests` line and the `FAIL` lines. Probe mutants (M4 to M7): run `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && uv run pytest -q -rf tests/unit/test_engine_probe.py` and paste the summary line and the FAILED ids. Restore with `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && git checkout -- 'apps/web/src/app/(app)/b/[id]/serp/actions.ts'` (M1 to M3) or `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && git checkout -- scripts/engine_probe.py` (M4 to M7), and confirm `cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && git diff --stat` (unstaged) prints nothing. M1 to M3: the old line occurs twice in serp/actions.ts, in `runSerpAudit` and `addDomain`; replace the first. M1 to M3 paths are under `apps/web/src/`, with `(app)/b/[id]` shortened to `B`; M4 to M7 name `scripts/engine_probe.py` from the repo root.
 
 **M1** (63:143), `app/B/serp/actions.ts`, replace:
 
@@ -228,7 +228,7 @@ Expected (proof run): `185 files already formatted`; `All checks passed!`; `Succ
 
 ```bash
 cd /Users/vineet/Downloads/ADK/bsi-wt/slice64 && git add tests/unit/test_engine_probe.py apps/web/src/lib/api-paths.test.ts && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -F - <<'EOF' # Banned-word grep (must block the commit)
-test: the probe refusal test builds each case in its branch; the formSeg scan catches a variable key cast as string
+test: probe refusal builds each case in its branch; formSeg scan catches "as string"
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
@@ -249,7 +249,7 @@ Expected (proof run): backend `1811 passed, 2 deselected, 2 warnings` (the known
 
 ## Rulings made while planning
 
-None yet.
+Ruling: R3. Decided: the plan review's three items are fixed in a second plan commit: Step 3 says the mutant texts are fragments replaced as text, spells out both restore commands in full, and limits the `apps/web/src/` path note to M1 to M3 (M4 to M7 name `scripts/engine_probe.py`); Step 4's commit subject is shortened. Found by: the plan reviewer (Opus 5.5), 2026-10-12, verdict Approve with minors (all three blocks reproduce the spec's diff, index hashes included; all seven mutants' Expected lines reproduced). Why: a path note that read as covering every mutant, a placeholder restore path, an unstated fragment rule and a long subject, all mine. Cost if wrong: none to behaviour. How named: this plan and chat.
 
 ## Changes made during execution
 
