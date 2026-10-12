@@ -106,7 +106,7 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 1: minor (deferred): vi.restoreAllMocks() does not clear the cookies mockResolvedValue between tests; harmless, since every test that needs a cookie calls signedIn()."
   - Note (2026-10-09, after slice 58, PR #116): fixed: `afterEach` calls `vi.mocked(cookies).mockReset()` (docs/findings-slice58.md §1).
 - "Task 2: minor (deferred): the scan's QUERIES allowlist exempts q, dq, wq, feedQuery and apiQuery(sp) by name, so a raw value later stored in one of them would pass (plan-mandated, stated in the spec)."
-  - Note (2026-10-12, after slice 63, PR #126): fixed: an exempt name passes only where its file builds it with one anchored `apiQuery(...)` statement (`feedQuery`: its exact line, `fq` and `FEED_DAYS`) and uses it nowhere else but as `${name}`; two contrived gaps stay documented (docs/findings-slice63.md §1, R2).
+  - Note (2026-10-12, after slice 63, PR #126): fixed: an exempt name passes only where its file builds it with one anchored `apiQuery(...)` statement (for `feedQuery`: its exact line plus the `fq` and `FEED_DAYS` statements) and uses it nowhere else but as `${name}`; two contrived gaps stay documented (docs/findings-slice63.md §1, R2).
 - "Task 2: minor (deferred): the scan reads only src/app; no api()/publicApi() caller exists outside it today (plan-mandated, stated in the spec)."
   - Note (2026-10-12, after slice 63, PR #126): fixed: both scans read every non-test file under `src/` (docs/findings-slice63.md §1).
 - "minor (deferred): final review minor 2, the refusal log lines in seg() and sendAsWritten record the raw value or path with no length cap (R11)."

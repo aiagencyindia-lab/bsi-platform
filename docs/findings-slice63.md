@@ -11,6 +11,8 @@ Slice 63 closes the seven deferred test minors that slice 62 left open (findings
 - **60:143, the fixture.** `audit()` defaults to owned 0 / organic 0 / no results, and the first audit card sets `owned: 1, organic: 1` beside its rows (decision A′, after the Correction below). This is consistency, not a pin: the old 1/1 default restored on the patched file leaves every test green (M20).
 - **61:103 and 61:104, the probe refusal.** `test_a_rerun_refuses_to_start_while_outputs_exist` is parametrized over `left`: `results` (only the results file) and `raw` (only `<raw_store_dir>/experiments/engine/gemini-3.8-flash/`, the last model). The `raw` case asserts the full path in the refusal, so a wrong raw path, a cut-down model list and a substituted directory each fail it (M17 to M19).
 
+Line numbers: the dated notes this docs PR adds move later lines in those files. findings-slice62.md's 60:144 (the "2 warnings" line) is now 60:147, and the seven minors now sit at 49:108, 49:110, 60:141, 60:143, 60:145, 61:103 and 61:105.
+
 Counts: the three web test files 37 tests; web vitest 91 → 93; tests/unit/test_engine_probe.py 20 → 21; backend 1810 → 1811. Of the 25 product-code mutants, 22 pass main's tests and fail the patched ones; M12, M13 and M15 were already red on main.
 
 Spec: docs/superpowers/specs/2026-10-12-slice63-test-minors-design.md (commits 0a16fb4, 80dc511, 524c8c4; decisions 1 to 6, rulings R1 and R2). Plan: docs/superpowers/plans/2026-10-12-slice63-test-minors.md (commits a711b70, 473df75; R3). R4 was made at execution. Merged via PR #126 (https://github.com/aiagencyindia-lab/bsi-platform/pull/126), main `1cb75a9`.
@@ -49,6 +51,7 @@ Spec: docs/superpowers/specs/2026-10-12-slice63-test-minors-design.md (commits 0
 - "Final review: no fix wave (nothing to fix)."
 - "Finishing: branch slice63-test-minors pushed; PR https://github.com/aiagencyindia-lab/bsi-platform/pull/126 opened against main (head 1fb88b2); CI not checked yet."
 - "Finishing: CI run 38201439115 on 1fb88b2: gates pass (4m31s). PR 126 merged with a merge commit, 1cb75a9 (main); local main fast-forwarded to 1cb75a9."
+- "Finishing (2026-10-12): CI check gates pass (4m31s) on PR 126; merged with --merge --delete-branch, merge commit 1cb75a9; git ls-remote --heads origin slice63-test-minors prints nothing (remote branch deleted)."
 
 **Mutation table** (the spec's Evidence, after the spec review; the implementers' runs of the patched column matched it):
 
@@ -90,6 +93,7 @@ Spec: docs/superpowers/specs/2026-10-12-slice63-test-minors-design.md (commits 0
 - "Review verdict (2026-10-12): Task 1 task review (Opus 5.5) of 473df75..9182686: spec ✅, task quality Approved; no critical or important; two minors; one ⚠️ item (the mutation outputs, typecheck/lint and banned grep are seen only as the report's pasted lines; Step 0's uv sync/npm ci result is paraphrased, not pasted)."
 - "Review verdict (2026-10-12): Task 2 task review (Opus 5.5) of 9182686..1fb88b2: spec ✅, task quality Approved; no critical or important; one minor; one ⚠️ item (the mutant and gate results are the report's claims)."
 - "Review verdict (2026-10-12): final whole-branch review (Opus 5.5) of 7682ffd..1fb88b2: ready to merge (Yes); no critical or important; one new minor; the four deferred minors triaged all "leave"; the four test files' blob hashes match the spec's diff."
+- "Review verdict (2026-10-12): docs review (Opus 5.5) of 791c0fc: Approve with minors; no important; four minors (the Results header's "in the ledger only" list omits the merge line with the remote-branch deletion; the closing "none of the seven ... five minors ... deferred (the redirect one is closed by R4)" sentence is ambiguous; the new notes move lines findings-slice62 calls current, 60:144 now 60:147, with nothing saying so; the 49:108 note reads as if `FEED_DAYS` came from apiQuery()). All 35 quotes, the counts, the tables, the note placements and the README rows verified; the CI run facts rest on the ledger (gh returned 404 to the reviewer)."
 
 **Commits** (`git log --oneline --reverse 7682ffd..1cb75a9^2`, oldest first):
 
@@ -121,6 +125,8 @@ Every `Ruling:` line in the ledger, verbatim (R1 and R2 were copied into the led
 
 > Ruling: R4. Decided: the redirect-reset minor is closed without a change: on vitest 3.2.7 (this repo's version) `vi.restoreAllMocks()` resets a module-mock vi.fn's call history and drops a queued `mockImplementationOnce`. Found by: the Task 1 reviewer (Opus 5.5), 2026-10-12; checked by the controller with a scratch test in the proof copy (test a calls `redirect` and queues a throwing once-impl; after `restoreAllMocks`, test b saw `calls 0` and no throw), the scratch file deleted after. Why: the reviewer's premise about vitest 3 is wrong for 3.2.7, as the spec reviewer had also found. Cost if wrong: a later vitest release that stops resetting vi.fn state in `restoreAllMocks` would let the redirect assertion pass on a stale call; the fix then is one `vi.mocked(redirect).mockReset()` in the afterEach. How named: this ledger and chat.
 
+> Ruling: R5. Decided: the docs review's four minors are fixed in a second docs commit: the merge line (remote branch deleted) is quoted under Results; the closing sentence says none of findings 47 to 61 stays open, slice 63 adds five deferred minors and R4 closes one, so four stay open; §1 says the dated notes moved lines (findings-slice62's 60:144 "2 warnings" is now 60:147, and the seven minors now sit at 49:108, 49:110, 60:141, 60:143, 60:145, 61:103, 61:105, checked by grep); the 49:108 note's parenthesis names the `fq` and `FEED_DAYS` statements; the findings quote this verdict and ruling. Found by: the docs reviewer (Opus 5.5), 2026-10-12; the moved lines checked by the controller. Why: an incomplete list, an ambiguous sentence, an unstated line shift and a misleading parenthesis, all mine. Cost if wrong: none to behaviour. How named: ledger and chat.
+
 Every `minor (deferred)` line in the ledger, verbatim:
 
 - "Task 1: minor (deferred): api.test.ts's afterEach does not reset the `redirect` mock, so `toHaveBeenCalledWith("/login")` could pass on an earlier test's call and an unused `mockImplementationOnce` could leak to the next test (reviewer: under vitest ^3 `restoreAllMocks` leaves vi.fn call history alone)."
@@ -129,4 +135,4 @@ Every `minor (deferred)` line in the ledger, verbatim:
 - "Task 2: minor (deferred): test_engine_probe.py builds `raw` in the results case too, where it is unused (the brief's block; harmless, keeps the branches symmetric)."
 - "Final review: minor (deferred): the formSeg RAW pattern does not catch a variable key with a cast, `String(form.get(k) as string)` (only `!` is allowed after `.get(\w+)`); not a regression (main did not catch it) and not named by 60:141."
 
-Still open from findings 47 to 61: none of the seven. The five minors above are new and deferred (the redirect one is closed by R4).
+Still open from findings 47 to 61: none. Slice 63 adds the five deferred minors above; R4 closes the redirect one, so four stay open.
