@@ -79,5 +79,6 @@ Every `minor (deferred)` line in the ledger, verbatim:
 
 - "minor (deferred): spec review notes, the proof directory being written only by the controller, the chat approvals and the backend count cannot be checked from the repo offline (R2)."
   - Note (2026-10-12, slice 62): won't-fix: what this line names (chat approvals, ledger quotes, or a count from an offline run) left no record in the repo to check against; the merged PR's CI run is the record of its gates.
+  - Note (2026-10-13, slice 66): correction to the slice 62 note: this line names the proof directory (written only by the controller, not in the repo), the chat approvals, which the repo states as ledger quotes but cannot check, and the backend count, whose record is the merged PR's CI run.
 - "minor (deferred): final review minor 1, the long-path test's toHaveBeenCalledWith matches any console.error call, not call 0; expect(log).toHaveBeenCalledTimes(1) would pin it; the guard logs once today (R7)."
   - Note (2026-10-08, after slice 52, PR #106): fixed; the long-path test asserts `toHaveBeenCalledTimes(1)` before its `toHaveBeenCalledWith` (docs/findings-slice52.md §1).
