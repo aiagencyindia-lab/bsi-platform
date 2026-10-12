@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({
 
 const { api, COOKIE, formSeg, publicApi, seg } = await import("./api");
 const { cookies } = await import("next/headers");
+const { redirect } = await import("next/navigation");
 
 const stub = (status: number) =>
   vi.stubGlobal(
@@ -94,6 +95,35 @@ test("api sends a path with a query string as written", async () => {
   expect(vi.mocked(fetch).mock.calls[0][0]).toBe(
     `http://localhost:8000/v1${path}`,
   );
+});
+
+test("api sends the cookie's key as a Bearer token", async () => {
+  signedIn();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response("{}", { status: 200 })),
+  );
+  await api("/brands/x");
+  const init = vi.mocked(fetch).mock.calls[0][1];
+  expect(init?.headers).toEqual({ Authorization: "Bearer bsi_key_1" });
+  expect(init?.cache).toBe("no-store");
+});
+
+test("api with no key cookie redirects to /login without calling the API", async () => {
+  // A cookie under another name only: api() must read COOKIE, not any.
+  vi.mocked(cookies).mockResolvedValue({
+    get: (name: string) =>
+      name === COOKIE ? undefined : { value: "bsi_key_1" },
+  } as never);
+  // Next's redirect() throws; the module mock is a silent vi.fn().
+  vi.mocked(redirect).mockImplementationOnce(() => {
+    throw new Error("REDIRECT");
+  });
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  await expect(api("/brands/x")).rejects.toThrow("REDIRECT");
+  expect(redirect).toHaveBeenCalledWith("/login");
+  expect(fetchMock).not.toHaveBeenCalled();
 });
 
 test("publicApi refuses a dot segment", async () => {

@@ -2,13 +2,42 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 
-// Query strings built by URLSearchParams, which encodes them already.
-const QUERIES = new Set(["q", "dq", "wq", "feedQuery", "apiQuery(sp)"]);
-const APP = join(__dirname, "..", "app");
-const CALL = /\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*/g;
+// Query strings built by apiQuery(), which encodes them with URLSearchParams.
+// An exempt name passes only where its file has each statement it needs
+// exactly once, and outside those statements the name appears only as
+// `${name}`: no other binding, parameter, assignment or use. apiQuery(sp)
+// inline is the encoder itself. Ceiling: lines the comment filter drops are
+// not read, and apiQuery is matched by name, not resolved to lib/format.
+type Need = readonly [name: string, statement: RegExp];
+const fromApiQuery = (name: string): Need => [
+  name,
+  new RegExp(String.raw`const ${name} = apiQuery\([^()]*\);`, "g"),
+];
+const QUERIES = new Map<string, Need[]>([
+  ["q", [fromApiQuery("q")]],
+  ["dq", [fromApiQuery("dq")]],
+  ["wq", [fromApiQuery("wq")]],
+  [
+    "feedQuery",
+    [
+      [
+        "feedQuery",
+        /const feedQuery = `\$\{fq\}\$\{fq \? "&" : "\?"\}days=\$\{FEED_DAYS\}`;/g,
+      ],
+      fromApiQuery("fq"),
+      ["FEED_DAYS", /const FEED_DAYS = \d+;/g],
+    ],
+  ],
+]);
+const SRC = join(__dirname, "..");
+const SOURCES = readdirSync(SRC, { recursive: true, encoding: "utf8" }).filter(
+  (f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f),
+);
+// api.ts's own `function api<T>(path` is a definition, not a call.
+const CALL = /(?<!function )\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*/g;
 // The whole first argument is one literal, followed by "," or ")".
 const LITERAL = /^(`[^`]*`|"[^"]*"|'[^']*')\s*[,)]/;
-const PATH = /\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*`([^`]*)`/g;
+const PATH = /(?<!function )\b(?:api|publicApi)(?:<[^(`]*>)?\(\s*`([^`]*)`/g;
 
 /** True for exactly one seg(...) call: its "(" closes at the last character. */
 const isSeg = (expr: string) => {
@@ -22,14 +51,28 @@ const isSeg = (expr: string) => {
   return false;
 };
 
-test("every value in an API path goes through seg()", () => {
-  const files = readdirSync(APP, { recursive: true, encoding: "utf8" }).filter(
-    (f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f),
+/** True when code has each needed statement once and, outside them, each
+ * needed name only inside `${...}` on its own. */
+const encoded = (code: string, needs: Need[]) => {
+  let rest = code;
+  for (const [, statement] of needs) {
+    if ([...code.matchAll(statement)].length !== 1) return false;
+    rest = rest.replace(statement, "");
+  }
+  return needs.every(([name]) =>
+    [...rest.matchAll(new RegExp(String.raw`\b${name}\b`, "g"))].every(
+      (m) =>
+        rest.slice(m.index - 2, m.index) === "${" &&
+        rest[m.index + name.length] === "}",
+    ),
   );
+};
+
+test("every value in an API path goes through seg()", () => {
   const bad: string[] = [];
   let templates = 0;
-  for (const f of files) {
-    const code = readFileSync(join(APP, f), "utf8")
+  for (const f of SOURCES) {
+    const code = readFileSync(join(SRC, f), "utf8")
       .split("\n")
       .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
       .join("\n");
@@ -41,7 +84,12 @@ test("every value in an API path goes through seg()", () => {
     for (const [, path] of code.matchAll(PATH)) {
       templates += 1;
       for (const [, expr] of path.matchAll(/\$\{([^}]*)\}/g)) {
-        if (!isSeg(expr) && !QUERIES.has(expr)) bad.push(`${f}: \${${expr}}`);
+        if (isSeg(expr) || expr === "apiQuery(sp)") continue;
+        const needs = QUERIES.get(expr);
+        if (!needs) bad.push(`${f}: \${${expr}}`);
+        else if (!encoded(code, needs)) {
+          bad.push(`${f}: ${expr} is not built only by apiQuery()`);
+        }
       }
     }
   }
@@ -49,21 +97,22 @@ test("every value in an API path goes through seg()", () => {
   expect(bad).toEqual([]);
 });
 
-test("server actions read path values with formSeg()", () => {
+test("path values are read with formSeg()", () => {
   // String(form.get(...)) turns a missing field into "null", which seg()
-  // passes; formSeg() refuses it. A field named by a variable
-  // (String(form.get(k))) is caught too: label's actions read ids that way.
-  // Any receiver name, either quote style, and the `as string` cast count.
-  const ID = String.raw`(?:"[a-z_]*_id"|'[a-z_]*_id'|"type"|'type')`;
+  // passes; formSeg() refuses it. So no code under src/ reads an id or type
+  // field with .get() at all (FormData, URLSearchParams, Headers or Map
+  // alike), whatever the receiver ((await req.formData()).get,
+  // this.form.get), the quote style (template literals too) or a trailing
+  // `!` or `as string`; nor String(<x>.get(<variable>)). The leading \b on
+  // String and seg is a precaution: it keeps a future toString(...) line
+  // from matching.
+  const ID = String.raw`(?:"[a-z_]*_id"|'[a-z_]*_id'|\x60[a-z_]*_id\x60|"type"|'type'|\x60type\x60)`;
   const RAW = new RegExp(
-    String.raw`String\(\w+\.get\(${ID}\)\)|String\(\w+\.get\(\w+\)\)|seg\(String\(|\w+\.get\(${ID}\)\s+as\s+string`,
+    String.raw`\.get\(\s*${ID}\s*\)|\bString\([^\n]*?\.get\(\w+\)!?\)|\bseg\(String\(`,
     "g",
   );
-  const files = readdirSync(APP, { recursive: true, encoding: "utf8" }).filter(
-    (f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f),
-  );
-  const bad = files.flatMap((f) =>
-    [...readFileSync(join(APP, f), "utf8").matchAll(RAW)].map(
+  const bad = SOURCES.flatMap((f) =>
+    [...readFileSync(join(SRC, f), "utf8").matchAll(RAW)].map(
       (m) => `${f}: ${m[0]}`,
     ),
   );
