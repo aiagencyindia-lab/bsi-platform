@@ -37,8 +37,9 @@ Spec: docs/superpowers/specs/2026-10-12-slice63-test-minors-design.md (commits 0
 - "User decision (2026-10-12): finishing option 2, push and create a PR ("2 PR"), after both gates were run by the controller on 1fb88b2 (backend 1811 passed, 2 deselected, 2 warnings, coverage 100%; web gate exit 0, 93 tests)."
 - "User decision (2026-10-12): "check ci then merge" after PR 126 was opened."
 - "User decision (2026-10-12): "yes, start the docs PR"."
+- "User decision (2026-10-12): after two docs review rounds, "Fix, re-review" over "Fix, stop" and "Stop now" (the user's chosen option, from the three the controller offered)."
 
-**Correction**, as the ledger records it:
+**Correction** (made during the proof), as the ledger records it:
 
 - "Correction (2026-10-12, during the proof): the 60:143 approaches text and the approved Section 2 said both cases using audit() override owned/organic; only the failed reviews card does, and the first card relied on the default 1/1. The choice was asked again."
 
@@ -94,6 +95,7 @@ Spec: docs/superpowers/specs/2026-10-12-slice63-test-minors-design.md (commits 0
 - "Review verdict (2026-10-12): Task 2 task review (Opus 5.5) of 9182686..1fb88b2: spec ✅, task quality Approved; no critical or important; one minor; one ⚠️ item (the mutant and gate results are the report's claims)."
 - "Review verdict (2026-10-12): final whole-branch review (Opus 5.5) of 7682ffd..1fb88b2: ready to merge (Yes); no critical or important; one new minor; the four deferred minors triaged all "leave"; the four test files' blob hashes match the spec's diff."
 - "Review verdict (2026-10-12): docs review (Opus 5.5) of 791c0fc: Approve with minors; no important; four minors (the Results header's "in the ledger only" list omits the merge line with the remote-branch deletion; the closing "none of the seven ... five minors ... deferred (the redirect one is closed by R4)" sentence is ambiguous; the new notes move lines findings-slice62 calls current, 60:144 now 60:147, with nothing saying so; the 49:108 note reads as if `FEED_DAYS` came from apiQuery()). All 35 quotes, the counts, the tables, the note placements and the README rows verified; the CI run facts rest on the ledger (gh returned 404 to the reviewer)."
+- "Review verdict (2026-10-12): docs re-review (Opus 5.5) of 791c0fc..a9d1bbe: approve; all four first-review minors addressed (line numbers re-checked by grep); quote check both ways passes (31 ledger lines, 39 quotes); one nit: the Correction to R5 sits under the heading "Every `Ruling:` line in the ledger, verbatim" though it is not a Ruling line, and the §1 label "**Correction**, as the ledger records it:" is singular while the ledger now holds two Correction lines."
 
 **Commits** (`git log --oneline --reverse 7682ffd..1cb75a9^2`, oldest first):
 
@@ -115,7 +117,7 @@ None: the slice changes tests only; nothing was called and nothing was spent.
 
 ## 3. Rulings and deferred minors
 
-Every `Ruling:` line in the ledger, verbatim (R1 and R2 were copied into the ledger from the spec, R3 from the plan, when it was created):
+Every `Ruling:` line in the ledger, verbatim, with the Correction to R5 quoted after R5 (R1 and R2 were copied into the ledger from the spec, R3 from the plan, when it was created):
 
 > Ruling: R1. Decided: the spec review's findings 3 to 6 are applied as wording and comment fixes in the second spec commit: the compound-assignment overstatement (finding 3) goes with the assignment regex it described, replaced under decision 6; the `\b` on `String`/`seg` is called a precaution (finding 4); the formSeg comment drops the stale "label's actions read ids that way" clause and the spec says every `String(<x>.get(<variable>))` read goes through `?? ""` (finding 5); Section 1 says the `.get(<id/type key>)` ban covers any receiver anywhere in `src/` and the test is renamed "path values are read with formSeg()" (finding 6). Found by: the spec reviewer (Opus 5.5), 2026-10-12. Why: an overstated claim, a necessity that was only a precaution, a stale comment clause, an imprecise code claim, and a ban wider than the test's name, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
@@ -128,6 +130,8 @@ Every `Ruling:` line in the ledger, verbatim (R1 and R2 were copied into the led
 > Ruling: R5. Decided: the docs review's four minors are fixed in a second docs commit: the merge line (remote branch deleted) is quoted under Results; the closing sentence says none of findings 47 to 61 stays open, slice 63 adds five deferred minors and R4 closes one, so four stay open; §1 says the dated notes moved lines (findings-slice62's 60:144 "2 warnings" is now 60:147, and the seven minors now sit at 49:108, 49:110, 60:141, 60:143, 60:145, 61:103, 61:105, checked by grep); the 49:108 note's parenthesis names the `fq` and `FEED_DAYS` statements; the findings quote this verdict and ruling. Found by: the docs reviewer (Opus 5.5), 2026-10-12; the moved lines checked by the controller. Why: an incomplete list, an ambiguous sentence, an unstated line shift and a misleading parenthesis, all mine. Cost if wrong: none to behaviour. How named: ledger and chat.
 
 > Correction to R5 (2026-10-12): R5's commit 98945d4 left the README findings row at "every ruling (R1–R4)"; a third docs commit makes it R1–R5, anchored on the slice 63 row's link prefix, and quotes this line in findings-slice63.md §3.
+
+> Ruling: R6. Decided: the docs re-review's nit is fixed in a fourth docs commit: the §1 label becomes "**Correction** (made during the proof), as the ledger records it:", naming which of the ledger's two Correction lines it holds, and the §3 heading says the Correction to R5 is quoted after R5; the findings quote the re-review verdict, this decision and this ruling. Found by: the docs re-reviewer (Opus 5.5), 2026-10-12. Why: a heading that named only Ruling lines over a Correction line, and a label that read as the ledger's only Correction, both mine. Cost if wrong: none to behaviour. How named: ledger and chat.
 
 Every `minor (deferred)` line in the ledger, verbatim:
 
