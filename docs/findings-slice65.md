@@ -31,6 +31,7 @@ Spec: docs/superpowers/specs/2026-10-12-slice65-test-minors-design.md (commits 7
 - "User decision (2026-10-12): finishing menu answered "2 PR", after the controller ran both gates on add4bd7."
 - "User decision (2026-10-12): "check ci then merge" after PR 130 was opened."
 - "User decision (2026-10-12): "yes, start the docs PR"."
+- "User decision (2026-10-12): after two docs review rounds, "Stop now" over "Re-review" (the user's chosen option, from the two the controller offered; the second round left nothing to fix)."
 
 **Results** (selected ledger lines, quoted; in the ledger only: the header and Context line, the section headings, the pre-flight scan, the ⚠️ resolution line and the "Docs:" lines):
 
@@ -67,6 +68,7 @@ Saved gate outputs: `gate65-backend.txt` (run 2026-10-12T08:17:39Z, after decisi
 - "Review verdict (2026-10-12): Task 1 task review (Opus 5.5) of 49b1f85..add4bd7: spec ✅, task quality Approved; no critical, important or minor; the commit's Opus 5.5 trailer checked; one ⚠️ item (the mutant and gate results are the report's pasted lines)."
 - "Review verdict (2026-10-12): final whole-branch review (Opus 5.5) of a456260..add4bd7: ready to merge (Yes); no critical, important or minor; the code commit's blob hashes match the spec's diff; no deferred minors to triage; it declined to open the proof's saved gate files (the branch-head gates supersede them)."
 - "Review verdict (2026-10-12): docs review (Opus 5.5) of b21a7a8: Changes needed; one important (findings §3 said no deferred minor from findings 47 to 64 stays open, but findings-slice62 §3 holds three deferred minors, lines 115 to 117 as at main bd03813, with no closing note anywhere; checked by the controller) and one minor in three parts (the plan's Changes said the task review had "no findings" though it had one ⚠️ item; it omitted the implementer's first departure, `uv sync` and `npm ci` in one call joined by `;`; and it dropped the report's qualifier that FAILED lines were cut at the test id and vitest's leading whitespace dropped). All 26 quotes, the line numbers, the notes, the code claims, the tables, the trailers and the README rows verified; CI facts unverifiable by the reviewer (gh 404)."
+- "Review verdict (2026-10-12): docs re-review (Opus 5.5) of b21a7a8..c31b9cd: both findings addressed (the slice 62 minors checked at bd03813, the plan's Changes against the task report); quote check both ways passes (22 required lines, 28 quotes); README range R1–R4 matches; R4 names every change the commit made; no new findings."
 
 **Commits** (`git log --oneline --reverse a456260..bd03813^2`, oldest first):
 
