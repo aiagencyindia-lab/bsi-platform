@@ -21,15 +21,15 @@ User decisions (2026-10-12), with the approaches text shown in chat before each 
 
 ## Section 1 — The two code changes (63:142, 63:143)
 
-- 63:142, tests/unit/test_engine_probe.py: in `test_a_rerun_refuses_to_start_while_outputs_exist`, each `left` branch builds its own output and sets `named`, the text the refusal must contain: `results` writes eval/results/engine_probe_v0.json and sets `named = "engine_probe_v0.json"`; `raw` builds `raw = tmp_path / "data" / "experiments" / "engine" / FLASH`, makes it and sets `named = str(raw)`. The comment on the raw case moves into its branch. The trailing `named = … if left == "results" else str(raw)` line goes. The setup, the client guard, both assertions and the parametrize ids are unchanged.
-- 63:143, apps/web/src/lib/api-paths.test.ts: the formSeg test's variable-key branch of `RAW` changes from `\bString\([^\n]*?\.get\(\w+\)!?\)` to `\bString\([^\n]*?\.get\(\w+\)(?:!|\s+as\s+string)?\)`, so `String(form.get(k) as string)` is caught as well as `String(form.get(k))` and `String(form.get(k)!)`. Literal id or type keys with `as string` were already caught by the `.get(<key>)` ban. The test comment's "nor String(<x>.get(<variable>))" gains "with or without `!` or `as string`". Today's only variable-key read inside `String(` is reports/actions.ts:48, which goes through `?? ""`, so the scan stays green on main.
+- 63:142, tests/unit/test_engine_probe.py: in `test_a_rerun_refuses_to_start_while_outputs_exist`, each `left` branch builds its own output and sets `named`, the text the refusal must contain: `results` writes eval/results/engine_probe_v0.json and sets `named = "engine_probe_v0.json"`; `raw` builds `raw = tmp_path / "data" / "experiments" / "engine" / FLASH`, makes it and sets `named = str(raw)`. The comment on the raw case moves into its branch, reworded to start "Uses the last model". The trailing `named = … if left == "results" else str(raw)` line goes. The setup, the client guard, both assertions and the parametrize ids are unchanged.
+- 63:143, apps/web/src/lib/api-paths.test.ts: the formSeg test's variable-key branch of `RAW` changes from `\bString\([^\n]*?\.get\(\w+\)!?\)` to `\bString\([^\n]*?\.get\(\w+\)(?:!|\s+as\s+string)?\)`, so `String(form.get(k) as string)` is caught as well as `String(form.get(k))` and `String(form.get(k)!)`. Literal id or type keys with `as string` were already caught by the `.get(<key>)` ban. The test comment's "nor String(<x>.get(<variable>))" gains "with or without `!` or `as string`". Today's only variable-key read inside `String(` is reports/actions.ts:48, which goes through `?? ""`, so the scan stays green on main. Ceiling: `\s+` can cross a newline (`String(form.get(k)` then ` as string)` on the next line matches); that only fails safe, and the `[^\n]*?` before `.get` keeps the start on one line as before. Still not caught, and out of scope: `!` with `as string`, `as unknown as string`, `as string | null`, `as String`, and `.get( k )` with spaces.
 
 ## Section 2 — The two notes-only minors (63:140, 63:141) and the docs
 
 In the docs PR after the merge, under the minor lines of docs/findings-slice63.md (as at main ac26289):
 
-- 63:140: `  - Note (2026-10-12, after slice 64, PR #N): won't-fix: the file-wide match is the scan's safety margin; any other appearance of an exempt name fails the scan loudly, naming the file and the name, and renaming the unrelated variable or property clears it; nothing hits it today (docs/findings-slice64.md).`
-- 63:141: `  - Note (2026-10-12, after slice 64, PR #N): closed: a process observation about how Task 1's report recorded Step 0; nothing in the repo to change, and Step 2's vitest run and Step 4's typecheck and lint showed the dependencies working.`
+- 63:140: `  - Note (2026-10-12, after slice 64, PR #N): won't-fix: the file-wide match is the scan's safety margin; another appearance of an exempt name outside a whole-line comment fails the scan, naming the file and the interpolated expression; renaming the local query variable (with its QUERIES entry) or the unrelated one clears it; nothing hits it today (docs/findings-slice64.md).`
+- 63:141: `  - Note (2026-10-12, after slice 64, PR #N): closed: a process observation about how Task 1's report recorded Step 0; nothing in the repo to change; Task 1 Step 2's vitest run and Step 4's typecheck and lint showed the npm dependencies working, and Task 2's pytest runs the uv ones.`
 - 63:142 and 63:143: "fixed" notes naming the change and the proof mutants.
 
 The docs PR also adds findings-slice64.md (quoting every ledger line), the plan's "Changes made during execution" and README rows. The four notes shift findings-slice63.md's later lines; findings-slice64.md states the minors' new positions.
@@ -38,7 +38,7 @@ The docs PR also adds findings-slice64.md (quoting every ledger line), the plan'
 
 - 63:143, red on main: M1 (`String(form.get(k) as string)` with `const k = "brand_id"`, in place of the first `formSeg(form, "brand_id")` in serp/actions.ts) passes main's scan and fails the patched one. M2 (`String(form.get(k)!)`) and M3 (`String(form.get(k))`) are regression rows, red on both.
 - 63:142 is a refactor of a passing test, so it has no red-on-main row. The four probe mutants are run on main's test and the patched test: a wrong raw path (M4), `MODELS[:1]` (M5) and a substituted raw directory (M6) each fail only `[raw]`; a substituted results path (M7) fails only `[results]`. Same outcome on both, which is what a refactor must keep.
-- Green, patched: web `npm run gate` exits 0 with 93 vitest (unchanged); backend 1811 passed, 2 deselected, 2 warnings (unchanged), metrics coverage 100.00%, `ruff format --check` (185 files already formatted), `ruff check` and `mypy` clean.
+- Green, patched (outputs saved beside the proof: `gate64.txt` for the web gate, `gate64-backend.txt` for the backend gate, run again after the spec review's comment fix): web `npm run gate` exits 0 with 93 vitest (unchanged); backend 1811 passed, 2 deselected, 2 warnings (unchanged), metrics coverage 100.00%, `ruff format --check` (185 files already formatted), `ruff check` and `mypy` clean.
 - No live check: nothing is called and no server is started.
 
 ## The change
@@ -68,7 +68,7 @@ index 450d4d7..726869e 100644
    );
    const bad = SOURCES.flatMap((f) =>
 diff --git a/tests/unit/test_engine_probe.py b/tests/unit/test_engine_probe.py
-index 17c1abc..452aeb1 100644
+index 17c1abc..36e54e6 100644
 --- a/tests/unit/test_engine_probe.py
 +++ b/tests/unit/test_engine_probe.py
 @@ -347,13 +347,15 @@ def test_a_rerun_refuses_to_start_while_outputs_exist(
@@ -82,7 +82,7 @@ index 17c1abc..452aeb1 100644
          (results / "engine_probe_v0.json").write_text("{}")
 +        named = "engine_probe_v0.json"
      else:
-+        # The last model, so main() must pass every model and
++        # Uses the last model, so main() must pass every model and
 +        # <raw_store_dir>/experiments/engine to existing_outputs().
 +        raw = tmp_path / "data" / "experiments" / "engine" / FLASH
          raw.mkdir(parents=True)
@@ -101,7 +101,7 @@ index 17c1abc..452aeb1 100644
 
 ## Evidence
 
-Proof directory: a fresh scratchpad detached worktree of main ac26289 (`proof64`), written only by the controller through assert-counted replacements. Mutation script `mutate64.py` beside it (slice 63's script with this slice's mutants): for each mutant it applies one replacement, runs api-paths.test.ts (or the probe test file) with the test files at main's version and then as patched, records the failing test names and restores the file. Baselines: main and patched green on both sides.
+Proof directory: a fresh scratchpad detached worktree of main ac26289 (`proof64`), written only by the controller through assert-counted replacements. Mutation script `mutate64.py` beside it (slice 63's script with this slice's mutants): for each mutant it applies one replacement, runs api-paths.test.ts (or the probe test file) with the test files at main's version and then as patched, records the failing test names and restores the file. Baselines: main and patched green on both sides. The table is the run after the spec review's comment fix (the same seven outcomes as the first run).
 
 | # | Minor | Mutation | main's tests | patched tests |
 |---|---|---|---|---|
@@ -115,8 +115,12 @@ Proof directory: a fresh scratchpad detached worktree of main ac26289 (`proof64`
 
 ## Departures from the section text shown in chat
 
-- Section 1: the raw-case comment is reworded as it moves (`# The last model, so main() must pass every model and` … in place of `# The raw case uses the last model, so main() must pass every model and` …), since inside the branch the case is implied.
+- Section 1: the raw-case comment is reworded as it moves (`# Uses the last model, so main() must pass every model and` … in place of `# The raw case uses the last model, so main() must pass every model and` …), since inside the branch the case is implied.
 - Section 3: M7 (a substituted results path) was described in chat as "a mutant that makes the refusal message drop the results file name"; the mutant drops the results path from `existing_outputs`, so no refusal happens and the client guard fails `[results]`.
+
+## Rulings
+
+Ruling: R1. Decided: the spec review's five findings are applied in a second spec commit, without a design change: the 63:141 draft note says Task 1's steps showed the npm dependencies working and Task 2's pytest the uv ones; the 63:140 draft note says the scan names the interpolated expression (not the matched name), skips whole-line comments, and is cleared by renaming the local query variable with its QUERIES entry or the unrelated one; the backend gate's output is saved as `gate64-backend.txt` and Section 3 names both saved outputs; the raw-case comment starts "Uses the last model"; `\s+` is kept and its newline crossing is stated as a fail-safe ceiling, with the cast shapes still not caught listed. Found by: the spec reviewer (Opus 5.5), 2026-10-12. Why: two overstated notes, an unsaved output, a fragment comment and an unstated ceiling, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 ## Out of scope
 
