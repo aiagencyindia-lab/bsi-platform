@@ -103,4 +103,4 @@ Deferred minors: none. The task review and the final review recorded no `minor (
 
 Still open: the two minors of findings-slice64 are closed and this slice adds none; findings-slice63 §3 says none of findings 47 to 61 stays open, and its own four minors were closed by slice 64. Not covered by any of that: findings-slice62 §3's three deferred minors (lines 115 to 117 as at main bd03813; the shared won't-fix wording, the warning texts' dropped final period, and the "current lines" pointer) have no closing note and stay open; they are outside this slice's scope (decision 1).
 
-Note (2026-10-13, after slice 66, PR #132): findings-slice62's three deferred minors (lines 115 to 117) are closed by slice 66 (docs/findings-slice66.md).
+Note (2026-10-13, after slice 66, PR #132): findings-slice62's three deferred minors (lines 115 to 117 as at main 752a234) are closed by slice 66 (docs/findings-slice66.md).
