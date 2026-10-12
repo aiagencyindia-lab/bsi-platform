@@ -18,6 +18,7 @@
 - `uv lock` is run plain: no `--upgrade`, no `--upgrade-package`. The expected lock delta is exactly starlette 1.6.0→1.7.0 and the additions httpx2 2.13.1, httpcore2 2.13.1, truststore 0.10.4, httpx2-jsfetch 1.0 (spec §4).
 - Before any pytest run, the pre-check runs as its own command (Task 2, Step 1 text). Two pytests of this repo deadlock on `bsi_test`.
 - Every commit is gated on the banned-word grep (the exact command is in Task 1, Step 7); never bypass it by hand. The words are listed in `tests/unit/test_recommend_copy.py` (`FORBIDDEN`).
+- No live checks, no database migration, no worker, no model or DataForSEO spend (spec §6.4).
 - Prettier is not in the gate; never run it. Never read, list, grep or source `.env`. No `rm`. No heredoc file writes. On a refused tool call, report BLOCKED.
 - Commit trailer for implementer commits: `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
@@ -26,7 +27,7 @@
 1. CI installs with plain `uv sync` (`.github/workflows/ci.yml:43`), so a lockfile that is out of step with the pyprojects would silently re-resolve there. Pinned by Task 1, Step 5 (`uv lock --check` exits 0).
 2. The lock must move only the five packages the spec names; any other `Updated`/`Added` line means `uv lock` did more than the floor and the dev dependency asked. Pinned by Task 1, Step 4 (the `git diff -U0 uv.lock` name/version grep).
 3. `httpx2` must not shadow `httpx` for `bsi_core`: `tests/unit/test_http_fetch.py` and `tests/unit/test_dataforseo.py` drive `http_fetch` with `httpx.MockTransport`, and those tests must still pass with both packages installed. Pinned by Task 2, Step 2 (full backend gate, which runs them).
-4. starlette 1.7.0 is the API's production starlette too (spec §1); its behaviour changes (for example `Vary: Origin` on CORS responses, 400 on malformed multipart) must not break an existing API test. Pinned by Task 2, Step 2 (full backend gate, `1811 passed`).
+4. starlette 1.7.0 is the API's production starlette too (spec §1); whatever changed between 1.6.0 and 1.7.0 beyond the TestClient fix must not break an existing API test. Pinned by Task 2, Step 2 (full backend gate, `1811 passed`).
 5. The web gate must be unaffected by a backend-only change (`openapi.json`/`schema.d.ts` do not change because no route changed). Pinned by Task 2, Step 3 (`npm run gate`, 93 vitest, build green, `gen:check` clean).
 
 ---
@@ -86,7 +87,7 @@ dev = [
 ```
 
 Then run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice67 && git diff --stat`
-Expected: `apps/api/pyproject.toml | 4 +++-` and `pyproject.toml | 10 ++++++++-`, nothing else.
+Expected: two files changed, `apps/api/pyproject.toml` with 4 lines (3 added, 1 removed) and `pyproject.toml` with 10 lines (9 added, 1 removed); git pads the names and adds a `2 files changed, 12 insertions(+), 2 deletions(-)` line.
 
 - [ ] **Step 3: Re-lock, plain**
 
@@ -195,10 +196,10 @@ Expected: empty (the web build writes only ignored paths).
 
 1. **Spec coverage:** §4 (the change) → Task 1 Steps 2-3; §4 lock delta → Task 1 Step 4; §5's green observation → Task 1 Step 6 and Task 2 Step 2; §6 (verification) → Task 2; §3 and §7 (no filterwarnings, no fastapi bump, no crawl/judge change) → Global Constraints. §8 (handoff note) is a docs item for the findings doc, not a task.
 2. **Placeholder scan:** none.
-3. **Type consistency:** no code types; the version strings (1.7.0, 2.13.1, 0.28.1, 0.10.4, 1.0) match the spec's table.
+3. **Type consistency:** no code types; the version strings 1.7.0, 2.13.1, 0.10.4 and 1.0 match the spec's §4 table, and 0.28.1 (httpx, unchanged) matches spec §2.
 4. **Review Focus:** five lines, each pinned to a step.
 
-**Departures from the spec:** none. The replace blocks were applied by script to a fresh detached copy of main and the resulting `apps/api/pyproject.toml`, `pyproject.toml` and (after `uv lock`) `uv.lock` compared byte-identical to the proof worktree's patched state (see the findings doc for the check's output).
+**Departures from the spec:** none. The replace blocks were applied by script to a fresh detached copy of main and the resulting `apps/api/pyproject.toml`, `pyproject.toml` and (after `uv lock`) `uv.lock` compared byte-identical to the proof worktree's patched state; the check's output is saved as proof output `10-plancheck.txt` and the findings doc quotes it.
 
 ## Changes made during execution
 
