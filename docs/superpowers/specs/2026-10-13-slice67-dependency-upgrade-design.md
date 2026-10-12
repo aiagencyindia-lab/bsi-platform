@@ -4,16 +4,16 @@ Date: 2026-10-13 (IST). Base: main 555d90d. Session model Fable 5.1; reviews and
 
 ## 1. Goal
 
-The backend gate on main ends `1811 passed, 2 deselected, 2 warnings`. After this slice it ends `1811 passed, 2 deselected` with no warnings summary. Nothing else changes: no production code, no test code, no pytest configuration.
+The backend gate on main ends `1811 passed, 2 deselected, 2 warnings`. After this slice it ends `1811 passed, 2 deselected` with no warnings summary. No production code, test code or pytest configuration changes. One runtime library does move: the workspace has a single `uv.lock`, so the API's starlette goes from 1.6.0 to 1.7.0 in production as well as in tests. The green full gate (§5, output `03`) is what covers that move; this spec lists no 1.7.0 change beyond the one that removes warning 2.
 
 ## 2. Where the warnings come from
 
-Both are raised when `starlette.testclient` is imported (through `fastapi.testclient`, from `tests/conftest.py:133` and `tests/integration/test_transactions.py:10`). Proof output `00-warning-classes-on-main.txt` shows the classes.
+Both are raised when `starlette.testclient` is imported (through `fastapi.testclient`, from `tests/conftest.py:133` and `tests/integration/test_transactions.py:10`). Proof output `07-warning-classes-on-main.txt` shows the classes.
 
 | # | Text | Class | Raised by | Removed by |
 |---|---|---|---|---|
 | 1 | "Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead." | `StarletteDeprecationWarning` (not a `DeprecationWarning` subclass) | `starlette/testclient.py` lines 32-51, whenever `import httpx2` fails | installing `httpx2`; starlette 1.7.0 still warns without it |
-| 2 | "The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead." | `DeprecationWarning` (emitted by `anyio/_lazyimport.py:84`) | `starlette/testclient.py:53` in 1.6.0, a module-level expression | starlette 1.7.0 (released 2026-09-23; its release notes cite PR #3498), which uses `anyio.from_thread.BlockingPortal` |
+| 2 | "The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead." | `DeprecationWarning` (emitted by `anyio/_lazyimport.py:84`) | `starlette/testclient.py:53` in 1.6.0, a module-level expression | starlette 1.7.0 (released 2026-09-23; its release notes cite PR #3498, saved as proof output `09-starlette-release-note.txt`), which uses `anyio.from_thread.BlockingPortal` |
 
 Facts the design rests on:
 - fastapi 0.141.1 declares `starlette>=0.46.0`, so starlette can move to 1.7.0 with fastapi unchanged.
@@ -80,13 +80,13 @@ index 58bbb0e..32ecce4 100644
 | truststore | absent | 0.10.4 (httpx2 dependency, `sys_platform != 'emscripten'`) |
 | httpx2-jsfetch | absent | 1.0 (httpx2 dependency, `sys_platform == 'emscripten'`; never installed here) |
 
-No other package moves (`Resolved 65 packages`; the only `Updated` line is starlette).
+No other package moves. Proof output `08-first-lock.txt` (pyproject patched, `uv.lock` at main, plain `uv lock`) prints `Resolved 65 packages`, four `Added` lines (httpcore2, httpx2, httpx2-jsfetch, truststore) and one `Updated` line (starlette); the resulting `git diff` is byte-identical to the patch (`cmp patch.diff patch-relock.diff`).
 
 The dev array is reflowed to one entry per line because the added entry pushes it past ruff's 80 columns (ruff does not format TOML; the reflow is for the reader, and the plan's replace block carries it as written here).
 
 ## 5. Proof
 
-Proof worktree: a detached copy of main 555d90d under the session scratchpad. Each saved output starts with a UTC header, the pytest pre-check result (two pytests were running, both with cwd `…/invoice-processing`, which do not block) and ends with `gate exit N`. The observation is the gate's own: pytest's warnings summary, plus a grep for each warning text.
+Proof worktree: a detached copy of main 555d90d under the session scratchpad. Every saved output starts with a UTC header. The pytest runs (`01`-`05`, `07`) record the pre-check result in that header and end with `gate exit N`; `01`, `03` and `07` also name the two unrelated pytests that were running (cwd `…/invoice-processing`, which do not block), while `02`, `04` and `05` record only "no pytest of this repo running". The lock-only outputs (`06`, `08`) have no pre-check and end with `lock exit N`. The observation is the gate's own: pytest's warnings summary, plus a grep for each warning text.
 
 Command for the short runs: `uv run pytest -q tests/integration/test_transactions.py -p no:cacheprovider`.
 
@@ -98,17 +98,17 @@ Command for the short runs: `uv run pytest -q tests/integration/test_transaction
 
 Mutation table. Each row names both outcomes.
 
-| Mutant | Green on main? | Patched outcome | Output |
-|---|---|---|---|
-| httpx2 removed from the dev group, re-locked and synced; starlette 1.7.0 kept | n/a (mutant of the patch) | red patched: `2 passed, 1 warning`; text 1 hits 1, text 2 hits 0 | `04-mutation1-no-httpx2.txt` |
-| `starlette>=1.7` dropped from `apps/api/pyproject.toml`, lock pinned to 1.6.0 (`uv lock --upgrade-package starlette==1.6.0`), synced; httpx2 kept | n/a (mutant of the patch) | red patched: `2 passed, 1 warning`; text 1 hits 0, text 2 hits 1 | `05-mutation2-starlette16.txt` |
-| main unchanged | red on main: `2 passed, 2 warnings` | green patched: `2 passed` | `01`, `02` |
+| Mutant | Outcome without the mutation | Outcome with the mutation |
+|---|---|---|
+| httpx2 removed from the dev group, re-locked and synced; starlette 1.7.0 kept | green patched: `2 passed`, hits 0/0 (`02`) | red patched: `2 passed, 1 warning`; text 1 hits 1, text 2 hits 0 (`04-mutation1-no-httpx2.txt`) |
+| `starlette>=1.7` dropped from `apps/api/pyproject.toml`, lock pinned to 1.6.0 (`uv lock --upgrade-package starlette==1.6.0`), synced; httpx2 kept | green patched: `2 passed`, hits 0/0 (`02`) | red patched: `2 passed, 1 warning`; text 1 hits 0, text 2 hits 1 (`05-mutation2-starlette16.txt`) |
+| the whole patch (main unchanged) | red on main: `2 passed, 2 warnings`, hits 1/1 (`01`) | green patched: `2 passed`, hits 0/0 (`02`) |
 
 Each mutant removes exactly one warning's fix and that warning alone returns, so the two halves of the change are independent and both needed.
 
 Floor check (`06-floor-relocks.txt`): with the lock at 1.6.0 and the `starlette>=1.7` floor restored, a plain `uv lock` prints `Updated starlette v1.6.0 -> v1.7.0`. Re-applying the full patch afterwards produced a `git diff` byte-identical to the first lock (`cmp` on the two saved diffs).
 
-Warning-class evidence (`00-warning-classes-on-main.txt`): the same short run with `-W error::DeprecationWarning` on main errors at collection on text 2 and still lists text 1 in the warnings summary, which is how the class of each was established.
+Warning-class evidence (`07-warning-classes-on-main.txt`, run in the main checkout at 555d90d, starlette 1.6.0; its second header line records the command `uv run pytest -q tests/integration/test_transactions.py -W error::DeprecationWarning -p no:cacheprovider`): collection errors on text 2 (`E   DeprecationWarning: The anyio…`) and text 1 still appears in the warnings summary as `StarletteDeprecationWarning`, exit 2. `StarletteDeprecationWarning` subclasses `UserWarning` (`starlette/exceptions.py:36`). An earlier run of the same command, `00-warning-classes-on-main.txt`, is kept but its header does not record the command, so `07` is the cited file.
 
 ## 6. Verification in the slice worktree
 
