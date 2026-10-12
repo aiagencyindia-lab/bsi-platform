@@ -291,6 +291,9 @@ In the order they were written:
 | [superpowers/specs/2026-10-12-slice62-docs-sweep-design.md](superpowers/specs/2026-10-12-slice62-docs-sweep-design.md) | Design spec: the docs sweep — 23 dated notes and 2 corrections closing the open deferred minors of slices 48–61 (won't-fix for the unverifiable items, the double `seg()` and the two warnings), seven test minors left open, decisions 1–4 and rulings R1–R2 |
 | [superpowers/plans/2026-10-12-slice62-docs-sweep.md](superpowers/plans/2026-10-12-slice62-docs-sweep.md) | Implementation plan, one docs task with 19 blocks generated from a scratchpad proof, with R3 and the changes made during execution |
 | [findings-slice62.md](findings-slice62.md) | Results: the 23 closures and the seven open test minors with their current lines, the gates, CI and reviews, no live check, and every ruling (R1–R6) and deferred minor, quoted from the ledger |
+| [superpowers/specs/2026-10-12-slice63-test-minors-design.md](superpowers/specs/2026-10-12-slice63-test-minors-design.md) | Design spec: the seven open test minors — the path scan reads all of `src/` and checks how each exempt query name is built, the formSeg scan ignores the receiver, `api()` auth tests, a zero `audit()` fixture, the probe refusal on a raw directory alone — with 26 mutants, decisions 1–6 and rulings R1–R2 |
+| [superpowers/plans/2026-10-12-slice63-test-minors.md](superpowers/plans/2026-10-12-slice63-test-minors.md) | Implementation plan, two tasks with 11 blocks generated from a scratchpad proof, with R3 and the changes made during execution |
+| [findings-slice63.md](findings-slice63.md) | Results: findings 49:108–109, 60:141–143 and 61:103–104 closed, the gates, CI and reviews, no live check, and every ruling (R1–R4) and deferred minor, quoted from the ledger |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
