@@ -403,4 +403,6 @@ Ruling: R3. Decided: the plan review's two minors are fixed in a second plan com
 
 ## Changes made during execution
 
-The controller fills this section after execution; it is empty at plan time.
+- Step 0, as planned: the controller created the worktree before Task 1 (after switching the main checkout back to main); the implementer ran `uv sync`, `npm ci` and the before-count (77 minors, 30 open).
+- No step departed from its blocks or Expected lines: the after-count (77, 7 open, the seven test lines), the diff checks (11 files, 27 insertions, 0 deletions, 25 non-blank) and the gates (1810 backend, 91 web) matched. The implementer applied the blocks with a helper script written with its file tool, and re-ran `gen:check` alone because a zsh `PIPESTATUS` echo printed blank. The task review found all 19 blocks verbatim; the final review found the commit equal to the spec's proof diff.
+- The final review found nothing to fix (no fix wave). R4 (the final reviewer got the one-commit docs range) was made at execution and is in the ledger and findings-slice62.md §3.
