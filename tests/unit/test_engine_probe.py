@@ -349,7 +349,7 @@ def test_a_rerun_refuses_to_start_while_outputs_exist(
     results.mkdir(parents=True)
     if left == "results":
         (results / "engine_probe_v0.json").write_text("{}")
-        named = "engine_probe_v0.json"
+        named = str(engine_probe.OUT)
     else:
         # Uses the last model, so main() must pass every model and
         # <raw_store_dir>/experiments/engine to existing_outputs().
@@ -380,5 +380,6 @@ def test_a_rerun_refuses_to_start_while_outputs_exist(
     monkeypatch.setattr(engine_probe.genai, "Client", no_client)
     with pytest.raises(SystemExit) as refused:
         engine_probe.main()
-    assert named in str(refused.value)
+    # One path is left in each case, so the delimiters pin its whole text.
+    assert f"exist: {named};" in str(refused.value)
     assert "move them first" in str(refused.value)
