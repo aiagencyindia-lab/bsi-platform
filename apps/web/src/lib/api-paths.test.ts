@@ -104,11 +104,11 @@ test("path values are read with formSeg()", () => {
   // alike), whatever the receiver ((await req.formData()).get,
   // this.form.get), the quote style (template literals too) or a trailing
   // `!` or `as string`; nor String(<x>.get(<variable>)), with or without
-  // `!` or `as string`. The leading \b on String and seg is a precaution:
-  // it keeps a future toString(...) line from matching.
+  // `!`, `as string`, or both. The leading \b on String and seg is a
+  // precaution: it keeps a future toString(...) line from matching.
   const ID = String.raw`(?:"[a-z_]*_id"|'[a-z_]*_id'|\x60[a-z_]*_id\x60|"type"|'type'|\x60type\x60)`;
   const RAW = new RegExp(
-    String.raw`\.get\(\s*${ID}\s*\)|\bString\([^\n]*?\.get\(\w+\)(?:!|\s+as\s+string)?\)|\bseg\(String\(`,
+    String.raw`\.get\(\s*${ID}\s*\)|\bString\([^\n]*?\.get\(\w+\)!?(?:\s+as\s+string)?\)|\bseg\(String\(`,
     "g",
   );
   const bad = SOURCES.flatMap((f) =>
