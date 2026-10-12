@@ -296,7 +296,7 @@ In the order they were written:
 | [findings-slice63.md](findings-slice63.md) | Results: findings 49:108–109, 60:141–143 and 61:103–104 closed, the gates, CI and reviews, no live check, and every ruling (R1–R6) and deferred minor, quoted from the ledger |
 | [superpowers/specs/2026-10-12-slice64-test-minors-design.md](superpowers/specs/2026-10-12-slice64-test-minors-design.md) | Design spec: the four open deferred minors of slice 63 — the probe refusal test builds each case in its branch, the formSeg scan catches `as string`, won't-fix and process notes for the other two — with 7 mutants, decisions 1–4 and rulings R1–R2 |
 | [superpowers/plans/2026-10-12-slice64-test-minors.md](superpowers/plans/2026-10-12-slice64-test-minors.md) | Implementation plan, one task with 3 blocks generated from a scratchpad proof, with R3 and the changes made during execution |
-| [findings-slice64.md](findings-slice64.md) | Results: findings-slice63 lines 140–143 closed, the gates, CI and reviews, no live check, and every ruling (R1–R3) and deferred minor, quoted from the ledger |
+| [findings-slice64.md](findings-slice64.md) | Results: findings-slice63 lines 140–143 closed, the gates, CI and reviews, no live check, and every ruling (R1–R4) and deferred minor, quoted from the ledger |
 
 Run data and evaluation sets live next to the code, because the scripts
 and tests read them there.
