@@ -16,19 +16,20 @@ User decisions (2026-10-12), with the approaches text shown in chat before each 
 2. 64:102: widen the suffix so `!` and `as string` may both follow the key (A), over a won't-fix note (B).
 3. 64:103: assert `str(engine_probe.OUT)`, the relative path `main()` names (A), over comparing the whole refusal message (B) and a won't-fix note (C).
 4. Sections 1 and 2 each approved after their text was shown in chat ("yes").
+5. After the spec review (finding 1, reproduced by the controller: a refusal naming `data/eval/results/engine_probe_v0.json` still passed the substring assert): anchor the match in both branches, `assert f"exist: {named};" in str(refused.value)` (A), over keeping the substring and listing prefix directories as out of scope (B).
 
 The brainstorm ran under the harness's plan mode: the design questions and sections were answered in chat, a plan-mode file recorded the approved design, and the proof, this spec and the plan followed after the user approved leaving plan mode.
 
 ## Section 1 — The two code changes (64:102, 64:103)
 
 - 64:102, apps/web/src/lib/api-paths.test.ts: in the formSeg test's `RAW`, the variable-key branch changes from `\bString\([^\n]*?\.get\(\w+\)(?:!|\s+as\s+string)?\)` to `\bString\([^\n]*?\.get\(\w+\)!?(?:\s+as\s+string)?\)`, so `String(form.get(k)! as string)` is caught along with the bare, `!` and `as string` shapes. The comment's "with or without `!` or `as string`" becomes "with or without `!`, `as string`, or both". The literal-key branch and `seg(String(` are unchanged. Today's only variable-key read inside `String(` is reports/actions.ts:48, through `?? ""`, so the scan stays green on main.
-- 64:103, tests/unit/test_engine_probe.py: in the `results` branch of `test_a_rerun_refuses_to_start_while_outputs_exist`, `named = "engine_probe_v0.json"` becomes `named = str(engine_probe.OUT)`. The test `chdir`s to `tmp_path` and `OUT` is the relative `Path("eval/results/engine_probe_v0.json")`, which `main()` joins into the refusal with `", ".join(str(p) for p in left)`, so the assert now requires the path `main()` names, as the `raw` branch already does with `str(raw)`. Nothing else in the test changes.
+- 64:103, tests/unit/test_engine_probe.py: in the `results` branch of `test_a_rerun_refuses_to_start_while_outputs_exist`, `named = "engine_probe_v0.json"` becomes `named = str(engine_probe.OUT)`. The test `chdir`s to `tmp_path` and `OUT` is the relative `Path("eval/results/engine_probe_v0.json")`, which `main()` joins into the refusal with `", ".join(str(p) for p in left)`, and, by decision 5, the final assert in both branches becomes `assert f"exist: {named};" in str(refused.value)` with a one-line comment. The refusal reads `earlier probe outputs exist: <paths>; move them first …` and each case leaves exactly one path, so the two delimiters pin the whole path text: a prefixed, renamed or dropped directory fails, in the `results` case and the `raw` case alike. The setup, the client guard, the `"move them first"` assert and the parametrize ids are unchanged.
 
 ## Section 2 — Testing, docs, out of scope
 
 - 64:102, red on main: M1 (`const k = "brand_id"; const id = String(form.get(k)! as string);` in place of the first `formSeg(form, "brand_id")` in serp/actions.ts) passes main's scan and fails the patched one. M2 to M4 (bare, `!`, `as string`) are regression rows, red on both.
-- 64:103: M5 (`main()` joins `p.name` in place of `str(p)`) is the green-to-red proof for the `results` case: on main it fails only `[raw]` (that case already asserted a full path) and `[results]` passes; patched it fails both. M6 to M9 (slice 64's four probe mutants: a wrong raw path, `MODELS[:1]`, a substituted raw directory, a substituted results path) are regression rows with the same outcome on both.
-- Green, patched (outputs saved beside the proof, each headed with its UTC run time; both ran on the patched copy after the two edits, with no change since): web `npm run gate` exits 0 with 93 vitest (unchanged); backend 1811 passed, 2 deselected, 2 warnings (unchanged), metrics coverage 100.00%, `ruff format --check` (185 files already formatted), `ruff check` and `mypy` clean.
+- 64:103: M10 (`main()` joins `str(Path("data") / p)`, a prefix directory; the `raw` path is absolute, so it is unchanged) is the whole-test green-to-red proof: green on main, red patched in `[results]` only. M5 (`main()` joins `p.name` in place of `str(p)`) is green-to-red for the `results` case alone: on main it fails only `[raw]` (that case already asserted a full path) and `[results]` passes; patched it fails both. M6 to M9 (slice 64's four probe mutants: a wrong raw path, `MODELS[:1]`, a substituted raw directory, a substituted results path) are regression rows with the same outcome on both.
+- Green, patched (outputs saved beside the proof, each headed with its UTC run time): `gate65-backend.txt` ran at 08:17:39Z after the anchored asserts of decision 5; `gate65.txt` ran at 08:09:59Z before them, and stands because the web gate does not read tests/unit/test_engine_probe.py and api-paths.test.ts's bytes are unchanged since (blob 20f800a in the diff below; its mtime moved later because the mutation script rewrote it with the same text). Web `npm run gate` exits 0 with 93 vitest (unchanged); backend 1811 passed, 2 deselected, 2 warnings (unchanged), metrics coverage 100.00%, `ruff format --check` (185 files already formatted), `ruff check` and `mypy` clean.
 - Docs PR after the merge: findings-slice65.md quoting every ledger line; the plan's "Changes made during execution"; README rows; "fixed" dated notes under docs/findings-slice64.md lines 102 and 103 (as at main a456260). The two notes move that file's later lines; findings-slice65.md states the new positions.
 - No live check: nothing is called and no server is started.
 
@@ -57,7 +58,7 @@ index 726869e..20f800a 100644
    );
    const bad = SOURCES.flatMap((f) =>
 diff --git a/tests/unit/test_engine_probe.py b/tests/unit/test_engine_probe.py
-index 36e54e6..73ab042 100644
+index 36e54e6..66f538f 100644
 --- a/tests/unit/test_engine_probe.py
 +++ b/tests/unit/test_engine_probe.py
 @@ -349,7 +349,7 @@ def test_a_rerun_refuses_to_start_while_outputs_exist(
@@ -69,6 +70,14 @@ index 36e54e6..73ab042 100644
      else:
          # Uses the last model, so main() must pass every model and
          # <raw_store_dir>/experiments/engine to existing_outputs().
+@@ -380,5 +380,6 @@ def test_a_rerun_refuses_to_start_while_outputs_exist(
+     monkeypatch.setattr(engine_probe.genai, "Client", no_client)
+     with pytest.raises(SystemExit) as refused:
+         engine_probe.main()
+-    assert named in str(refused.value)
++    # One path is left in each case, so the delimiters pin its whole text.
++    assert f"exist: {named};" in str(refused.value)
+     assert "move them first" in str(refused.value)
 ```
 
 ## Evidence
@@ -86,17 +95,23 @@ Proof directory: a fresh scratchpad detached worktree of main a456260 (`proof65`
 | M7 | 64:103 | `existing_outputs(OUT, raw_dir, MODELS[:1])` | red: [raw] | red: [raw] |
 | M8 | 64:103 | `existing_outputs(OUT, Path("nowhere"), MODELS)` | red: [raw] | red: [raw] |
 | M9 | 64:103 | `existing_outputs(Path("nowhere"), raw_dir, MODELS)` | red: [results] | red: [results] |
+| M10 | 64:103 | `main()` joins `str(Path("data") / p)` (a prefix directory; review probe X2) | green | red: [results] |
 
-Saved gate outputs: `gate65-backend.txt` (run 2026-10-12T08:07:19Z) and `gate65.txt` (run 2026-10-12T08:09:59Z), both on the patched proof copy.
+Saved gate outputs: `gate65-backend.txt` (run 2026-10-12T08:17:39Z, after decision 5's edit) and `gate65.txt` (run 2026-10-12T08:09:59Z, before it; valid as Section 2 explains), both on the patched proof copy. The table is the run after decision 5's edit; M1 to M9 kept their first-run outcomes.
 
 ## Departures from the section text shown in chat
 
+- Section 1 in chat said "Nothing else in the test changes" and named only the `results` branch; decision 5 (after the spec review) changes the final assert in both branches, as Section 1 above says.
 - Section 2 in chat said M5 would "pass main's test and fail the patched `[results]` case"; the run shows M5 already fails `[raw]` on main, so the green-to-red step is the `[results]` case alone. The table and Section 2 above say so.
+
+## Rulings
+
+Ruling: R1. Decided: the spec review's findings 2 and 3 are applied in the second spec commit alongside decision 5 (finding 1): M10, the prefix-directory mutant, is added as the whole-test green-to-red proof for 64:103; `String(form.get(k)!as string)` (no space after `!`, which Prettier normalises away) is listed as not caught under Out of scope; Section 1 drops the overstated "requires the path main() names" for the anchored assert's exact effect. Found by: the spec reviewer (Opus 5.5), 2026-10-12; finding 1 reproduced by the controller in the proof. Why: a substring claim wider than what it pinned, a proof that showed only a per-case change, and an unlisted miss, all mine. Cost if wrong: none to behaviour. How named: this spec and chat.
 
 ## Out of scope
 
 - docs/findings-slice64.md:101 (closed).
-- Wider casts (`as unknown as string`, `as string | null`, `as String`), `.get( k )` with spaces, the `\s+` newline crossing (a stated fail-safe limit since slice 64), and any product code.
+- Wider casts (`as unknown as string`, `as string | null`, `as String`), `String(form.get(k)!as string)` with no space after `!`, `.get( k )` with spaces, the `\s+` newline crossing (a stated fail-safe limit since slice 64), and any product code.
 
 ## Docs follow-ups
 
