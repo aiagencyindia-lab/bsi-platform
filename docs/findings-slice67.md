@@ -151,6 +151,8 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 
 > Correction to R7 (2026-10-13): R7's text did not name one more edit the slice needs: the README findings row's ruling range goes from R1–R6 to R1–R7 (the controller found the gap after commit 5c99808); a third docs commit makes it and quotes this line.
 
+> Review verdict (2026-10-13): docs scoped re-review on 8a4bb9c..67b9872 (Opus 5.5, agent a846fafe5193efe5c) — clean: all five minors closed; the Docs review selector and the README range R1–R7 accurate; one nit, not a finding: the §1 sentence citing R5 for the notes now also covers the line-109 note R7 added, and still holds.
+
 Deferred minors: none. Under the user's rule of 2026-10-13, a minor in a file the slice touches is fixed in-slice. Every minor above was fixed or closed by a ruling in this slice, and none was recorded as `minor (deferred)`.
 
 Still open: a scripted scan of findings-slice47.md to findings-slice67.md for `minor (deferred)` list items with no dated note or Correction directly after them finds findings-slice63 line 139, findings-slice64 line 101. Both are closed in their own file's §3: findings-slice63 line 139 by that slice's R4, findings-slice64 line 101 by that file's "Still open:" line (line 107 as at main a9d5d03). No deferred minor from findings 47 to 67 is open.
