@@ -191,7 +191,7 @@ Expected: empty.
 
 - Task 1 ran as written (commit ee9dcf9); its review was clean.
 - Task 2's first run was BLOCKED: Docker Desktop failed during the backend gate, so pytest hung on a dead connection to the test database; ruff and mypy had passed. After the user restarted Docker, the controller confirmed `bsi_test` answered and re-dispatched Task 2 from Step 1 to a fresh implementer, which ran it as written: backend `1811 passed, 2 deselected`, no warnings; web `Tests  93 passed (93)`.
-- The same restart emptied the session scratchpad. The controller re-fetched both red CI logs (every cited line number matched), regenerated the patch diff from spec §4 and the scratch copy, and re-ran the plan check on the committed plan blob: PASS.
+- The same restart emptied the session scratchpad. The controller re-fetched both red CI logs (every cited line number matched), regenerated the patch diff from spec §4 and rebuilt the scratch copy from it, and re-ran the plan check on the committed plan blob: PASS.
 - Task 2's review found two Minors: the Next.js `serverActions` notice (not a defect, R1) and two facts missing from the report (recorded in the ledger, R2).
-- The final review's spec-level Minors went to the docs PR as the notes above and in the spec (R3); its two Minors on the §5 commands added three stricter checks of the PR log before merge (R4); its Dependabot Minor was deferred to the backlog by the user.
+- The final review's spec-level Minors went to the docs PR as dated notes in the spec (R3); its two Minors on the §5 commands added three stricter checks of the PR log before merge (R4); its Dependabot Minor was deferred to the backlog by the user.
 - Code PR 136 merged as cd7e015 after its CI run met every check.
