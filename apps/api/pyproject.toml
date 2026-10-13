@@ -2,7 +2,9 @@
 name = "bsi-api"
 version = "0.1.0"
 requires-python = ">=3.13"
-dependencies = ["bsi-core", "fastapi>=0.115", "uvicorn>=0.30"]
+# starlette>=1.7: TestClient no longer imports the deprecated
+# anyio.abc.BlockingPortal alias.
+dependencies = ["bsi-core", "fastapi>=0.115", "starlette>=1.7", "uvicorn>=0.30"]
 
 [tool.uv.sources]
 bsi-core = { workspace = true }
