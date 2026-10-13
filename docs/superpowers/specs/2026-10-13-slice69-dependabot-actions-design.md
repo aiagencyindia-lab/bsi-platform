@@ -61,7 +61,7 @@ Dependabot reads `dependabot.yml` only from the default branch, and nothing loca
 - Criterion 2: that run's log, saved with `gh run view <id> --log`, shows the job read all three pins: `grep -c` for each of `github.com:443/actions/checkout`, `github.com:443/actions/setup-node` and `github.com:443/astral-sh/setup-uv` prints at least `1` (the fetch lines of §2; a prediction for an ungrouped config). If the log names the actions in another form, the controller records the lines that do name them, and a log that names none of the three fails this criterion.
 - Time budget: about 30 minutes after the merge, checked a few minutes apart. The 30 minutes is this spec's choice; GitHub's page gives no timing (§2).
 - A Dependabot PR is not expected from the first run, since every pin is already at its latest release (§2); one opening would be an observation, not a criterion.
-- How a failure shows: a run with that title and conclusion `failure`, or no `dynamic` run at all within the budget. In the second case the controller asks the user to look at the repository's Dependabot tab (Insights, Dependency graph, Dependabot: `https://github.com/aiagencyindia-lab/bsi-platform/network/updates`), which shows the last check and any configuration error; the page needs a signed-in browser. Either case is a finding against this spec: it is reported to the user before the docs PR, and the next step is the user's decision.
+- How a failure shows: a run with that title and conclusion `failure`, or no `dynamic` run at all within the budget. In the second case the controller asks the user, who is signed in to GitHub, to open the repository's Dependabot tab by the click path GitHub's "Viewing Dependabot job logs" page gives (Insights, Dependency graph, Dependabot, then "Recent update jobs" beside the manifest), which shows "when Dependabot last checked for new versions" (§2) and the update jobs' logs. Either case is a finding against this spec: it is reported to the user before the docs PR, and the next step is the user's decision.
 
 The gap, stated plainly: the code PR merges before its green observation exists, because Dependabot cannot read a config from an unmerged branch.
 
@@ -71,7 +71,7 @@ The gap, stated plainly: the code PR merges before its green observation exists,
 2. Pre-check again, saved; web gate: expected `Tests  93 passed (93)` after stripping ANSI codes, build green, `gen:check` clean.
 3. The structure check of §5, saved with a UTC header and its exit status.
 4. PR opened; on "check ci": one `gh pr checks --watch`; `gates` must pass. Since the workflow is unchanged, its saved log is also grepped for the slice 68 counts (`DEP0040|DEP0169|trace-deprecation`, `\(node:[0-9]+\)`, `Node.js 20 is deprecated`), each expected `0`, as a regression check. Then merge with `--merge --delete-branch` and `git ls-remote --heads origin slice69`.
-5. After the merge, the §5 green observation: `gh run list --event dynamic --limit 5`, checked a few minutes apart for up to about 30 minutes.
+5. After the merge, the §5 green observation: `gh run list --event dynamic --limit 5`, checked a few minutes apart for up to about 30 minutes (criterion 1); then the run's log saved with `gh run view <id> --log` and the three `grep -c` checks of criterion 2 run on it.
 6. No live checks against the app, no database migration, no worker, no model or DataForSEO spend. GitHub API use is read-only apart from the PR.
 
 ## 7. Out of scope
@@ -79,6 +79,7 @@ The gap, stated plainly: the code PR merges before its green observation exists,
 - Dependabot for `uv` (Python) or `npm` (web) dependencies (decision 1).
 - Grouping, commit-message prefixes, labels, reviewers or a different schedule (decision 2).
 - Enabling Dependabot security updates, auto-merge, or any repository setting.
+
 ## 8. Handoff note
 
 Dependabot PRs for actions run the full `gates` check like any PR. Any setup-uv bump (patch, minor or major), and a new major of `actions/checkout` or `actions/setup-node`, should be read for changed defaults before merging, as slice 68 did. Slice 68's handoff that setup-uv's pin "is bumped by hand from now on" (findings-slice68 §1) is superseded: Dependabot proposes the bump, and the user still merges it.
