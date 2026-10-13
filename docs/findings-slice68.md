@@ -149,6 +149,10 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 
 > `` Ruling: R8. Decided: the round-2 Minor and the nit are fixed in a fourth docs commit with these edits from git diff --cached: §3's intro adds "a line that holds `<` is quoted inside a code span, so the `<` shows as text and not as HTML" (the script's INTRO constant changed with it); line 26's "; and the post step saved" becomes ", and the post step saved"; §3 quotes this verdict, its Minor, the user's "Fix, re-review" decision and this ruling; the README findings row's range goes from R1–R7 to R1–R8 in the same script run. Found by: the docs re-reviewer (Opus 5.5), 2026-10-13 (the Minor and the nit). Why: the code span follows the process rule for quotes holding "<" but §3 did not say so; the join was my R7 text. Cost if wrong: none to behaviour. How named: in chat as R8. ``
 
+> User decision (2026-10-13): after the third docs round, "Fix, re-review" again (options shown: Fix, stop; Fix, re-review).
+
+> ` Review verdict (2026-10-13): docs scoped re-review round 3 on 4788488..ff8b8b9 (Opus 5.5, agent af334a2e3f2165548) — clean: the round-2 Minor and the nit closed; §3's 48 quotes byte-identical to the ledger lines up to R8 once span delimiters are stripped, each of the three code-spanned quotes rendering its < as text; the README range R1–R8 correct. `
+
 Deferred minors: one, by the user's decision: the final review's Dependabot Minor, which needs new configuration outside the slice's scope; it is the follow-up above. Every other minor was fixed or closed by a ruling in this slice.
 
 Still open: a scripted scan of findings-slice47.md to findings-slice68.md for `minor (deferred)` list items with no dated note or Correction directly after them finds findings-slice63 line 139, findings-slice64 line 101. Both are closed in their own file's §3: findings-slice63 line 139 by that slice's R4, findings-slice64 line 101 by that file's "Still open:" line (line 107 as at main cd7e015). Apart from this slice's Dependabot follow-up, no deferred minor from findings 47 to 68 is open.
