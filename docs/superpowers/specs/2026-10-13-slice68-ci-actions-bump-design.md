@@ -4,7 +4,7 @@ Date: 2026-10-13 (IST). Base: main f6b9964. Session model Fable 5.1 for this sta
 
 ## 1. Goal
 
-Every CI run of `.github/workflows/ci.yml` prints seven lines that have nothing to do with the repo's code: six Node.js `DeprecationWarning` lines from the `astral-sh/setup-uv@v5` and `actions/setup-node@v4` steps, and one job-level annotation saying that `actions/checkout@v4`, `actions/setup-node@v4` and `astral-sh/setup-uv@v5` target Node.js 20 and are being forced onto Node.js 24. After this slice a CI run prints none of them and the gates' results are unchanged.
+Every CI run of `.github/workflows/ci.yml` prints eleven lines that have nothing to do with the repo's code: six Node.js `DeprecationWarning` lines from the `astral-sh/setup-uv@v5` and `actions/setup-node@v4` steps, four `(Use \`node --trace-deprecation ...\` to show where the warning was created)` lines that follow some of them, and one job-level annotation saying that `actions/checkout@v4`, `actions/setup-node@v4` and `astral-sh/setup-uv@v5` target Node.js 20 and are being forced onto Node.js 24. After this slice a CI run prints none of them and the gates' results are unchanged.
 
 ## 2. Where the lines come from
 
@@ -12,8 +12,8 @@ Facts, with their sources:
 
 - `ci.yml` (one job, `gates`; the repo's only workflow) pins three actions, all of whose `action.yml` at those tags declares `using: node20`: `actions/checkout@v4` (line 27 as at main f6b9964), `astral-sh/setup-uv@v5` (line 40), `actions/setup-node@v4` (line 53).
 - GitHub's hosted runner runs node20 actions on Node 24 and says so once per job. In the saved log of PR 134's run 38337814295 (`11-ci-run-38337814295.log`) the annotation is line 796: "Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, astral-sh/setup-uv@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/".
-- The six `DEP0040` (`punycode`) and `DEP0169` (`url.parse()`) lines in that log are at lines 267 and 599-603 (`setup-uv`'s run and post-run steps) and 442-452 and 594 (`setup-node`'s run and post-run steps). `actions/checkout@v4` emits none; it appears only in the annotation.
-- Slice 66's run 38303089520 (`12-ci-run-38303089520-slice66.log`, before slice 67) has the same shape: six DEP lines at 265, 278, 453, 463, 604, 608 and the annotation at line 811. So the lines predate slice 67's dependency change.
+- The six `DEP0040` (`punycode`) and `DEP0169` (`url.parse()`) lines in that log are at lines 267 (`setup-uv` run step), 442 and 452 (`setup-node` run step), 594 (`setup-node` post-run step), 599 and 603 (`setup-uv` post-run step). Four of them are followed by a `(Use \`node --trace-deprecation ...\` to show where the warning was created)` line (268, 443, 595, 600). `actions/checkout@v4` emits none; it appears only in the annotation. Which step a line belongs to is read from the `##[group]Run <action>@<ref>` lines that open each step (155, 256, 430), because a log fetched with `gh run view --log` does not always carry step names: log 12 below labels every line `UNKNOWN STEP`.
+- Slice 66's run 38303089520 (`12-ci-run-38303089520-slice66.log`, before slice 67) has the same count: six DEP lines at 265, 278, 453, 463, 604, 608 and the annotation at line 811, with a different split across steps (its `setup-uv` run step emits both codes; its post-run steps emit `DEP0040` only). So the lines predate slice 67's dependency change.
 - Current releases, from each repo's releases and `action.yml`: `actions/checkout` v7.0.1 (2026-07-20; `using: node24` since v5.0.0; v6.0.0 persists the token in a separate credentials file; v7.0.0 is an ESM build with updated dependencies and blocks fork checkouts only for `pull_request_target` and `workflow_run`, which this workflow does not use). `actions/setup-node` v7.1.0 (2026-10-08; `using: node24` since v5.0.0, which also caches automatically when `package.json` has a `packageManager` field; `apps/web/package.json` has none; v6.0.0 limits that to npm; v7.0.0 is an ESM build with updated dependencies). `astral-sh/setup-uv` v10.3.0 (2026-10-09; `using: node24` since v7.0.0; v9.0.0 defaults `prune-cache` to false; v10.0.0's `enable-cache: auto` disables the cache on `pull_request_target`, `workflow_run` and `release` events, and this workflow sets `enable-cache: true` explicitly).
 - `astral-sh/setup-uv` stopped publishing major and minor tags at v8.0.0 ("No more major and minor tags" in its v8.0.0 release). Its tag list ends at `v7`/`v7.6` for floating tags; `v10` does not exist. The other two actions still publish floating majors (`v7`).
 - No release note of the three names `DEP0040` or `DEP0169`. That the lines go away is this spec's prediction (§5), not a documented fact.
@@ -66,7 +66,7 @@ index c168911..5de4d2a 100644
 
 Every `with:` block, every `run:` step and the step order stay as they are. The change substitutes three `uses:` values and adds one comment line; the file is not re-parsed locally (PyYAML is not in the environment), and the replacement touches no indentation or structure.
 
-Behaviour the bump brings that the gates will meet: setup-uv v9+ saves the uv cache without pruning it first (a larger cache entry under the same keys); checkout v6+ writes the token to a separate credentials file rather than `.git/config`. Neither changes what the gate commands run or see.
+Behaviour changes the release notes name, and what this spec predicts about them (predictions, checked only by the PR's run): setup-uv v9.0.0 changed `prune-cache`'s default to false, so the uv cache is saved without pruning (predicted: a larger cache entry; whether the cache keys change across v5 to v10 is not documented); checkout v6.0.0 "persists creds to a separate file" (predicted: nothing in the gates reads credentials, so no effect). The prediction that neither changes what the gate commands run or see is confirmed only if criterion 4 in §5 holds.
 
 ## 5. Proof
 
@@ -74,12 +74,14 @@ Red is observed and saved (§2): both saved CI logs carry six DEP lines and one 
 
 Green is observed after the fact, from the slice's own PR's CI run (decision 1). The run's log is saved with `gh run view <id> --log` and checked before merge. Success criterion, all four required:
 
-1. `grep -c -E 'DEP0040|DEP0169'` over the log prints `0`.
+1. `grep -c -E 'DEP0040|DEP0169|trace-deprecation'` over the log prints `0`.
 2. `grep -c 'Node.js 20 is deprecated'` over the log prints `0`.
-3. The log's step names show `actions/checkout@v7`, `astral-sh/setup-uv@v10.3.0` and `actions/setup-node@v7`.
-4. The gates' results are unchanged: pytest ends `1811 passed, 2 deselected` with no warnings summary; the web gate shows `Tests  93 passed (93)`; the check `gates` passes.
+3. `grep -o -E '##\[group\]Run (actions|astral-sh)/[a-z-]+@[v0-9.]+' | sort -u` over the log prints exactly `##[group]Run actions/checkout@v7`, `##[group]Run actions/setup-node@v7` and `##[group]Run astral-sh/setup-uv@v10.3.0`. (The step-name column is not used: `gh run view --log` sometimes labels every line `UNKNOWN STEP`, as in log 12.)
+4. The gates' results are unchanged: pytest ends `1811 passed, 2 deselected` with no warnings summary (plain grep); after stripping ANSI colour codes with `sed 's/\x1b\[[0-9;]*m//g'`, the log holds `Tests  93 passed (93)` (vitest writes colour codes between those words, so a plain grep finds 0); the check `gates` passes.
 
-Prediction, stated as such: the DEP lines are Node 24 warning about dependencies bundled into the node20 builds of setup-uv v5 and setup-node v4; the node24 builds (setup-uv v7+, setup-node v5+, with v7 of each rebuilt as ESM with updated dependencies) should not trigger them. If criterion 1 or 2 fails on the PR's run, that is a finding against this prediction, reported to the user before any merge.
+Prediction, stated as such: the DEP lines are Node 24 warning about dependencies bundled into the node20 builds of setup-uv v5 and setup-node v4; the node24 builds (setup-uv v7+, setup-node v5+; checkout v7.0.0 and setup-node v7.0.0 are also rebuilt as ESM with updated dependencies, setup-uv's v7.0.0 release notes say node24 and bug fixes only) should not trigger them. If criterion 1 or 2 fails on the PR's run, that is a finding against this prediction: the slice stops before any merge, the failing log is saved, and any further change (another bump, a pin, or abandoning the slice) is a new decision asked of the user; decision 1 covers one PR run, not a fix-and-push loop.
+
+Because the push run on `main` after the merge is not checked (§6.3), `main`'s green state is inferred from the PR's run, not observed on `main`.
 
 No mutation table: there is no local observation to mutate against. Taking one action back to its node20 tag would need another CI run, which decision 1 does not provide for.
 
@@ -88,8 +90,8 @@ What runs before the PR: `git diff` of the slice branch against main shows exact
 ## 6. Verification and merge
 
 1. Pytest pre-check as its own command, output saved; backend gate: expected `185 files already formatted`, `All checks passed!`, `Success: no issues found in 31 source files`, coverage 100%, `1811 passed, 2 deselected`, no warnings summary.
-2. Pre-check again, saved; web gate: expected `Tests  93 passed (93)`, build green, `gen:check` clean.
-3. PR opened; on "check ci": one `gh pr checks --watch`; then `gh run view <id> --log` saved and the §5 criteria checked; a clean result merges with `gh pr merge --merge --delete-branch` and `git ls-remote --heads origin slice68` confirms the branch is gone. The push run on `main` after the merge is not checked.
+2. Pre-check again, saved; web gate: expected `Tests  93 passed (93)` (read from the saved output after stripping ANSI colour codes, as in §5 criterion 4), build green, `gen:check` clean.
+3. PR opened; on "check ci": one `gh pr checks --watch`; then `gh run view <id> --log` saved and the §5 criteria checked with the commands given there; a clean result merges with `gh pr merge --merge --delete-branch` and `git ls-remote --heads origin slice68` confirms the branch is gone. The push run on `main` after the merge is not checked.
 4. No live checks, no database migration, no worker, no model or DataForSEO spend. GitHub API use is read-only apart from the PR itself.
 
 ## 7. Out of scope
