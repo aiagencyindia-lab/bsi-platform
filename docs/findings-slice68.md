@@ -23,7 +23,7 @@ The brainstorm, spec and plan ran on Fable 5.1; the user switched the session to
 
 The push run on `main` after the merge was not checked, so `main`'s clean log is inferred from the PR's run.
 
-**What else the run shows** (R3): uv 0.13.0 was downloaded from `releases.astral.sh`, Astral's mirror, which setup-uv v10.3.0 uses by default (`download-from-astral-mirror: "true"`); v5 downloaded from github.com. The uv cache missed on this first run ("No GitHub Actions cache found for key: setup-uv-2-…"), as the key changed in format (v5's `setup-uv-1-…-unknown-…` against v10.3.0's `setup-uv-2-…-ubuntu-24.04-…`) and in what it hashes (the v10.3.0 glob adds `**/pyproject.toml`); and the post step saved the cache under the new key. PR 134's v5 run had missed its own cache too. setup-node's npm cache was hit and restored. setup-node v7 would also enable npm caching from a `devEngines.packageManager` field; `apps/web/package.json` has neither that nor `packageManager`.
+**What else the run shows** (R3): uv 0.13.0 was downloaded from `releases.astral.sh`, Astral's mirror, which setup-uv v10.3.0 uses by default (`download-from-astral-mirror: "true"`); v5 downloaded from github.com. The uv cache missed on this first run ("No GitHub Actions cache found for key: setup-uv-2-…"), as the key changed in format (v5's `setup-uv-1-…-unknown-…` against v10.3.0's `setup-uv-2-…-ubuntu-24.04-…`) and in what it hashes (the v10.3.0 glob adds `**/pyproject.toml`), and the post step saved the cache under the new key. PR 134's v5 run had missed its own cache too. setup-node's npm cache was hit and restored. setup-node v7 would also enable npm caching from a `devEngines.packageManager` field; `apps/web/package.json` has neither that nor `packageManager`.
 
 **Local gates** (controller, on ee9dcf9, each after a pre-check whose raw output was saved: "no pytest of this repo running" at 08:10:59Z and 08:13:20Z): backend 185 files formatted, ruff clean, mypy 31 files, metrics coverage 100%, `1811 passed, 2 deselected in 124.68s`, no warnings; web `Tests  93 passed (93)`, build compiled, `gen:check` clean. They do not exercise the workflow; they show both gates still pass on ee9dcf9.
 
@@ -51,7 +51,7 @@ None. The slice changes CI configuration and docs only; nothing was called and n
 
 ## 3. Rulings, decisions, reviews and minors
 
-Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:`, `Docs review:` and `Task N: minor` line in the ledger, verbatim, in ledger order:
+Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:`, `Docs review:` and `Task N: minor` line in the ledger, verbatim, in ledger order; a line that holds `<` is quoted inside a code span, so the `<` shows as text and not as HTML:
 
 > User decision (2026-10-13): the slice is "Bump the setup-uv/setup-node GitHub Actions to clear the six Node deprecation lines in CI" (chosen from the backlog list after a "go ahead" was confirmed as ambiguous); session model Fable 5.1 for brainstorm, spec and plan (user /model).
 
@@ -140,6 +140,14 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 > Docs review: minor: findings-slice68 line 26's rewritten sentence reads as if PR 134's post step saved the cache under the new key; PR 136's post step saved under setup-uv-2-… (log 17 line 636), PR 134's under setup-uv-1-… (log 11 line 605) — verified by the controller; fixed in-slice by R7.
 
 > Ruling: R7. Decided: the re-review's Minor is fixed in a third docs commit with these edits from git diff --cached: findings-slice68 line 26 ends the cache sentence at "the post step saved the cache under the new key." and adds "PR 134's v5 run had missed its own cache too." as its own sentence; §3 quotes this re-review verdict, its Minor and this ruling; the README findings row's range goes from R1–R6 to R1–R7 in the same script run. Found by: the docs re-reviewer (Opus 5.5), 2026-10-13. Why: my R6 rewrite joined two runs' facts with "and". Cost if wrong: none to behaviour. How named: in chat as R7.
+
+> User decision (2026-10-13): after two docs review rounds, "Fix, re-review" (options shown: Fix, stop; Fix, re-review).
+
+> Review verdict (2026-10-13): docs scoped re-review round 2 on 09504cd..4788488 (Opus 5.5, agent af334a2e3f2165548) — finding 9 closed; the README range R1–R7 correct; 1 new Minor; a wording nit on line 26's "; and" join, not raised as a finding.
+
+> ` Docs review: minor: §3 quotes the round-1 re-review verdict (the ledger line holding <ol>) inside a code span without saying so, while §3's intro says "verbatim"; the text inside the span matches the ledger — verified by the controller; fixed in-slice by R8. `
+
+> `` Ruling: R8. Decided: the round-2 Minor and the nit are fixed in a fourth docs commit with these edits from git diff --cached: §3's intro adds "a line that holds `<` is quoted inside a code span, so the `<` shows as text and not as HTML" (the script's INTRO constant changed with it); line 26's "; and the post step saved" becomes ", and the post step saved"; §3 quotes this verdict, its Minor, the user's "Fix, re-review" decision and this ruling; the README findings row's range goes from R1–R7 to R1–R8 in the same script run. Found by: the docs re-reviewer (Opus 5.5), 2026-10-13 (the Minor and the nit). Why: the code span follows the process rule for quotes holding "<" but §3 did not say so; the join was my R7 text. Cost if wrong: none to behaviour. How named: in chat as R8. ``
 
 Deferred minors: one, by the user's decision: the final review's Dependabot Minor, which needs new configuration outside the slice's scope; it is the follow-up above. Every other minor was fixed or closed by a ruling in this slice.
 
