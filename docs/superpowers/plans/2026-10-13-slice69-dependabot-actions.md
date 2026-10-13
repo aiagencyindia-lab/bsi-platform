@@ -60,15 +60,17 @@ updates:
       interval: weekly
 ```
 
-- [ ] **Step 3: Run the structure check**
+- [ ] **Step 3: Run the structure check, saved**
+
+The output goes to the plan workspace, `.superpowers/sdd/2026-10-13-slice69-dependabot-actions/` in the worktree. Under subagent-driven development that directory already exists (created at skill start by `scripts/sdd-workspace`); under executing-plans create it first with `mkdir -p /Users/vineet/Downloads/ADK/bsi-wt/slice69/.superpowers/sdd/2026-10-13-slice69-dependabot-actions` (the path is git-ignored).
 
 Run:
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-wt/slice69 && ruby -ryaml -e 'd = YAML.safe_load(File.read(".github/dependabot.yml")); e = {"version" => 2, "updates" => [{"package-ecosystem" => "github-actions", "directory" => "/", "schedule" => {"interval" => "weekly"}}]}; puts "parsed: #{d.inspect}"; if d == e then puts "structure check PASS"; exit 0 else puts "structure check FAIL"; exit 1 end'; echo "check exit $?"
+cd /Users/vineet/Downloads/ADK/bsi-wt/slice69 && { echo "# task-1-structure-check  $(date -u +%Y-%m-%dT%H:%M:%SZ)  HEAD $(git rev-parse --short HEAD) plus the uncommitted .github/dependabot.yml"; ruby -ryaml -e 'd = YAML.safe_load(File.read(".github/dependabot.yml")); e = {"version" => 2, "updates" => [{"package-ecosystem" => "github-actions", "directory" => "/", "schedule" => {"interval" => "weekly"}}]}; puts "parsed: #{d.inspect}"; if d == e then puts "structure check PASS"; exit 0 else puts "structure check FAIL"; exit 1 end'; echo "check exit $?"; } > .superpowers/sdd/2026-10-13-slice69-dependabot-actions/task-1-structure-check.txt 2>&1; cat .superpowers/sdd/2026-10-13-slice69-dependabot-actions/task-1-structure-check.txt
 ```
 
-Expected, exactly:
+Expected: a `# task-1-structure-check …` header line, then exactly:
 
 ```
 parsed: {"version"=>2, "updates"=>[{"package-ecosystem"=>"github-actions", "directory"=>"/", "schedule"=>{"interval"=>"weekly"}}]}
@@ -153,7 +155,7 @@ Expected: empty.
 3. **Type consistency:** no code; the file content matches spec §4's block, and Step 3's expected structure matches spec §5's literal.
 4. **Review Focus:** five lines, each pinned to a step or to the post-merge observation.
 
-**Departures from the spec:** one. Spec §5 describes the structure check as a script (`check69.rb`); Task 1 Step 3 runs the same comparison as a `ruby -ryaml -e` one-liner, so the implementer needs no file from the scratchpad (slice 68 lost its scratchpad mid-slice). The expected structure and the PASS/FAIL lines are the same. The create block was applied by script to a fresh detached copy of main 0ff9343 and the resulting `.github/dependabot.yml` compared byte-identical to the spec's scratch copy (`scratch69`); the check's output is saved as proof output `05-plancheck69.txt` and the findings doc quotes it.
+**Departures from the spec:** one. Spec §5 describes the structure check as a script (`check69.rb`); Task 1 Step 3 runs the same comparison as a `ruby -ryaml -e` one-liner, so the implementer needs no file from the scratchpad (slice 68 lost its scratchpad mid-slice). The expected structure and the PASS/FAIL lines are the same, and Step 3 saves its output with a UTC header and exit status, as spec §6.3 asks; the spec's mutant run (`interval: monthly`, FAIL, exit 1) is saved as proof output `02b-structure-check-mutant.txt`. The create block was applied by script to a fresh detached copy of main 0ff9343 and the resulting `.github/dependabot.yml` compared byte-identical to the spec's scratch copy (`scratch69`); the check's output is saved as proof output `05-plancheck69.txt` and the findings doc quotes it.
 
 ## Changes made during execution
 
