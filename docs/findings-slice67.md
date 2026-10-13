@@ -46,7 +46,7 @@ no pytest of this repo running
 - **Backend:** 185 files formatted, ruff `All checks passed!`, mypy `Success: no issues found in 31 source files`, metrics coverage 100%, `1811 passed, 2 deselected in 209.14s`. No warnings summary; the output has 0 case-insensitive hits for "warning". `gate exit 0`.
 - **Web:** `Tests  93 passed (93)`, build compiled, `gen:check` clean, `gate exit 0`.
 
-**CI.** PR run 38337814295 on bd7e032: check `gates` passed (4m43s). Its pytest line is `1811 passed, 2 deselected in 159.71s` with no warnings summary. Slice 66's PR run 38303089520 ended `1811 passed, 2 deselected, 2 warnings` with the httpx2 warning in its summary. Both runs carry six Node.js `DEP0040`/`DEP0169` deprecation lines from the `astral-sh/setup-uv@v5` and `actions/setup-node@v4` steps. Those come from the Actions runtime, not from pytest, and they predate this slice. The push run on main after the merge was not checked.
+**CI.** PR run 38337814295 on bd7e032: check `gates` passed (4m43s). Its pytest line is `1811 passed, 2 deselected in 159.71s` with no warnings summary. Slice 66's PR run 38303089520 ended `1811 passed, 2 deselected, 2 warnings in 130.09s` with both the httpx2 and the BlockingPortal warnings in its summary. Both runs carry six Node.js `DEP0040`/`DEP0169` deprecation lines from the `astral-sh/setup-uv@v5` and `actions/setup-node@v4` steps. Those come from the Actions runtime, not from pytest, and they predate this slice. The push run on main after the merge was not checked.
 
 **Commits** (PR 134; dece539 was reworded to bd7e032 with the same tree, at the user's choice):
 
@@ -67,7 +67,7 @@ None. The slice changes dependency metadata and docs only. Nothing was called an
 
 ## 3. Rulings, decisions, reviews and minors
 
-Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:` and `Task N: minor` line in the ledger, verbatim, in ledger order:
+Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:`, `Docs review:` and `Task N: minor` line in the ledger, verbatim, in ledger order:
 
 > User decision (2026-10-13): remove only the two existing warnings; no filterwarnings guard (option 1; answered "1" after "go ahead" was confirmed as ambiguous).
 
@@ -135,6 +135,20 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 
 > Ruling: R6. Decided: the docs PR (branch docs-slice67 from a9d5d03) makes these edits, each from git diff --cached: spec notes under line 20 (google-genai's wider httpx2 use and the dev group in a default uv sync), after the §4 lock table (truststore 0.10.5, with a blank line so the table ends) and under line 83 (the byte-identical comparison is of the 0.10.4 lock; the merged lock differs only in truststore's version line and its sdist and wheel entries); plan notes under line 9 ("dev only" means the dev group, a default uv sync installs it; not named in R5), line 18, after the Step 3 and Step 4 code blocks (lines 104 and 124), under line 199 and under line 202; the plan's "Changes made during execution" placeholder replaced by five bullets; docs/findings-slice67.md new; three README rows after slice 66's findings row, the findings row naming R1-R6. Found by: R1 and R5 (where), the controller (the line 9 note, from the final review's "dev only" wording). Why: R1 and R5 put these corrections in the docs PR; the line 9 note answers the same final-review point at the plan's own "dev only" phrase. Cost if wrong: none to behaviour; a note that misstates its line is fixed by a later dated note. How named: in chat as R6.
 
+> Review verdict (2026-10-13): docs review on a9d5d03..8a4bb9c (Opus 5.5, agent a846fafe5193efe5c) — findings, 5 Minor; §3 quotes, gates, CI, lock, google-genai lines, commit table, note placement and README rows checked accurate.
+
+> Docs review: minor: spec line 109 (as at main a9d5d03, the Floor check paragraph) claims patch.diff and patch-final.diff byte-identical; both carry truststore 0.10.4 (patch.diff:149) and the line has no note — fixed in-slice by R7.
+
+> Docs review: minor: the plan note under line 9 cites R5, but R6 says R5 did not name it — fixed in-slice by R7.
+
+> Docs review: minor: findings-slice67 §1 says slice 66's CI summary held the httpx2 warning; it held both (12-ci-run-38303089520-slice66.log lines 421-428) — fixed in-slice by R7.
+
+> Docs review: minor: plan Changes bullet 1 says Steps 4 to 7 "ran as written"; Step 7 had git status --short appended and Step 3 was not re-run (task-1-report.md lines 76 and 131) — fixed in-slice by R7.
+
+> Docs review: minor: findings-slice67 §3 says findings-slice64 line 101 is closed in "that file's closing sentence"; it is closed by the "Still open:" line 107 (as at main a9d5d03), and the last line is a Note about other minors — fixed in-slice by R7.
+
+> Ruling: R7. Decided: the docs review's five minors are fixed in a second docs commit, each claim checked by the controller first, with these edits from git diff --cached: a spec note under the Floor check paragraph (line 109 as at main a9d5d03: both diffs carry truststore 0.10.4, patch.diff line 149; the merged lock has 0.10.5); the plan's line 9 note cites R6 instead of R5; plan Changes bullet 1 says Step 3 was not re-run and Step 7 had git status --short appended; findings-slice67 §1's CI sentence gives slice 66's run as "2 warnings in 130.09s" with both warnings in its summary; §3's scan sentence closes findings-slice64 line 101 by that file's "Still open:" line (107 as at main a9d5d03); §3's intro and selector add "Docs review:" lines, which the first docs commit's selector did not match (the controller's gap, found in the staged diff), so the five docs-review minors, this verdict and this ruling are quoted. Found by: the docs reviewer (Opus 5.5), 2026-10-13, and the controller (the selector). Why: an uncovered comparison line, a misattributed note, two claims stronger than their evidence, and an ambiguous pointer, all mine. Cost if wrong: none to behaviour. How named: in chat as R7.
+
 Deferred minors: none. Under the user's rule of 2026-10-13, a minor in a file the slice touches is fixed in-slice. Every minor above was fixed or closed by a ruling in this slice, and none was recorded as `minor (deferred)`.
 
-Still open: a scripted scan of findings-slice47.md to findings-slice67.md for `minor (deferred)` list items with no dated note or Correction directly after them finds findings-slice63 line 139, findings-slice64 line 101. Both are closed in their own file's §3: findings-slice63 line 139 by that slice's R4, findings-slice64 line 101 in that file's closing sentence. No deferred minor from findings 47 to 67 is open.
+Still open: a scripted scan of findings-slice47.md to findings-slice67.md for `minor (deferred)` list items with no dated note or Correction directly after them finds findings-slice63 line 139, findings-slice64 line 101. Both are closed in their own file's §3: findings-slice63 line 139 by that slice's R4, findings-slice64 line 101 by that file's "Still open:" line (line 107 as at main a9d5d03). No deferred minor from findings 47 to 67 is open.

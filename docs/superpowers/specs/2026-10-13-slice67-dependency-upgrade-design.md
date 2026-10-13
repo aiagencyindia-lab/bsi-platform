@@ -111,6 +111,7 @@ Mutation table. Each row names both outcomes.
 Each mutant removes exactly one warning's fix and that warning alone returns, so the two halves of the change are independent and both needed.
 
 Floor check (`06-floor-relocks.txt`): with the lock at 1.6.0 and the `starlette>=1.7` floor restored, a plain `uv lock` prints `Updated starlette v1.6.0 -> v1.7.0`. Re-applying the full patch afterwards produced a `git diff` (saved as `patch-final.diff`) byte-identical to the one saved before the mutations (`patch.diff`); `cmp patch.diff patch-final.diff` reports no difference.
+  - Note (2026-10-13, after slice 67, PR #134): both diffs carry truststore 0.10.4 (`patch.diff` line 149); the merged lock has 0.10.5 (docs/findings-slice67.md, R1).
 
 Warning-class evidence (`07-warning-classes-on-main.txt`, run in the main checkout at 555d90d, starlette 1.6.0; its second header line records the command `uv run pytest -q tests/integration/test_transactions.py -W error::DeprecationWarning -p no:cacheprovider`): collection errors on text 2 (`E   DeprecationWarning: The anyio…`) and text 1 still appears in the warnings summary as `StarletteDeprecationWarning`, exit 2. `StarletteDeprecationWarning` subclasses `UserWarning` (`starlette/exceptions.py:36`). An earlier run of the same command, `00-warning-classes-on-main.txt`, is kept but its header does not record the command, so `07` is the cited file.
 

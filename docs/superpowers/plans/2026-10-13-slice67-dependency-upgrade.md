@@ -7,7 +7,7 @@
 **Architecture:** Two dependency declarations and a re-lock. `apps/api/pyproject.toml` gains the floor `starlette>=1.7` (its 1.7.0 `TestClient` no longer evaluates the deprecated `anyio.abc.BlockingPortal` alias). The root dev group gains `httpx2>=2.13` (`starlette.testclient` warns whenever `httpx2` is not importable). `uv lock` records starlette 1.7.0 and httpx2 2.13.1 with its dependencies. No Python, TypeScript or test file changes.
 
 **Tech Stack:** uv workspace (Python 3.13), fastapi 0.141.1 (unchanged), starlette 1.6.0 → 1.7.0, httpx2 2.13.1 (new, dev only), httpx 0.28.1 (unchanged).
-  - Note (2026-10-13, after slice 67, PR #134): "dev only" means the dev group, which a default `uv sync` installs, so httpx2 is present outside tests on a developer's machine (docs/findings-slice67.md, R5).
+  - Note (2026-10-13, after slice 67, PR #134): "dev only" means the dev group, which a default `uv sync` installs, so httpx2 is present outside tests on a developer's machine (docs/findings-slice67.md, R6).
 
 **Spec:** `docs/superpowers/specs/2026-10-13-slice67-dependency-upgrade-design.md`
 
@@ -209,7 +209,7 @@ Expected: empty (the web build writes only ignored paths).
 
 ## Changes made during execution
 
-- Task 1 stopped at Step 3: `uv lock` printed `Added truststore v0.10.5`, not v0.10.4, because truststore 0.10.5 was published to PyPI at 2026-10-12T22:27:30Z, after this plan was written. The user accepted 0.10.5 (R1); Steps 4 to 7 then ran as written with that one value changed. truststore's freshness was closed with no change (R2).
+- Task 1 stopped at Step 3: `uv lock` printed `Added truststore v0.10.5`, not v0.10.4, because truststore 0.10.5 was published to PyPI at 2026-10-12T22:27:30Z, after this plan was written. The user accepted 0.10.5 (R1); Step 3 was not re-run, and Steps 4 to 7 then ran with that one value changed (Step 7 with `git status --short` appended to check the tree). truststore's freshness was closed with no change (R2).
 - Task 1's commit was dece539. After the final review the controller reworded its message only, at the user's choice; the commit became bd7e032 with the same tree (339ba0f). The reword is unreviewed.
 - Task 2 ran as written, with `npm ci` first because the worktree had no `node_modules`. Its pre-check results are in its report only; the controller's finishing run saved the raw pre-check output to files (R3). The Next.js "Experiments" banner in the web build is not a defect (R4).
 - The final review's docs findings were fixed in the docs PR, not on the code branch (R5): the notes above and in the spec.
