@@ -4,15 +4,16 @@ Date: 2026-10-13 (IST). Base: main 0ff9343. Session model Opus 5.5.
 
 ## 1. Goal
 
-Slice 68 pinned `astral-sh/setup-uv` to the exact tag `v10.3.0`, because setup-uv publishes no major tags past v7, so that pin moves only when someone bumps it by hand (findings-slice68 §1, "Handoff"). The user deferred a Dependabot config for it to the backlog and has now asked for it. After this slice, Dependabot checks the actions used in `.github/workflows/` every week and opens a pull request when one of them has a newer release. Nothing merges automatically; each Dependabot PR runs the existing `gates` check and the user merges or closes it.
+Slice 68 pinned `astral-sh/setup-uv` to the exact tag `v10.3.0`, because setup-uv publishes no major tags past v7, so that pin moves only when someone bumps it by hand (findings-slice68 §1, "Handoff"). The user deferred a Dependabot config for it to the backlog and has now asked for it. After this slice, Dependabot checks the actions used in `.github/workflows/` every week and opens a pull request when a newer version of a pinned ref exists (§4 says what that means for each pin). Nothing merges automatically; each Dependabot PR runs the existing `gates` check and the user merges or closes it.
 
 ## 2. Facts the design rests on
 
-- At main 0ff9343, `.github/` holds only `workflows/ci.yml`; there is no `dependabot.yml`, no Renovate config, no Dependabot PR, and no workflow run with event `dynamic` (`01-red-on-main.txt`).
+- At main 0ff9343, `.github/` holds only `workflows/ci.yml`. No file anywhere in the tree has `dependabot` or `renovate` in its path (`git ls-tree -r --name-only main`, 0 matches); no pull request in any state was opened by Dependabot (`gh api pulls?state=all`, 0); no workflow run has event `dynamic` (`gh run list --event dynamic`, 0 lines). All three are in `01-red-on-main.txt`.
 - `ci.yml` uses three actions: `actions/checkout@v7`, `actions/setup-node@v7` (floating major tags) and `astral-sh/setup-uv@v10.3.0` (an exact tag). On 2026-10-13 each is its action's latest release: checkout v7.0.1 (2026-07-20), setup-node v7.1.0 (2026-10-08), setup-uv v10.3.0 (2026-10-09), from each repo's `releases/latest`.
-- The repository's "Dependabot security updates" setting is `disabled` (`gh api repos/aiagencyindia-lab/bsi-platform`, `security_and_analysis`). A `dependabot.yml` drives version updates, which do not depend on that setting; the slice does not change it.
+- The repository's "Dependabot security updates" setting is `disabled` (`gh api repos/aiagencyindia-lab/bsi-platform`, `security_and_analysis`), and Dependabot alerts are off (`GET …/vulnerability-alerts` returns 404). GitHub's "Configuring Dependabot version updates" page describes enabling version updates by committing `dependabot.yml` and mentions neither setting; the slice changes neither. Whether version updates run with both off is observed only after merge (§5).
 - Dependabot version-update jobs appear as GitHub Actions runs with event `dynamic`. In `actions/checkout`, which uses Dependabot for its own actions, `gh run list --event dynamic` shows runs titled `github_actions in /. - Update #<n>` with conclusion `success` (most recent 2026-10-13T14:26:58Z).
-- The same `gh repo` reply reports this repository as `private: false`. The user's handoff describes it as private; the slice does not touch visibility.
+- A Dependabot job's log names each action it checks. In that `actions/checkout` run (38413438162, saved as `04-checkout-dependabot-run.log`), the updater fetches `https://github.com:443/<owner>/<repo>.git/info/refs` for each action and prints `Checking specificity for <owner>/<repo>` lines. That run uses a grouped config; that an ungrouped config logs the same fetches is a prediction.
+- GitHub's "Configuring Dependabot version updates" page says that once the file is checked in, "Dependabot checks the manifest files on the default branch for outdated dependencies", gives no timing for that first check, and says the Dependabot tab in the repository's dependency graph shows "when Dependabot last checked for new versions".
 
 ## 3. User decisions
 
@@ -56,9 +57,11 @@ Dependabot reads `dependabot.yml` only from the default branch, and nothing loca
 
 **After the code PR merges** (the green observation):
 
-- Criterion: within about 30 minutes, `gh run list --repo aiagencyindia-lab/bsi-platform --event dynamic` lists a run whose title starts `github_actions in /` and whose conclusion is `success`. Its log is saved with `gh run view <id> --log`, and its id, title, conclusion and times go into the ledger when observed.
+- Criterion 1: `gh run list --repo aiagencyindia-lab/bsi-platform --event dynamic` lists a run whose title starts `github_actions in /` and whose conclusion is `success`. Its id, title, conclusion and times go into the ledger when observed.
+- Criterion 2: that run's log, saved with `gh run view <id> --log`, shows the job read all three pins: `grep -c` for each of `github.com:443/actions/checkout`, `github.com:443/actions/setup-node` and `github.com:443/astral-sh/setup-uv` prints at least `1` (the fetch lines of §2; a prediction for an ungrouped config). If the log names the actions in another form, the controller records the lines that do name them, and a log that names none of the three fails this criterion.
+- Time budget: about 30 minutes after the merge, checked a few minutes apart. The 30 minutes is this spec's choice; GitHub's page gives no timing (§2).
 - A Dependabot PR is not expected from the first run, since every pin is already at its latest release (§2); one opening would be an observation, not a criterion.
-- If the run fails, or none appears within about 30 minutes, that is a finding against this spec: it is reported to the user before the docs PR, and the next step is the user's decision.
+- How a failure shows: a run with that title and conclusion `failure`, or no `dynamic` run at all within the budget. In the second case the controller asks the user to look at the repository's Dependabot tab (Insights, Dependency graph, Dependabot: `https://github.com/aiagencyindia-lab/bsi-platform/network/updates`), which shows the last check and any configuration error; the page needs a signed-in browser. Either case is a finding against this spec: it is reported to the user before the docs PR, and the next step is the user's decision.
 
 The gap, stated plainly: the code PR merges before its green observation exists, because Dependabot cannot read a config from an unmerged branch.
 
@@ -76,8 +79,6 @@ The gap, stated plainly: the code PR merges before its green observation exists,
 - Dependabot for `uv` (Python) or `npm` (web) dependencies (decision 1).
 - Grouping, commit-message prefixes, labels, reviewers or a different schedule (decision 2).
 - Enabling Dependabot security updates, auto-merge, or any repository setting.
-- Changing the repository's visibility.
-
 ## 8. Handoff note
 
-Dependabot PRs for actions run the full `gates` check like any PR. A bump to a new major of `actions/checkout` or `actions/setup-node`, or a minor of `setup-uv`, should be read for changed defaults before merging, as slice 68 did.
+Dependabot PRs for actions run the full `gates` check like any PR. Any setup-uv bump (patch, minor or major), and a new major of `actions/checkout` or `actions/setup-node`, should be read for changed defaults before merging, as slice 68 did. Slice 68's handoff that setup-uv's pin "is bumped by hand from now on" (findings-slice68 §1) is superseded: Dependabot proposes the bump, and the user still merges it.
