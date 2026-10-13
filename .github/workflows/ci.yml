@@ -24,7 +24,7 @@ jobs:
           --health-retries 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # docker-compose mounts docker/init.sql into the image's entrypoint;
       # a service container cannot, so run the same statements by hand.
@@ -37,7 +37,8 @@ jobs:
           PGPASSWORD: owner
           PGDATABASE: bsi
 
-      - uses: astral-sh/setup-uv@v5
+      # setup-uv publishes no major tags past v7; pin the exact release.
+      - uses: astral-sh/setup-uv@v10.3.0
         with:
           enable-cache: true
       - run: uv sync
@@ -50,7 +51,7 @@ jobs:
           uv run mypy
           uv run pytest -q --cov=bsi_core.metrics --cov-fail-under=100
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
