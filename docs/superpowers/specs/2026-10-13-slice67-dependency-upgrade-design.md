@@ -18,6 +18,7 @@ Both are raised when `starlette.testclient` is imported (through `fastapi.testcl
 Facts the design rests on:
 - fastapi 0.141.1 declares `starlette>=0.46.0`, so starlette can move to 1.7.0 with fastapi unchanged.
 - `httpx2` 2.13.1 is a fork of httpx under its own import name. The repo keeps `httpx` 0.28.1 for `bsi_core/crawl.py` and `bsi_core/judge.py`; both packages install side by side. google-genai imports `httpx2` optionally and only widens an `isinstance` check when it is present (`google/genai/errors.py:37-43`).
+  - Note (2026-10-13, after slice 67, PR #134): correction: with `httpx2` present, google-genai also widens its response, header and retry-exception tuples (`google/genai/_api_client.py:101-120`) and builds MCP clients with `httpx2.AsyncClient` (`google/genai/_mcp_utils.py:213-214`); the repo uses no MCP client. `httpx2` is in the dev group, which a default `uv sync` installs, so a developer's API and worker processes have it too, not only tests (docs/findings-slice67.md, R5).
 - Today `starlette` and `anyio` are transitive: no pyproject names them; `uv.lock` pins them.
 - No `filterwarnings` exists in pytest configuration.
 - CI (`.github/workflows/ci.yml`) runs plain `uv sync`, so it installs what the new lockfile says.
@@ -80,7 +81,10 @@ index 58bbb0e..32ecce4 100644
 | truststore | absent | 0.10.4 (httpx2 dependency, `sys_platform != 'emscripten'`) |
 | httpx2-jsfetch | absent | 1.0 (httpx2 dependency, `sys_platform == 'emscripten'`; never installed here) |
 
+  - Note (2026-10-13, after slice 67, PR #134): correction: the merged lock has truststore 0.10.5, not 0.10.4. 0.10.5 was published to PyPI at 2026-10-12T22:27:30Z, after this proof ran, and the slice's plain `uv lock` took it; the user accepted it (docs/findings-slice67.md, R1).
+
 No other package moves. Proof output `08-first-lock.txt` (pyproject patched, `uv.lock` at main, plain `uv lock`) prints `Resolved 65 packages`, four `Added` lines (httpcore2, httpx2, httpx2-jsfetch, truststore) and one `Updated` line (starlette); the resulting `git diff` is byte-identical to the patch (`cmp patch.diff patch-relock.diff`).
+  - Note (2026-10-13, after slice 67, PR #134): this comparison is of the proof's lock, with truststore 0.10.4; the merged lock differs from it only in truststore's version line and its sdist and wheel entries (docs/findings-slice67.md, R1).
 
 The dev array is reflowed to one entry per line because the added entry pushes it past ruff's 80 columns (ruff does not format TOML; the reflow is for the reader, and the plan's replace block carries it as written here).
 
@@ -107,6 +111,7 @@ Mutation table. Each row names both outcomes.
 Each mutant removes exactly one warning's fix and that warning alone returns, so the two halves of the change are independent and both needed.
 
 Floor check (`06-floor-relocks.txt`): with the lock at 1.6.0 and the `starlette>=1.7` floor restored, a plain `uv lock` prints `Updated starlette v1.6.0 -> v1.7.0`. Re-applying the full patch afterwards produced a `git diff` (saved as `patch-final.diff`) byte-identical to the one saved before the mutations (`patch.diff`); `cmp patch.diff patch-final.diff` reports no difference.
+  - Note (2026-10-13, after slice 67, PR #134): both diffs carry truststore 0.10.4 (`patch.diff` line 149); the merged lock has 0.10.5 (docs/findings-slice67.md, R1).
 
 Warning-class evidence (`07-warning-classes-on-main.txt`, run in the main checkout at 555d90d, starlette 1.6.0; its second header line records the command `uv run pytest -q tests/integration/test_transactions.py -W error::DeprecationWarning -p no:cacheprovider`): collection errors on text 2 (`E   DeprecationWarning: The anyio…`) and text 1 still appears in the warnings summary as `StarletteDeprecationWarning`, exit 2. `StarletteDeprecationWarning` subclasses `UserWarning` (`starlette/exceptions.py:36`). An earlier run of the same command, `00-warning-classes-on-main.txt`, is kept but its header does not record the command, so `07` is the cited file.
 

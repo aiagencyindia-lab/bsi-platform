@@ -7,6 +7,7 @@
 **Architecture:** Two dependency declarations and a re-lock. `apps/api/pyproject.toml` gains the floor `starlette>=1.7` (its 1.7.0 `TestClient` no longer evaluates the deprecated `anyio.abc.BlockingPortal` alias). The root dev group gains `httpx2>=2.13` (`starlette.testclient` warns whenever `httpx2` is not importable). `uv lock` records starlette 1.7.0 and httpx2 2.13.1 with its dependencies. No Python, TypeScript or test file changes.
 
 **Tech Stack:** uv workspace (Python 3.13), fastapi 0.141.1 (unchanged), starlette 1.6.0 → 1.7.0, httpx2 2.13.1 (new, dev only), httpx 0.28.1 (unchanged).
+  - Note (2026-10-13, after slice 67, PR #134): "dev only" means the dev group, which a default `uv sync` installs, so httpx2 is present outside tests on a developer's machine (docs/findings-slice67.md, R6).
 
 **Spec:** `docs/superpowers/specs/2026-10-13-slice67-dependency-upgrade-design.md`
 
@@ -16,6 +17,7 @@
 - Edit only `apps/api/pyproject.toml`, `pyproject.toml` and (by `uv lock`) `uv.lock`. No other file changes. No `filterwarnings` is added (spec §3).
 - fastapi stays at 0.141.1; `httpx` 0.28.1 stays declared in `packages/core/pyproject.toml` and the dev group; `bsi_core/crawl.py` and `bsi_core/judge.py` are not touched (spec §7).
 - `uv lock` is run plain: no `--upgrade`, no `--upgrade-package`. The expected lock delta is exactly starlette 1.6.0→1.7.0 and the additions httpx2 2.13.1, httpcore2 2.13.1, truststore 0.10.4, httpx2-jsfetch 1.0 (spec §4).
+  - Note (2026-10-13, after slice 67, PR #134): correction: execution locked truststore 0.10.5, published after this plan was written; the user accepted it (docs/findings-slice67.md, R1).
 - Before any pytest run, the pre-check runs as its own command (Task 2, Step 1 text). Two pytests of this repo deadlock on `bsi_test`.
 - Every commit is gated on the banned-word grep (the exact command is in Task 1, Step 7); never bypass it by hand. The words are listed in `tests/unit/test_recommend_copy.py` (`FORBIDDEN`).
 - No live checks, no database migration, no worker, no model or DataForSEO spend (spec §6.4).
@@ -102,6 +104,7 @@ Added httpx2-jsfetch v1.0
 Updated starlette v1.6.0 -> v1.7.0
 Added truststore v0.10.4
 ```
+  - Note (2026-10-13, after slice 67, PR #134): correction: the run printed `Added truststore v0.10.5` (R1); the other lines matched.
 
 If any other `Added`, `Updated` or `Removed` line appears, stop and report it; do not commit.
 
@@ -122,6 +125,7 @@ Expected, exactly these lines:
 +name = "truststore"
 +version = "0.10.4"
 ```
+  - Note (2026-10-13, after slice 67, PR #134): correction: the run printed `+version = "0.10.5"` for truststore (R1); the other lines matched.
 
 - [ ] **Step 5: Sync and confirm the lock agrees with the pyprojects**
 
@@ -197,10 +201,16 @@ Expected: empty (the web build writes only ignored paths).
 1. **Spec coverage:** §4 (the change) → Task 1 Steps 2-3; §4 lock delta → Task 1 Step 4; §5's green observation → Task 1 Step 6 and Task 2 Step 2; §6 (verification) → Task 2; §3 and §7 (no filterwarnings, no fastapi bump, no crawl/judge change) → Global Constraints. §8 (handoff note) is a docs item for the findings doc, not a task.
 2. **Placeholder scan:** none.
 3. **Type consistency:** no code types; the version strings 1.7.0, 2.13.1, 0.10.4 and 1.0 match the spec's §4 table, and 0.28.1 (httpx, unchanged) matches spec §2.
+  - Note (2026-10-13, after slice 67, PR #134): correction: the executed lock has truststore 0.10.5 (R1); spec §4 carries its own note.
 4. **Review Focus:** five lines, each pinned to a step.
 
 **Departures from the spec:** none. The replace blocks were applied by script to a fresh detached copy of main and the resulting `apps/api/pyproject.toml`, `pyproject.toml` and (after `uv lock`) `uv.lock` compared byte-identical to the proof worktree's patched state; the check's output is saved as proof output `10-plancheck.txt` and the findings doc quotes it.
+  - Note (2026-10-13, after slice 67, PR #134): this byte-identical result holds for the proof's lock, with truststore 0.10.4; the executed lock has 0.10.5, so for that one package the full gates are the evidence (docs/findings-slice67.md, R1).
 
 ## Changes made during execution
 
-(filled in by the docs PR)
+- Task 1 stopped at Step 3: `uv lock` printed `Added truststore v0.10.5`, not v0.10.4, because truststore 0.10.5 was published to PyPI at 2026-10-12T22:27:30Z, after this plan was written. The user accepted 0.10.5 (R1); Step 3 was not re-run, and Steps 4 to 7 then ran with that one value changed (Step 7 with `git status --short` appended to check the tree). truststore's freshness was closed with no change (R2).
+- Task 1's commit was dece539. After the final review the controller reworded its message only, at the user's choice; the commit became bd7e032 with the same tree (339ba0f). The reword is unreviewed.
+- Task 2 ran as written, with `npm ci` first because the worktree had no `node_modules`. Its pre-check results are in its report only; the controller's finishing run saved the raw pre-check output to files (R3). The Next.js "Experiments" banner in the web build is not a defect (R4).
+- The final review's docs findings were fixed in the docs PR, not on the code branch (R5): the notes above and in the spec.
+- Code PR 134 merged as a9d5d03 after CI `gates` passed.
