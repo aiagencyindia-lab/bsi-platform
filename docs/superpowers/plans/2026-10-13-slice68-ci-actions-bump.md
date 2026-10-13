@@ -122,10 +122,10 @@ The node20 builds of these actions make the runner print Node 24
 deprecation lines and a Node 20 annotation on every run. setup-uv has
 no major tag past v7, so it is pinned to its exact release.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" && git log --oneline -1 && git status --short && git diff --stat main..HEAD
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" && git log --oneline -1 && git status --short && git diff --stat main..HEAD -- .github/
 ```
 
-Expected: one new commit; `git status --short` prints nothing; the branch-against-main stat ends `1 file changed, 4 insertions(+), 3 deletions(-)` for `.github/workflows/ci.yml` (spec §5: the slice branch's diff against main is exactly §4's).
+Expected: one new commit; `git status --short` prints nothing; the branch-against-main stat, limited to `.github/` because the branch also carries the spec and plan commits, ends `1 file changed, 4 insertions(+), 3 deletions(-)` for `.github/workflows/ci.yml` (spec §5: the slice branch's workflow diff against main is exactly §4's).
 
 ---
 
@@ -179,7 +179,7 @@ Expected: empty.
 
 ## Plan self-review
 
-1. **Spec coverage:** §4 (the change) → Task 1 Steps 2-3; §5's pre-PR checks (the branch's diff against main equals §4; both local gates) → Task 1 Step 4's final stat and Task 2; §6.1 and §6.2 (the two gates with saved pre-checks) → Task 2; §5's PR-run criteria and §6.3 (the merge) are the controller's finishing steps, not tasks, because only the PR triggers the workflow (decision 1); §6.4 and §7 (no spend, out of scope) → Global Constraints; §8 (handoff note: setup-uv is bumped by hand from now on) → the findings doc, a docs-PR item, not a task.
+1. **Spec coverage:** §4 (the change) → Task 1 Steps 2-3; §5's pre-PR checks (the branch's workflow diff against main equals §4; both local gates) → Task 1 Step 4's final `.github/`-scoped stat and Task 2; §6.1 and §6.2 (the two gates with saved pre-checks) → Task 2; §5's PR-run criteria and §6.3 (the merge) are the controller's finishing steps, not tasks, because only the PR triggers the workflow (decision 1); §6.4 and §7 (no spend, out of scope) → Global Constraints; §8 (handoff note: setup-uv is bumped by hand from now on) → the findings doc, a docs-PR item, not a task.
 2. **Placeholder scan:** none.
 3. **Type consistency:** no code; the three pins match spec §4's diff and the comment text is identical to it.
 4. **Review Focus:** five lines, each pinned to a step or to the PR-run criterion that observes it.
