@@ -122,10 +122,10 @@ The node20 builds of these actions make the runner print Node 24
 deprecation lines and a Node 20 annotation on every run. setup-uv has
 no major tag past v7, so it is pinned to its exact release.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" && git log --oneline -1 && git status --short
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" && git log --oneline -1 && git status --short && git diff --stat main..HEAD
 ```
 
-Expected: one new commit; `git status --short` prints nothing.
+Expected: one new commit; `git status --short` prints nothing; the branch-against-main stat ends `1 file changed, 4 insertions(+), 3 deletions(-)` for `.github/workflows/ci.yml` (spec §5: the slice branch's diff against main is exactly §4's).
 
 ---
 
@@ -138,12 +138,12 @@ Expected: one new commit; `git status --short` prints nothing.
 - Consumes: the Task 1 commit on `slice68`.
 - Produces: two gate output files and two pre-check files in the plan workspace, quoted in the ledger and the findings doc.
 
-Save every output in `/Users/vineet/Downloads/ADK/bsi-wt/slice68/.superpowers/sdd/2026-10-13-slice68-ci-actions-bump/` with shell redirection (`> file 2>&1`), never a heredoc.
+Save every output in `/Users/vineet/Downloads/ADK/bsi-wt/slice68/.superpowers/sdd/2026-10-13-slice68-ci-actions-bump/` with shell redirection (`> file 2>&1`), never a heredoc. Under subagent-driven development that directory is the plan workspace, created at skill start by `scripts/sdd-workspace`; under executing-plans create it first with `mkdir -p /Users/vineet/Downloads/ADK/bsi-wt/slice68/.superpowers/sdd/2026-10-13-slice68-ci-actions-bump` (the path is git-ignored).
 
 - [ ] **Step 1: Pre-check, as its own command, saved**
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-platform && { echo "# precheck-before-backend-gate  $(date -u +%Y-%m-%dT%H:%M:%SZ)  slice68 HEAD $(git -C /Users/vineet/Downloads/ADK/bsi-wt/slice68 rev-parse --short HEAD)"; n=0; for p in $(pgrep -f 'bin/pytest|-m pytest'); do [ "$p" = "$$" ] && continue; c=$(lsof -p $p 2>/dev/null | awk '$4=="cwd"{print $NF}'); echo "pytest $p cwd $c"; case "$c" in /Users/vineet/Downloads/ADK/bsi-platform*|/Users/vineet/Downloads/ADK/bsi-wt/*|*/scratchpad/proof*|*/scratchpad/scratch*) n=1;; esac; done; [ $n = 0 ] && echo "no pytest of this repo running" || echo "WAIT"; } > /Users/vineet/Downloads/ADK/bsi-wt/slice68/.superpowers/sdd/2026-10-13-slice68-ci-actions-bump/task-2-precheck-backend.txt; cat /Users/vineet/Downloads/ADK/bsi-wt/slice68/.superpowers/sdd/2026-10-13-slice68-ci-actions-bump/task-2-precheck-backend.txt
+cd /Users/vineet/Downloads/ADK/bsi-platform && { echo "# precheck-before-backend-gate  $(date -u +%Y-%m-%dT%H:%M:%SZ)  slice68 HEAD $(git -C /Users/vineet/Downloads/ADK/bsi-wt/slice68 rev-parse --short HEAD)"; n=0; for p in $(pgrep -f 'bin/pytest|-m pytest'); do [ "$p" = "$$" ] && continue; c=$(lsof -p $p 2>/dev/null | awk '$4=="cwd"{print $NF}'); echo "pytest $p cwd $c"; case "$c" in /Users/vineet/Downloads/ADK/bsi-platform*|/Users/vineet/Downloads/ADK/bsi-wt/*|*/scratchpad/proof*|*/scratchpad/scratch*|*/scratchpad/plancheck*) n=1;; esac; done; [ $n = 0 ] && echo "no pytest of this repo running" || echo "WAIT"; } > /Users/vineet/Downloads/ADK/bsi-wt/slice68/.superpowers/sdd/2026-10-13-slice68-ci-actions-bump/task-2-precheck-backend.txt; cat /Users/vineet/Downloads/ADK/bsi-wt/slice68/.superpowers/sdd/2026-10-13-slice68-ci-actions-bump/task-2-precheck-backend.txt
 ```
 
 Expected: the last line is `no pytest of this repo running` (a pytest with cwd `…/invoice-processing` does not block). If it is `WAIT`, wait about a minute and run the whole command again; never start pytest while it says `WAIT`.
@@ -179,7 +179,7 @@ Expected: empty.
 
 ## Plan self-review
 
-1. **Spec coverage:** §4 (the change) → Task 1 Steps 2-3; §5's pre-PR checks (diff equals §4; both local gates) → Task 1 Step 3 and Task 2; §5's PR-run criteria and §6.3 (the merge) are the controller's finishing steps, not tasks, because only the PR triggers the workflow (decision 1); §7 (out of scope) → Global Constraints.
+1. **Spec coverage:** §4 (the change) → Task 1 Steps 2-3; §5's pre-PR checks (the branch's diff against main equals §4; both local gates) → Task 1 Step 4's final stat and Task 2; §6.1 and §6.2 (the two gates with saved pre-checks) → Task 2; §5's PR-run criteria and §6.3 (the merge) are the controller's finishing steps, not tasks, because only the PR triggers the workflow (decision 1); §6.4 and §7 (no spend, out of scope) → Global Constraints; §8 (handoff note: setup-uv is bumped by hand from now on) → the findings doc, a docs-PR item, not a task.
 2. **Placeholder scan:** none.
 3. **Type consistency:** no code; the three pins match spec §4's diff and the comment text is identical to it.
 4. **Review Focus:** five lines, each pinned to a step or to the PR-run criterion that observes it.
