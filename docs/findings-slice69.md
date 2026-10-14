@@ -150,6 +150,10 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 
 > Ruling: R7. Decided: the re-review's Minor is fixed in a third docs commit with these edits from git diff --cached: the timeline row for the user's GitHub Actions click reads "not recorded" in the time column and says its time was not recorded, keeping the poll at 19:38:31 as a fact; §3 quotes this verdict, its Minor and this ruling; the README findings row's range goes from R1–R6 to R1–R7 in the same script run. Found by: the docs re-reviewer (Opus 5.5), 2026-10-14. Why: the row bounded the click by a poll that cannot bound it, and the ledger records no time for the click. Cost if wrong: none to behaviour. How named: in chat as R7.
 
+> User decision (2026-10-14): after two docs review rounds, "Fix, re-review" (options shown: Fix, stop; Fix, re-review).
+
+> Review verdict (2026-10-14): docs scoped re-review round 2 on 93407dc..b7c5306 (Opus 5.5, agent a525b21914860490c) — clean: finding 8 closed; §3's 43 quotes identical to the ledger's prefixed lines up to R7; the README range R1–R7 correct.
+
 Deferred minors: none. Under the user's rule of 2026-10-13, a minor in a file the slice touches is fixed in-slice; every minor above was fixed or closed by a ruling in this slice.
 
 Still open: a scripted scan of findings-slice47.md to findings-slice69.md for `minor (deferred)` list items with no dated note or Correction directly after them finds findings-slice63 line 139, findings-slice64 line 101. Both are closed in their own file's §3: findings-slice63 line 139 by that slice's R4, findings-slice64 line 101 by that file's "Still open:" line (line 107 as at main 35fe8b3). Slice 68's deferred Dependabot follow-up is done by this slice.
