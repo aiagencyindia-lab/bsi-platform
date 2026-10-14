@@ -23,7 +23,7 @@ Close Dependabot alert 14 by moving Mako from 1.4.1 to 1.4.2 in `uv.lock`. It is
   - It changes only `uv.lock`: 3 lines (version, sdist, wheel).
   - Its `gates` check passed, and GitHub reports it `MERGEABLE CLEAN`.
   - `uv.lock` has not changed on main since its base.
-- **Mako has its own `[[package]]` entry in `uv.lock`,** so `uv lock --upgrade-package` moves it directly. No parent's dependency spec needs an override, unlike Next's postcss in slice 72.
+- **No override is needed.** Alembic 1.20.0 requires Mako with no version bound (its metadata reads `Requires-Dist: Mako`, and `uv.lock` records `{ name = "mako" }`), so `uv lock --upgrade-package` can move it to 1.4.2 (`02`). Next, by contrast, pinned postcss exactly in slice 72.
 - **`alembic.ini`:**
   - `revision_environment` is left at its default (false), so `alembic revision` does not run `migrations/env.py`.
   - `[post_write_hooks]` has no active hooks.
@@ -87,7 +87,7 @@ All runs are on scratch copies of main 04388a7, with outputs in `out73/`. Each n
 
 The exceptions:
 - `08-precheck.txt` has a header and a one-line verdict, with no exit line;
-- `sync-main.txt`, `sync-proof.txt` and `02-sync.raw` are empty (0 bytes): they captured the stdout of `uv sync -q`, which prints nothing, and `02` records `uv sync exit 0`;
+- `sync-main.txt`, `sync-proof.txt` and `02-sync.raw` are empty (0 bytes) and record no command; `02` records `uv sync exit 0` for the patched copy, no file records the exit of the two first syncs, and `07` shows both copies' Mako installed (1.4.1 and 1.4.2);
 - `03-uvlock.diff` is a raw `git diff`;
 - in `09`, the ruff and mypy output sits in the `.txt` and the pytest output in `09-green-gate.raw`.
 
