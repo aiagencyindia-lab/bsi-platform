@@ -119,6 +119,8 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 
 > Correction to R4 (2026-10-14): §3 does not quote the controller's check line, which is not one of §3's quoted kinds (User decision, Review verdict, Ruling:, Correction, Final review:, Docs review:, Task N: minor); its facts are given in findings §1 (the final-review paragraph). R4's other edits stand; a third docs commit quotes this Correction, the re-review verdict and its Minor.
 
+> User decision (2026-10-14): after two docs review rounds, "Fix, stop" (options shown: Fix, stop; Fix, re-review); 0c8166c (the Correction to R4 and its quotes) is unreviewed.
+
 Deferred minors: none. Under the user's rule of 2026-10-13, a minor in a file the slice touches is fixed in-slice; every minor above was fixed or closed by a ruling in this slice.
 
 Still open: a scripted scan of findings-slice47.md to findings-slice70.md for `minor (deferred)` list items with no dated note or Correction directly after them finds findings-slice63 line 139, findings-slice64 line 101. Both are closed in their own file's §3: findings-slice63 line 139 by that slice's R4, findings-slice64 line 101 by that file's "Still open:" line (line 107 as at main 136e5dd). No deferred minor from findings 47 to 70 is open.
