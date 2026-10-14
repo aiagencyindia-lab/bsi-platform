@@ -135,6 +135,7 @@ The three audit `.json` files are raw `npm audit` output: `02-audit-main.json` a
 - Criterion: alerts 1–4 read `fixed` in `GH_TOKEN=$(gh auth token -u aiagencyindia-lab) gh api repos/aiagencyindia-lab/bsi-platform/dependabot/alerts/<n>`. Check a few minutes apart for up to 30 minutes, and ledger each observation when it is made.
 - Any state other than `fixed` after 30 minutes is a finding, reported to the user before the docs PR.
 - The alerts are re-listed in all states, not only `open`, together with the open PRs.
+  - Note (2026-10-14, after slice 72, PR #154): the criterion was not met: alerts 1 to 4 stayed open through 15:24:42Z, apparently because GitHub's dependency graph reads Next's declared postcss 8.4.31 (not confirmed); at the user's choice they were dismissed as inaccurate at 15:31Z, GitHub writes beyond §6.6's plan (docs/findings-slice72.md).
 
 ## 6. Verification and merge
 

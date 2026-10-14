@@ -308,3 +308,7 @@ The plan check ran Task 1's own blocks from the committed plan on a fresh copy o
 It did not run Step 1's state check, Step 6, or Task 2. It then compared the resulting `package.json` and `package-lock.json` byte for byte with the spec's proof copy (`scratch72-proof`). Its output, headed with the plan file's SHA-256, is proof output `14-plancheck72.txt`, and the findings doc quotes its result lines.
 
 ## Changes made during execution
+
+- Task 1 ran as written (commit 86237bf): every Step 1 to 6 output matched its Expected text, including `SHA256-OK`, `ok=2 other=0`, `target GHSA hits: 0` and `package.json`'s SHA-256; the committed files were byte-identical to the spec's proof copy; its review was clean.
+- Task 2 ran as written: backend `1811 passed, 2 deselected`, web `Tests  93 passed (93)`; its review was clean.
+- The final review found nothing (Ready to merge: Yes); its two recommendations (when to remove the override, and that the exact pin needs a manual bump for a future advisory) are recorded in the findings handoff. PR 154 merged as 126ae2d.
