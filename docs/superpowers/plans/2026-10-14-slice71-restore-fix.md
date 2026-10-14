@@ -25,7 +25,7 @@
 ## Review Focus
 
 1. **The reset breaks the `/login` test's own once-impl.** That test queues a throwing once-impl and uses it within the test, after the previous `afterEach` has run, so the reset must leave it working. Pinned by Task 1 Step 3 (`28 passed (28)`, which includes that test).
-2. **The edit lands outside the `afterEach`, or twice.** Pinned by Task 1 Step 2: the Edit tool's exact `old_string` matches once. Step 3 then shows the diff is one hunk of 3 added lines.
+2. **The edit lands outside the `afterEach`, or twice.** Pinned by Task 1 Step 2: the Edit tool's exact `old_string` matches once. Step 3 then shows the diff adds exactly those 3 lines.
 3. **Another file or line changes.** Pinned by Task 1 Step 3 (the diffstat shows one file, 3 insertions) and Step 4 (`git status --short` empty after the commit).
 4. **A typecheck or lint failure from the new line,** for example `redirect` not being typed as a mock. Pinned by Task 2 Step 4 (the web gate runs `tsc` and ESLint).
 5. **The suite count changes.** Pinned by Task 2 Step 4 (`Test Files  9 passed (9)`, `Tests  93 passed (93)`).
@@ -169,6 +169,6 @@ Expected: empty.
 3. **Consistency:** Step 2's `new_string` produces the spec §4 diff. The plan check applied it to a fresh copy of main and compared the file byte for byte with the spec's proof copy (`fixproof`).
 4. **Review Focus:** five lines, each pinned to a step.
 
-**Departures from the spec:** one. Spec §5 lists the red run (a scratch test with no fix) as proof. This plan does not repeat it at execution, because the scratch test is not part of the change. Task 1 runs the real change only, which gives `28 passed (28)` as in spec §5's "Real change" row.
+**Departures from the spec:** none. Spec §5's red, green and m3 runs are proof made before this plan, with a scratch test that is not part of the change, and §5 plans only the two local gates at execution. Task 1 also runs the real change's file, which gives `28 passed (28)` as in spec §5's "Real change" row.
 
 ## Changes made during execution
