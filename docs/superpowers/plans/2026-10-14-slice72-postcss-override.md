@@ -20,6 +20,7 @@
   - `node_modules/next` stays 15.5.27.
   - The root entry, `node_modules/next`, every `node_modules/@next/*` entry and `node_modules/vite` are byte-identical to main's.
   - No postcss entry is below 8.5.23.
+- **package.json hash.** The patched `package.json`'s SHA-256 must be `ceea9248fba6d65e43fe4583424191585e9a24d849121f6837684d417b4d7f3f` (spec §4). Task 1 Step 6 refuses to commit otherwise.
 - **Lock hash.** The patched lock's SHA-256 must be `14238de8f0184d6e11aa66e9bbae6f228f418085959c3fdc6a0450044d4acdd4` (spec §4). If `lockdelta72.py` exits 1 for any reason, stop and report BLOCKED; do not commit. The user decides.
 - **Out of scope** (spec §7): Next 16, mako, the braces chain, postcss 8.5.30 or a range, and vite's own postcss. No repository settings.
 - **Pytest pre-check.** Before any pytest run, the pre-check runs as its own command and its raw output is saved to a file (Task 2 Step 1 text). Two pytests of this repo deadlock on `bsi_test`.
@@ -35,7 +36,7 @@
 2. **Next or a `@next/*` binary moving with the override.** Pinned by Task 1 Step 4 (`FROZEN-OK 'node_modules/next' 15.5.27`, and any `@next/*` change prints `OTHER frozen-changed`).
 3. **npm ignoring the scoped override,** leaving Next on 8.4.31. Pinned by Task 1 Step 4 (`POSTCSS-OK` for both copies) and Step 5 (`npm ls` shows `postcss@8.5.28 overridden` under `next@15.5.27 overridden`; the audit has zero hits for the four advisories).
 4. **The build or tests breaking under the newer postcss.** Pinned by Task 2 Step 4: the web gate runs typecheck, lint, 93 tests, build and `gen:check`.
-5. **`package.json` differing from the reviewed diff,** for example a different key order or version. Pinned by Task 1 Step 5: the `git diff -- apps/web/package.json` added lines must be exactly the six shown.
+5. **`package.json` differing from the reviewed diff,** for example a different key order or version. Pinned by Task 1 Step 5 (the five added lines, and the file's SHA-256 `ceea9248…`, spec §4) and Step 6 (the commit is refused unless that SHA-256 matches).
 
 ---
 
@@ -53,10 +54,10 @@ The plan workspace is `/Users/vineet/Downloads/ADK/bsi-wt/slice72/.superpowers/s
 
 - [ ] **Step 1: Confirm the starting state and install main's tree**
 
-Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice72 && git status --short && git merge-base --is-ancestor 52aac7e HEAD && echo "base ok" && grep -c '"overrides"' apps/web/package.json`
+Run: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice72 && git status --short && git merge-base --is-ancestor 52aac7e HEAD && echo "base ok" && { grep -c '"overrides"' apps/web/package.json || true; }`
 Expected: no modified tracked files; `base ok`; `0`.
 
-Then: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice72/apps/web && npm ci --no-audit --no-fund > /dev/null 2>&1; echo "npm ci exit $?"; npm -v; node -v`
+Then: `cd /Users/vineet/Downloads/ADK/bsi-wt/slice72/apps/web && npm ci --no-audit --no-fund > ../../.superpowers/sdd/2026-10-14-slice72-postcss-override/task-1-ci.raw 2>&1; echo "npm ci exit $?"; npm -v; node -v`
 Expected: `npm ci exit 0`, `10.9.8`, `v22.23.0`.
 
 - [ ] **Step 2: Write the lock-delta script and save main's lockfile**
@@ -187,7 +188,7 @@ If it prints any `OTHER` line or a non-zero exit, stop and report BLOCKED with t
 Run:
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-wt/slice72/apps/web && W=../../.superpowers/sdd/2026-10-14-slice72-postcss-override && { echo "# task-1-checks  $(date -u +%Y-%m-%dT%H:%M:%SZ)"; npm ls postcss next vite --all --unicode=false > $W/task-1-npm-ls.raw 2>&1; echo "npm ls exit $?"; grep -E 'next@|postcss@|vite@7.3.6$' $W/task-1-npm-ls.raw; npm audit --json > $W/task-1-audit.json 2>/dev/null; echo "npm audit exit $? (non-zero is expected: the braces-chain entries remain)"; /Users/vineet/Downloads/ADK/bsi-platform/.venv/bin/python -I -c "import json,sys; d=json.load(open(sys.argv[1])); print('vulnerable packages:', sorted(d['vulnerabilities'])); raw=open(sys.argv[1]).read(); print('target GHSA hits:', sum(raw.count(t) for t in ['GHSA-qx2v-qp2m-jg93','GHSA-6g55-p6wh-862q','GHSA-r28c-9q8g-f849','GHSA-fxqj-rqcc-2cmp']))" $W/task-1-audit.json; echo "## package.json added lines"; git diff -- package.json > $W/task-1-package-json.diff; echo "git diff exit $?"; grep '^+' $W/task-1-package-json.diff; } > $W/task-1-checks.txt 2>&1; cat $W/task-1-checks.txt
+cd /Users/vineet/Downloads/ADK/bsi-wt/slice72/apps/web && W=../../.superpowers/sdd/2026-10-14-slice72-postcss-override && { echo "# task-1-checks  $(date -u +%Y-%m-%dT%H:%M:%SZ)"; npm ls postcss next vite --all --unicode=false > $W/task-1-npm-ls.raw 2>&1; echo "npm ls exit $?"; grep -E 'next@|postcss@|vite@7.3.6$' $W/task-1-npm-ls.raw; npm audit --json > $W/task-1-audit.json 2>/dev/null; echo "npm audit exit $? (non-zero is expected: the braces-chain entries remain)"; /Users/vineet/Downloads/ADK/bsi-platform/.venv/bin/python -I -c "import json,sys; d=json.load(open(sys.argv[1])); print('vulnerable packages:', sorted(d['vulnerabilities'])); raw=open(sys.argv[1]).read(); print('target GHSA hits:', sum(raw.count(t) for t in ['GHSA-qx2v-qp2m-jg93','GHSA-6g55-p6wh-862q','GHSA-r28c-9q8g-f849','GHSA-fxqj-rqcc-2cmp']))" $W/task-1-audit.json; echo "## package.json added lines"; git diff -- package.json > $W/task-1-package-json.diff; echo "git diff exit $?"; grep '^+' $W/task-1-package-json.diff; echo "## package.json sha256"; shasum -a 256 package.json; echo "shasum exit $?"; } > $W/task-1-checks.txt 2>&1; cat $W/task-1-checks.txt
 ```
 
 Expected (`--unicode=false` keeps npm's tree characters ASCII whatever the environment):
@@ -195,7 +196,7 @@ Expected (`--unicode=false` keeps npm's tree characters ASCII whatever the envir
 - `npm audit exit 1`.
 - `vulnerable packages: ['@next/eslint-plugin-next', 'braces', 'eslint-config-next', 'fast-glob', 'micromatch']`.
 - `target GHSA hits: 0`.
-- `git diff exit 0`. The added lines are exactly:
+- `git diff exit 0`. The `+++` header and the five added lines are exactly:
 
 ```
 +++ b/apps/web/package.json
@@ -206,6 +207,8 @@ Expected (`--unicode=false` keeps npm's tree characters ASCII whatever the envir
 +    }
 ```
 
+- After `## package.json sha256`: `ceea9248fba6d65e43fe4583424191585e9a24d849121f6837684d417b4d7f3f  package.json`, then `shasum exit 0`.
+
 Any other result: stop and report BLOCKED; do not commit.
 
 - [ ] **Step 6: Commit, gated on the lock check and the banned-word grep**
@@ -213,7 +216,7 @@ Any other result: stop and report BLOCKED; do not commit.
 Run:
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-wt/slice72 && grep -qx 'lockdelta exit 0' .superpowers/sdd/2026-10-14-slice72-postcss-override/task-1-lockdelta.txt && git add apps/web/package.json apps/web/package-lock.json && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -q -m "build(web): override Next's postcss to 8.5.28
+cd /Users/vineet/Downloads/ADK/bsi-wt/slice72 && grep -qx 'lockdelta exit 0' .superpowers/sdd/2026-10-14-slice72-postcss-override/task-1-lockdelta.txt && [ "$(shasum -a 256 apps/web/package.json | cut -c1-64)" = ceea9248fba6d65e43fe4583424191585e9a24d849121f6837684d417b4d7f3f ] && git add apps/web/package.json apps/web/package-lock.json && ! { git diff --cached -U0 | grep '^+' | grep -v -F 'Banned-word grep (must block the commit)' | grep -i -E 'guarantee|will rank|will appear|will be recommended|ensure|boost|#1([^0-9]|$)|top spot|dominat|certain'; } && git commit -q -m "build(web): override Next's postcss to 8.5.28
 
 npm pkg set overrides.next.postcss=8.5.28 and npm install in apps/web.
 Moves the postcss copy Next 15.5.27 pins (8.4.31) to 8.5.28, the
@@ -229,7 +232,7 @@ Expected:
 - `git status --short` prints nothing.
 - The stat shows the two files with 33 insertions and 28 deletions.
 
-The leading `grep -qx 'lockdelta exit 0'` refuses to stage anything unless Step 4 passed. If it, or the banned-word grep, stops the command, report BLOCKED with the output. The lockfile's integrity hashes are base64 and could in principle contain a banned substring.
+The leading `grep -qx 'lockdelta exit 0'` and the `package.json` SHA-256 test refuse to stage anything unless Step 4 passed and `package.json` is byte-identical to the proof's. If it, or the banned-word grep, stops the command, report BLOCKED with the output. The lockfile's integrity hashes are base64 and could in principle contain a banned substring.
 
 ---
 
