@@ -27,7 +27,7 @@ Close the four open Dependabot alerts on postcss, alerts 1 to 4, in one reviewed
   - `npm ls` on main shows `next@15.5.27 → postcss@8.4.31` and `vite@7.3.6 → postcss@8.5.28` (`01-red-npm-ls.txt`).
   - `npm audit` on main lists all four advisories (`02-audit-main.txt`).
 - **What postcss processes here.** Next runs postcss at build time on the app's one stylesheet, `src/app/globals.css`, imported by `src/app/layout.tsx`. There is no `postcss.config` and no Tailwind. All four advisories concern attacker-controlled CSS or source maps; this app's CSS is its own.
-- **postcss releases:** 8.5.23 on 2026-07-24, 8.5.28 on 2026-09-03, and 8.5.30 (the newest) on 2026-10-12.
+- **postcss releases** (UTC publish dates): 8.5.23 on 2026-07-24, 8.5.28 on 2026-09-03, and 8.5.30 (the newest) on 2026-10-12.
 
 ## 3. User decisions
 
@@ -47,7 +47,7 @@ npm install --no-fund
 
 Both exit 0 (`03-patch.txt`). `npm install` reports `added 1 package, removed 1 package`.
 
-Two runs, each on its own copy of main, produce byte-identical `package-lock.json` and `package.json` (`03-patch.txt`, `03b-run2.txt`, `03c-run-cmp.txt`). The lock's SHA-256 is `14238de8f0184d6e11aa66e9bbae6f228f418085959c3fdc6a0450044d4acdd4`. If a run at execution produces any other lock, `lockdelta72.py` fails on its SHA-256 check and the slice stops for a user decision.
+Two runs, each on its own copy of main, produce byte-identical `package-lock.json` and `package.json` (`03-patch.txt`, `03b-run2.txt`, `03c-run-cmp.txt`). `03c`'s single `cmp exit 0` covers both files, because its command was `cmp <lock> <lock> && cmp <package.json> <package.json>; echo cmp exit`. The lock's SHA-256 is `14238de8f0184d6e11aa66e9bbae6f228f418085959c3fdc6a0450044d4acdd4`. If a run at execution produces any other lock, `lockdelta72.py` fails on its SHA-256 check and the slice stops for a user decision.
 
 `git diff --stat` (`13-diffstat.txt`): `apps/web/package-lock.json | 56`, `apps/web/package.json | 5`, 33 insertions and 28 deletions. The `package.json` change (`12-package-json-diff.txt`):
 
@@ -100,7 +100,7 @@ All runs are on scratch copies of main 52aac7e, with outputs in `out72/`. Each n
 - the `shasum` lines in `03c` and `11`, and the `npm ls` line in `07`, which have no exit line of their own;
 - `ci-main.txt` and `ci-proof.txt`, which are raw `npm ci` logs with no header.
 
-The two `.json` files are raw `npm audit` output, summarised in the matching `.txt`.
+The three audit `.json` files are raw `npm audit` output: `02-audit-main.json` and `06-audit-patched.json` are summarised in the `.txt` of the same name, and `07-floor-audit.json` in `07-mutant-floor.txt`. `lock-main.json` is main's lock, saved for the lock check.
 
 **Red:**
 - Alerts 1–4 are `open` (`00`).
@@ -125,7 +125,7 @@ The two `.json` files are raw `npm audit` output, summarised in the matching `.t
 | m5 | a root `devDependencies` change | `OTHER frozen-changed ''` |
 | m6 | a foreign `resolved` and `integrity` on Next's postcss, version kept | only `OTHER sha256` |
 
-**Floor mutant** (`07`): the override at `8.5.22` instead, on a fresh copy. `npm audit` still lists postcss with GHSA-fxqj-rqcc-2cmp, which is alert 4. So 8.5.23 is the floor that closes the last alert. The file's count of 1 for GHSA-6g55-p6wh-862q comes from alert 4's own title, which names that advisory.
+**Floor mutant** (`07`): the override at `8.5.22` instead, on a fresh copy. `npm audit` still lists postcss with GHSA-fxqj-rqcc-2cmp, which is alert 4. So 8.5.22 still triggers alert 4, consistent with its first-patched version, 8.5.23. The file's count of 1 for GHSA-6g55-p6wh-862q comes from alert 4's own title, which names that advisory.
 
 **CSS output** (`10`, `11`): `next build` on the main copy (postcss 8.4.31) and the gate's build on the patched copy (8.5.28) each emit one stylesheet, `.next/static/css/b80fc7d37d2ab1c3.css`. Both are 1,979 bytes with SHA-256 `1f03afaf…afb8`, and `cmp` exits 0. What the browser receives is unchanged.
 
@@ -140,7 +140,11 @@ The two `.json` files are raw `npm audit` output, summarised in the matching `.t
 
 1. Pytest pre-check as its own command, output saved. Backend gate expected: `185 files already formatted`, `All checks passed!`, `Success: no issues found in 31 source files`, coverage 100%, `1811 passed, 2 deselected`, no warnings summary.
 2. Pre-check again, saved. Web gate expected: `RUN  v5.0.4`, `Test Files  9 passed (9)`, `Tests  93 passed (93)` after stripping ANSI codes, `▲ Next.js 15.5.27`, `gen:check` clean.
-3. The §5 checks on the branch (`npm ls`, `npm audit` expected to exit 1 with none of the four advisories, and `lockdelta72.py`), saved with UTC headers and exit statuses.
+3. The §5 checks on the branch, saved with UTC headers and exit statuses:
+   - `npm ls`;
+   - `npm audit`, expected to exit 1 with none of the four advisories;
+   - `lockdelta72.py`;
+   - `git diff -- apps/web/package.json`, expected to match §4's diff.
 4. Open the PR. On "check ci": one `gh pr checks --watch`; `gates` must pass; merge with `--merge --delete-branch`; then `git ls-remote --heads origin slice72-postcss-override`.
 5. After the merge: the §5 criterion.
 6. No live checks against the app, no database migration, no worker, no model or DataForSEO spend. The only GitHub writes are this slice's PRs and their merges.
