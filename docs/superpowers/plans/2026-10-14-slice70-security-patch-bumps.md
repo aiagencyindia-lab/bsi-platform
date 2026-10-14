@@ -254,4 +254,4 @@ Expected: empty.
 - Task 1 ran as written (commit 20646c2): both npm commands exited 0, the lock delta passed with 38 entries, and the committed files were byte-identical to the spec's scratch copy; its review was clean.
 - Task 2 ran as written; its review raised two Minors: the Next.js `serverActions` notice (not a defect, R1) and no 15.5.25 build to compare against, which the controller closed by comparing a saved 15.5.25 build of the same app code (R2: same 24 routes and render types; sizes differ only).
 - The final review asked that the commit message not claim the alerts closed before the merge; at the user's choice the controller reworded it, and 20646c2 became f89087a with the same tree.
-- PR 148 merged as 136e5dd; alerts 10 to 13 read `fixed` 7 seconds later, and Dependabot closed PRs 139, 142 and 146 itself.
+- PR 148 merged as 136e5dd; alerts 10 to 13 read `fixed` at the first check, with `fixed_at` 7 seconds after the merge, and Dependabot closed PRs 139, 142 and 146 itself.
