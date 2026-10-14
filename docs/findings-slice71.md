@@ -253,6 +253,8 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 
 > Docs review: minor (five facts not held by a ledger) - fixed in-slice by the Controller check above, which holds the probe's design, the two comment lines, the only *Once( call, run 10's failing test and df4654f's body.
 
+> Review verdict (2026-10-14): docs scoped re-review on f9d9d8c..f90664b (Opus 5.5): Approved, both Minors addressed, no new findings; §3 exact both ways (65 + 9 = 74); f90664b touches only §3 quotes. The commit that quotes this line is quote-only and unreviewed.
+
 ### 3.2 Follow-up ledger (PR 152)
 
 > User decision (2026-10-14): follow-up execution "Subagent-driven" (options shown: Subagent-driven, recommended; Native).
