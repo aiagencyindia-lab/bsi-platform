@@ -82,7 +82,9 @@ No other entry changes; `node_modules/postcss` stays 8.4.31. Nothing outside `ap
 **After the merge:**
 
 - Criterion: alerts 10, 11, 12 and 13 read `fixed` in `gh api repos/aiagencyindia-lab/bsi-platform/dependabot/alerts/<n>`, checked a few minutes apart for up to 30 minutes; each observation goes into the ledger when made.
+  - Note (2026-10-14, after slice 70, PR #148): met: PR 148 merged at 09:17:53Z and all four alerts read `fixed` with `fixed_at` 09:18:00Z, at the first check (09:18:09Z) (docs/findings-slice70.md).
 - PRs 139, 142 and 146: if Dependabot has not closed them by then, the controller closes each with a comment naming this slice's PR.
+  - Note (2026-10-14, after slice 70, PR #148): Dependabot closed all three itself between 09:20:09Z and 09:20:13Z, each with `Looks like <package> is up-to-date now, so this is no longer needed.`; the controller closed none (docs/findings-slice70.md).
 - Any state other than `fixed` after 30 minutes (`open`, `dismissed` or `auto_dismissed`) is a finding reported to the user before the docs PR.
 
 ## 6. Verification and merge
