@@ -172,3 +172,8 @@ Expected: empty.
 **Departures from the spec:** none. Spec §5's red, green and m3 runs are proof made before this plan, with a scratch test that is not part of the change, and §5 plans only the two local gates at execution. Task 1 also runs the real change's file, which gives `28 passed (28)` as in spec §5's "Real change" row.
 
 ## Changes made during execution
+
+- Task 1 ran as written (commit 38a54b1): `vitest exit 0`, `Tests  28 passed (28)`, and the committed file was byte-identical to the spec's proof copy; its review was clean.
+- Task 2's first run was blocked: the test database container had exited (`Exited (255)`, cause unknown) and the backend gate errored on `Connection refused`. After the user ran `docker compose up -d db` and Postgres recovered, a fresh implementer re-ran Task 2 from Step 1: backend `1811 passed, 2 deselected`, web `Tests  93 passed (93)`.
+- Task 2's review raised one Minor (the report's concern that Steps 3 and 4 ran together, which the file times disprove); the implementer appended a correction in fix round 1, and a scoped re-review found it addressed.
+- The final review found nothing. PR 152 merged as df9f977.
