@@ -156,7 +156,12 @@ Expected: empty.
 4. **Review Focus:** five lines, each pinned to a step or to the post-merge observation.
 
 **Departures from the spec:** one. Spec §5 describes the structure check as a script (`check69.rb`); Task 1 Step 3 runs the same comparison as a `ruby -ryaml -e` one-liner, so the implementer needs no file from the scratchpad (slice 68 lost its scratchpad mid-slice). The expected structure and the PASS/FAIL lines are the same, and Step 3 saves its output with a UTC header and exit status, as spec §6.3 asks; the spec's mutant run (`interval: monthly`, FAIL, exit 1) is saved as proof output `02b-structure-check-mutant.txt`. The create block was applied by script to a fresh detached copy of main 0ff9343 and the resulting `.github/dependabot.yml` compared byte-identical to the spec's scratch copy (`scratch69`); the check's output is saved as proof output `05-plancheck69.txt` and the findings doc quotes it.
+  - Note (2026-10-14, after slice 69, PR #138): correction: spec §5 says only "the check script" and does not name `check69.rb`, which was the script's name in the scratchpad (docs/findings-slice69.md, R3).
 
 ## Changes made during execution
 
-(filled in by the docs PR)
+- Task 1 ran as written (commit aa4d53b); its review was clean.
+- Task 2 ran as written; its review raised two Minors, closed by R1 (the Next.js `serverActions` notice) and R2 (report wording, recorded in the ledger).
+- The final review's two docs Minors went to the docs PR as dated notes (R3); its recommendation added a stricter `Checking if` check to the post-merge observation (R4).
+- After the merge (PR 138, 35fe8b3), no github_actions run came in about 80 minutes of polling. The user enabled the repository's dependency graph, a setting outside spec §7, and clicked "Check for updates" on the Dependabot tab and then on its GitHub Actions entry; by 19:38 to 19:40 Dependabot security updates and alerts also read enabled. The first github_actions run came at 2026-10-13T20:08:00Z and met every criterion; its job id predates the dependency-graph change, so the cause of the delay is unknown.
+- The same change brought seven open Dependabot security-update PRs (139 to 142, 144 to 146; 143 closed) for npm and uv dependencies, outside this slice's scope; the slice did not touch them.
