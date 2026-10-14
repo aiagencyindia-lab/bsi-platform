@@ -186,6 +186,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" && git log --oneline -1
 ```
 
 Expected: one new commit; `git status --short` prints nothing; the stat limited to `apps/` shows the two files with 162 insertions and 162 deletions. If the banned-word grep blocks the commit, report BLOCKED with its output; the lockfile's integrity hashes are base64 and could in principle contain a banned substring.
+  - Note (2026-10-14, after slice 70, PR #148): the commit's message was later reworded, at the user's choice, to "Moves each package to the patched version of Dependabot alerts 10 to 13 (confirmed after merge)"; the commit became f89087a with the same tree (docs/findings-slice70.md).
 
 ---
 
@@ -250,4 +251,7 @@ Expected: empty.
 
 ## Changes made during execution
 
-(filled in by the docs PR)
+- Task 1 ran as written (commit 20646c2): both npm commands exited 0, the lock delta passed with 38 entries, and the committed files were byte-identical to the spec's scratch copy; its review was clean.
+- Task 2 ran as written; its review raised two Minors: the Next.js `serverActions` notice (not a defect, R1) and no 15.5.25 build to compare against, which the controller closed by comparing a saved 15.5.25 build of the same app code (R2: same 24 routes and render types; sizes differ only).
+- The final review asked that the commit message not claim the alerts closed before the merge; at the user's choice the controller reworded it, and 20646c2 became f89087a with the same tree.
+- PR 148 merged as 136e5dd; alerts 10 to 13 read `fixed` at the first check, with `fixed_at` 7 seconds after the merge, and Dependabot closed PRs 139, 142 and 146 itself.
