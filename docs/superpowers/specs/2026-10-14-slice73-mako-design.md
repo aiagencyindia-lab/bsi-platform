@@ -8,7 +8,7 @@ Close Dependabot alert 14 by moving Mako from 1.4.1 to 1.4.2 in `uv.lock`. It is
 
 ## 2. Facts the design rests on
 
-- **Alert 14** (`00-red.txt`, from `gh api …/dependabot/alerts/14` with the `aiagencyindia-lab` token) is open on Mako, GHSA-5639-2j2p-m4mx.
+- **Alert 14** (`00-red.txt`, and `00b-alert14.txt` from `gh api …/dependabot/alerts/14` with the `aiagencyindia-lab` token) is open on Mako, GHSA-5639-2j2p-m4mx.
   - Severity: medium.
   - Vulnerable versions: `<= 1.4.1`; first patched: 1.4.2.
   - Manifest: `uv.lock`; runtime scope, transitive.
@@ -23,7 +23,7 @@ Close Dependabot alert 14 by moving Mako from 1.4.1 to 1.4.2 in `uv.lock`. It is
   - It changes only `uv.lock`: 3 lines (version, sdist, wheel).
   - Its `gates` check passed, and GitHub reports it `MERGEABLE CLEAN`.
   - `uv.lock` has not changed on main since its base.
-- **Mako is a direct lock entry** here, not a parent's declared dependency as postcss was in slice 72.
+- **Mako has its own `[[package]]` entry in `uv.lock`,** so `uv lock --upgrade-package` moves it directly. No parent's dependency spec needs an override, unlike Next's postcss in slice 72.
 - **`alembic.ini`:**
   - `revision_environment` is left at its default (false), so `alembic revision` does not run `migrations/env.py`.
   - `[post_write_hooks]` has no active hooks.
@@ -79,15 +79,15 @@ No `pyproject.toml` and no source file changes.
 4. any change outside the package list (`version`, `revision`, `requires-python`, `manifest`, or any other top-level key);
 5. a patched lock whose SHA-256 is not the proof's.
 
-It also counts its OK rows and fails unless there is exactly 1. The script is embedded in the plan.
+It also counts its OK rows and fails unless there is exactly 1. Conditions 1 to 3 are not independent checks for every case: a duplicate package entry hides behind its twin in the name-and-source index, and the URL test is a substring match. Condition 5, the SHA-256 of the whole lock, fails on any byte change and is the backstop, as mutant m2 shows. The script is embedded in the plan.
 
 ## 5. Proof
 
 All runs are on scratch copies of main 04388a7, with outputs in `out73/`. Each numbered `.txt` has a UTC header and records the exit status of its main commands. A command whose output is filtered has its raw output saved first, or (in `06`) its exit taken from zsh's `pipestatus[1]`, which is the command's own status.
 
 The exceptions:
-- `08-precheck.txt` is a process listing;
-- `sync-main.txt` and `sync-proof.txt` are raw `uv sync` logs with no header;
+- `08-precheck.txt` has a header and a one-line verdict, with no exit line;
+- `sync-main.txt`, `sync-proof.txt` and `02-sync.raw` are empty (0 bytes): they captured the stdout of `uv sync -q`, which prints nothing, and `02` records `uv sync exit 0`;
 - `03-uvlock.diff` is a raw `git diff`;
 - in `09`, the ruff and mypy output sits in the `.txt` and the pytest output in `09-green-gate.raw`.
 
