@@ -25,6 +25,9 @@ afterEach(() => {
   // restoreAllMocks keeps a vi.fn's mockResolvedValue; drop the cookie so
   // a test that forgets signedIn() cannot inherit the previous one's.
   vi.mocked(cookies).mockReset();
+  // On vitest 5, restoreAllMocks keeps a once-impl a test queued but never
+  // used; reset redirect so it cannot fire in the next test.
+  vi.mocked(redirect).mockReset();
 });
 
 // Only the cookie api() reads carries the key, so a wrong name sends none.
