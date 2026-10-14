@@ -239,6 +239,20 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 
 > Correction to R2 (2026-10-14): the README findings row R2 names is line 320 as at 0bfc2b1 (the docs branch after merging main), not as at main df9f977, which holds no slice 71 README rows; R2's other references (findings-slice63 line 139 as at main df9f977) and edits stand.
 
+> Review verdict (2026-10-14): docs scoped re-review on 0bfc2b1..f9d9d8c (Opus 5.5): Changes needed; all five earlier docs-review findings resolved; 0 Critical, 0 Major, 2 new Minor; §3 exact both ways (58 + 9 = 67), the scan, the slice 63 note, R2's line references with its Correction, README rows, §1.1, both commit tables, the handoff and the plan Changes checked accurate.
+
+> Docs review: minor: R2 with its Correction does not name every edit in f9d9d8c (findings line 43's sentence that the spec commit said the npm command 'closes' the alerts; the old pre-rewrite SHA sentence moved into the commit-table caption; 'After PR 149 closed,' dropped from the handoff; the line 14 pointer to §1.1; the relabelled 'Why vite is pinned' and 'Before the PR' bullets; the handoff's reworded vite line) - open.
+
+> Docs review: minor: five new findings facts are held by saved outputs, git or the spec, not a ledger (line 54 the probe's design; line 65 'two comment lines'; line 65 'No test in the suite leaves an unused once-impl today'; line 69 that run 10's failing test is the /login test; line 43 'the npm command') - open.
+
+> User decision (2026-10-14): after two docs review rounds, "Fix, re-review" (options shown: Fix, re-review, recommended; Fix, stop).
+
+> Correction to R2 (2026-10-14): R2's edit list under 'docs/findings-slice71.md rebuilt' also includes: the Reviews sub-bullet saying the spec commit said the npm command 'closes' the alerts; the pre-rewrite SHA sentence moved into the PR 151 commit-table caption; 'After PR 149 closed,' dropped from the handoff; the pointer sentence to §1.1 in §1; the 'Why vite is pinned' paragraph and the 'Before the PR' bullets restructured into sub-bullets with the labels Lock check, Reproducibility, Audit, Gates and Reviews; and the handoff's vite line reworded. R2's other edits stand.
+
+> Docs review: minor (R2 does not name every edit) - fixed in-slice by the Correction to R2 above.
+
+> Docs review: minor (five facts not held by a ledger) - fixed in-slice by the Controller check above, which holds the probe's design, the two comment lines, the only *Once( call, run 10's failing test and df4654f's body.
+
 ### 3.2 Follow-up ledger (PR 152)
 
 > User decision (2026-10-14): follow-up execution "Subagent-driven" (options shown: Subagent-driven, recommended; Native).
