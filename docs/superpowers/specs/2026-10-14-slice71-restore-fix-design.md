@@ -11,13 +11,13 @@ Slice 71 moved the web tests from vitest 3.2.7 to 5.0.4. On vitest 5, `vi.restor
 - The between-tests probe (`07-between-tests-*.txt`). Test a calls a plain `vi.fn` and a module-mock `redirect`, and queues a throwing once-impl on each. With `restoreAllMocks` in `afterEach`, test b then reports:
   - vitest 3.2.7: `plain.calls=0 redirect.calls=0 plain.once=no-throw redirect.once=no-throw`
   - vitest 5.0.4: `plain.calls=0 redirect.calls=0 plain.once=PLAIN_ONCE redirect.once=REDIRECT_ONCE`
-  So between tests vitest 5.0.4 still clears call history (by what mechanism is unknown), and only the unused once-impl survives.
+  So between tests vitest 5.0.4 still clears call history, and only the unused once-impl survives. The clearing comes from vitest 5's default `clearMocks: true` (vitest 3.2.7 defaults to `false`), which runs `vi.clearAllMocks()` before each test; `clearAllMocks` keeps queued implementations. `restoreAllMocks` itself resets neither a `vi.fn`'s history nor its once-impls on 5.0.4.
 - `api.test.ts` (as at main 40aa797):
   - lines 5–10 mock `next/navigation` with `redirect: vi.fn()`;
   - lines 22–28 run `vi.unstubAllGlobals()` and `vi.restoreAllMocks()`, then reset `cookies` only;
   - lines 119–121 queue a throwing once-impl on `redirect`, which line 124 uses within the same test.
 - `src/app/(app)/b/[id]/serp/actions.test.ts`, the only other `restoreAllMocks` user, calls `redirect.mockClear()` in its own `afterEach`. `mockClear()` keeps a queued implementation, so that file's exposure is the same kind of leak. It is out of scope here, because no test in it queues a once-impl on `redirect`.
-- Slice 63's R4 (findings-slice63.md line 129) closed the redirect-reset minor on two premises: that `restoreAllMocks` resets call history, and that it drops a queued once-impl. On vitest 5.0.4 the first still holds between tests and the second does not. R4's "Cost if wrong" names this fix: one `vi.mocked(redirect).mockReset()` in the afterEach.
+- Slice 63's R4 (findings-slice63.md line 129) closed the redirect-reset minor on two premises: that `restoreAllMocks` resets call history, and that it drops a queued once-impl. On vitest 5.0.4 neither holds for `restoreAllMocks`; call history is still cleared between tests, but by the default `clearMocks: true`, and a queued once-impl survives. R4's "Cost if wrong" names this fix: one `vi.mocked(redirect).mockReset()` in the afterEach.
 
 ## 3. User decisions
 
@@ -48,7 +48,7 @@ index 197c27f..911358f 100644
  // Only the cookie api() reads carries the key, so a wrong name sends none.
 ```
 
-`redirect` is a bare `vi.fn()`, so `mockReset()` returns it to no queued implementations and an `undefined` return, which is what every test in the file expects. The `/login` test queues and uses its own once-impl within the test, so the reset does not affect it.
+`redirect` is a bare `vi.fn()`, so `mockReset()` returns it to no calls, no queued implementations and an `undefined` return, which is what every test in the file expects; it would also clear call history if `clearMocks` were ever turned off. The `/login` test queues and uses its own once-impl within the test, so the reset does not affect it.
 
 ## 5. Proof
 
@@ -70,7 +70,7 @@ test("m2 scratch: queue a throwing once-impl and never use it", () => {
 | Real change (`12`) | 40aa797, vitest 5.0.4 | the fix only | exit 0, `Tests  28 passed (28)` (api.test.ts) |
 | Web gate (`16`) | 40aa797 plus the fix | after the `15-precheck.txt` pre-check | `gate exit 0`: `RUN  v5.0.4`, `Test Files  9 passed (9)`, `Tests  93 passed (93)`, `▲ Next.js 15.5.27`, `gen:check` clean |
 
-The design's Section 2 text gave (30) counts for the red and green runs. Those were copied from superseded runs that still included the dropped guard test (`out71f/superseded/`, not relied on; their `vitest exit` lines recorded `sed`'s exit). The real counts are the ones above.
+The Section 2 text shown in chat during design gave (30) counts for the red and green runs. Those were copied from superseded runs that still included the dropped guard test (`out71f/superseded/`, not relied on; their `vitest exit` lines recorded `sed`'s exit). The real counts are the ones above.
 
 Planned at execution: both local gates, each after a saved pytest pre-check (§6).
 
