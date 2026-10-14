@@ -158,10 +158,10 @@ If it prints `lockdelta FAIL`, a `MISMATCH`, any `OTHER` row or a non-zero exit,
 Run:
 
 ```bash
-cd /Users/vineet/Downloads/ADK/bsi-wt/slice70/apps/web && { echo "# task-1-npm-ls-and-audit  $(date -u +%Y-%m-%dT%H:%M:%SZ)"; npm ls next sharp source-map-js postcss --all 2>&1; npm audit --omit=dev --json > ../../.superpowers/sdd/2026-10-14-slice70-security-patch-bumps/task-1-audit.json 2>/dev/null; echo "## advisories (npm audit --omit=dev)"; /Users/vineet/Downloads/ADK/bsi-platform/.venv/bin/python -I -c "import json,sys; a=json.load(open(sys.argv[1])); print('\n'.join(sorted({v2['url'].rsplit('/',1)[-1]+' '+n for n,v in a.get('vulnerabilities',{}).items() for v2 in v.get('via',[]) if isinstance(v2,dict) and v2.get('url')})))" ../../.superpowers/sdd/2026-10-14-slice70-security-patch-bumps/task-1-audit.json; } > ../../.superpowers/sdd/2026-10-14-slice70-security-patch-bumps/task-1-npm-ls-and-audit.txt 2>&1; cat ../../.superpowers/sdd/2026-10-14-slice70-security-patch-bumps/task-1-npm-ls-and-audit.txt
+cd /Users/vineet/Downloads/ADK/bsi-wt/slice70/apps/web && { echo "# task-1-npm-ls-and-audit  $(date -u +%Y-%m-%dT%H:%M:%SZ)"; npm ls next sharp source-map-js postcss --all 2>&1; echo "npm ls exit $?"; npm audit --omit=dev --json > ../../.superpowers/sdd/2026-10-14-slice70-security-patch-bumps/task-1-audit.json 2>/dev/null; echo "npm audit exit $? (non-zero is expected: the postcss advisories remain)"; echo "## advisories (npm audit --omit=dev)"; /Users/vineet/Downloads/ADK/bsi-platform/.venv/bin/python -I -c "import json,sys; a=json.load(open(sys.argv[1])); print('\n'.join(sorted({v2['url'].rsplit('/',1)[-1]+' '+n for n,v in a.get('vulnerabilities',{}).items() for v2 in v.get('via',[]) if isinstance(v2,dict) and v2.get('url')})))" ../../.superpowers/sdd/2026-10-14-slice70-security-patch-bumps/task-1-audit.json; } > ../../.superpowers/sdd/2026-10-14-slice70-security-patch-bumps/task-1-npm-ls-and-audit.txt 2>&1; cat ../../.superpowers/sdd/2026-10-14-slice70-security-patch-bumps/task-1-npm-ls-and-audit.txt
 ```
 
-Expected: `npm ls` shows `next@15.5.27` with `postcss@8.4.31`, `source-map-js@1.2.2` and `sharp@0.35.5` under it; the advisories section lists exactly these four lines and nothing else:
+Expected: `npm ls` shows `next@15.5.27` with `postcss@8.4.31`, `source-map-js@1.2.2` and `sharp@0.35.5` under it, then `npm ls exit 0`; `npm audit exit 1` (npm audit exits non-zero whenever any advisory remains); the advisories section lists exactly these four lines and nothing else:
 
 ```
 GHSA-6g55-p6wh-862q postcss
@@ -246,7 +246,7 @@ Expected: empty.
 3. **Type consistency:** the script in Step 2 is byte-identical to the spec-stage `lockdelta70.py` that produced `04-lockdelta.txt`; its target and keep values match spec §4.
 4. **Review Focus:** five lines, each pinned to a step.
 
-**Departures from the spec:** one. The spec's lock-delta script lived in the session scratchpad; this plan embeds the same script in Task 1 Step 2 so the implementer writes it into the git-ignored plan workspace (the scratchpad was wiped once in slice 68). The plan check ran the plan's commands on a fresh copy of main and compared the resulting `package.json` and `package-lock.json` byte for byte with the spec's scratch copy (`scratch70`); its output is proof output `11-plancheck70.txt`, and the findings doc quotes it.
+**Departures from the spec:** two. First, spec §6.3 says the §5 checks run "on the committed branch"; Steps 4 and 5 run them on the working tree just before Step 6 commits exactly those two files, so the commit records the bytes the checks read, and the controller's finishing gates run on the commit itself. Second, the spec's lock-delta script lived in the session scratchpad; this plan embeds the same script in Task 1 Step 2 so the implementer writes it into the git-ignored plan workspace (the scratchpad was wiped once in slice 68). The plan check ran the plan's commands on a fresh copy of main and compared the resulting `package.json` and `package-lock.json` byte for byte with the spec's scratch copy (`scratch70`); its output is proof output `11-plancheck70.txt`, and the findings doc quotes it.
 
 ## Changes made during execution
 
