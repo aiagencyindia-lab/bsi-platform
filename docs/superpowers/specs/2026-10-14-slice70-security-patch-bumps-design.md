@@ -72,7 +72,7 @@ No other entry changes; `node_modules/postcss` stays 8.4.31. Nothing outside `ap
 
 - Red: `npm ls` shows next 15.5.25, sharp 0.35.4, source-map-js 1.2.1; alerts 10 to 13 are `open`; `npm audit --omit=dev` reports all four advisories (`01`, `02`).
 - Green: after §4's two commands, `npm ls` shows next 15.5.27, sharp 0.35.5, source-map-js 1.2.2, postcss 8.4.31 (`05-green-npm-ls.txt`); `npm audit --omit=dev` reports only the four postcss advisories (`06-audit-patched.json`).
-- Lock delta: `lockdelta70.py` prints 38 changed entries, 0 outside the allowed set, the three target versions met and postcss unchanged, then `lockdelta PASS` (`04-lockdelta.txt`).
+- Lock delta: `lockdelta70.py` prints 38 changed entries, 0 outside the allowed set, the three target versions met and postcss unchanged, then `lockdelta PASS` (`04-lockdelta.txt`). Fed the patched lock with `node_modules/react`'s `integrity` changed and its version kept, it prints that entry as `OTHER (resolved/integrity changed)`, then `OTHER: 1`, `lockdelta FAIL` and exit 1 (`04b-lockdelta-tamper-test.txt`).
 - Mutations, each on its own copy of main:
   - `npm update sharp source-map-js` without the next bump leaves next 15.5.25, and `npm audit --omit=dev` still reports GHSA-4jqv-mc3x-m676 and GHSA-mcj8-r9mp-w47p (`07-mutant-no-next.txt`): the next bump is needed for alerts 12 and 13.
   - `npm install next@15.5.27` without the update leaves sharp 0.35.4 and source-map-js 1.2.1, and `npm audit --omit=dev` still reports GHSA-68fv-2mgg-jv7q and GHSA-wq5f-xc86-pv6w (`07b-mutant-install-only.txt`): the update is needed for alerts 10 and 11.
