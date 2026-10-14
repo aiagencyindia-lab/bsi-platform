@@ -96,7 +96,9 @@ The lockfile delta (`04-lockdelta.txt`, from `lockdelta71.py`) is 33 entries, ev
 **After the merge:**
 
 - Criterion: alerts 5, 6, 8 and 9 read `fixed` in `GH_TOKEN=$(gh auth token -u aiagencyindia-lab) gh api repos/aiagencyindia-lab/bsi-platform/dependabot/alerts/<n>` (without that token the endpoint returns HTTP 403; `11c-alerts-auth.txt`), checked a few minutes apart for up to 30 minutes; each observation goes into the ledger when made.
+  - Note (2026-10-14, after slice 71, PR #151): met at the first check (11:06:34Z): PR 151 merged at 11:06:23Z, alert 5 read `fixed` with `fixed_at` 11:06:28Z and alerts 6, 8 and 9 with 11:06:29Z (docs/findings-slice71.md).
 - PRs 144 and 145: if Dependabot has not closed them by then, the controller asks the user before closing either.
+  - Note (2026-10-14, after slice 71, PR #151): Dependabot closed both itself, 145 at 11:08:39Z and 144 at 11:08:41Z; the controller closed neither. It also closed PR 149 (next 16.4.0) at 11:08:45Z while postcss alerts 1 to 4 stay open; why is unknown (docs/findings-slice71.md).
 - Any state other than `fixed` after 30 minutes is a finding reported to the user before the docs PR.
 
 ## 6. Verification and merge
