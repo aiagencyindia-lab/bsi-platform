@@ -186,6 +186,8 @@ These are every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Fin
 
 > User decision (2026-10-14): "Fix, re-review" after docs review round 2 (options shown: Fix, re-review, recommended; Fix, stop).
 
+> Review verdict (2026-10-14): docs re-review on 98e3589 (Opus 5.5): Approved, N1 resolved, no new findings; §3 exact both ways (46). The commit that quotes this line is quote-only and unreviewed.
+
 Deferred minors: none. Under the user's rule of 2026-10-13, a minor in a file the slice touches is fixed in-slice; every minor above was fixed in this slice.
 
 Still open: a scripted scan of findings-slice47.md to findings-slice72.md for `minor (deferred)` list items with no dated note or Correction directly after them finds only findings-slice64 line 101. That item is closed by its own file's "Still open:" line (line 107 as at main 126ae2d). No deferred minor from findings 47 to 72 is open.
