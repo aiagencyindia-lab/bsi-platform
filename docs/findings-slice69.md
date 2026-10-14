@@ -2,7 +2,7 @@
 
 ## 1. What was built
 
-Slice 69 adds `.github/dependabot.yml` (PR 138, merged as 35fe8b3 at 2026-10-13T16:56:29Z): one `updates` entry for the `github-actions` ecosystem, directory `/`, weekly. Dependabot now checks the three actions pinned in `.github/workflows/ci.yml` and proposes a PR when a newer version of a pinned ref exists. Slice 68's handoff that the exact-tag `setup-uv@v10.3.0` pin "is bumped by hand from now on" is superseded: Dependabot proposes the bump, and the user still merges it. The whole slice ran on Opus 5.5, every review included.
+Slice 69 adds `.github/dependabot.yml` (PR 138, merged as 35fe8b3 at 2026-10-13T16:56:29Z): one `updates` entry for the `github-actions` ecosystem, directory `/`, weekly. Dependabot now checks the three actions pinned in `.github/workflows/ci.yml`. By spec §4's prediction, not yet observed because no newer release exists, it proposes a PR for a new major of the `@v7` pins and for any newer setup-uv release. Slice 68's handoff that the exact-tag `setup-uv@v10.3.0` pin "is bumped by hand from now on" is superseded: Dependabot proposes the bump, and the user still merges it. The whole slice ran on Opus 5.5, every review included.
 
 **Before the PR.** Red on main: no `dependabot` or `renovate` file anywhere in the tree, no Dependabot PR in any state, no `dynamic` run. The YAML structure check passed on the committed file and failed on an `interval: monthly` mutant. The local gates on aa4d53b, each after a saved pre-check: backend `1811 passed, 2 deselected in 135.42s` with no warnings; web `Tests  93 passed (93)`. PR 138's CI run 38433800070 passed `gates` (4m8s), and its log carries none of slice 68's Node-noise lines.
 
@@ -11,20 +11,21 @@ Slice 69 adds `.github/dependabot.yml` (PR 138, merged as 35fe8b3 at 2026-10-13T
 | Time (UTC, 2026-10-13) | What happened |
 |---|---|
 | 16:56:29 | PR 138 merged. |
-| 16:57 to 17:26 | 30 polls of `gh run list --event dynamic`: none. |
+| 16:56:42 to 17:26:07 | 30 polls of `gh run list --event dynamic`: none. |
 | 17:38 | Re-check: none; the only registered workflow is CI. |
-| 17:39 to 18:09 | 30 more polls: no `dynamic` run, no Dependabot PR. The repository's dependency-graph SBOM endpoint returned 404 (200 for actions/setup-node). |
+| 17:39 to 18:09 | 30 more polls: no `dynamic` run, no Dependabot PR. |
+| after 18:09 | The repository's dependency-graph SBOM endpoint returned 404 (200 for actions/setup-node). |
 | by 18:15:59 | The user enabled the repository's dependency graph, a setting outside spec §7. |
 | 18:15:59 | Two `Graph Update` runs (uv, pip): dependency-graph jobs, not version updates. At 18:18:14 the SBOM endpoint returned 200. |
 | 18:18 to 18:47 | Polls for a `github_actions in /` run: none. |
 | 19:33:38 | After the user's first "Check for updates" click on the Dependabot tab: two more `Graph Update` runs. |
-| 19:34:44 to 19:36:08 | Eight `npm_and_yarn` and `uv` security-update runs, and eight Dependabot PRs (below). |
-| before 19:38:37 | The user clicked "Check for updates" on the GitHub Actions entry (the controller's next check was at 19:38:37). |
+| 19:34:44 to 19:34:48 | Eight `npm_and_yarn` and `uv` security-update runs start; their eight Dependabot PRs open from 19:35:41 to 19:36:03 (below). |
+| before 19:38:31 | The user clicked "Check for updates" on the GitHub Actions entry (the poll at 19:38:31 still showed no github_actions run). |
 | 19:34 to 20:04 | Polls for a `github_actions in /` run: none within the window. |
 | 20:08:00 | Run 38460380395, `github_actions in /. - Update #1625244054`, success. |
 | 20:15:36 | Run 38461393251, `github_actions in /. - Update #1625244129`, success. |
 
-That the dependency graph was the missing piece is a likely cause, not a documented one: GitHub's "Configuring Dependabot version updates" page says only that once the file is checked in, "Dependabot checks the manifest files on the default branch for outdated dependencies".
+The cause of the roughly three-hour delay is unknown. The two github_actions runs carry Dependabot job ids 1625244054 and 1625244129, lower than the first Graph Update job (1625363119, created at 18:15:59 when the dependency graph was enabled) and higher than actions/checkout's job 1625019267 (14:26:58). If job ids rise with time, both github_actions jobs existed before the dependency graph was enabled and waited to run, so neither the graph nor the clicks can be shown to have caused them. GitHub's "Configuring Dependabot version updates" page says only that once the file is checked in, "Dependabot checks the manifest files on the default branch for outdated dependencies", and gives no timing.
 
 **The green observation** (checked 2026-10-14, both runs, logs of 705 lines each):
 
@@ -36,9 +37,9 @@ That the dependency graph was the missing piece is a likely cause, not a documen
 | Criterion 2: `grep -c github.com:443/astral-sh/setup-uv` | at least 1 | 10 |
 | R4: `Checking if <action> … needs updating` | one per action | `actions/checkout 7`, `actions/setup-node 7`, `astral-sh/setup-uv 10.3.0` |
 
-Each `Checking if` line is followed by "No update needed", and no github_actions PR opened, as expected with every pin already at its latest release. The floating `@v7` pins are checked at major precision and the exact `@v10.3.0` pin at full precision, as spec §4 predicted.
+Each `Checking if` line is followed by "No update needed", and no github_actions PR opened, as expected with every pin already at its latest release. The logs show the floating `@v7` pins checked at major precision ("Checking if actions/checkout 7", "Latest version is 7") and the exact `@v10.3.0` pin at full precision; the PR behaviour spec §4 predicts from that is not observed until a newer release ships.
 
-**What came with the dependency graph.** After the change, the repository's settings read Dependabot security updates `enabled` and Dependabot alerts on (both off when the slice started), with 13 open alerts. Dependabot opened eight security-update PRs for npm and uv dependencies: 139 (source-map-js 1.2.1 to 1.2.2), 140 (mako 1.4.1 to 1.4.2), 141 (postcss and next), 142 (sharp 0.35.4 to 0.35.5), 144 (@vitest/mocker and vitest), 145 (tinypool and vitest), 146 (next 15.5.25 to 15.5.27), all open, and 143 (vitest 3.2.7 to 4.1.11), closed at 19:36:08Z by nothing in this slice. They are outside this slice's scope and were not touched.
+**Settings and security-update PRs after the user's changes.** By the controller's check at 19:38 to 19:40, after the user enabled the dependency graph and clicked "Check for updates", the repository's settings read Dependabot security updates `enabled` and Dependabot alerts on (both off when the slice started), with 13 open alerts; which of the user's actions turned them on is not recorded. Dependabot opened eight security-update PRs for npm and uv dependencies: 139 (source-map-js 1.2.1 to 1.2.2), 140 (mako 1.4.1 to 1.4.2), 141 (postcss and next), 142 (sharp 0.35.4 to 0.35.5), 144 (@vitest/mocker and vitest), 145 (tinypool and vitest), 146 (next 15.5.25 to 15.5.27), all open, and 143 (vitest 3.2.7 to 4.1.11), closed by Dependabot at 19:36 as superseded by 144 and 145. They are outside this slice's scope and were not touched.
 
 **Commits** (PR 138):
 
@@ -124,6 +125,24 @@ Every `User decision`, `Review verdict`, `Ruling:`, `Correction`, `Final review:
 > User decision (2026-10-14): the docs PR is controller-written ("write them"), after the controller recommended the docs PR before triaging the seven security PRs.
 
 > Ruling: R5. Decided: the docs PR (branch docs-slice69 from 35fe8b3) makes these edits, each from git diff --cached: spec notes under lines 13 (the observed outcome: no github_actions run in about 80 minutes with the dependency graph off, then the user's two actions and the first run), 15 (R3: the log-04 fetches are the self-clone; actions/setup-node's ungrouped run fetches each action and logs a Checking if line per action), 61 (criterion 2 and R4 met, with the counts) and 62 (the time budget not met: first run about 3 hours 12 minutes after the merge), all as at main 35fe8b3; a plan note under line 158 (R3: spec §5 names only "the check script"); the plan's "Changes made during execution" placeholder replaced by five bullets; docs/findings-slice69.md new, with a timeline whose times for the user's actions are bounded by observed runs and checks, not stated exactly; three README rows after slice 68's findings row, the findings row naming R1–R5. Found by: R3 and R4 (where), the controller (the notes on lines 13 and 62, from the post-merge record). Why: R3 and R4 put these corrections in the docs PR; the post-merge wait, the user's setting change and the security PRs are facts a reader of the spec needs beside the lines they qualify. Cost if wrong: none to behaviour; a note that misstates its line is fixed by a later dated note. How named: in chat as R5.
+
+> Review verdict (2026-10-14): docs review on 35fe8b3..20b03b2 (Opus 5.5, agent a525b21914860490c) — findings, 2 Major, 5 Minor (one marked no change needed); §3 quotes, note placement, run ids and titles, the green greps, PRs and settings, commit table, gate figures, durations, scan and README rows checked accurate.
+
+> ` Docs review: Major: the docs call the dependency graph the likely cause of the github_actions run (findings line 27, spec notes under lines 13 and 62, plan Changes bullet 4); the green runs' Dependabot job ids 1625244054 and 1625244129 are lower than the first Graph Update job 1625363119 (created 18:15:59Z, when the graph was enabled) and higher than actions/checkout's 1625019267 (14:26:58Z), so if job ids rise with time both jobs existed before the graph was enabled and ran about three hours after the merge; the cause of the delay is unknown — verified by the controller (gh run list --event dynamic sorted by job id; <job_1625244054> in log 13); fixed in-slice by R6. `
+
+> Docs review: Major: the docs say the security-update and alert settings came on because of the dependency graph (findings line 41 heading and text, the spec note under line 13, plan Changes bullet 4); the ledger's only post-merge settings check (19:38-19:40Z) follows both of the user's changes and names no cause — verified by the controller; fixed in-slice by R6.
+
+> Docs review: minor: the spec notes under lines 13 and 62 and plan Changes bullet 4 name two user actions where the timeline and the ledger record three (enabling the graph, the Dependabot-tab click, the GitHub Actions entry click) — fixed in-slice by R6.
+
+> Docs review: minor: timeline rows are looser than their sources — row 22 cites 19:38:37 (not in the ledger; the ledger has the poll at 19:38:31Z), row 21 ends at PR 143's closing time, the SBOM 404 is placed inside 17:39 to 18:09 though the ledger records it after the second poll, and row 14's first poll is 16:56:42Z, not 16:57 — fixed in-slice by R6.
+
+> Docs review: minor: findings line 41 says PR 143 was closed "by nothing in this slice"; GitHub's events show it closed by dependabot[bot] (19:36:09Z event) with the comments "Superseded by #144." and "Superseded by #145." — verified by the controller; fixed in-slice by R6.
+
+> Docs review: minor: findings lines 5 and 39 state spec §4's per-pin PR behaviour as observed; the runs show only the check precision ("Checking if actions/checkout 7", "Latest version is 7"), and no bump PR has happened — fixed in-slice by R6.
+
+> Docs review: minor (marked no change needed by the reviewer): the plan note under line 158 cannot nest because line 158 is a paragraph, not a list item; slice 68's plan does the same under its Departures paragraph — closed by R6.
+
+> Ruling: R6. Decided: the docs review's two Majors and five Minors are handled in a second docs commit, each claim checked by the controller first, with these edits from git diff --cached: findings-slice69 §1 drops the "likely cause" sentence for one saying the cause of the delay is unknown, with the github_actions job ids (1625244054, 1625244129) lower than the first Graph Update job (1625363119) and higher than actions/checkout's 1625019267; the security-settings paragraph is retitled and says only that by the 19:38 to 19:40 check the settings read enabled, without naming which user action did it; PR 143 is "closed by Dependabot at 19:36 as superseded by 144 and 145"; the per-pin PR behaviour of lines 5 and 39 is marked spec §4's prediction, not yet observed; the timeline's first poll is 16:56:42 to 17:26:07, the SBOM 404 has its own "after 18:09" row, the security-update runs end at 19:34:48 with the PRs opening 19:35:41 to 19:36:03, and the GitHub Actions click is bounded by the poll at 19:38:31; the spec notes under lines 13 and 62 and plan Changes bullet 4 name all three user actions and say the cause is unknown; the plan note under line 158 stays as a top-level item, the reviewer's no-change Minor, as slice 68's plan does; §3 quotes this verdict, its seven findings and this ruling; the README findings row's range goes from R1–R5 to R1–R6 in the same script run. Found by: the docs reviewer (Opus 5.5), 2026-10-14. Why: two causal claims the evidence does not support (the job ids point the other way), a miscount of the user's actions, four loose times, a wrong closer, and a prediction stated as observed, all mine. Cost if wrong: none to behaviour; the user's earlier decision to enable the dependency graph rested on the controller's "likely cause" guess, which the job ids now weaken, and the user is told so in chat. How named: in chat as R6.
 
 Deferred minors: none. Under the user's rule of 2026-10-13, a minor in a file the slice touches is fixed in-slice; every minor above was fixed or closed by a ruling in this slice.
 
